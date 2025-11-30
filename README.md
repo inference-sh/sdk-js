@@ -17,6 +17,10 @@ yarn add @inferencesh/sdk
 pnpm add @inferencesh/sdk
 ```
 
+## Getting an API Key
+
+Get your API key from the [inference.sh dashboard](https://app.inference.sh/settings/keys).
+
 ## Quick Start
 
 ```typescript
