@@ -28,6 +28,8 @@ export interface InferenceConfig {
 export interface RunOptions {
   /** Callback for real-time status updates */
   onUpdate?: (update: Task) => void;
+  /** Callback for partial updates with list of changed fields */
+  onPartialUpdate?: (update: Task, fields: string[]) => void;
   /** Wait for task completion (default: true) */
   wait?: boolean;
   /** Auto-reconnect on connection loss (default: true) */
@@ -196,6 +198,7 @@ export class Inference {
   async run(params: ApiTaskRequest, options: RunOptions = {}): Promise<Task> {
     const {
       onUpdate,
+      onPartialUpdate,
       wait = true,
       autoReconnect = true,
       maxReconnects = 5,
@@ -237,6 +240,13 @@ export class Inference {
           } else if (data.status === TaskStatusCancelled) {
             streamManager.stop();
             reject(new Error("task cancelled"));
+          }
+        },
+        onPartialData: (data, fields) => {
+          // Call onPartialUpdate if provided
+          if (onPartialUpdate) {
+            const stripped = this._stripTask(data);
+            onPartialUpdate(stripped, fields);
           }
         },
         onError: (error) => {

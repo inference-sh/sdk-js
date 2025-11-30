@@ -63,6 +63,64 @@ describe('StreamManager', () => {
       expect(onData).toHaveBeenCalledWith(testData);
     });
 
+    it('should extract data from partial data wrapper and call onData', async () => {
+      const onData = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => mockEventSource as unknown as EventSource,
+        onData,
+      });
+
+      await manager.connect();
+
+      // Simulate receiving a partial data wrapper from server
+      const innerData = { status: 7, id: 'task-123', logs: ['log1'] };
+      const partialWrapper = { data: innerData, fields: ['status', 'logs'] };
+      mockEventSource.onmessage?.({ data: JSON.stringify(partialWrapper) } as MessageEvent);
+
+      // onData should receive the extracted inner data, not the wrapper
+      expect(onData).toHaveBeenCalledWith(innerData);
+    });
+
+    it('should call onPartialData with data and fields for partial updates', async () => {
+      const onData = jest.fn();
+      const onPartialData = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => mockEventSource as unknown as EventSource,
+        onData,
+        onPartialData,
+      });
+
+      await manager.connect();
+
+      // Simulate receiving a partial data wrapper
+      const innerData = { status: 7, id: 'task-123' };
+      const fields = ['status'];
+      const partialWrapper = { data: innerData, fields };
+      mockEventSource.onmessage?.({ data: JSON.stringify(partialWrapper) } as MessageEvent);
+
+      expect(onPartialData).toHaveBeenCalledWith(innerData, fields);
+      expect(onData).toHaveBeenCalledWith(innerData);
+    });
+
+    it('should not call onPartialData for non-partial data', async () => {
+      const onData = jest.fn();
+      const onPartialData = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => mockEventSource as unknown as EventSource,
+        onData,
+        onPartialData,
+      });
+
+      await manager.connect();
+
+      // Regular data without partial wrapper
+      const regularData = { status: 9, id: 'task-123' };
+      mockEventSource.onmessage?.({ data: JSON.stringify(regularData) } as MessageEvent);
+
+      expect(onPartialData).not.toHaveBeenCalled();
+      expect(onData).toHaveBeenCalledWith(regularData);
+    });
+
     it('should call onError for invalid JSON', async () => {
       const onError = jest.fn();
       const manager = new StreamManager({

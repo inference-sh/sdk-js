@@ -1,3 +1,9 @@
+/** Partial data structure from server (contains data and list of updated fields) */
+export interface PartialDataWrapper<T> {
+  data: T;
+  fields: string[];
+}
+
 export interface StreamManagerOptions<T> {
   createEventSource: () => Promise<EventSource | null>;
   autoReconnect?: boolean;
@@ -6,8 +12,24 @@ export interface StreamManagerOptions<T> {
   onError?: (error: Error) => void;
   onStart?: () => void;
   onStop?: () => void;
+  /** Called with the extracted data (handles both full and partial data) */
   onData?: (data: T) => void;
-  onYield?: (data: T) => void;  // New callback for async iteration
+  /** Called specifically for partial updates with data and the list of updated fields */
+  onPartialData?: (data: T, fields: string[]) => void;
+}
+
+/**
+ * Check if the parsed data is a partial data wrapper from the server.
+ * The server sends partial updates in the format: { data: T, fields: string[] }
+ */
+function isPartialDataWrapper<T>(parsed: unknown): parsed is PartialDataWrapper<T> {
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    'data' in parsed &&
+    'fields' in parsed &&
+    Array.isArray((parsed as PartialDataWrapper<T>).fields)
+  );
 }
 
 export class StreamManager<T> {
@@ -108,9 +130,25 @@ export class StreamManager<T> {
       source.onmessage = (e: MessageEvent) => {
         if (this.isStopped) return;
         try {
-          const parsed = JSON.parse(e.data) as T;
-          this.options.onData?.(parsed);
-          this.options.onYield?.(parsed);
+          const parsed = JSON.parse(e.data);
+          
+          // Check if this is a partial data wrapper from the server
+          if (isPartialDataWrapper<T>(parsed)) {
+            // Extract the actual data from the wrapper
+            const actualData = parsed.data;
+            const fields = parsed.fields;
+            
+            // Call onPartialData if provided
+            if (this.options.onPartialData) {
+              this.options.onPartialData(actualData, fields);
+            }
+            
+            // Always call onData with the extracted data
+            this.options.onData?.(actualData);
+          } else {
+            // Not a partial wrapper, treat as full data
+            this.options.onData?.(parsed as T);
+          }
         } catch (err) {
           const error = err instanceof Error ? err : new Error("Invalid JSON");
           this.options.onError?.(error);
@@ -140,4 +178,4 @@ export class StreamManager<T> {
       }
     }
   }
-} 
+}
