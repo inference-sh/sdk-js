@@ -2,7 +2,13 @@
 
 set -e
 
-version=$(git describe --tags --abbrev=0 | sed 's/^v//')
+# Try to get version from git tag, fall back to package.json
+if git describe --tags --abbrev=0 > /dev/null 2>&1; then
+  version=$(git describe --tags --abbrev=0 | sed 's/^v//')
+else
+  version=$(node -p "require('./package.json').version")
+fi
+
 IFS='.' read -r major minor patch <<EOF
 $version
 EOF
@@ -26,4 +32,3 @@ git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 git push origin HEAD "$new_tag"
 echo "Bumped to $new_tag"
-
