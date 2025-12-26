@@ -1,4 +1,5 @@
 import { Inference, inference, InferenceConfig } from './client';
+import { RequirementsNotMetException } from './errors';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -45,8 +46,12 @@ describe('Inference', () => {
         output: { result: 'success' },
       };
 
+      const responseData = { success: true, data: mockTask };
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, data: mockTask }),
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
       });
 
       const client = new Inference({ apiKey: 'test-api-key' });
@@ -70,8 +75,12 @@ describe('Inference', () => {
     });
 
     it('should throw error on API failure', async () => {
+      const responseData = { success: false, error: { message: 'Invalid app' } };
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: false, error: { message: 'Invalid app' } }),
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
       });
 
       const client = new Inference({ apiKey: 'test-api-key' });
@@ -79,12 +88,88 @@ describe('Inference', () => {
         client.run({ app: 'invalid-app', input: { message: 'test!' } }, { wait: false })
       ).rejects.toThrow('Invalid app');
     });
+
+    it('should throw RequirementsNotMetException on 412 with errors', async () => {
+      const requirementErrors = [
+        {
+          type: 'secret',
+          key: 'OPENAI_API_KEY',
+          message: 'Missing secret: OPENAI_API_KEY',
+          action: { type: 'add_secret', secret_key: 'OPENAI_API_KEY' },
+        },
+        {
+          type: 'integration',
+          key: 'google',
+          message: 'Integration not connected: google',
+          action: { type: 'connect', provider: 'google' },
+        },
+      ];
+      const responseData = { errors: requirementErrors };
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 412,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      try {
+        await client.run({ app: 'test-app', input: { message: 'test!' } }, { wait: false });
+        fail('Expected RequirementsNotMetException to be thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(RequirementsNotMetException);
+        const exception = e as RequirementsNotMetException;
+        expect(exception.errors).toHaveLength(2);
+        expect(exception.errors[0].type).toBe('secret');
+        expect(exception.errors[0].key).toBe('OPENAI_API_KEY');
+        expect(exception.errors[1].type).toBe('integration');
+        expect(exception.statusCode).toBe(412);
+        expect(exception.message).toBe('Missing secret: OPENAI_API_KEY');
+      }
+    });
+
+    it('should include action details in RequirementsNotMetException', async () => {
+      const requirementErrors = [
+        {
+          type: 'scope',
+          key: 'calendar.readonly',
+          message: 'Missing scope: calendar.readonly',
+          action: {
+            type: 'add_scopes',
+            provider: 'google',
+            scopes: ['calendar.readonly', 'calendar.events'],
+          },
+        },
+      ];
+      const responseData = { errors: requirementErrors };
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 412,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      try {
+        await client.run({ app: 'test-app', input: {} }, { wait: false });
+        fail('Expected RequirementsNotMetException to be thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(RequirementsNotMetException);
+        const exception = e as RequirementsNotMetException;
+        expect(exception.errors[0].action?.type).toBe('add_scopes');
+        expect(exception.errors[0].action?.scopes).toEqual(['calendar.readonly', 'calendar.events']);
+      }
+    });
   });
 
   describe('cancel', () => {
     it('should make a POST request to cancel endpoint', async () => {
+      const responseData = { success: true, data: null };
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, data: null }),
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
       });
 
       const client = new Inference({ apiKey: 'test-api-key' });
@@ -121,9 +206,13 @@ describe('uploadFile', () => {
       upload_url: 'https://upload.example.com/signed-url',
     };
 
+    const responseData = { success: true, data: [mockFile] };
     mockFetch
       .mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: true, data: [mockFile] }),
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
       })
       .mockResolvedValueOnce({ ok: true });
 
@@ -145,8 +234,12 @@ describe('uploadFile', () => {
       // Missing upload_url
     };
 
+    const responseData = { success: true, data: [mockFile] };
     mockFetch.mockResolvedValueOnce({
-      json: () => Promise.resolve({ success: true, data: [mockFile] }),
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(JSON.stringify(responseData)),
+      json: () => Promise.resolve(responseData),
     });
 
     const client = new Inference({ apiKey: 'test-api-key' });
