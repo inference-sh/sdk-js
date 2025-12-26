@@ -27,6 +27,14 @@ if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
     exit 1
 fi
 
+# Build the package
+echo "Building package..."
+npm run build
+
+# Publish to npm
+echo "Publishing to npm..."
+npm publish --access public
+
 # Create GitHub release
 echo "Creating GitHub release..."
 gh release create "${LATEST_TAG}" \
@@ -34,5 +42,3 @@ gh release create "${LATEST_TAG}" \
     --generate-notes
 
 echo "Released ${LATEST_TAG} successfully!"
-echo "The npm package will be published automatically by the GitHub workflow."
-
