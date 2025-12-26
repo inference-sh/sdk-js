@@ -220,19 +220,30 @@ export class Inference {
    * @param options - Run options for waiting, updates, and reconnection
    * @returns The completed task result
    *
+   * App reference format: `namespace/name@shortid` (version is required)
+   * 
+   * The short ID ensures your code always runs the same version,
+   * protecting against breaking changes from app updates.
+   *
    * @example
    * ```typescript
-   * // Simple usage - wait for result
-   * const result = await client.run({ app: 'my-app', input: { prompt: 'hello' } });
+   * // Run a specific version (required)
+   * const result = await client.run({ 
+   *   app: 'okaris/flux@abc1',  // version @abc1 is pinned
+   *   input: { prompt: 'hello' } 
+   * });
    *
    * // With status updates
    * const result = await client.run(
-   *   { app: 'my-app', input: { prompt: 'hello' } },
+   *   { app: 'okaris/flux@abc1', input: { prompt: 'hello' } },
    *   { onUpdate: (update) => console.log(update.status) }
    * );
    *
    * // Fire and forget
-   * const task = await client.run({ app: 'my-app', input: {} }, { wait: false });
+   * const task = await client.run(
+   *   { app: 'okaris/flux@abc1', input: {} }, 
+   *   { wait: false }
+   * );
    * ```
    */
   async run(params: ApiTaskRequest, options: RunOptions = {}): Promise<Task> {
