@@ -1,6 +1,12 @@
 // Main client export
 export { Inference, inference, InferenceConfig, RunOptions, UploadFileOptions } from './client';
 
+// Agent SDK (headless)
+export { Agent, AgentConfig, AgentOptions, AdHocAgentOptions, TemplateAgentOptions, SendMessageOptions } from './agent';
+
+// Tool Builder (fluent API)
+export { tool, appTool, agentTool, webhookTool, internalTools, string, number, integer, boolean, enumOf, object, array, optional } from './tool-builder';
+
 // Stream utilities
 export { StreamManager, PartialDataWrapper } from './stream';
 
