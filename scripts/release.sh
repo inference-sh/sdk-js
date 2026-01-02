@@ -17,6 +17,14 @@ fi
 # Get the latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0)
 
+# Create GitHub release
+echo "Creating GitHub release..."
+gh release create "${LATEST_TAG}" \
+    --title "Release ${LATEST_TAG}" \
+    --generate-notes
+
+echo "Released ${LATEST_TAG} successfully!"
+
 # Verify versions match
 VERSION=${LATEST_TAG#v}
 PACKAGE_VERSION=$(node -p "require('./package.json').version")
@@ -34,11 +42,3 @@ npm run build
 # Publish to npm
 echo "Publishing to npm..."
 npm publish --access public
-
-# Create GitHub release
-echo "Creating GitHub release..."
-gh release create "${LATEST_TAG}" \
-    --title "Release ${LATEST_TAG}" \
-    --generate-notes
-
-echo "Released ${LATEST_TAG} successfully!"
