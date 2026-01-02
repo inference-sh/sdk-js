@@ -24,11 +24,9 @@ Get your API key from the [inference.sh dashboard](https://app.inference.sh/sett
 ## Quick Start
 
 ```typescript
-import { Inference, TaskStatusCompleted } from '@inferencesh/sdk';
+import { inference } from '@inferencesh/sdk';
 
-const client = new Inference({
-  apiKey: 'your-api-key'
-});
+const client = inference({ apiKey: 'your-api-key' });
 
 // Run a task and wait for the result
 const result = await client.run({
@@ -46,9 +44,9 @@ console.log(result.output);
 ### Basic Usage
 
 ```typescript
-import { Inference } from '@inferencesh/sdk';
+import { inference } from '@inferencesh/sdk';
 
-const client = new Inference({ apiKey: 'your-api-key' });
+const client = inference({ apiKey: 'your-api-key' });
 
 // Wait for result (default behavior)
 const result = await client.run({
@@ -149,19 +147,19 @@ await client.cancel(task.id);
 
 ## Agent Chat
 
-Chat with AI agents using the `Agent` class.
+Chat with AI agents using `client.agent()`.
 
 ### Using a Template Agent
 
 Use an existing agent from your workspace by its `namespace/name@shortid`:
 
 ```typescript
-import { Agent } from '@inferencesh/sdk';
+import { inference } from '@inferencesh/sdk';
 
-const agent = new Agent(
-  { apiKey: 'your-api-key' },
-  { agent: 'my-org/assistant@abc123' }  // namespace/name@shortid
-);
+const client = inference({ apiKey: 'your-api-key' });
+
+// Create agent from template
+const agent = client.agent('my-org/assistant@abc123');
 
 // Send a message with streaming
 await agent.sendMessage('Hello!', {
@@ -185,25 +183,25 @@ agent.disconnect();
 Create agents on-the-fly without saving to your workspace:
 
 ```typescript
-import { Agent, tool, string, number } from '@inferencesh/sdk';
+import { inference, tool, string } from '@inferencesh/sdk';
 
-const agent = new Agent(
-  { apiKey: 'your-api-key' },
-  {
-    coreApp: 'infsh/claude-sonnet-4@abc123',  // LLM to use
-    systemPrompt: 'You are a helpful assistant.',
-    tools: [
-      tool('get_weather')
-        .description('Get current weather')
-        .params({ city: string('City name') })
-        .handler(async (args) => {
-          // Your tool logic here
-          return JSON.stringify({ temp: 72, conditions: 'sunny' });
-        })
-        .build()
-    ]
-  }
-);
+const client = inference({ apiKey: 'your-api-key' });
+
+// Create ad-hoc agent
+const agent = client.agent({
+  coreApp: 'infsh/claude-sonnet-4@abc123',  // LLM to use
+  systemPrompt: 'You are a helpful assistant.',
+  tools: [
+    tool('get_weather')
+      .description('Get current weather')
+      .params({ city: string('City name') })
+      .handler(async (args) => {
+        // Your tool logic here
+        return JSON.stringify({ temp: 72, conditions: 'sunny' });
+      })
+      .build()
+  ]
+});
 
 await agent.sendMessage('What is the weather in Paris?', {
   onMessage: (msg) => console.log(msg),
@@ -228,9 +226,9 @@ await agent.sendMessage('What is the weather in Paris?', {
 
 ## API Reference
 
-### `new Inference(config)`
+### `inference(config)`
 
-Creates a new Inference client.
+Creates a new inference client.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

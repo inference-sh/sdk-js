@@ -182,13 +182,13 @@ describe('Inference', () => {
     });
   });
 
-  describe('backward compatibility', () => {
-    it('should export lowercase inference as alias', () => {
-      expect(inference).toBe(Inference);
+  describe('lowercase factory', () => {
+    it('should export lowercase inference factory', () => {
+      expect(typeof inference).toBe('function');
     });
 
-    it('should work with lowercase inference', () => {
-      const client = new inference({ apiKey: 'test-api-key' });
+    it('should work with lowercase inference factory', () => {
+      const client = inference({ apiKey: 'test-api-key' });
       expect(client).toBeInstanceOf(Inference);
     });
   });

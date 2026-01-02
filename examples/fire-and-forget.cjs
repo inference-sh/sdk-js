@@ -3,9 +3,9 @@
  *
  * Run with: node examples/fire-and-forget.cjs
  */
-const { Inference } = require('@inferencesh/sdk');
+const { inference } = require('@inferencesh/sdk');
 
-const client = new Inference({
+const client = inference({
   apiKey: process.env.INFERENCE_API_KEY || 'your-api-key',
 });
 
