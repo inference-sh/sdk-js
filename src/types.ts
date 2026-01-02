@@ -324,13 +324,14 @@ export interface ApiAgentMessageRequest {
 }
 export interface CreateAgentMessageRequest {
   chat_id?: string;
-  agent_id?: string;
-  agent_version_id?: string;
+  agent_id?: string; // Deprecated: use Agent instead
+  agent_version_id?: string; // Deprecated: use Agent instead
+  agent?: string; // Template agent: namespace/name@shortid
   tool_call_id?: string;
   input: ChatTaskInput;
   integration_context?: IntegrationContext;
   /**
-   * Ad-hoc agent config - use this instead of AgentID for embedded configs
+   * Ad-hoc agent config - use this instead of Agent for embedded configs
    * If provided, creates a chat with this config directly (no agent reference)
    */
   agent_config?: AgentRuntimeConfig;
