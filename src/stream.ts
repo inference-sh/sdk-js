@@ -40,6 +40,7 @@ export class StreamManager<T> {
   private initialConnectionAttempts = 0;
   private isConnected = false;
   private isStopped = false;
+  private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
   constructor(options: StreamManagerOptions<T>) {
     this.options = {
@@ -48,6 +49,54 @@ export class StreamManager<T> {
       reconnectDelayMs: 1000,
       ...options,
     };
+  }
+
+  /**
+   * Add a listener for typed SSE events (e.g., 'chats', 'chat_messages')
+   * Used when server sends events with `event: eventName` header
+   */
+  addEventListener<E = unknown>(eventName: string, callback: (data: E) => void): () => void {
+    const listeners = this.eventListeners.get(eventName) || new Set();
+    listeners.add(callback as (data: unknown) => void);
+    this.eventListeners.set(eventName, listeners);
+
+    // If already connected, set up the listener on the existing EventSource
+    if (this.eventSource) {
+      this.setupEventListener(this.eventSource, eventName);
+    }
+
+    // Return cleanup function
+    return () => {
+      const listeners = this.eventListeners.get(eventName);
+      if (listeners) {
+        listeners.delete(callback as (data: unknown) => void);
+        if (listeners.size === 0) {
+          this.eventListeners.delete(eventName);
+        }
+      }
+    };
+  }
+
+  private setupEventListener(source: EventSource, eventName: string) {
+    source.addEventListener(eventName, (e: MessageEvent) => {
+      if (this.isStopped) return;
+      try {
+        const data = JSON.parse(e.data);
+        const listeners = this.eventListeners.get(eventName);
+        if (listeners?.size) {
+          listeners.forEach(callback => callback(data));
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Invalid JSON');
+        this.options.onError?.(error);
+      }
+    });
+  }
+
+  private setupAllEventListeners(source: EventSource) {
+    this.eventListeners.forEach((_, eventName) => {
+      this.setupEventListener(source, eventName);
+    });
   }
 
   private clearTimeouts() {
@@ -126,6 +175,9 @@ export class StreamManager<T> {
       this.eventSource = source;
       this.isConnected = true;
       this.options.onStart?.();
+
+      // Set up typed event listeners (for events with `event: eventName` header)
+      this.setupAllEventListeners(source);
 
       source.onmessage = (e: MessageEvent) => {
         if (this.isStopped) return;
