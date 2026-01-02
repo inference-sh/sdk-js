@@ -147,6 +147,85 @@ const task = await client.run(
 await client.cancel(task.id);
 ```
 
+## Agent Chat
+
+Chat with AI agents using the `Agent` class.
+
+### Using a Template Agent
+
+Use an existing agent from your workspace by its `namespace/name@shortid`:
+
+```typescript
+import { Agent } from '@inferencesh/sdk';
+
+const agent = new Agent(
+  { apiKey: 'your-api-key' },
+  { agent: 'my-org/assistant@abc123' }  // namespace/name@shortid
+);
+
+// Send a message with streaming
+await agent.sendMessage('Hello!', {
+  onMessage: (msg) => {
+    if (msg.content) {
+      for (const c of msg.content) {
+        if (c.type === 'text' && c.text) {
+          process.stdout.write(c.text);
+        }
+      }
+    }
+  }
+});
+
+// Clean up
+agent.disconnect();
+```
+
+### Creating an Ad-Hoc Agent
+
+Create agents on-the-fly without saving to your workspace:
+
+```typescript
+import { Agent, tool, string, number } from '@inferencesh/sdk';
+
+const agent = new Agent(
+  { apiKey: 'your-api-key' },
+  {
+    coreApp: 'infsh/claude-sonnet-4@abc123',  // LLM to use
+    systemPrompt: 'You are a helpful assistant.',
+    tools: [
+      tool('get_weather')
+        .description('Get current weather')
+        .params({ city: string('City name') })
+        .handler(async (args) => {
+          // Your tool logic here
+          return JSON.stringify({ temp: 72, conditions: 'sunny' });
+        })
+        .build()
+    ]
+  }
+);
+
+await agent.sendMessage('What is the weather in Paris?', {
+  onMessage: (msg) => console.log(msg),
+  onToolCall: async (call) => {
+    // Tool handlers are auto-executed if defined
+  }
+});
+```
+
+### Agent Methods
+
+| Method | Description |
+|--------|-------------|
+| `sendMessage(text, options?)` | Send a message to the agent |
+| `getChat(chatId?)` | Get chat history |
+| `stopChat(chatId?)` | Stop current generation |
+| `submitToolResult(toolId, result)` | Submit result for a client tool |
+| `streamMessages(chatId?, options?)` | Stream message updates |
+| `streamChat(chatId?, options?)` | Stream chat updates |
+| `disconnect()` | Clean up streams |
+| `reset()` | Start a new conversation |
+
 ## API Reference
 
 ### `new Inference(config)`
