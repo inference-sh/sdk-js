@@ -11,6 +11,7 @@ import {
   ChatDTO,
   ChatMessageDTO,
   AgentTool,
+  AgentRuntimeConfig,
   InternalToolsConfig,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
@@ -23,21 +24,14 @@ import { InferenceError, RequirementsNotMetException } from './errors';
 // Agent Types
 // =============================================================================
 
-/** Ad-hoc agent configuration (no saved template) */
-export interface AdHocAgentConfig {
-  /** Core LLM app: namespace/name@shortid */
-  coreApp: string;
-  /** LLM parameters */
-  coreAppInput?: Record<string, unknown>;
-  /** Agent name */
-  name?: string;
-  /** System prompt */
-  systemPrompt?: string;
-  /** Tools */
-  tools?: AgentTool[];
-  /** Internal tools config */
-  internalTools?: InternalToolsConfig;
-}
+/**
+ * Ad-hoc agent configuration - extends AgentRuntimeConfig with core_app_ref required
+ * Uses Partial to make name/system_prompt optional for ad-hoc usage
+ */
+export type AdHocAgentConfig = Partial<AgentRuntimeConfig> & {
+  /** Core LLM app ref: namespace/name@shortid (required for ad-hoc agents) */
+  core_app_ref: string;
+};
 
 export interface SendMessageOptions {
   /** File attachments (Blob or base64 data URI) */
@@ -440,8 +434,8 @@ export class Inference {
    * 
    * // Ad-hoc agent
    * const agent = client.agent({
-   *   coreApp: 'infsh/claude-sonnet-4@xyz789',
-   *   systemPrompt: 'You are a helpful assistant',
+   *   core_app_ref: 'infsh/claude-sonnet-4@xyz789',
+   *   system_prompt: 'You are a helpful assistant',
    *   tools: [...]
    * })
    * 
@@ -504,17 +498,12 @@ export class Agent {
     const body = isTemplate 
       ? {
           chat_id: this.chatId,
-          agent: this.config,
+          agent_ref: this.config as string,
           input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
         }
       : {
           chat_id: this.chatId,
-          core_app: (this.config as AdHocAgentConfig).coreApp,
-          core_app_input: (this.config as AdHocAgentConfig).coreAppInput,
-          name: (this.config as AdHocAgentConfig).name,
-          system_prompt: (this.config as AdHocAgentConfig).systemPrompt,
-          tools: (this.config as AdHocAgentConfig).tools,
-          internal_tools: (this.config as AdHocAgentConfig).internalTools,
+          agent_config: this.config as AdHocAgentConfig,
           input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
         };
 

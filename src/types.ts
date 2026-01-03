@@ -241,7 +241,10 @@ export interface AgentRuntimeConfig {
   example_prompts?: string[];
   /**
    * Core LLM
+   * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs
+   * CoreApp is the resolved config - populated by backend after resolving CoreAppRef
    */
+  core_app_ref?: string;
   core_app?: CoreAppConfig;
   core_app_input?: any;
   /**
@@ -268,6 +271,7 @@ export interface AgentRuntimeConfigDTO {
   description?: string;
   system_prompt: string;
   example_prompts?: string[];
+  core_app_ref?: string;
   core_app?: CoreAppConfigDTO;
   core_app_input?: any;
   tools?: (AgentToolDTO | undefined)[];
@@ -333,31 +337,15 @@ export interface ApiAgentRunRequest {
   /**
    * Template agent reference in format: namespace/name@shortid
    * Example: "my-org/assistant@abc123"
-   * Use this OR core_app, not both
+   * Use this OR AgentConfig, not both
    */
   agent?: string;
   /**
-   * Core LLM app reference for ad-hoc agents in format: namespace/name@shortid
-   * Example: "infsh/claude-sonnet-4@1195p4sq"
-   * Use this for ad-hoc agents (without a saved template)
+   * Ad-hoc agent configuration
+   * For ad-hoc agents, set core_app_ref to the LLM app reference
+   * Example: { "core_app_ref": "infsh/claude-sonnet-4@abc123", "system_prompt": "..." }
    */
-  core_app?: string;
-  /**
-   * LLM parameters for ad-hoc agents (temperature, top_p, context_size, etc.)
-   */
-  core_app_input?: any;
-  /**
-   * Agent configuration for ad-hoc agents
-   */
-  name?: string;
-  description?: string;
-  system_prompt?: string;
-  example_prompts?: string[];
-  /**
-   * Tools configuration for ad-hoc agents
-   */
-  tools?: (AgentTool | undefined)[];
-  internal_tools?: InternalToolsConfig;
+  agent_config?: AgentRuntimeConfig;
   /**
    * The message to send
    */

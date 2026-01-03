@@ -10,6 +10,7 @@ import {
   ChatDTO,
   ChatMessageDTO,
   AgentTool,
+  AgentRuntimeConfig,
   InternalToolsConfig,
   ChatStatusIdle,
   ChatStatusBusy,
@@ -26,21 +27,14 @@ export interface AgentConfig {
   baseUrl?: string;
 }
 
-/** Ad-hoc agent configuration (no saved template) */
-export interface AdHocAgentOptions {
-  /** Core LLM app: namespace/name@shortid */
-  coreApp: string;
-  /** LLM parameters */
-  coreAppInput?: Record<string, unknown>;
-  /** Agent name */
-  name?: string;
-  /** System prompt */
-  systemPrompt?: string;
-  /** Tools */
-  tools?: AgentTool[];
-  /** Internal tools config */
-  internalTools?: InternalToolsConfig;
-}
+/**
+ * Ad-hoc agent configuration - extends AgentRuntimeConfig with core_app_ref required
+ * Uses Partial to make name/system_prompt optional for ad-hoc usage
+ */
+export type AdHocAgentOptions = Partial<AgentRuntimeConfig> & {
+  /** Core LLM app ref: namespace/name@shortid (required for ad-hoc agents) */
+  core_app_ref: string;
+};
 
 /** Template agent configuration */
 export interface TemplateAgentOptions {
@@ -87,7 +81,7 @@ export class Agent {
 
   /** Send a message to the agent */
   async sendMessage(text: string, options: SendMessageOptions = {}): Promise<ChatMessageDTO> {
-    const isAdHoc = 'coreApp' in this.options;
+    const isAdHoc = 'core_app_ref' in this.options;
     
     // Upload files if provided
     let imageUri: string | undefined;
@@ -107,22 +101,10 @@ export class Agent {
     }
     
     // Both template and ad-hoc use /agents/run
+    const input = { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 };
     const body = isAdHoc 
-      ? {
-          chat_id: this.chatId,
-          core_app: (this.options as AdHocAgentOptions).coreApp,
-          core_app_input: (this.options as AdHocAgentOptions).coreAppInput,
-          name: (this.options as AdHocAgentOptions).name,
-          system_prompt: (this.options as AdHocAgentOptions).systemPrompt,
-          tools: (this.options as AdHocAgentOptions).tools,
-          internal_tools: (this.options as AdHocAgentOptions).internalTools,
-          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        }
-      : {
-          chat_id: this.chatId,
-          agent: (this.options as TemplateAgentOptions).agent,
-          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        };
+      ? { chat_id: this.chatId, agent_config: this.options, input }
+      : { chat_id: this.chatId, agent: (this.options as TemplateAgentOptions).agent, input };
 
     const response = await this.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
       'post',
