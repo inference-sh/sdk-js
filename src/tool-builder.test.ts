@@ -208,13 +208,13 @@ describe('AppToolBuilder (appTool)', () => {
       .build();
 
     expect(t.type).toBe(ToolTypeApp);
-    expect(t.app).toEqual({ id: 'infsh/flux', version_id: 'v1.0' });
+    expect(t.app).toEqual({ ref: 'infsh/flux@v1.0' });
     expect(t.description).toBe('Generate image');
   });
 
   it('handles app reference with latest version', () => {
     const t = appTool('browse', 'my-org/browser@latest').build();
-    expect(t.app).toEqual({ id: 'my-org/browser', version_id: 'latest' });
+    expect(t.app).toEqual({ ref: 'my-org/browser@latest' });
   });
 
   it('includes parameters', () => {
@@ -234,7 +234,7 @@ describe('AgentToolBuilder (agentTool)', () => {
       .build();
 
     expect(t.type).toBe(ToolTypeAgent);
-    expect(t.agent).toEqual({ id: 'acme/researcher', version_id: 'v2' });
+    expect(t.agent).toEqual({ ref: 'acme/researcher@v2' });
   });
 
   it('supports display name and approval', () => {

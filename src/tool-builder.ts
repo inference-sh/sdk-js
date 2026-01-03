@@ -117,15 +117,13 @@ class AppToolBuilder extends ToolBuilder {
   }
 
   build(): AgentTool {
-    const [ns, rest] = this.appRef.split('/');
-    const [appName, version] = rest?.split('@') || [];
     return {
       name: this.name,
       display_name: this.displayName || this.name,
       description: this.desc,
       type: ToolTypeApp,
       require_approval: this.approval || undefined,
-      app: { id: `${ns}/${appName}`, version_id: version },
+      app: { ref: this.appRef },
     };
   }
 }
@@ -139,15 +137,13 @@ class AgentToolBuilder extends ToolBuilder {
   }
 
   build(): AgentTool {
-    const [ns, rest] = this.agentRef.split('/');
-    const [agentName, version] = rest?.split('@') || [];
     return {
       name: this.name,
       display_name: this.displayName || this.name,
       description: this.desc,
       type: ToolTypeAgent,
       require_approval: this.approval || undefined,
-      agent: { id: `${ns}/${agentName}`, version_id: version },
+      agent: { ref: this.agentRef },
     };
   }
 }

@@ -99,15 +99,16 @@ const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<st
 
 async function main() {
   const apiKey = process.env.INFERENCE_API_KEY;
+  const baseUrl = process.env.INFERENCE_BASE_URL || 'https://api.inference.sh';
   if (!apiKey) {
     console.error('Set INFERENCE_API_KEY environment variable');
     process.exit(1);
   }
 
   // Create client and ad-hoc agent
-  const client = inference({ apiKey });
+  const client = inference({ apiKey, baseUrl });
   const agent = client.agent({
-    coreApp: 'infsh/claude-sonnet-4@latest', // Replace with actual app reference
+    coreApp: 'infsh/claude-haiku-45@375bg07t',
     name: 'Tool Assistant',
     systemPrompt: `You are a helpful assistant with access to tools.
 Available tools:

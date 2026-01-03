@@ -25,10 +25,18 @@ export const ToolTypeInternal: ToolType = "internal"; // Internal/built-in tools
  * AppToolConfig contains configuration for an app tool
  */
 export interface AppToolConfig {
-  id: string;
+  /**
+   * Ref is the human-readable reference: "namespace/name@shortVersionId"
+   * This is what users specify in configs/SDKs
+   */
+  ref: string;
+  /**
+   * ID and VersionID are resolved full database UUIDs (populated at runtime)
+   */
+  id?: string;
   version_id?: string;
   /**
-   * Resolved at runtime, not stored
+   * Resolved app object (populated at runtime)
    */
   app?: App;
 }
@@ -36,10 +44,18 @@ export interface AppToolConfig {
  * AgentToolConfig contains configuration for a sub-agent tool
  */
 export interface AgentToolConfig {
-  id: string;
+  /**
+   * Ref is the human-readable reference: "namespace/name@shortVersionId"
+   * This is what users specify in configs/SDKs
+   */
+  ref: string;
+  /**
+   * ID and VersionID are resolved full database UUIDs (populated at runtime)
+   */
+  id?: string;
   version_id?: string;
   /**
-   * Resolved at runtime, not stored
+   * Resolved agent object (populated at runtime)
    */
   agent?: Agent;
 }
@@ -78,6 +94,14 @@ export interface AgentTool {
   agent?: AgentToolConfig;
   hook?: HookToolConfig;
   client?: ClientToolConfig;
+  internal?: InternalToolConfig;
+}
+/**
+ * InternalToolConfig contains configuration for internal/built-in tools
+ */
+export interface InternalToolConfig {
+  category: string; // plan, memory, widget, finish
+  operation: string; // create, update, load, set, get, ui, html, etc.
 }
 /**
  * AgentToolDTO for API responses
@@ -97,12 +121,14 @@ export interface AgentToolDTO {
   client?: ClientToolConfigDTO;
 }
 export interface AppToolConfigDTO {
-  id: string;
+  ref: string;
+  id?: string;
   version_id?: string;
   app?: AppDTO;
 }
 export interface AgentToolConfigDTO {
-  id: string;
+  ref: string;
+  id?: string;
   version_id?: string;
   agent?: AgentDTO;
 }
