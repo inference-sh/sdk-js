@@ -378,14 +378,6 @@ export interface CreateChatMessageResponse {
   assistant_message?: ChatMessageDTO;
 }
 /**
- * WidgetActionRequest represents a user's response to a widget
- * @deprecated Use ToolResultRequest with action field instead
- */
-export interface WidgetActionRequest {
-  action: WidgetAction;
-  form_data?: WidgetFormData;
-}
-/**
  * ToolResultRequest represents a tool result submission
  * For widget actions, clients should JSON-serialize { action, form_data } as the result string
  */
@@ -760,9 +752,7 @@ export interface PermissionModelDTO {
 export type ChatStatus = string;
 export const ChatStatusBusy: ChatStatus = "busy";
 export const ChatStatusIdle: ChatStatus = "idle";
-/**
- * ChatStatusWaitingInput ChatStatus = "waiting_input"
- */
+export const ChatStatusAwaitingInput: ChatStatus = "awaiting_input";
 export const ChatStatusCompleted: ChatStatus = "completed";
 export interface IntegrationContext {
   integration_type?: IntegrationType;
@@ -774,6 +764,7 @@ export interface IntegrationContext {
 export interface ChatData {
   plan_steps: PlanStep[];
   memory: StringEncodedMap;
+  always_allowed_tools: string[];
 }
 /**
  * PlanStep represents a step in an agent's execution plan
@@ -1797,6 +1788,7 @@ export interface User {
   default_team_id: string;
   role: Role;
   email: string;
+  email_verified: boolean;
   name: string;
   full_name: string;
   avatar_url: string;
@@ -1922,7 +1914,3 @@ export interface Widget {
   children?: WidgetNode[];
   actions?: WidgetActionButton[];
 }
-/**
- * WidgetFormData represents the form data collected from widget inputs
- */
-export type WidgetFormData = { [key: string]: any};
