@@ -60,6 +60,32 @@ else
 	INFERENCE_API_KEY=$(API_KEY) INFERENCE_BASE_URL=$(BASE_URL) npx ts-node examples/$(NAME).ts
 endif
 
+
+# =============================================================================
+# Publishing
+# =============================================================================
+
+.PHONY: publish bump-major bump-minor bump-patch release
+
+# Publish to PyPI (requires twine)
+publish: build
+	$(PIP) install twine
+	$(PYTHON) -m twine upload dist/*
+
+# Version bumping (commits, tags, and pushes)
+bump-major:
+	./scripts/bump.sh major
+
+bump-minor:
+	./scripts/bump.sh minor
+
+bump-patch:
+	./scripts/bump.sh patch
+
+# Create GitHub release (requires gh CLI and being on main branch)
+release:
+	./scripts/release.sh
+
 # =============================================================================
 # Code Quality
 # =============================================================================
