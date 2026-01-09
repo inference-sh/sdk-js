@@ -322,10 +322,6 @@ export interface ApiAppRunRequest {
   stream?: boolean;
 }
 /**
- * ApiTaskRequest is an alias for ApiAppRunRequest (deprecated name)
- */
-export type ApiTaskRequest = ApiAppRunRequest;
-/**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
  * Supports both template agents and ad-hoc agents.
  */
@@ -355,10 +351,6 @@ export interface ApiAgentRunRequest {
    */
   stream?: boolean;
 }
-/**
- * ApiAgentMessageRequest is an alias for ApiAgentRunRequest (deprecated name)
- */
-export type ApiAgentMessageRequest = ApiAgentRunRequest;
 export interface CreateAgentMessageRequest {
   chat_id?: string;
   agent_id?: string; // Deprecated: use Agent instead
@@ -373,7 +365,7 @@ export interface CreateAgentMessageRequest {
    */
   agent_config?: AgentRuntimeConfig;
 }
-export interface CreateChatMessageResponse {
+export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
   assistant_message?: ChatMessageDTO;
 }
