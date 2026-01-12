@@ -40,5 +40,5 @@ echo "Building package..."
 npm run build
 
 # Publish to npm
-echo "Publishing to npm..."
-npm publish --access public
+# echo "Publishing to npm..."
+# npm publish --access public
