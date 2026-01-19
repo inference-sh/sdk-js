@@ -997,6 +997,14 @@ export interface FileDTO extends BaseModel, PermissionModelDTO {
 
 export interface FlowVersion {
   BaseModel: BaseModel;
+  /**
+   * Permission fields - nullable for migration from existing data
+   * After migration these will be populated from parent Flow
+   */
+  user_id: string;
+  user?: User;
+  team_id: string;
+  team?: Team;
   flow_id: string;
   /**
    * Short ID for human-readable version references (e.g., "abc123")
