@@ -1,14 +1,14 @@
 /**
- * Remix proxy handler for Inference.sh API
+ * @inferencesh/sdk/proxy/remix - Remix Framework Proxy Handler
  *
  * Works with Remix's loader and action functions.
  *
  * @example
  * ```typescript
  * // app/routes/api.inference.proxy.ts
- * import { createRequestHandler } from "@inferencesh/sdk/proxy/remix";
+ * import { createHandler } from "@inferencesh/sdk/proxy/remix";
  *
- * const handler = createRequestHandler();
+ * const handler = createHandler();
  *
  * export const loader = handler;
  * export const action = handler;
@@ -16,56 +16,40 @@
  */
 
 import {
-    handleRequest,
-    HeaderValue,
-    resolveApiKeyFromEnv,
-    responsePassthrough,
-    fromHeaders,
+    processProxyRequest,
+    getEnvApiKey,
+    passthrough,
+    headersToRecord,
+    INF_TARGET_PARAM,
 } from "./index";
 
 export interface RemixProxyOptions {
-    /**
-     * Custom function to resolve the API key.
-     * Defaults to reading from INFERENCE_API_KEY environment variable.
-     */
+    /** Custom function to resolve the API key */
     resolveApiKey?: () => Promise<string | undefined>;
 }
 
-type RemixRequestHandler = (args: { request: Request }) => Promise<Response>;
+type RemixHandler = (args: { request: Request }) => Promise<Response>;
 
 /**
- * Creates a Remix request handler that proxies requests to the Inference.sh API.
- *
+ * Creates a Remix request handler for the Inference.sh proxy.
  * Use this as both a loader and action in your Remix route.
- *
- * @param options - Proxy options
- * @returns A Remix request handler function
- *
- * @example
- * ```typescript
- * // app/routes/api.inference.proxy.ts
- * import { createRequestHandler } from "@inferencesh/sdk/proxy/remix";
- *
- * const handler = createRequestHandler();
- *
- * export const loader = handler;
- * export const action = handler;
- * ```
  */
-export function createRequestHandler({
-    resolveApiKey = resolveApiKeyFromEnv,
-}: RemixProxyOptions = {}): RemixRequestHandler {
+export function createHandler({
+    resolveApiKey = getEnvApiKey,
+}: RemixProxyOptions = {}): RemixHandler {
     return async ({ request }) => {
         const responseHeaders = new Headers();
+        const url = new URL(request.url);
 
-        return handleRequest({
-            id: "remix",
+        return processProxyRequest({
+            framework: "remix",
             method: request.method,
-            getRequestBody: async () => request.text(),
-            getHeaders: () => fromHeaders(request.headers),
-            getHeader: (name) => request.headers.get(name),
-            sendHeader: (name, value) => responseHeaders.set(name, value),
-            respondWith: (status, data) =>
+            body: () => request.text(),
+            headers: () => headersToRecord(request.headers),
+            header: (name) => request.headers.get(name),
+            query: (name) => url.searchParams.get(name) ?? undefined,
+            setHeader: (name, value) => responseHeaders.set(name, value),
+            error: (status, data) =>
                 new Response(JSON.stringify(data), {
                     status,
                     headers: {
@@ -73,8 +57,11 @@ export function createRequestHandler({
                         ...Object.fromEntries(responseHeaders.entries()),
                     },
                 }),
-            sendResponse: responsePassthrough,
-            resolveApiKey,
+            respond: passthrough,
+            apiKey: resolveApiKey,
         });
     };
 }
+
+/** @deprecated Use createHandler */
+export const createRequestHandler = createHandler;
