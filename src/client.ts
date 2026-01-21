@@ -373,10 +373,20 @@ export class Inference {
           }
         },
         onPartialData: (data, fields) => {
-          // Call onPartialUpdate if provided
-          if (onPartialUpdate) {
-            const stripped = this._stripTask(data);
-            onPartialUpdate(stripped, fields);
+          // Strip and send partial update if callback provided
+          const stripped = this._stripTask(data);
+          onPartialUpdate?.(stripped, fields);
+
+          // Also check for status changes in partial updates
+          if (data.status === TaskStatusCompleted) {
+            streamManager.stop();
+            resolve(stripped);
+          } else if (data.status === TaskStatusFailed) {
+            streamManager.stop();
+            reject(new Error(data.error || "task failed"));
+          } else if (data.status === TaskStatusCancelled) {
+            streamManager.stop();
+            reject(new Error("task cancelled"));
           }
         },
         onError: (error) => {
