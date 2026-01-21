@@ -6,7 +6,7 @@ export {
   RunOptions,
   UploadFileOptions,
   Agent,
-  AdHocAgentConfig,
+  AgentOptions,
   SendMessageOptions,
 } from './client';
 

@@ -839,7 +839,7 @@ export interface ChatTaskInput {
   reasoning_max_tokens?: number /* int */;
   system_prompt: string;
   context: ChatTaskContextMessage[];
-  role: ChatMessageRole;
+  role?: ChatMessageRole;
   text?: string;
   reasoning?: string;
   image?: string;
