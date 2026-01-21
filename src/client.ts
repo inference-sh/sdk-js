@@ -27,8 +27,8 @@ export interface AgentOptions {
 }
 
 export interface SendMessageOptions {
-  /** File attachments (Blob or base64 data URI) */
-  files?: (Blob | string)[];
+  /** File attachments - Blob (will be uploaded) or FileDTO (already uploaded, has uri) */
+  files?: (Blob | File)[];
   /** Callback for message updates */
   onMessage?: (message: ChatMessageDTO) => void;
   /** Callback for chat updates */
@@ -544,16 +544,36 @@ export class Agent {
     const isTemplate = typeof this.config === 'string';
     const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall);
 
-    // Upload files if provided
+    // Process files - either already uploaded (FileDTO with uri) or needs upload (Blob)
     let imageUri: string | undefined;
     let fileUris: string[] | undefined;
 
     if (options.files && options.files.length > 0) {
-      const uploadedFiles = await Promise.all(
-        options.files.map((file) => this.client.uploadFile(file))
-      );
-      const images = uploadedFiles.filter((f) => f.content_type?.startsWith('image/'));
-      const others = uploadedFiles.filter((f) => !f.content_type?.startsWith('image/'));
+      // Separate files that need uploading from those already uploaded
+      const toUpload: Blob[] = [];
+      const alreadyUploaded: File[] = [];
+
+      for (const file of options.files) {
+        // FileDTO has a uri property, Blob does not
+        if ('uri' in file && typeof (file as File).uri === 'string') {
+          alreadyUploaded.push(file as File);
+        } else {
+          toUpload.push(file as Blob);
+        }
+      }
+
+      // Upload any Blobs that need uploading
+      const uploadedFiles = toUpload.length > 0
+        ? await Promise.all(toUpload.map((blob) => this.client.uploadFile(blob)))
+        : [];
+
+      // Combine all files (already uploaded + newly uploaded)
+      const allFiles = [...alreadyUploaded, ...uploadedFiles];
+
+      // Separate images from other files
+      const images = allFiles.filter((f) => f.content_type?.startsWith('image/'));
+      const others = allFiles.filter((f) => !f.content_type?.startsWith('image/'));
+
       if (images.length > 0) imageUri = images[0].uri;
       if (others.length > 0) fileUris = others.map((f) => f.uri);
     }
