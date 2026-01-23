@@ -81,7 +81,7 @@ function toJsonSchema(params: Record<string, ParamSchema>): Record<string, unkno
 class ToolBuilder {
   protected name: string;
   protected desc = '';
-  protected displayName?: string;
+  protected displayNameValue?: string;
   protected params: Record<string, ParamSchema> = {};
   protected approval = false;
 
@@ -94,8 +94,14 @@ class ToolBuilder {
     return this;
   }
 
+  /** @deprecated Use displayName() instead */
   display(name: string): this {
-    this.displayName = name;
+    this.displayNameValue = name;
+    return this;
+  }
+
+  displayName(name: string): this {
+    this.displayNameValue = name;
     return this;
   }
 
@@ -115,7 +121,7 @@ class ClientToolBuilder extends ToolBuilder {
   build(): AgentTool {
     return {
       name: this.name,
-      display_name: this.displayName || this.name,
+      display_name: this.displayNameValue || this.name,
       description: this.desc,
       type: ToolTypeClient,
       require_approval: this.approval || undefined,
@@ -157,7 +163,7 @@ class AppToolBuilder extends ToolBuilder {
   build(): AgentTool {
     return {
       name: this.name,
-      display_name: this.displayName || this.name,
+      display_name: this.displayNameValue || this.name,
       description: this.desc,
       type: ToolTypeApp,
       require_approval: this.approval || undefined,
@@ -181,7 +187,7 @@ class AgentToolBuilder extends ToolBuilder {
   build(): AgentTool {
     return {
       name: this.name,
-      display_name: this.displayName || this.name,
+      display_name: this.displayNameValue || this.name,
       description: this.desc,
       type: ToolTypeAgent,
       require_approval: this.approval || undefined,
@@ -207,7 +213,7 @@ class WebhookToolBuilder extends ToolBuilder {
   build(): AgentTool {
     return {
       name: this.name,
-      display_name: this.displayName || this.name,
+      display_name: this.displayNameValue || this.name,
       description: this.desc,
       type: ToolTypeHook,
       require_approval: this.approval || undefined,
