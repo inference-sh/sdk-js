@@ -39,6 +39,11 @@ export interface AppToolConfig {
    * Resolved app object (populated at runtime)
    */
   app?: App;
+  /**
+   * Pre-configured values
+   */
+  setup?: any; // One-time setup values
+  input?: any; // Default input values (merged with agent's call)
 }
 /**
  * AgentToolConfig contains configuration for a sub-agent tool
@@ -125,6 +130,11 @@ export interface AppToolConfigDTO {
   id?: string;
   version_id?: string;
   app?: AppDTO;
+  /**
+   * Pre-configured values
+   */
+  setup?: any;
+  input?: any;
 }
 export interface AgentToolConfigDTO {
   ref: string;
@@ -148,6 +158,14 @@ export interface ClientToolConfigDTO {
 export interface CoreAppConfig {
   id: string;
   version_id: string;
+  /**
+   * Setup values for the core app (one-time configuration)
+   */
+  setup?: any;
+  /**
+   * Input default values for the core app
+   */
+  input?: any;
 }
 /**
  * AgentImages contains display images for an agent (like AppImages)
@@ -201,7 +219,6 @@ export interface AgentConfig {
    */
   core_app_ref?: string;
   core_app?: CoreAppConfig;
-  core_app_input?: any;
   /**
    * Tools (apps, agents, hooks, client tools)
    */
@@ -232,13 +249,20 @@ export interface CoreAppConfigDTO {
   id: string;
   version_id: string;
   app?: AppDTO;
+  /**
+   * Setup values for the core app (one-time configuration)
+   */
+  setup?: any;
+  /**
+   * Input default values for the core app
+   */
+  input?: any;
 }
 export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
   description: string;
   system_prompt: string;
   example_prompts: string[];
   core_app?: CoreAppConfigDTO;
-  core_app_input?: any;
   /**
    * Unified tools array (apps, agents, hooks, client)
    */
@@ -842,7 +866,6 @@ export interface ChatTaskInput {
   role?: ChatMessageRole;
   text?: string;
   reasoning?: string;
-  image?: string;
   images?: string[];
   files?: string[];
   tools?: Tool[];
@@ -852,9 +875,7 @@ export interface ChatTaskContextMessage {
   role: ChatMessageRole;
   text?: string;
   reasoning?: string;
-  image?: string;
   images?: string[];
-  file?: string;
   files?: string[];
   tools?: Tool[];
   tool_calls?: ToolCall[];
