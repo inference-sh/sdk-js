@@ -12,6 +12,7 @@ export {
 
 // Tool Builder (fluent API)
 export { tool, appTool, agentTool, webhookTool, internalTools, string, number, integer, boolean, enumOf, object, array, optional } from './tool-builder';
+export type { ClientTool, ClientToolHandler } from './tool-builder';
 
 // Stream utilities
 export { StreamManager, PartialDataWrapper } from './stream';

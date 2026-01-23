@@ -5,6 +5,21 @@
 import { AgentTool, InternalToolsConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook } from './types';
 
 // =============================================================================
+// Client Tool Types
+// =============================================================================
+
+/** Handler function for client tools (executed in browser/Node) */
+export type ClientToolHandler = (args: Record<string, unknown>) => Promise<string> | string;
+
+/** Client tool with schema and handler bundled together */
+export interface ClientTool {
+  /** Tool schema (sent to server, describes the tool to the LLM) */
+  schema: AgentTool;
+  /** Handler function (executed locally when agent invokes the tool) */
+  handler: ClientToolHandler;
+}
+
+// =============================================================================
 // Schema Types
 // =============================================================================
 
@@ -96,6 +111,7 @@ class ToolBuilder {
 }
 
 class ClientToolBuilder extends ToolBuilder {
+  /** Build schema only (use .handler() to include handler) */
   build(): AgentTool {
     return {
       name: this.name,
@@ -104,6 +120,14 @@ class ClientToolBuilder extends ToolBuilder {
       type: ToolTypeClient,
       require_approval: this.approval || undefined,
       client: { input_schema: toJsonSchema(this.params) },
+    };
+  }
+
+  /** Define handler and return ClientTool (schema + handler) */
+  handler(fn: ClientToolHandler): ClientTool {
+    return {
+      schema: this.build(),
+      handler: fn,
     };
   }
 }
