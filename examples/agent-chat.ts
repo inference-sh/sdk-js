@@ -108,7 +108,7 @@ async function main() {
   // Create client and ad-hoc agent
   const client = inference({ apiKey, baseUrl });
   const agent = client.agent({
-    core_app_ref: 'infsh/claude-haiku-45@375bg07t',
+    core_app: { ref: 'infsh/claude-haiku-45@375bg07t' },
     name: 'Tool Assistant',
     system_prompt: `You are a helpful assistant with access to tools.
 Available tools:
