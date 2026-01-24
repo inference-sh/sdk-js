@@ -1,4 +1,4 @@
-import { StreamManager } from './stream';
+import { StreamManager } from './http/stream';
 
 describe('StreamManager', () => {
   let mockEventSource: {

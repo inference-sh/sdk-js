@@ -88,4 +88,4 @@ export function createHandler(options?: ExpressProxyOptions): RequestHandler {
 }
 
 /** @deprecated Use createHandler() */
-export const handler = createHandler();
+export const handler: RequestHandler = createHandler();

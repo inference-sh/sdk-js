@@ -7,7 +7,7 @@
  * @jest-environment node
  */
 
-import { Inference, inference } from './client';
+import { Inference, inference } from './index';
 import { TaskStatusCompleted, TaskStatusFailed } from './types';
 
 // Skip all tests if no API key is set
