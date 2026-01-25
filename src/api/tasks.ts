@@ -6,6 +6,8 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
+  CursorListRequest,
+  CursorListResponse,
 } from '../types';
 
 export interface RunOptions {
@@ -43,10 +45,31 @@ export class TasksAPI {
   constructor(private readonly http: HttpClient) {}
 
   /**
+   * List tasks with cursor-based pagination
+   */
+  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
+    return this.http.request<CursorListResponse<Task>>('get', '/tasks', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * List featured tasks with cursor-based pagination
+   */
+  async listFeatured(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
+    return this.http.request<CursorListResponse<Task>>('get', '/tasks/featured', { params: params as Record<string, unknown> });
+  }
+
+  /**
    * Get a task by ID
    */
   async get(taskId: string): Promise<Task> {
     return this.http.request<Task>('get', `/tasks/${taskId}`);
+  }
+
+  /**
+   * Delete a task
+   */
+  async delete(taskId: string): Promise<void> {
+    return this.http.request<void>('delete', `/tasks/${taskId}`);
   }
 
   /**
