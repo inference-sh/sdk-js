@@ -53,10 +53,10 @@ export class TasksAPI {
   }
 
   /**
-   * List featured tasks with cursor-based pagination
+   * List featured tasks
    */
-  async listFeatured(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
-    return this.http.request<CursorListResponse<Task>>('post', '/tasks/featured/list', { data: params });
+  async listFeatured(): Promise<Task[]> {
+    return this.http.request<Task[]>('get', '/tasks/featured');
   }
 
   /**
