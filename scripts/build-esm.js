@@ -64,24 +64,83 @@ export const inference = cjs.inference;
 export const createClient = cjs.createClient;
 
 // Type constants from types.ts
-export const TaskStatusPending = cjs.TaskStatusPending;
-export const TaskStatusProcessing = cjs.TaskStatusProcessing;
+// Task status
+export const TaskStatusUnknown = cjs.TaskStatusUnknown;
+export const TaskStatusReceived = cjs.TaskStatusReceived;
+export const TaskStatusQueued = cjs.TaskStatusQueued;
+export const TaskStatusScheduled = cjs.TaskStatusScheduled;
+export const TaskStatusPreparing = cjs.TaskStatusPreparing;
+export const TaskStatusServing = cjs.TaskStatusServing;
+export const TaskStatusSettingUp = cjs.TaskStatusSettingUp;
+export const TaskStatusRunning = cjs.TaskStatusRunning;
+export const TaskStatusCancelling = cjs.TaskStatusCancelling;
+export const TaskStatusUploading = cjs.TaskStatusUploading;
 export const TaskStatusCompleted = cjs.TaskStatusCompleted;
 export const TaskStatusFailed = cjs.TaskStatusFailed;
 export const TaskStatusCancelled = cjs.TaskStatusCancelled;
+// Legacy aliases for backward compatibility
+export const TaskStatusPending = cjs.TaskStatusQueued;
+export const TaskStatusProcessing = cjs.TaskStatusRunning;
+
+// Tool types
 export const ToolTypeApp = cjs.ToolTypeApp;
 export const ToolTypeAgent = cjs.ToolTypeAgent;
 export const ToolTypeHook = cjs.ToolTypeHook;
 export const ToolTypeClient = cjs.ToolTypeClient;
 export const ToolTypeInternal = cjs.ToolTypeInternal;
+
+// Tool invocation status
 export const ToolInvocationStatusPending = cjs.ToolInvocationStatusPending;
-export const ToolInvocationStatusRunning = cjs.ToolInvocationStatusRunning;
+export const ToolInvocationStatusInProgress = cjs.ToolInvocationStatusInProgress;
+export const ToolInvocationStatusAwaitingInput = cjs.ToolInvocationStatusAwaitingInput;
+export const ToolInvocationStatusAwaitingApproval = cjs.ToolInvocationStatusAwaitingApproval;
 export const ToolInvocationStatusCompleted = cjs.ToolInvocationStatusCompleted;
 export const ToolInvocationStatusFailed = cjs.ToolInvocationStatusFailed;
-export const ToolInvocationStatusAwaitingInput = cjs.ToolInvocationStatusAwaitingInput;
+export const ToolInvocationStatusCancelled = cjs.ToolInvocationStatusCancelled;
+
+// Chat message types
+export const ChatStatusBusy = cjs.ChatStatusBusy;
+export const ChatStatusIdle = cjs.ChatStatusIdle;
+export const ChatStatusAwaitingInput = cjs.ChatStatusAwaitingInput;
+export const ChatStatusCompleted = cjs.ChatStatusCompleted;
+export const ChatMessageRoleSystem = cjs.ChatMessageRoleSystem;
+export const ChatMessageRoleUser = cjs.ChatMessageRoleUser;
+export const ChatMessageRoleAssistant = cjs.ChatMessageRoleAssistant;
+export const ChatMessageRoleTool = cjs.ChatMessageRoleTool;
+export const ChatMessageStatusPending = cjs.ChatMessageStatusPending;
+export const ChatMessageStatusReady = cjs.ChatMessageStatusReady;
+export const ChatMessageStatusFailed = cjs.ChatMessageStatusFailed;
+export const ChatMessageStatusCancelled = cjs.ChatMessageStatusCancelled;
+export const ChatMessageContentTypeText = cjs.ChatMessageContentTypeText;
+export const ChatMessageContentTypeReasoning = cjs.ChatMessageContentTypeReasoning;
+export const ChatMessageContentTypeImage = cjs.ChatMessageContentTypeImage;
+export const ChatMessageContentTypeFile = cjs.ChatMessageContentTypeFile;
+export const ChatMessageContentTypeTool = cjs.ChatMessageContentTypeTool;
+
+// Visibility
 export const VisibilityPrivate = cjs.VisibilityPrivate;
-export const VisibilityTeam = cjs.VisibilityTeam;
 export const VisibilityPublic = cjs.VisibilityPublic;
+export const VisibilityUnlisted = cjs.VisibilityUnlisted;
+
+// Flow run status
+export const FlowRunStatusUnknown = cjs.FlowRunStatusUnknown;
+export const FlowRunStatusPending = cjs.FlowRunStatusPending;
+export const FlowRunStatusRunning = cjs.FlowRunStatusRunning;
+export const FlowRunStatusCompleted = cjs.FlowRunStatusCompleted;
+export const FlowRunStatusFailed = cjs.FlowRunStatusFailed;
+export const FlowRunStatusCancelled = cjs.FlowRunStatusCancelled;
+
+// Infra
+export const InfraPrivate = cjs.InfraPrivate;
+export const InfraCloud = cjs.InfraCloud;
+export const InfraPrivateFirst = cjs.InfraPrivateFirst;
+
+// Task log types
+export const TaskLogTypeBuild = cjs.TaskLogTypeBuild;
+export const TaskLogTypeRun = cjs.TaskLogTypeRun;
+export const TaskLogTypeServe = cjs.TaskLogTypeServe;
+export const TaskLogTypeSetup = cjs.TaskLogTypeSetup;
+export const TaskLogTypeTask = cjs.TaskLogTypeTask;
 
 // Graph types
 export const GraphNodeTypeUnknown = cjs.GraphNodeTypeUnknown;
