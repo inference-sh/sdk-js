@@ -44,7 +44,7 @@
   },
   "scripts": {
     "build": "tsc && npm run build:esm",
-    "build:esm": "echo 'export * from \"./index.js\";' > dist/index.mjs && mkdir -p dist/proxy && for f in dist/proxy/*.js; do echo \"export * from \\\"./$(basename $f)\\\";\" > \"${f%.js}.mjs\"; done",
+    "build:esm": "node scripts/build-esm.js",
     "test": "jest --testPathIgnorePatterns=integration",
     "test:integration": "jest --testPathPattern=integration --testTimeout=120000 --runInBand",
     "test:all": "jest --testTimeout=120000 --runInBand",

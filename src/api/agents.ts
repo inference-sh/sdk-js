@@ -7,6 +7,7 @@ import {
   AgentConfig,
   AgentDTO,
   AgentVersionDTO,
+  CreateAgentRequest,
   File,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
@@ -262,9 +263,9 @@ export class AgentsAPI {
   }
 
   /**
-   * Create a new agent template
+   * Create a new agent template or create a new version of an existing agent
    */
-  async createAgent(data: Partial<AgentDTO>): Promise<AgentDTO> {
+  async createAgent(data: CreateAgentRequest): Promise<AgentDTO> {
     return this.http.request<AgentDTO>('post', '/agents', { data });
   }
 

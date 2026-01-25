@@ -3,6 +3,7 @@ import { StreamManager } from '../http/stream';
 import {
   TaskDTO as Task,
   ApiAppRunRequest,
+  CreateTaskRequest,
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
@@ -67,8 +68,9 @@ export class TasksAPI {
 
   /**
    * Create a task directly
+   * Accepts either simple format { app: string; input: unknown } or full CreateTaskRequest
    */
-  async create(data: { app: string; input: unknown }): Promise<Task> {
+  async create(data: CreateTaskRequest | { app: string; input: unknown }): Promise<Task> {
     return this.http.request<Task>('post', '/tasks', { data });
   }
 

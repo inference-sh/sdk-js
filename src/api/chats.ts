@@ -1,6 +1,7 @@
 import { HttpClient } from '../http/client';
 import {
   ChatDTO as Chat,
+  ChatTraceDTO,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
@@ -42,8 +43,8 @@ export class ChatsAPI {
   /**
    * Get chat trace (for debugging/observability)
    */
-  async getTrace(chatId: string): Promise<Chat> {
-    return this.http.request<Chat>('get', `/chats/${chatId}/trace`);
+  async getTrace(chatId: string): Promise<ChatTraceDTO> {
+    return this.http.request<ChatTraceDTO>('get', `/chats/${chatId}/trace`);
   }
 }
 
