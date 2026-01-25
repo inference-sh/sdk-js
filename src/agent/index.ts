@@ -62,6 +62,7 @@ export { AgentChatContext, type AgentChatContextValue } from './context';
 export type {
   // Client interface
   AgentClient,
+  UploadedFile,
   // Configuration
   AdHocAgentConfig,
   TemplateAgentConfig,

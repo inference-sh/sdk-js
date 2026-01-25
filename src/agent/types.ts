@@ -132,7 +132,9 @@ export interface AgentChatState {
  */
 export interface AgentChatActions {
   /** Send a message to the agent */
-  sendMessage: (text: string, files?: File[]) => Promise<void>;
+  sendMessage: (text: string, files?: UploadedFile[]) => Promise<void>;
+  /** Upload a file and return the uploaded file reference */
+  uploadFile: (file: File) => Promise<UploadedFile>;
   /** Stop the current generation */
   stopGeneration: () => void;
   /** Reset the chat (start fresh) */
