@@ -6,6 +6,17 @@ import {
   CursorListResponse,
 } from '../types';
 
+// Local type definition (not in generated types)
+interface LicenseRecord {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+  user_id: string;
+  app_id: string;
+  license: string;
+}
+
 /**
  * Apps API
  */
@@ -73,6 +84,34 @@ export class AppsAPI {
    */
   async transferOwnership(appId: string, newTeamId: string): Promise<App> {
     return this.http.request<App>('post', `/apps/${appId}/transfer`, { data: { team_id: newTeamId } });
+  }
+
+  /**
+   * Update app visibility
+   */
+  async updateVisibility(appId: string, visibility: string): Promise<App> {
+    return this.http.request<App>('put', `/apps/${appId}/visibility`, { data: { visibility } });
+  }
+
+  /**
+   * Get an app by name
+   */
+  async getByName(name: string): Promise<App> {
+    return this.http.request<App>('get', `/apps/name/${name}`);
+  }
+
+  /**
+   * Get app license record
+   */
+  async getLicense(appId: string): Promise<LicenseRecord> {
+    return this.http.request<LicenseRecord>('get', `/apps/${appId}/license`);
+  }
+
+  /**
+   * Save app license
+   */
+  async saveLicense(appId: string, license: string): Promise<LicenseRecord> {
+    return this.http.request<LicenseRecord>('put', `/apps/${appId}/license`, { data: { license } });
   }
 }
 
