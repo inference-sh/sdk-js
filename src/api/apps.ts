@@ -16,7 +16,7 @@ export class AppsAPI {
    * List apps with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<App>> {
-    return this.http.request<CursorListResponse<App>>('get', '/apps', { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<App>>('get', '/apps', { params: params });
   }
 
   /**
@@ -65,7 +65,7 @@ export class AppsAPI {
    * List app versions
    */
   async listVersions(appId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AppVersionDTO>> {
-    return this.http.request<CursorListResponse<AppVersionDTO>>('get', `/apps/${appId}/versions`, { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<AppVersionDTO>>('get', `/apps/${appId}/versions`, { params: params });
   }
 
   /**
