@@ -94,10 +94,10 @@ export class AppsAPI {
   }
 
   /**
-   * Get an app by name
+   * Get an app by namespace and name (e.g., "inference/claude-haiku")
    */
   async getByName(name: string): Promise<App> {
-    return this.http.request<App>('get', `/apps/name/${name}`);
+    return this.http.request<App>('get', `/apps/${name}`);
   }
 
   /**
