@@ -1,9 +1,9 @@
 /**
  * Basic usage example for @inferencesh/sdk
  *
- * Run with: node examples/basic.cjs
+ * Run with: node examples/basic.js
  */
-const { inference, TaskStatusCompleted, TaskStatusFailed } = require('@inferencesh/sdk');
+import { inference, TaskStatusCompleted, TaskStatusFailed } from '@inferencesh/sdk';
 
 // Initialize client
 const client = inference({
@@ -11,7 +11,7 @@ const client = inference({
 });
 
 async function main() {
-  console.log('🚀 Running basic example...\n');
+  console.log('Running basic example...\n');
 
   try {
     // Run a task and wait for completion
@@ -22,14 +22,13 @@ async function main() {
       },
     });
 
-    console.log('✅ Task completed!');
+    console.log('Task completed!');
     console.log('   ID:', result.id);
     console.log('   Status:', result.status);
     console.log('   Output:', JSON.stringify(result.output, null, 2));
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('Error:', error.message);
   }
 }
 
 main();
-
