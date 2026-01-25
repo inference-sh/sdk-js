@@ -252,7 +252,7 @@ export class AgentsAPI {
    * List agent templates with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentDTO>> {
-    return this.http.request<CursorListResponse<AgentDTO>>('get', '/agents', { params: params });
+    return this.http.request<CursorListResponse<AgentDTO>>('post', '/agents/list', { data: params });
   }
 
   /**
@@ -294,7 +294,7 @@ export class AgentsAPI {
    * List agent template versions
    */
   async listVersions(agentId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentVersionDTO>> {
-    return this.http.request<CursorListResponse<AgentVersionDTO>>('get', `/agents/${agentId}/versions`, { params: params });
+    return this.http.request<CursorListResponse<AgentVersionDTO>>('post', `/agents/${agentId}/versions/list`, { data: params });
   }
 
   /**
