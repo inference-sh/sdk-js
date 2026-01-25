@@ -299,7 +299,9 @@ export interface APIError {
 }
 /**
  * ApiAppRunRequest is the request body for /apps/run endpoint.
- * Version pinning is required for stability.
+ * Supports two ways to specify the app:
+ * 1. App ref (recommended): "namespace/name@shortid" in the App field
+ * 2. Direct IDs: app_id + version_id fields (for internal platform use)
  */
 export interface ApiAppRunRequest {
   /**
@@ -307,11 +309,12 @@ export interface ApiAppRunRequest {
    * Example: "okaris/flux@abc1"
    * The short ID ensures your code always runs the same version.
    */
-  app: string;
+  app?: string;
   /**
-   * Deprecated: Use namespace/name@shortid format in App field instead.
+   * Alternative: specify app by ID (for internal use)
    */
-  version?: string;
+  app_id?: string;
+  version_id?: string;
   infra?: Infra;
   workers?: string[];
   webhook?: string;
@@ -437,6 +440,27 @@ export interface CreateFlowRequest {
 export interface CreateFlowRunRequest {
   flow: string;
   input: any;
+}
+/**
+ * CreateAgentRequest is the request body for POST /agents
+ * For new agents: omit ID, backend generates it
+ * For new version of existing agent: include ID
+ */
+export interface CreateAgentRequest {
+  /**
+   * Existing agent ID (if updating/versioning)
+   */
+  id?: string;
+  /**
+   * Agent metadata
+   */
+  name: string;
+  namespace?: string;
+  images?: AgentImages;
+  /**
+   * Version config (embedded - backend generates version ID, timestamps, etc)
+   */
+  version?: AgentConfig;
 }
 /**
  * SDKTypes is a phantom struct that references types needed by the SDK.
@@ -1311,6 +1335,78 @@ export type FlowRunInputs = { [key: string]: { [key: string]: FlowRunInput}};
 export interface FlowRunInput {
   Connection?: FlowNodeConnection;
   Value: any;
+}
+
+//////////
+// source: graph.go
+
+export type GraphNodeType = string;
+export const GraphNodeTypeUnknown: GraphNodeType = "unknown";
+export const GraphNodeTypeJoin: GraphNodeType = "join";
+export const GraphNodeTypeSplit: GraphNodeType = "split";
+export const GraphNodeTypeExecution: GraphNodeType = "execution";
+export const GraphNodeTypeResource: GraphNodeType = "resource";
+export const GraphNodeTypeApproval: GraphNodeType = "approval";
+export const GraphNodeTypeConditional: GraphNodeType = "conditional";
+export const GraphNodeTypeFlowNode: GraphNodeType = "flow_node"; // Flow execution node
+/**
+ * GraphNodeStatus represents the status of a node
+ */
+export type GraphNodeStatus = string;
+export const GraphNodeStatusPending: GraphNodeStatus = "pending";
+export const GraphNodeStatusReady: GraphNodeStatus = "ready"; // Dependencies satisfied
+export const GraphNodeStatusRunning: GraphNodeStatus = "running";
+export const GraphNodeStatusCompleted: GraphNodeStatus = "completed";
+export const GraphNodeStatusFailed: GraphNodeStatus = "failed";
+export const GraphNodeStatusCancelled: GraphNodeStatus = "cancelled";
+export const GraphNodeStatusSkipped: GraphNodeStatus = "skipped"; // Conditional branch not taken
+export const GraphNodeStatusBlocked: GraphNodeStatus = "blocked"; // Dependency failed
+/**
+ * GraphEdgeType defines the type of edge relationship
+ */
+export type GraphEdgeType = string;
+export const GraphEdgeTypeDependency: GraphEdgeType = "dependency"; // Blocking dependency
+export const GraphEdgeTypeFlow: GraphEdgeType = "flow"; // Non-blocking flow
+export const GraphEdgeTypeConditional: GraphEdgeType = "conditional"; // Conditional flow
+export const GraphEdgeTypeExecution: GraphEdgeType = "execution"; // Node → Resource execution link
+/**
+ * GraphNodeDTO is the API representation of a graph node
+ */
+export interface GraphNodeDTO extends BaseModel {
+  graph_id: string;
+  type: GraphNodeType;
+  label: string;
+  resource_id: string;
+  resource_type: string;
+  status: GraphNodeStatus;
+  metadata?: StringEncodedMap;
+  ready_at?: string /* RFC3339 */;
+  started_at?: string /* RFC3339 */;
+  completed_at?: string /* RFC3339 */;
+  duration_ms?: number /* int64 */;
+}
+/**
+ * GraphEdgeDTO is the API representation of a graph edge
+ */
+export interface GraphEdgeDTO extends BaseModel {
+  type: GraphEdgeType;
+  from_node: string;
+  to_node: string;
+}
+/**
+ * ChatTraceDTO is the trace response for chat observability
+ */
+export interface ChatTraceDTO {
+  graph_id: string;
+  nodes: (GraphNodeDTO | undefined)[];
+  edges: (GraphEdgeDTO | undefined)[];
+  /**
+   * Summary stats
+   */
+  total_steps: number /* int */;
+  completed_steps: number /* int */;
+  running_steps: number /* int */;
+  failed_steps: number /* int */;
 }
 
 //////////
@@ -2254,11 +2350,9 @@ export interface WidgetNode {
   max?: string; // for DatePicker - max date
   clearable?: boolean; // for Select/DatePicker
   /**
-   * Action handlers for interactive elements
+   * Action handler for buttons (form data is collected locally and sent with action)
    */
   onClickAction?: WidgetAction; // for Button
-  onChangeAction?: WidgetAction; // for Input, Select
-  onCheckedChangeAction?: WidgetAction; // for Checkbox
   /**
    * Content props (Icon, Spacer, Divider, Chart)
    */
