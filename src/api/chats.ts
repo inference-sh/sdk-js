@@ -10,7 +10,7 @@ import {
  * Chats API
  */
 export class ChatsAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List chats with cursor-based pagination
@@ -30,7 +30,7 @@ export class ChatsAPI {
    * Update a chat
    */
   async update(chatId: string, data: Partial<Chat>): Promise<Chat> {
-    return this.http.request<Chat>('put', `/chats/${chatId}`, { data });
+    return this.http.request<Chat>('post', `/chats/${chatId}`, { data });
   }
 
   /**

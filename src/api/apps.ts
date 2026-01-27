@@ -21,7 +21,7 @@ interface LicenseRecord {
  * Apps API
  */
 export class AppsAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List apps with cursor-based pagination
@@ -55,7 +55,7 @@ export class AppsAPI {
    * Update an app
    */
   async update(appId: string, data: Partial<App>): Promise<App> {
-    return this.http.request<App>('put', `/apps/${appId}`, { data });
+    return this.http.request<App>('post', `/apps/${appId}`, { data });
   }
 
   /**
@@ -90,7 +90,7 @@ export class AppsAPI {
    * Update app visibility
    */
   async updateVisibility(appId: string, visibility: string): Promise<App> {
-    return this.http.request<App>('put', `/apps/${appId}/visibility`, { data: { visibility } });
+    return this.http.request<App>('post', `/apps/${appId}/visibility`, { data: { visibility } });
   }
 
   /**
@@ -111,7 +111,7 @@ export class AppsAPI {
    * Save app license
    */
   async saveLicense(appId: string, license: string): Promise<LicenseRecord> {
-    return this.http.request<LicenseRecord>('put', `/apps/${appId}/license`, { data: { license } });
+    return this.http.request<LicenseRecord>('post', `/apps/${appId}/license`, { data: { license } });
   }
 }
 

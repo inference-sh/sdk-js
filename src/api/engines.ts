@@ -9,7 +9,7 @@ import {
  * Engines API
  */
 export class EnginesAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List engines with cursor-based pagination
@@ -43,7 +43,7 @@ export class EnginesAPI {
    * Update an engine
    */
   async update(engineId: string, data: Partial<Engine>): Promise<Engine> {
-    return this.http.request<Engine>('put', `/engines/${engineId}`, { data });
+    return this.http.request<Engine>('post', `/engines/${engineId}`, { data });
   }
 
   /**
