@@ -75,6 +75,13 @@ export class FlowsAPI {
   async transferOwnership(flowId: string, newTeamId: string): Promise<Flow> {
     return this.http.request<Flow>('post', `/flows/${flowId}/transfer`, { data: { team_id: newTeamId } });
   }
+
+  /**
+   * Stream flow updates
+   */
+  stream(flowId: string) {
+    return this.http.createEventSource(`/flows/${flowId}/stream`);
+  }
 }
 
 export function createFlowsAPI(http: HttpClient): FlowsAPI {
