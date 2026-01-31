@@ -1041,6 +1041,7 @@ export interface SortOrder {
  */
 export interface CursorListRequest {
   cursor: string;
+  page: number /* int */; // Page number for offset-based pagination (used when Cursor is empty)
   limit: number /* int */;
   direction: string;
   search?: SearchRequest;
