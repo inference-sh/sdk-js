@@ -142,6 +142,8 @@ class AppToolBuilder extends ToolBuilder {
   private appRef: string;
   private setupValues?: Record<string, unknown>;
   private inputValues?: Record<string, unknown>;
+  private functionName?: string;
+  private sessionEnabledValue = false;
 
   constructor(name: string, appRef: string) {
     super(name);
@@ -160,6 +162,18 @@ class AppToolBuilder extends ToolBuilder {
     return this;
   }
 
+  /** Set which function to call on multi-function apps */
+  function(name: string): this {
+    this.functionName = name;
+    return this;
+  }
+
+  /** Enable session support (agent can pass session parameter and sees session_id in output) */
+  sessionEnabled(): this {
+    this.sessionEnabledValue = true;
+    return this;
+  }
+
   build(): AgentTool {
     return {
       name: this.name,
@@ -169,6 +183,8 @@ class AppToolBuilder extends ToolBuilder {
       require_approval: this.approval || undefined,
       app: {
         ref: this.appRef,
+        function: this.functionName,
+        session_enabled: this.sessionEnabledValue || undefined,
         setup: this.setupValues,
         input: this.inputValues,
       },

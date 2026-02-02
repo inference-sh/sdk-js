@@ -225,6 +225,42 @@ describe('AppToolBuilder (appTool)', () => {
     expect(t.name).toBe('fetch');
     // Note: App tools don't use client input_schema, params are for documentation
   });
+
+  it('supports function selection for multi-function apps', () => {
+    const t = appTool('upscale', 'infsh/sdxl@v1')
+      .function('upscale')
+      .describe('Upscale an image')
+      .build();
+
+    expect(t.app?.function).toBe('upscale');
+  });
+
+  it('supports session enabled for stateful apps', () => {
+    const t = appTool('browser', 'infsh/browser-use@v1')
+      .sessionEnabled()
+      .describe('Control a browser')
+      .build();
+
+    expect(t.app?.session_enabled).toBe(true);
+  });
+
+  it('supports full configuration with function and session', () => {
+    const t = appTool('chat', 'infsh/chatbot@v1')
+      .describe('Chat with context')
+      .function('stream')
+      .sessionEnabled()
+      .setup({ api_key: 'secret' })
+      .input({ temperature: 0.7 })
+      .build();
+
+    expect(t.app).toEqual({
+      ref: 'infsh/chatbot@v1',
+      function: 'stream',
+      session_enabled: true,
+      setup: { api_key: 'secret' },
+      input: { temperature: 0.7 },
+    });
+  });
 });
 
 describe('AgentToolBuilder (agentTool)', () => {
