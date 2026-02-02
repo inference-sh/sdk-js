@@ -369,6 +369,10 @@ export interface ApiAppRunRequest {
    * When using sessions, the worker is leased and state persists across calls
    */
   session?: string;
+  /**
+   * Session timeout in seconds (1-3600). Only valid when session="new"
+   */
+  session_timeout?: number /* int */;
 }
 /**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
@@ -881,6 +885,10 @@ export interface AppSession {
    */
   call_count: number /* int */;
   last_call_at?: string /* RFC3339 */;
+  /**
+   * Custom idle timeout in seconds (nil = use default)
+   */
+  idle_timeout?: number /* int */;
   /**
    * Relations
    */
@@ -2006,6 +2014,10 @@ export interface Task {
    */
   session_id?: string;
   session?: AppSession;
+  /**
+   * Session timeout in seconds (only used when session="new")
+   */
+  session_timeout?: number /* int */;
 }
 export interface TaskEvent {
   id: string;
@@ -2065,6 +2077,7 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   transaction_id?: string;
   transaction?: Transaction;
   session_id?: string;
+  session_timeout?: number /* int */;
 }
 export interface TimescaleTask {
   id: string;
