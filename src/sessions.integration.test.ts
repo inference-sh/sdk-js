@@ -282,7 +282,8 @@ describeIfApiKey('Sessions Integration Tests', () => {
       // Get session info via API
       const sessionInfo = await client.sessions.get(sessionId);
 
-      expect(sessionInfo.BaseModel.id).toBe(sessionId);
+      // API returns flattened structure (Go embedded structs)
+      expect((sessionInfo as any).id).toBe(sessionId);
       expect(sessionInfo.status).toBe('active');
       expect(sessionInfo.call_count).toBeGreaterThanOrEqual(1);
     }, 60000);
@@ -309,7 +310,8 @@ describeIfApiKey('Sessions Integration Tests', () => {
       // Keepalive
       const updated = await client.sessions.keepalive(sessionId);
 
-      expect(updated.BaseModel.id).toBe(sessionId);
+      // API returns flattened structure (Go embedded structs)
+      expect((updated as any).id).toBe(sessionId);
       expect(updated.status).toBe('active');
     }, 60000);
 
