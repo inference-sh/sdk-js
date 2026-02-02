@@ -15,7 +15,6 @@ import type {
   AgentTool,
   AgentConfig as GeneratedAgentConfig,
   CoreAppConfig,
-  File as FileDTO,
 } from '../types';
 import type { HttpClient } from '../http/client';
 import type { StreamManager } from '../http/stream';
@@ -45,15 +44,6 @@ export interface AgentClient {
   };
 }
 
-// Re-export types that consumers might need
-export type {
-  ChatMessageDTO,
-  ChatDTO,
-  ToolInvocationDTO,
-  ChatMessageContent,
-  ChatMessageRole,
-  TaskStatus,
-};
 
 // =============================================================================
 // Agent Configuration
@@ -62,6 +52,26 @@ export type {
 /**
  * Configuration for an ad-hoc agent - extends generated AgentConfig
  * Adds support for ClientTool (browser-side tool handlers)
+ *
+ * @example
+ * ```ts
+ * const config: AdHocAgentConfig = {
+ *   core_app: { ref: 'openrouter/claude-sonnet-4@abc123' },
+ *   system_prompt: 'You are a helpful assistant.',
+ *   skills: [
+ *     {
+ *       name: 'code-review',
+ *       description: 'Guidelines for reviewing code',
+ *       content: '# Code Review\n\nWhen reviewing code...'
+ *     },
+ *     {
+ *       name: 'api-docs',
+ *       description: 'API documentation',
+ *       url: 'https://example.com/skills/api-docs.md'
+ *     }
+ *   ]
+ * }
+ * ```
  */
 export type AdHocAgentConfig = Omit<Partial<GeneratedAgentConfig>, 'tools' | 'core_app'> & {
   /** Core LLM app configuration (required for ad-hoc agents) */
