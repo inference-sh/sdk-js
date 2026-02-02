@@ -324,6 +324,15 @@ export interface ApiAppRunRequest {
    * If true, returns SSE stream instead of JSON response
    */
   stream?: boolean;
+  /**
+   * Function to call on multi-function apps (defaults to "run" or app's default_function)
+   */
+  function?: string;
+  /**
+   * Session control: "new" to start a new session, "sess_xxx" to continue existing session
+   * When using sessions, the worker is leased and state persists across calls
+   */
+  session?: string;
 }
 /**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
@@ -806,6 +815,44 @@ export interface AppVersionDTO extends BaseModel {
 }
 
 //////////
+// source: app_session.go
+
+export type AppSessionStatus = string;
+export const AppSessionStatusActive: AppSessionStatus = "active";
+export const AppSessionStatusEnded: AppSessionStatus = "ended";
+export const AppSessionStatusExpired: AppSessionStatus = "expired";
+export interface AppSession {
+  BaseModel: BaseModel;
+  PermissionModel: PermissionModel;
+  /**
+   * Affinity binding
+   */
+  worker_id: string;
+  app_id: string;
+  app_version_id: string;
+  /**
+   * Lifecycle
+   */
+  status: AppSessionStatus;
+  expires_at: string /* RFC3339 */;
+  ended_at?: string /* RFC3339 */;
+  /**
+   * Billing link
+   */
+  task_id?: string;
+  /**
+   * Stats
+   */
+  call_count: number /* int */;
+  last_call_at?: string /* RFC3339 */;
+  /**
+   * Relations
+   */
+  worker?: WorkerState;
+  task?: Task;
+}
+
+//////////
 // source: base.go
 
 export interface BaseModel {
@@ -1088,6 +1135,19 @@ export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
+export interface EngineState {
+  BaseModel: BaseModel;
+  PermissionModel: PermissionModel;
+  instance?: Instance;
+  transaction_id: string;
+  config: EngineConfig;
+  public_key: string;
+  name: string;
+  api_url: string;
+  status: EngineStatus;
+  system_info?: SystemInfo;
+  workers: (WorkerState | undefined)[];
+}
 export interface EngineStateDTO extends BaseModel, PermissionModelDTO {
   instance?: Instance;
   config: EngineConfig;
@@ -1107,6 +1167,32 @@ export interface EngineStateSummary extends BaseModel, PermissionModelDTO {
  * Worker-related types
  */
 export type WorkerStatus = string;
+export interface WorkerState {
+  BaseModel: BaseModel;
+  PermissionModel: PermissionModel;
+  index: number /* int */;
+  status: WorkerStatus;
+  status_updated_at?: string /* RFC3339 */;
+  engine_id: string;
+  engine?: EngineState;
+  task_id?: string;
+  app_id: string;
+  app_version_id: string;
+  /**
+   * App session lease
+   */
+  active_session_id?: string;
+  active_session?: AppSession;
+  gpus: WorkerGPU[];
+  cpus: WorkerCPU[];
+  rams: WorkerRAM[];
+  /**
+   * WarmApps tracks app+version combos with warm containers for scheduling optimization.
+   * Format: "appID:versionID@setupHash" - managed by Engine, synced via heartbeat.
+   * Not persisted to DB - this is ephemeral runtime state.
+   */
+  warm_apps?: string[];
+}
 export interface WorkerGPU {
   id: string;
   worker_id: string;
@@ -1139,10 +1225,12 @@ export interface WorkerStateDTO extends BaseModel {
   task_id?: string;
   app_id: string;
   app_version_id: string;
+  active_session_id?: string;
   gpus: WorkerGPU[];
   cpus: WorkerCPU[];
   rams: WorkerRAM[];
   system_info: SystemInfo;
+  warm_apps?: string[];
 }
 export interface WorkerStateSummary {
   id: string;
@@ -1154,6 +1242,7 @@ export interface WorkerStateSummary {
   task_id?: string;
   app_id: string;
   app_version_id: string;
+  active_session_id?: string;
   gpus: WorkerGPU[];
   cpus: WorkerCPU[];
   rams: WorkerRAM[];
@@ -1561,6 +1650,18 @@ export interface SetupAction {
 }
 
 //////////
+// source: secrets.go
+
+/**
+ * SecretRef tracks which Secret record provided a value for a task (for billing)
+ */
+export interface SecretRef {
+  key: string;
+  id: string;
+  team_id: string;
+}
+
+//////////
 // source: shadeform.go
 
 export type InstanceCloudProvider = string;
@@ -1807,6 +1908,69 @@ export type Infra = string;
 export const InfraPrivate: Infra = "private";
 export const InfraCloud: Infra = "cloud";
 export const InfraPrivateFirst: Infra = "private_first";
+export interface Task {
+  BaseModel: BaseModel;
+  PermissionModel: PermissionModel;
+  is_featured: boolean;
+  status: TaskStatus;
+  /**
+   * Foreign keys
+   */
+  app_id: string;
+  app?: App;
+  version_id: string;
+  app_version?: AppVersion;
+  /**
+   * Deprecated: Will be removed in favor of Setup
+   */
+  variant: string;
+  /**
+   * Function is the specific function to call on multi-function apps.
+   * DEPRECATED: Standardizing on explicit function name.
+   * Defaults to "run" for legacy tasks (backfilled via migration).
+   */
+  function: string;
+  infra: Infra;
+  workers: string[];
+  engine_id?: string;
+  engine?: EngineState;
+  worker_id?: string;
+  worker?: WorkerState;
+  /**
+   * Belongs to:
+   */
+  flow_run_id?: string;
+  chat_id?: string;
+  /**
+   * Owns: (Can be replaced with graph execution edge/node)
+   */
+  sub_flow_run_id?: string;
+  webhook?: string;
+  setup?: any;
+  input: any;
+  output: any;
+  error: string;
+  rating: ContentRating;
+  /**
+   * Relationships
+   */
+  events: TaskEvent[];
+  logs: TaskLog[];
+  telemetry: TimescaleTask[];
+  usage_events: (UsageEvent | undefined)[];
+  transaction_id?: string;
+  transaction?: Transaction;
+  /**
+   * Secret refs for billing (tracks ownership to determine partner fee)
+   */
+  secrets?: SecretRef[];
+  /**
+   * App session reference (for session calls)
+   * Special value "new" means scheduler should create session when dispatching.
+   */
+  session_id?: string;
+  session?: AppSession;
+}
 export interface TaskEvent {
   id: string;
   created_at: string /* RFC3339 */;
@@ -1864,6 +2028,7 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   usage_events: (UsageEvent | undefined)[];
   transaction_id?: string;
   transaction?: Transaction;
+  session_id?: string;
 }
 export interface TimescaleTask {
   id: string;
