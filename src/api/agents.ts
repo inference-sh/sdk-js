@@ -113,7 +113,7 @@ export class Agent {
       : {
         chat_id: this.chatId,
         agent_config: this.config as AgentConfig,
-        agent_name: this.agentName,
+        agent_name: this.agentName ?? (this.config as AgentConfig).name,
         input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
 
