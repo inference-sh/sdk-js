@@ -19,6 +19,16 @@ import type {
   ActionsResult,
 } from './types';
 
+function mergeHandlers(
+  base: Map<string, ClientToolHandlerFn>,
+  extra?: Map<string, ClientToolHandlerFn>,
+): Map<string, ClientToolHandlerFn> {
+  if (!extra || extra.size === 0) return base;
+  const merged = new Map(base);
+  for (const [k, v] of extra) merged.set(k, v);
+  return merged;
+}
+
 /**
  * AgentChatProvider - Provides chat state and actions to children
  *
@@ -45,6 +55,7 @@ export function AgentChatProvider({
   client,
   agentConfig,
   chatId,
+  clientToolHandlers: extraHandlers,
   onChatCreated,
   onStatusChange,
   onError,
@@ -58,7 +69,7 @@ export function AgentChatProvider({
   const chatIdRef = useRef<string | null>(chatId ?? null);
   const streamManagerRef = useRef<StreamManager<unknown> | undefined>(undefined);
   const clientToolHandlersRef = useRef<Map<string, ClientToolHandlerFn>>(
-    getClientToolHandlers(agentConfig)
+    mergeHandlers(getClientToolHandlers(agentConfig), extraHandlers)
   );
   const callbacksRef = useRef<{
     onChatCreated?: (chatId: string) => void;
@@ -69,8 +80,8 @@ export function AgentChatProvider({
   // Keep refs in sync with props
   useEffect(() => {
     configRef.current = agentConfig;
-    clientToolHandlersRef.current = getClientToolHandlers(agentConfig);
-  }, [agentConfig]);
+    clientToolHandlersRef.current = mergeHandlers(getClientToolHandlers(agentConfig), extraHandlers);
+  }, [agentConfig, extraHandlers]);
 
   useEffect(() => {
     callbacksRef.current = { onChatCreated, onStatusChange, onError };

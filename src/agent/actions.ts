@@ -72,7 +72,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
           if (!handler) {
             console.warn(`[AgentSDK] No handler for client tool: ${functionName}`);
             api.submitToolResult(client, invocation.id, JSON.stringify({
-              error: `No handler registered for tool: ${functionName}`
+              status: 'not_available',
+              message: `Client tool "${functionName}" is not available in this environment`,
             }));
             continue;
           }

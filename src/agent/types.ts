@@ -175,6 +175,8 @@ export interface AgentChatProviderProps {
   agentConfig: AgentOptions;
   /** Optional existing chat ID to continue */
   chatId?: string;
+  /** Extra client tool handlers, merged with any from agentConfig. Use with TemplateAgentConfig to handle tools defined server-side. */
+  clientToolHandlers?: Map<string, ClientToolHandlerFn>;
   /** Callback when a new chat is created */
   onChatCreated?: (chatId: string) => void;
   /** Callback when chat status changes */
