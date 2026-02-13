@@ -405,6 +405,16 @@ export interface ApiAgentRunRequest {
    */
   stream?: boolean;
 }
+/**
+ * EmbedAgentRunRequest is the embed variant of ApiAgentRunRequest.
+ * Only template agents are supported (no ad-hoc configs).
+ */
+export interface EmbedAgentRunRequest {
+  chat_id?: string;
+  agent: string;
+  input: ChatTaskInput;
+  stream?: boolean;
+}
 export interface CreateAgentMessageRequest {
   chat_id?: string;
   agent_id?: string; // Deprecated: use Agent instead
