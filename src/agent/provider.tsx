@@ -6,7 +6,7 @@
  */
 
 import React, { useReducer, useRef, useEffect, useMemo } from 'react';
-import { StreamManager } from '../http/stream';
+import type { UpdateManager } from './types';
 import { AgentChatContext, type AgentChatContextValue } from './context';
 import { chatReducer, initialState } from './reducer';
 import { createActions, getClientToolHandlers } from './actions';
@@ -59,6 +59,8 @@ export function AgentChatProvider({
   onChatCreated,
   onStatusChange,
   onError,
+  stream,
+  pollIntervalMs,
   children,
 }: AgentChatProviderProps) {
   // Core state via useReducer
@@ -67,7 +69,9 @@ export function AgentChatProvider({
   // Refs for mutable values that actions need access to
   const configRef = useRef<AgentOptions | null>(agentConfig);
   const chatIdRef = useRef<string | null>(chatId ?? null);
-  const streamManagerRef = useRef<StreamManager<unknown> | undefined>(undefined);
+  const streamManagerRef = useRef<UpdateManager | undefined>(undefined);
+  const streamRef = useRef<boolean | undefined>(stream);
+  const pollIntervalMsRef = useRef<number | undefined>(pollIntervalMs);
   const clientToolHandlersRef = useRef<Map<string, ClientToolHandlerFn>>(
     mergeHandlers(getClientToolHandlers(agentConfig), extraHandlers)
   );
@@ -87,6 +91,11 @@ export function AgentChatProvider({
     callbacksRef.current = { onChatCreated, onStatusChange, onError };
   }, [onChatCreated, onStatusChange, onError]);
 
+  useEffect(() => {
+    streamRef.current = stream;
+    pollIntervalMsRef.current = pollIntervalMs;
+  }, [stream, pollIntervalMs]);
+
   // Keep chatIdRef synced with state
   useEffect(() => {
     chatIdRef.current = state.chatId;
@@ -101,6 +110,8 @@ export function AgentChatProvider({
     getClientToolHandlers: () => clientToolHandlersRef.current,
     getStreamManager: () => streamManagerRef.current,
     setStreamManager: (manager) => { streamManagerRef.current = manager; },
+    getStreamEnabled: () => streamRef.current ?? client.http.getStreamDefault(),
+    getPollIntervalMs: () => pollIntervalMsRef.current ?? client.http.getPollIntervalMs(),
     callbacks: callbacksRef.current,
   }), [client]);
 

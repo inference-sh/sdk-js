@@ -1,6 +1,7 @@
 // HTTP utilities
 export { HttpClient, HttpClientConfig, ErrorHandler, createHttpClient } from './http/client';
 export { StreamManager, StreamManagerOptions, PartialDataWrapper } from './http/stream';
+export { PollManager, PollManagerOptions } from './http/poll';
 export {
   InferenceError,
   RequirementsNotMetException,
@@ -72,6 +73,15 @@ export interface InferenceConfig {
    * When set, requests are routed through your proxy server to protect API keys.
    */
   proxyUrl?: string;
+  /**
+   * Use SSE streaming (true, default) or polling (false) for real-time updates.
+   * Set to false for environments that can't maintain long-lived connections.
+   */
+  stream?: boolean;
+  /**
+   * Polling interval in milliseconds when stream is false (default: 2000).
+   */
+  pollIntervalMs?: number;
 }
 
 /**
@@ -105,6 +115,8 @@ export class Inference {
       headers: 'headers' in config ? config.headers : undefined,
       credentials: 'credentials' in config ? config.credentials : undefined,
       onError: 'onError' in config ? config.onError : undefined,
+      stream: 'stream' in config ? config.stream : undefined,
+      pollIntervalMs: 'pollIntervalMs' in config ? config.pollIntervalMs : undefined,
     });
     this.files = new FilesAPI(this.http);
     this.tasks = new TasksAPI(this.http);

@@ -32,6 +32,16 @@ export interface HttpClientConfig {
    * Can be used for retry logic, auth refresh, OTP handling, etc.
    */
   onError?: ErrorHandler;
+  /**
+   * Use polling instead of SSE for real-time updates (default: true = SSE).
+   * Set to false for environments that can't maintain long-lived connections
+   * (Convex actions, Cloudflare Workers, restricted edge runtimes).
+   */
+  stream?: boolean;
+  /**
+   * Polling interval in milliseconds when stream is false (default: 2000).
+   */
+  pollIntervalMs?: number;
 }
 
 /**
@@ -48,6 +58,8 @@ export class HttpClient {
   private readonly customHeaders: Record<string, string | (() => string | undefined)>;
   private readonly credentials: RequestCredentials;
   private readonly onError: ErrorHandler | undefined;
+  private readonly streamDefault: boolean;
+  private readonly pollInterval: number;
 
   constructor(config: HttpClientConfig) {
     // Either apiKey, getToken, or proxyUrl must be provided
@@ -61,11 +73,23 @@ export class HttpClient {
     this.customHeaders = config.headers || {};
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
+    this.streamDefault = config.stream ?? true;
+    this.pollInterval = config.pollIntervalMs ?? 2000;
   }
 
   /** Get the base URL */
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  /** Whether SSE streaming is the default transport (true) or polling (false) */
+  getStreamDefault(): boolean {
+    return this.streamDefault;
+  }
+
+  /** Get the default poll interval in ms */
+  getPollIntervalMs(): number {
+    return this.pollInterval;
   }
 
   /** Check if in proxy mode */

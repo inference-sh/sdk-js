@@ -327,6 +327,12 @@ export interface APIResponse<T extends any> {
   data?: T;
   error?: APIError;
 }
+/** Lightweight status-only response for polling transports */
+export interface ResourceStatusDTO {
+  id: string;
+  status: any;
+  updated_at: string;
+}
 export interface APIError {
   code: string;
   message: string;

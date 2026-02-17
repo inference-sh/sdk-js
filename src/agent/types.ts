@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import type { HttpClient } from '../http/client';
 import type { StreamManager } from '../http/stream';
+import type { PollManager } from '../http/poll';
 
 // =============================================================================
 // Client Interface
@@ -37,7 +38,7 @@ export interface UploadedFile {
  */
 export interface AgentClient {
   /** HTTP client for API requests */
-  http: Pick<HttpClient, 'request' | 'createEventSource'>;
+  http: Pick<HttpClient, 'request' | 'createEventSource' | 'getStreamDefault' | 'getPollIntervalMs'>;
   /** Files API for uploads */
   files: {
     upload: (data: string | Blob | globalThis.File) => Promise<UploadedFile>;
@@ -183,6 +184,10 @@ export interface AgentChatProviderProps {
   onStatusChange?: (status: ChatStatus) => void;
   /** Callback when an error occurs */
   onError?: (error: Error) => void;
+  /** Use SSE streaming (true, default) or polling (false) for real-time updates */
+  stream?: boolean;
+  /** Polling interval in ms when stream is false (default: 2000) */
+  pollIntervalMs?: number;
   /** Children */
   children: React.ReactNode;
 }
@@ -256,14 +261,19 @@ export type ChatAction =
 /**
  * Context for action creators
  */
+/** Union of manager types used for real-time updates */
+export type UpdateManager = StreamManager<unknown> | PollManager<unknown>;
+
 export interface ActionsContext {
   client: AgentClient;
   dispatch: Dispatch<ChatAction>;
   getConfig: () => AgentOptions | null;
   getChatId: () => string | null;
   getClientToolHandlers: () => Map<string, ClientToolHandlerFn>;
-  getStreamManager: () => StreamManager<unknown> | undefined;
-  setStreamManager: (manager: StreamManager<unknown> | undefined) => void;
+  getStreamManager: () => UpdateManager | undefined;
+  setStreamManager: (manager: UpdateManager | undefined) => void;
+  getStreamEnabled: () => boolean;
+  getPollIntervalMs: () => number;
   callbacks: {
     onChatCreated?: (chatId: string) => void;
     onStatusChange?: (status: ChatStatus) => void;
