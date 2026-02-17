@@ -186,7 +186,20 @@ describe('ClientToolBuilder (tool)', () => {
         name: { type: 'string', description: 'Name' },
         email: { type: 'string', description: 'Email' },
       },
+      required: ['name', 'email'],
     });
+  });
+
+  it('propagates required into nested objects with optional fields', () => {
+    const t = tool('update_user')
+      .param('user', object({
+        name: string('Name'),
+        bio: optional(string('Bio')),
+      }))
+      .build();
+
+    const userProp = t.client?.input_schema.properties?.user as Record<string, unknown>;
+    expect(userProp.required).toEqual(['name']);
   });
 
   it('creates tool with array parameters', () => {

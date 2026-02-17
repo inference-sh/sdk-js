@@ -264,6 +264,28 @@ await agent.sendMessage('What is the weather in Paris?', {
 });
 ```
 
+### Structured Output
+
+Use `output_schema` to get structured JSON responses:
+
+```typescript
+const agent = client.agents.create({
+  core_app: { ref: 'infsh/claude-sonnet-4@latest' },
+  output_schema: {
+    type: 'object',
+    properties: {
+      summary: { type: 'string' },
+      sentiment: { type: 'string', enum: ['positive', 'negative', 'neutral'] },
+      confidence: { type: 'number' },
+    },
+    required: ['summary', 'sentiment', 'confidence'],
+  },
+  internal_tools: { finish: true },
+});
+
+const response = await agent.sendMessage('Analyze: Great product!');
+```
+
 ### Agent Methods
 
 | Method | Description |
