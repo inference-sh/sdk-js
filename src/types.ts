@@ -1074,6 +1074,7 @@ export interface ChatDTO extends BaseModel, PermissionModelDTO {
   parent?: ChatDTO;
   children: (ChatDTO | undefined)[];
   status: ChatStatus;
+  output?: any;
   /**
    * Agent version reference
    */
