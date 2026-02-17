@@ -359,6 +359,11 @@ export interface ApiAppRunRequest {
    */
   stream?: boolean;
   /**
+   * If true, holds the connection open until the task reaches a terminal state and returns the final result.
+   * Mutually exclusive with Stream.
+   */
+  wait?: boolean;
+  /**
    * Function to call on multi-function apps (defaults to "run" or app's default_function)
    */
   function?: string;
@@ -727,6 +732,16 @@ export interface EngineConfig {
   network_name: string;
   cache_path: string;
   gpus: string[];
+  /**
+   * CallbackBasePort overrides the base port for engine↔worker callback APIs.
+   * If 0, derived from EnginePort: 5000 + (enginePort - 8163) * 100.
+   */
+  callback_base_port: number /* int */;
+  /**
+   * EngineInternalAPIURL is the URL workers use to reach the engine's main API.
+   * If empty, derived as http://host.docker.internal:{EnginePort}.
+   */
+  engine_internal_api_url: string;
 }
 
 //////////
@@ -1207,6 +1222,7 @@ export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
 export type EngineStatus = string;
 export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
+export const EngineStatusDraining: EngineStatus = "draining";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
 export interface EngineState extends BaseModel, PermissionModel {
