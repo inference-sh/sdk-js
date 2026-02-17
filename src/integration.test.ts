@@ -102,6 +102,19 @@ describeIfApiKey('Integration Tests', () => {
         }, 30000);
     });
 
+    describe('Webhook', () => {
+        it('should deliver webhook on task completion', async () => {
+            const result = await client.run({
+                app: TEST_APP,
+                input: { template: 'Webhook test {1}', strings: ['hello'] },
+                webhook: 'https://webhook.site/bbe9ba01-3ab2-4056-a1b1-1cf6969987d5',
+            });
+
+            expect(result.status).toBe(TaskStatusCompleted);
+            expect(result.output).toBeDefined();
+        }, 60000);
+    });
+
     describe('Error Handling', () => {
         it('should throw an error for non-existent app', async () => {
             await expect(
