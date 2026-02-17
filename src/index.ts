@@ -15,7 +15,7 @@ export {
 // API modules
 export { TasksAPI, RunOptions } from './api/tasks';
 export { FilesAPI, UploadFileOptions } from './api/files';
-export { AgentsAPI, Agent, AgentOptions, SendMessageOptions } from './api/agents';
+export { AgentsAPI, Agent, AgentOptions, SendMessageOptions, AgentRunOptions } from './api/agents';
 export { SessionsAPI } from './api/sessions';
 export { AppsAPI } from './api/apps';
 export { ChatsAPI } from './api/chats';
