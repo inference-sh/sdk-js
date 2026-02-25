@@ -10,6 +10,10 @@ export {
   SessionExpiredError,
   SessionEndedError,
   WorkerLostError,
+  // Type guards (use these instead of instanceof for reliability)
+  isRequirementsNotMetException,
+  isInferenceError,
+  isSessionError,
 } from './http/errors';
 
 // API modules
