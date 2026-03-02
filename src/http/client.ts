@@ -156,7 +156,9 @@ export class HttpClient {
     if (options.params) {
       Object.entries(options.params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          targetUrl.searchParams.append(key, String(value));
+          // Serialize arrays and objects as JSON, primitives as strings
+          const serialized = typeof value === 'object' ? JSON.stringify(value) : String(value);
+          targetUrl.searchParams.append(key, serialized);
         }
       });
     }
