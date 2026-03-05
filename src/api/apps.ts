@@ -103,6 +103,13 @@ export class AppsAPI {
   async saveLicense(appId: string, license: string): Promise<LicenseRecord> {
     return this.http.request<LicenseRecord>('post', `/apps/${appId}/license`, { data: { license } });
   }
+
+  /**
+   * Set the current (active) version of an app
+   */
+  async setCurrentVersion(appId: string, versionId: string): Promise<App> {
+    return this.http.request<App>('post', `/apps/${appId}/current-version`, { data: { version_id: versionId } });
+  }
 }
 
 export function createAppsAPI(http: HttpClient): AppsAPI {
