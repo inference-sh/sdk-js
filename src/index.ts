@@ -1,6 +1,7 @@
 // HTTP utilities
 export { HttpClient, HttpClientConfig, ErrorHandler, createHttpClient } from './http/client';
 export { StreamManager, StreamManagerOptions, PartialDataWrapper } from './http/stream';
+export { StreamableManager, StreamableManagerOptions, StreamableMessage, streamable, streamableRaw } from './http/streamable';
 export { PollManager, PollManagerOptions } from './http/poll';
 export {
   InferenceError,
