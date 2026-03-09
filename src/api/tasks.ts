@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { StreamManager } from '../http/stream';
+import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import {
   TaskDTO as Task,
@@ -137,16 +137,15 @@ export class TasksAPI {
       return this.pollUntilTerminal(task, options);
     }
 
-    // Wait for completion with optional updates via SSE
+    // Wait for completion with optional updates via NDJSON streaming
     // Accumulate state across partial updates to preserve fields like session_id
     let accumulatedTask = { ...task };
+    const { url, headers } = this.http.getStreamableConfig(`/tasks/${task.id}/stream`);
 
     return new Promise<Task>((resolve, reject) => {
-      const streamManager = new StreamManager<Task>({
-        createEventSource: async () => this.http.createEventSource(`/tasks/${task.id}/stream`),
-        autoReconnect,
-        maxReconnects,
-        reconnectDelayMs,
+      const streamManager = new StreamableManager<Task>({
+        url,
+        headers,
         onData: (data) => {
           // Merge new data, preserving existing fields if not in update
           accumulatedTask = { ...accumulatedTask, ...data };
@@ -187,7 +186,7 @@ export class TasksAPI {
         },
       });
 
-      streamManager.connect();
+      streamManager.start();
     });
   }
 

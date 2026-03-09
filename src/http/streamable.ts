@@ -145,9 +145,31 @@ export class StreamableManager<T> {
   private options: StreamableManagerOptions<T>;
   private abortController: AbortController | null = null;
   private isRunning = false;
+  private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
   constructor(options: StreamableManagerOptions<T>) {
     this.options = options;
+  }
+
+  /**
+   * Add a listener for typed events (e.g., 'chats', 'chat_messages').
+   * Used when server sends events with {"event": "eventName", "data": ...} format.
+   */
+  addEventListener<E = unknown>(eventName: string, callback: (data: E) => void): () => void {
+    const listeners = this.eventListeners.get(eventName) || new Set();
+    listeners.add(callback as (data: unknown) => void);
+    this.eventListeners.set(eventName, listeners);
+
+    // Return cleanup function
+    return () => {
+      const listeners = this.eventListeners.get(eventName);
+      if (listeners) {
+        listeners.delete(callback as (data: unknown) => void);
+        if (listeners.size === 0) {
+          this.eventListeners.delete(eventName);
+        }
+      }
+    };
   }
 
   async start(): Promise<void> {
@@ -166,20 +188,32 @@ export class StreamableManager<T> {
       })) {
         if (!this.isRunning) break;
 
+        const wrapper = message as StreamableMessage<T>;
+
+        // Handle typed events ({"event": "...", "data": ...})
+        if (wrapper.event && this.eventListeners.has(wrapper.event)) {
+          const listeners = this.eventListeners.get(wrapper.event)!;
+          const eventData = wrapper.data !== undefined ? wrapper.data : message;
+          listeners.forEach(callback => callback(eventData));
+          continue;
+        }
+
         // Check if it's a partial update
         if (
           typeof message === 'object' &&
           message !== null &&
           'data' in message &&
           'fields' in message &&
-          Array.isArray((message as StreamableMessage<T>).fields)
+          Array.isArray(wrapper.fields)
         ) {
-          const wrapper = message as StreamableMessage<T>;
           if (this.options.onPartialData && wrapper.data !== undefined) {
             this.options.onPartialData(wrapper.data, wrapper.fields!);
           } else if (wrapper.data !== undefined) {
             this.options.onData?.(wrapper.data);
           }
+        } else if (wrapper.data !== undefined) {
+          // Has data wrapper but no fields - unwrap
+          this.options.onData?.(wrapper.data);
         } else {
           this.options.onData?.(message as T);
         }

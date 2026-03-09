@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { StreamManager } from '../http/stream';
+import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
 import {
@@ -64,7 +64,7 @@ export class Agent {
   private readonly config: string | AgentConfig;
   private readonly agentName: string | undefined;
   private chatId: string | null = null;
-  private stream: StreamManager<unknown> | null = null;
+  private stream: StreamableManager<unknown> | null = null;
   private poller: PollManager<ChatDTO> | null = null;
   private dispatchedToolCalls: Set<string> = new Set();
 
@@ -230,12 +230,14 @@ export class Agent {
   private streamUntilIdle(options: SendMessageOptions): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
+    const { url, headers } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
+
     return new Promise((resolve) => {
       this.stream?.stop();
 
-      this.stream = new StreamManager<unknown>({
-        createEventSource: async () => this.http.createEventSource(`/chats/${this.chatId}/stream`),
-        autoReconnect: true,
+      this.stream = new StreamableManager<unknown>({
+        url,
+        headers,
       });
 
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
@@ -264,7 +266,7 @@ export class Agent {
         }
       });
 
-      this.stream.connect();
+      this.stream.start();
     });
   }
 
