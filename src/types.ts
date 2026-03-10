@@ -517,6 +517,17 @@ export interface CreateFlowRunRequest {
   input: any;
 }
 /**
+ * CreateAppRequest is the request body for POST /apps
+ */
+export interface CreateAppRequest extends App {
+  /**
+   * PreserveCurrentVersion prevents auto-promoting the new version to current.
+   * Default false = new versions become current (what most users expect).
+   * Set true for admin deployments where you want to test before promoting.
+   */
+  preserve_current_version?: boolean;
+}
+/**
  * CreateAgentRequest is the request body for POST /agents
  * For new agents: omit ID, backend generates it
  * For new version of existing agent: include ID
