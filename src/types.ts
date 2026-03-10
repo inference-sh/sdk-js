@@ -775,6 +775,12 @@ export const ScopeGroupFlows: ScopeGroup = "flows";
 export const ScopeGroupProjects: ScopeGroup = "projects";
 export const ScopeGroupTeams: ScopeGroup = "teams";
 export const ScopeGroupBilling: ScopeGroup = "billing";
+export const ScopeGroupSecrets: ScopeGroup = "secrets";
+export const ScopeGroupIntegrations: ScopeGroup = "integrations";
+export const ScopeGroupEngines: ScopeGroup = "engines";
+export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
+export const ScopeGroupUser: ScopeGroup = "user";
+export const ScopeGroupSettings: ScopeGroup = "settings";
 /**
  * ScopeDefinition describes a single scope for UI rendering
  */
@@ -791,6 +797,15 @@ export interface ScopeGroupDefinition {
   id: ScopeGroup;
   label: string;
   description: string;
+}
+/**
+ * ScopePreset represents a predefined bundle of scopes for common use cases
+ */
+export interface ScopePreset {
+  id: string;
+  label: string;
+  description: string;
+  scopes: string[];
 }
 
 //////////
