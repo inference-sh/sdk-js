@@ -94,10 +94,16 @@ export class FilesAPI {
       }
     }
 
+    // Extract filename from File object if not provided in options
+    let filename = options.filename;
+    if (!filename && data instanceof globalThis.File) {
+      filename = data.name;
+    }
+
     // Step 1: Create the file record
     const fileRequest: PartialFile = {
       uri: '', // Empty URI as it will be set by the server
-      filename: options.filename,
+      filename,
       content_type: contentType,
       path: options.path,
       size: data instanceof Blob ? data.size : undefined,

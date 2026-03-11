@@ -14,8 +14,7 @@ import type { AgentChatState, ChatAction, ChatStatus } from './types';
 export const initialState: AgentChatState = {
   chatId: null,
   messages: [],
-  status: 'idle',
-  isGenerating: false,
+  connectionStatus: 'idle',
   error: undefined,
   chat: null,
 };
@@ -32,12 +31,10 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'SET_CHAT': {
       const chat = action.payload;
       if (!chat) {
-        return { ...state, chat: null, messages: [], isGenerating: false, status: 'idle' };
+        return { ...state, chat: null, messages: [], connectionStatus: 'idle' };
       }
       const messages = [...(chat.chat_messages || [])].sort((a, b) => a.order - b.order);
-      const isGenerating = chat.status === 'busy';
-      const status: ChatStatus = isGenerating ? 'streaming' : 'idle';
-      return { ...state, chat, messages, isGenerating, status };
+      return { ...state, chat, messages };
     }
 
     case 'SET_MESSAGES':
@@ -62,15 +59,8 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
         messages: [...state.messages, action.payload].sort((a, b) => a.order - b.order),
       };
 
-    case 'SET_STATUS':
-      return {
-        ...state,
-        status: action.payload,
-        isGenerating: action.payload === 'streaming' || action.payload === 'connecting',
-      };
-
-    case 'SET_IS_GENERATING':
-      return { ...state, isGenerating: action.payload };
+    case 'SET_CONNECTION_STATUS':
+      return { ...state, connectionStatus: action.payload };
 
     case 'SET_ERROR':
       return { ...state, error: action.payload };

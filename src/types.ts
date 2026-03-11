@@ -1108,6 +1108,17 @@ export const IntegrationTypeSlack: IntegrationType = "slack";
 export const IntegrationTypeDiscord: IntegrationType = "discord";
 export const IntegrationTypeTeams: IntegrationType = "teams";
 export const IntegrationTypeTelegram: IntegrationType = "telegram";
+/**
+ * FileRef is a lightweight reference to a file with essential metadata.
+ * Used in chat inputs/context instead of full File objects.
+ */
+export interface FileRef {
+  id?: string;
+  uri: string;
+  filename: string;
+  content_type: string;
+  size?: number /* int64 */;
+}
 export interface ChatMessageContent {
   type: ChatMessageContentType;
   error?: string;
@@ -1144,6 +1155,13 @@ export interface ChatTaskInput {
   role?: ChatMessageRole;
   text?: string;
   reasoning?: string;
+  /**
+   * Attachments is the SDK input field with full file metadata
+   */
+  attachments?: FileRef[];
+  /**
+   * Images and Files are internal fields for task workers (filled from Attachments or context)
+   */
   images?: string[];
   files?: string[];
   tools?: Tool[];

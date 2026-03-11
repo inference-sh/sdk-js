@@ -29,14 +29,15 @@
  * }
  *
  * function ChatUI() {
- *   const { messages, isGenerating } = useAgentChat();
+ *   const { chat, messages } = useAgentChat();
  *   const { sendMessage, stopGeneration } = useAgentActions();
+ *   const isBusy = chat?.status === 'busy';
  *
  *   return (
  *     <div>
  *       {messages.map(m => <Message key={m.id} message={m} />)}
  *       <input onSubmit={(text) => sendMessage(text)} />
- *       {isGenerating && <button onClick={stopGeneration}>Stop</button>}
+ *       {isBusy && <button onClick={stopGeneration}>Stop</button>}
  *     </div>
  *   );
  * }
@@ -62,7 +63,7 @@ export { AgentChatContext, type AgentChatContextValue } from './context';
 export type {
   // Client interface
   AgentClient,
-  UploadedFile,
+  FileRef,
   // Configuration
   AdHocAgentConfig,
   TemplateAgentConfig,
