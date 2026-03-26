@@ -1662,6 +1662,7 @@ export const GraphEdgeTypeConditional: GraphEdgeType = "conditional"; // Conditi
 export const GraphEdgeTypeExecution: GraphEdgeType = "execution"; // Node → Resource execution link
 export const GraphEdgeTypeParent: GraphEdgeType = "parent"; // Parent resource → child resource (e.g. skill fork)
 export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor"; // Specific version → child resource (fork point)
+export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate"; // Skill → skill with identical content hash
 /**
  * GraphNodeDTO is the API representation of a graph node
  */
