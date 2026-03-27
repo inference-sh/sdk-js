@@ -232,8 +232,10 @@ export interface AgentDTO extends BaseModel, PermissionModelDTO, ProjectModelDTO
 export interface SkillConfig {
   name: string; // Unique identifier for the skill
   description: string; // Short description shown in tool listing
-  url?: string; // URL to fetch skill content
-  content?: string; // Inline skill content
+  skill_id?: string; // Links to registry skill (always set on new saves)
+  version_id?: string; // Optional pinned version
+  url?: string; // URL to fetch skill content (legacy, kept for backwards compat)
+  content?: string; // Inline skill content (legacy, kept for backwards compat)
 }
 /**
  * AgentConfig contains the shared configuration fields for agent execution.
