@@ -332,6 +332,7 @@ export interface APIResponse<T extends any> {
 export interface APIError {
   code: string;
   message: string;
+  suggestions?: string[];
 }
 /**
  * ApiAppRunRequest is the request body for /apps/run endpoint.
