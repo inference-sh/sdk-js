@@ -70,7 +70,9 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'User-Agent': 'inference-sdk-js/0.5.13', ...config.headers };
+    const isBrowser = typeof window !== 'undefined';
+    const sourceKey = isBrowser ? 'X-Client-Source' : 'User-Agent';
+    this.customHeaders = { [sourceKey]: 'inference-sdk-js/0.5.13', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.streamDefault = config.stream ?? true;
