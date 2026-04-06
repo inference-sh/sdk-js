@@ -1362,6 +1362,7 @@ export interface WorkerState extends BaseModel, PermissionModel {
   index: number /* int */;
   status: WorkerStatus;
   status_updated_at?: string /* RFC3339 */;
+  heartbeat_at?: string /* RFC3339 */;
   engine_id: string;
   engine?: EngineState;
   task_id?: string;
@@ -1461,6 +1462,7 @@ export interface File extends BaseModel, PermissionModel {
   content_type: string;
   size: number /* int64 */;
   filename: string;
+  category: string;
   rating: ContentRating;
   metadata?: FileMetadata;
 }
@@ -1472,6 +1474,7 @@ export interface FileDTO extends BaseModel, PermissionModelDTO {
   content_type: string;
   size: number /* int64 */;
   filename: string;
+  category: string;
   rating: ContentRating;
   metadata?: FileMetadata;
 }
