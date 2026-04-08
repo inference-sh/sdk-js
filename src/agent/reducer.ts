@@ -37,6 +37,13 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       return { ...state, chat, messages };
     }
 
+    case 'UPDATE_CHAT': {
+      // Update chat metadata (e.g. status) without replacing messages
+      const chat = action.payload;
+      if (!chat) return state;
+      return { ...state, chat };
+    }
+
     case 'SET_MESSAGES':
       return { ...state, messages: action.payload };
 

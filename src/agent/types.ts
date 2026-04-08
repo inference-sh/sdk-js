@@ -244,6 +244,7 @@ export function extractClientToolHandlers(
 export type ChatAction =
   | { type: 'SET_CHAT_ID'; payload: string | null }
   | { type: 'SET_CHAT'; payload: ChatDTO | null }
+  | { type: 'UPDATE_CHAT'; payload: ChatDTO | null }
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
   | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO }
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }

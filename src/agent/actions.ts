@@ -50,7 +50,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
   const updateMessage = (message: ChatMessageDTO) => {
     const chatId = getChatId();
-    if (message.chat_id !== chatId) return;
+    // TODO: remove startsWith once the provider normalizes chatId to full ID after first fetchChat
+    // Support short ID matching (URL short IDs are prefixes of full IDs)
+    if (chatId && message.chat_id !== chatId && !message.chat_id.startsWith(chatId)) return;
 
     dispatch({ type: 'UPDATE_MESSAGE', payload: message });
 
@@ -152,9 +154,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       },
     });
 
-    // Listen for Chat object updates (status changes)
+    // Listen for Chat object updates (status changes only — don't replace messages)
     manager.addEventListener<ChatDTO>('chats', (chatData) => {
-      setChat(chatData);
+      dispatch({ type: 'UPDATE_CHAT', payload: chatData });
+      if (chatData) {
+        const status = chatData.status === ChatStatusBusy ? 'streaming' : 'idle';
+        callbacks.onStatusChange?.(status);
+      }
     });
 
     // Listen for ChatMessage updates
