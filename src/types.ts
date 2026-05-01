@@ -94,13 +94,28 @@ export interface ClientToolConfig {
   output_schema?: any;
 }
 /**
- * ToolAuthConfig declares how a tool authenticates. Resolved at runtime.
+ * ToolAuthConfig declares how a tool authenticates. Resolved at runtime — never contains actual credentials.
  */
 export interface ToolAuthConfig {
-  type: 'integration' | 'api_key' | 'bearer' | 'none';
+  /**
+   * Type: "integration", "api_key", "bearer", "none"
+   */
+  type: string;
+  /**
+   * For type=integration: which provider to look up (e.g. "google", "mcp", "slack")
+   */
   provider?: string;
+  /**
+   * For type=integration: specific integration ID (optional — if empty, uses team's primary for provider)
+   */
   integration_id?: string;
+  /**
+   * For type=api_key or bearer: name of the secret in the team's secret store
+   */
   secret?: string;
+  /**
+   * For type=api_key: which header to inject (default: "X-API-Key")
+   */
   header?: string;
 }
 /**
@@ -108,9 +123,9 @@ export interface ToolAuthConfig {
  */
 export interface HTTPToolConfig {
   url: string;
-  method?: string;
+  method?: string; // Default: POST
   auth?: ToolAuthConfig;
-  headers?: Record<string, string>;
+  headers?: { [key: string]: string}; // Static + ${{secrets.X}} refs
   input_schema?: any;
   output_schema?: any;
 }
@@ -118,7 +133,13 @@ export interface HTTPToolConfig {
  * MCPToolConfig contains configuration for a remote MCP server tool
  */
 export interface MCPToolConfig {
+  /**
+   * IntegrationID references the MCP integration (has server_url, tokens, cached tools)
+   */
   integration_id: string;
+  /**
+   * ToolName is the tool name on the remote MCP server
+   */
   tool_name: string;
 }
 /**
@@ -208,8 +229,8 @@ export interface ClientToolConfigDTO {
 export interface HTTPToolConfigDTO {
   url: string;
   method?: string;
-  auth?: ToolAuthConfig;
-  headers?: Record<string, string>;
+  auth?: ToolAuthConfig; // References only, no secrets
+  headers?: { [key: string]: string};
   input_schema?: any;
   output_schema?: any;
 }
@@ -647,6 +668,15 @@ export interface CheckoutCompleteRequest {
  */
 export type StripeCheckoutCreateRequest = CheckoutCreateRequest;
 export type StripeCheckoutCompleteRequest = CheckoutCompleteRequest;
+/**
+ * AuthResponse is returned after successful authentication (OAuth, magic link, SSO)
+ */
+export interface AuthResponse {
+  user?: UserDTO;
+  session_id: string;
+  otp_required?: boolean;
+  redirect_to?: string;
+}
 /**
  * DeviceAuthResponse is returned when a device initiates auth
  */
