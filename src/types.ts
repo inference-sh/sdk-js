@@ -676,6 +676,7 @@ export interface AuthResponse {
   session_id: string;
   otp_required?: boolean;
   redirect_to?: string;
+  provider?: string;
 }
 /**
  * DeviceAuthResponse is returned when a device initiates auth
