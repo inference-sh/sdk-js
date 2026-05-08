@@ -49,7 +49,6 @@ test-dev: check-key build
 .PHONY: example
 
 # Run a specific example: make example NAME=basic
-# Available: basic, with-updates, fire-and-forget, batch-processing, tool-builder, agent-chat, agent-template
 example: check-key build
 ifndef NAME
 	@echo "Usage: make example NAME=<example-name>"
@@ -60,31 +59,27 @@ else
 	INFERENCE_API_KEY=$(API_KEY) INFERENCE_BASE_URL=$(BASE_URL) npx ts-node examples/$(NAME).ts
 endif
 
-
 # =============================================================================
-# Publishing
+# Version & Release
 # =============================================================================
 
-.PHONY: publish bump-major bump-minor bump-patch release
+.PHONY: patch minor major release
 
-# Publish to PyPI (requires twine)
-publish: build
-	$(PIP) install twine
-	$(PYTHON) -m twine upload dist/*
+patch:
+	@./scripts/bump.sh patch
 
-# Version bumping (commits, tags, and pushes)
-bump-major:
-	./scripts/bump.sh major
+minor:
+	@./scripts/bump.sh minor
 
-bump-minor:
-	./scripts/bump.sh minor
+major:
+	@./scripts/bump.sh major
 
-bump-patch:
-	./scripts/bump.sh patch
-
-# Create GitHub release (requires gh CLI and being on main branch)
+# Push and create GitHub release (triggers npm publish via CI)
 release:
-	./scripts/release.sh
+	@VERSION=$$(git describe --tags --abbrev=0) && \
+	git push origin HEAD "$$VERSION" && \
+	gh release create "$$VERSION" --title "$$VERSION" --generate-notes && \
+	echo "Released $$VERSION"
 
 # =============================================================================
 # Code Quality
@@ -128,6 +123,12 @@ help:
 	@echo ""
 	@echo "Examples:"
 	@echo "  example NAME=basic    Run a specific example"
+	@echo ""
+	@echo "Release:"
+	@echo "  patch          Bump patch version"
+	@echo "  minor          Bump minor version"
+	@echo "  major          Bump major version"
+	@echo "  release        Create GitHub release (triggers npm publish)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  lint           Run ESLint"
