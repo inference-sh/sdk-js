@@ -2,7 +2,7 @@
  * Tool Builder - Fluent API for defining agent tools
  */
 
-import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP } from './types';
+import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types';
 
 // =============================================================================
 // Client Tool Types
@@ -307,6 +307,35 @@ export const webhookTool = (name: string, url: string) => new WebhookToolBuilder
 
 /** Create an HTTP tool with credential injection (replaces webhookTool for new code) */
 export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
+
+/** Create a call tool — makes authenticated HTTP requests. Preferred name for httpTool. */
+export const callTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
+
+/** Create an MCP connector tool (calls a tool on a connected MCP server) */
+export const mcpTool = (name: string, integrationId: string, toolName: string) =>
+  new MCPToolBuilder(name, integrationId, toolName);
+
+class MCPToolBuilder extends ToolBuilder {
+  private integrationId: string;
+  private toolName: string;
+
+  constructor(name: string, integrationId: string, toolName: string) {
+    super(name);
+    this.integrationId = integrationId;
+    this.toolName = toolName;
+  }
+
+  build(): AgentTool {
+    return {
+      name: this.name,
+      display_name: this.displayNameValue || this.name,
+      description: this.desc,
+      type: ToolTypeMCP,
+      require_approval: this.approval || undefined,
+      mcp: { integration_id: this.integrationId, tool_name: this.toolName },
+    };
+  }
+}
 
 // =============================================================================
 // Internal Tools Builder

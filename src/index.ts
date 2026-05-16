@@ -35,6 +35,8 @@ export {
   agentTool,
   webhookTool,
   httpTool,
+  callTool,
+  mcpTool,
   internalTools,
   string,
   number,

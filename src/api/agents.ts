@@ -31,6 +31,8 @@ export interface InternalToolDefinition {
 export interface AgentOptions {
   /** Optional name for the adhoc agent (used for deduplication and display) */
   name?: string;
+  /** Per-chat context variables — resolved in call tool URL templates ({{context.X}}) */
+  context?: Record<string, string>;
 }
 
 export interface SendMessageOptions {
@@ -63,6 +65,7 @@ export class Agent {
   private readonly files: FilesAPI;
   private readonly config: string | AgentConfig;
   private readonly agentName: string | undefined;
+  private readonly context: Record<string, string> | undefined;
   private chatId: string | null = null;
   private stream: StreamableManager<unknown> | null = null;
   private poller: PollManager<ChatDTO> | null = null;
@@ -74,6 +77,7 @@ export class Agent {
     this.files = files;
     this.config = config;
     this.agentName = options?.name;
+    this.context = options?.context;
   }
 
   /** Get current chat ID */
@@ -121,12 +125,14 @@ export class Agent {
       ? {
         chat_id: this.chatId,
         agent: this.config as string,
+        context: this.context,
         input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       }
       : {
         chat_id: this.chatId,
         agent_config: this.config as AgentConfig,
         agent_name: this.agentName ?? (this.config as AgentConfig).name,
+        context: this.context,
         input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
 
