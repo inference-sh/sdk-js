@@ -10,7 +10,7 @@ import {
   AgentDTO,
   AgentVersionDTO,
   CreateAgentRequest,
-  File,
+  FileDTO as File,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
   ChatStatusBusy,

@@ -290,7 +290,7 @@ export interface Agent extends BaseModel, PermissionModel {
 /**
  * AgentDTO for API responses
  */
-export interface AgentDTO extends BaseModel, PermissionModelDTO, ProjectModelDTO {
+export interface AgentDTO extends BaseModelDTO, PermissionModelDTO, ProjectModelDTO {
   namespace: string;
   name: string;
   /**
@@ -383,7 +383,7 @@ export interface CoreAppConfigDTO {
    */
   input?: any;
 }
-export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
+export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   description: string;
   system_prompt: string;
   example_prompts: string[];
@@ -629,7 +629,15 @@ export interface CreateFlowRunRequest {
 /**
  * CreateAppRequest is the request body for POST /apps
  */
-export interface CreateAppRequest extends App {
+export interface CreateAppRequest {
+  id?: string;
+  namespace?: string;
+  name: string;
+  description?: string;
+  agent_description?: string;
+  category?: AppCategory;
+  images?: AppImages;
+  version?: AppVersion;
   /**
    * PreserveCurrentVersion prevents auto-promoting the new version to current.
    * Default false = new versions become current (what most users expect).
@@ -1099,12 +1107,12 @@ export interface AppVersion extends BaseModel {
    */
   checksum?: string;
 }
-export interface LicenseRecord extends BaseModel {
+export interface LicenseRecordDTO extends BaseModelDTO {
   user_id: string;
   app_id: string;
   license: string;
 }
-export interface AppDTO extends BaseModel, PermissionModelDTO {
+export interface AppDTO extends BaseModelDTO, PermissionModelDTO {
   namespace: string;
   name: string;
   description: string;
@@ -1114,7 +1122,7 @@ export interface AppDTO extends BaseModel, PermissionModelDTO {
   version_id: string;
   version?: AppVersionDTO;
 }
-export interface AppVersionDTO extends BaseModel {
+export interface AppVersionDTO extends BaseModelDTO {
   metadata: { [key: string]: any};
   repository: string;
   flow_version_id?: string;
@@ -1146,37 +1154,20 @@ export type AppSessionStatus = string;
 export const AppSessionStatusActive: AppSessionStatus = "active";
 export const AppSessionStatusEnded: AppSessionStatus = "ended";
 export const AppSessionStatusExpired: AppSessionStatus = "expired";
-export interface AppSession extends BaseModel, PermissionModel {
-  /**
-   * Affinity binding
-   */
+/**
+ * AppSessionDTO is the external representation
+ */
+export interface AppSessionDTO extends BaseModelDTO, PermissionModelDTO {
   worker_id: string;
   app_id: string;
   app_version_id: string;
-  /**
-   * Lifecycle
-   */
   status: AppSessionStatus;
   expires_at: string /* RFC3339 */;
   ended_at?: string /* RFC3339 */;
-  /**
-   * Billing link
-   */
   task_id?: string;
-  /**
-   * Stats
-   */
   call_count: number /* int */;
   last_call_at?: string /* RFC3339 */;
-  /**
-   * Custom idle timeout in seconds (nil = use default)
-   */
   idle_timeout?: number /* int */;
-  /**
-   * Relations
-   */
-  worker?: WorkerState;
-  task?: Task;
 }
 
 //////////
@@ -1204,6 +1195,17 @@ export interface PublicAppStoreDTO {
 // source: base.go
 
 export interface BaseModel {
+  id: string;
+  short_id: string;
+  created_at: string /* RFC3339 */;
+  updated_at: string /* RFC3339 */;
+  deleted_at?: string /* RFC3339 */;
+}
+/**
+ * BaseModelDTO is the contract-layer base embed — same fields, no gorm tags.
+ * All DTOs should embed this instead of BaseModel.
+ */
+export interface BaseModelDTO {
   id: string;
   short_id: string;
   created_at: string /* RFC3339 */;
@@ -1371,7 +1373,7 @@ export interface ChatTaskContextMessage {
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
-export interface ChatDTO extends BaseModel, PermissionModelDTO {
+export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   parent_id?: string;
   parent?: ChatDTO;
   children: (ChatDTO | undefined)[];
@@ -1390,7 +1392,7 @@ export interface ChatDTO extends BaseModel, PermissionModelDTO {
   chat_messages: ChatMessageDTO[];
   agent_data: ChatData;
 }
-export interface ChatMessageDTO extends BaseModel, PermissionModelDTO {
+export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   chat_id: string;
   chat?: ChatDTO;
   order: number /* int */;
@@ -1513,18 +1515,7 @@ export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusDraining: EngineStatus = "draining";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
-export interface EngineState extends BaseModel, PermissionModel {
-  instance?: Instance;
-  transaction_id: string;
-  config: EngineConfig;
-  public_key: string;
-  name: string;
-  api_url: string;
-  status: EngineStatus;
-  system_info?: SystemInfo;
-  workers: (WorkerState | undefined)[];
-}
-export interface EngineStateDTO extends BaseModel, PermissionModelDTO {
+export interface EngineStateDTO extends BaseModelDTO, PermissionModelDTO {
   instance?: Instance;
   config: EngineConfig;
   name: string;
@@ -1533,7 +1524,7 @@ export interface EngineStateDTO extends BaseModel, PermissionModelDTO {
   system_info?: SystemInfo;
   workers: (WorkerStateDTO | undefined)[];
 }
-export interface EngineStateSummary extends BaseModel, PermissionModelDTO {
+export interface EngineStateSummary extends BaseModelDTO, PermissionModelDTO {
   instance?: Instance;
   name: string;
   status: EngineStatus;
@@ -1543,31 +1534,6 @@ export interface EngineStateSummary extends BaseModel, PermissionModelDTO {
  * Worker-related types
  */
 export type WorkerStatus = string;
-export interface WorkerState extends BaseModel, PermissionModel {
-  index: number /* int */;
-  status: WorkerStatus;
-  status_updated_at?: string /* RFC3339 */;
-  heartbeat_at?: string /* RFC3339 */;
-  engine_id: string;
-  engine?: EngineState;
-  task_id?: string;
-  app_id: string;
-  app_version_id: string;
-  /**
-   * App session lease
-   */
-  active_session_id?: string;
-  active_session?: AppSession;
-  gpus: WorkerGPU[];
-  cpus: WorkerCPU[];
-  rams: WorkerRAM[];
-  /**
-   * WarmApps tracks app+version combos with warm containers for scheduling optimization.
-   * Format: "appID:versionID@setupHash" - managed by Engine, synced via heartbeat.
-   * Not persisted to DB - this is ephemeral runtime state.
-   */
-  warm_apps?: string[];
-}
 export interface WorkerGPU {
   id: string;
   worker_id: string;
@@ -1591,7 +1557,7 @@ export interface WorkerRAM {
   worker_id: string;
   total: number /* uint64 */;
 }
-export interface WorkerStateDTO extends BaseModel {
+export interface WorkerStateDTO extends BaseModelDTO {
   user_id: string;
   team_id: string;
   index: number /* int */;
@@ -1639,19 +1605,7 @@ export interface FileMetadata {
   channels?: number /* int */;
   codec?: string;
 }
-export interface File extends BaseModel, PermissionModel {
-  path: string;
-  remote_path: string;
-  upload_url: string;
-  uri: string;
-  content_type: string;
-  size: number /* int64 */;
-  filename: string;
-  category: string;
-  rating: ContentRating;
-  metadata?: FileMetadata;
-}
-export interface FileDTO extends BaseModel, PermissionModelDTO {
+export interface FileDTO extends BaseModelDTO, PermissionModelDTO {
   path: string;
   remote_path: string;
   upload_url: string;
@@ -1746,7 +1700,7 @@ export interface OutputFieldMapping {
  * OutputMappings is a map of output field name to OutputFieldMapping.
  */
 export type OutputMappings = { [key: string]: OutputFieldMapping};
-export interface FlowDTO extends BaseModel, PermissionModelDTO {
+export interface FlowDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   description: string;
   card_image: string;
@@ -1772,7 +1726,7 @@ export interface FlowDTO extends BaseModel, PermissionModelDTO {
   edges: FlowEdge[];
   viewport?: FlowViewport;
 }
-export interface FlowVersionDTO extends BaseModel {
+export interface FlowVersionDTO extends BaseModelDTO {
   graph_version: number /* int64 */;
   input_schema: any;
   input: FlowRunInputs;
@@ -1794,7 +1748,7 @@ export const FlowRunStatusRunning: FlowRunStatus = 2; // 2
 export const FlowRunStatusCompleted: FlowRunStatus = 3; // 3
 export const FlowRunStatusFailed: FlowRunStatus = 4; // 4
 export const FlowRunStatusCancelled: FlowRunStatus = 5; // 5
-export interface FlowRunDTO extends BaseModel, PermissionModelDTO {
+export interface FlowRunDTO extends BaseModelDTO, PermissionModelDTO {
   flow_id: string;
   flow_version_id: string;
   flow_version?: FlowVersionDTO; // Snapshot at run time
@@ -1862,7 +1816,7 @@ export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate"; // Skill → s
 /**
  * GraphNodeDTO is the API representation of a graph node
  */
-export interface GraphNodeDTO extends BaseModel {
+export interface GraphNodeDTO extends BaseModelDTO {
   graph_id: string;
   type: GraphNodeType;
   label: string;
@@ -1878,7 +1832,7 @@ export interface GraphNodeDTO extends BaseModel {
 /**
  * GraphEdgeDTO is the API representation of a graph edge
  */
-export interface GraphEdgeDTO extends BaseModel {
+export interface GraphEdgeDTO extends BaseModelDTO {
   type: GraphEdgeType;
   from_node: string;
   to_node: string;
@@ -1909,7 +1863,7 @@ export type StringSlice = string[];
 /**
  * IntegrationDTO for API responses (never exposes tokens)
  */
-export interface IntegrationDTO extends BaseModel, PermissionModelDTO {
+export interface IntegrationDTO extends BaseModelDTO, PermissionModelDTO {
   provider: string;
   type: string;
   auth: string;
@@ -1984,7 +1938,7 @@ export type PageType = string;
 export const PageTypeDoc: PageType = "doc"; // Documentation page
 export const PageTypeBlog: PageType = "blog"; // Blog post
 export const PageTypePage: PageType = "page"; // Generic page/landing
-export interface PageDTO extends BaseModel, PermissionModelDTO {
+export interface PageDTO extends BaseModelDTO, PermissionModelDTO {
   is_featured: boolean;
   title: string;
   content: string;
@@ -2009,7 +1963,7 @@ export interface MenuItem {
   expanded?: boolean; // Default expanded state
   children?: MenuItem[]; // Nested items
 }
-export interface MenuDTO extends BaseModel, PermissionModelDTO {
+export interface MenuDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   slug: string;
   description: string;
@@ -2057,7 +2011,7 @@ export interface Project extends BaseModel, PermissionModel {
 /**
  * ProjectDTO for API responses
  */
-export interface ProjectDTO extends BaseModel, PermissionModelDTO {
+export interface ProjectDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   description: string;
   type: ProjectType;
@@ -2129,18 +2083,6 @@ export interface SetupAction {
   type: string; // "add_secret" | "connect" | "add_scopes"
   provider?: string; // For integration actions
   scopes?: string[]; // Scopes to request
-}
-
-//////////
-// source: secrets.go
-
-/**
- * SecretRef tracks which Secret record provided a value for a task (for billing)
- */
-export interface SecretRef {
-  key: string;
-  id: string;
-  team_id: string;
 }
 
 //////////
@@ -2393,73 +2335,6 @@ export interface TaskAction {
 export interface TaskMetadata {
   action?: TaskAction;
 }
-export interface Task extends BaseModel, PermissionModel {
-  is_featured: boolean;
-  status: TaskStatus;
-  /**
-   * Foreign keys
-   */
-  app_id: string;
-  app?: App;
-  version_id: string;
-  app_version?: AppVersion;
-  /**
-   * Deprecated: Will be removed in favor of Setup
-   */
-  variant: string;
-  /**
-   * Function is the specific function to call on multi-function apps.
-   * DEPRECATED: Standardizing on explicit function name.
-   * Defaults to "run" for legacy tasks (backfilled via migration).
-   */
-  function: string;
-  infra: Infra;
-  workers: string[];
-  engine_id?: string;
-  engine?: EngineState;
-  worker_id?: string;
-  worker?: WorkerState;
-  /**
-   * Belongs to:
-   */
-  flow_run_id?: string;
-  chat_id?: string;
-  /**
-   * Owns: (Can be replaced with graph execution edge/node)
-   */
-  sub_flow_run_id?: string;
-  webhook?: string;
-  metadata?: TaskMetadata;
-  setup?: any;
-  input: any;
-  output: any;
-  error?: string;
-  rating: ContentRating;
-  /**
-   * Relationships
-   */
-  events: TaskEvent[];
-  logs: TaskLog[];
-  usage_events: (UsageEvent | undefined)[];
-  /**
-   * Secret refs for billing (tracks ownership to determine partner fee)
-   */
-  secrets?: SecretRef[];
-  /**
-   * App session reference (for session calls)
-   * Special value "new" means scheduler should create session when dispatching.
-   */
-  session_id?: string;
-  session?: AppSession;
-  /**
-   * Session timeout in seconds (only used when session="new")
-   */
-  session_timeout?: number /* int */;
-  /**
-   * Scheduled execution time (UTC). Scheduler skips task until this time.
-   */
-  run_at?: string /* RFC3339 */;
-}
 export interface TaskEvent {
   id: string;
   created_at: string /* RFC3339 */;
@@ -2481,7 +2356,7 @@ export interface TaskLog {
   log_type: TaskLogType;
   content: string;
 }
-export interface TaskDTO extends BaseModel, PermissionModelDTO {
+export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   graph_id?: string;
   user_public_key: string;
   engine_public_key: string;
@@ -2547,7 +2422,7 @@ export interface Team extends BaseModel {
   max_concurrency: number /* int */;
   status: TeamStatus;
 }
-export interface TeamDTO extends BaseModel {
+export interface TeamDTO extends BaseModelDTO {
   type: TeamType;
   name: string;
   username: string;
@@ -2598,7 +2473,7 @@ export const ToolInvocationStatusCancelled: ToolInvocationStatus = "cancelled";
 /**
  * ToolInvocationDTO for API responses
  */
-export interface ToolInvocationDTO extends BaseModel, PermissionModelDTO {
+export interface ToolInvocationDTO extends BaseModelDTO, PermissionModelDTO {
   chat_message_id: string;
   tool_invocation_id: string;
   type: ToolType;
@@ -2681,7 +2556,7 @@ export const RoleGuest: Role = "guest";
 export const RoleUser: Role = "user";
 export const RoleAdmin: Role = "admin";
 export const RoleSystem: Role = "system";
-export interface UserDTO extends BaseModel {
+export interface UserDTO extends BaseModelDTO {
   default_team_id: string;
   role: Role;
   email: string;
