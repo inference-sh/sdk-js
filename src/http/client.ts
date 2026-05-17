@@ -243,7 +243,7 @@ export class HttpClient {
       throw new InferenceError(response.status, errorMessage, responseText);
     }
 
-    return apiResponse.data as T;
+    return (apiResponse.data ?? null) as T;
   }
 
   /**
