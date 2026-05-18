@@ -12,7 +12,7 @@
  */
 
 import { Inference } from './index';
-import { TaskStatusCompleted, AppSessionDTO as AppSession } from './types';
+import { TaskStatusCompleted } from './types';
 
 const API_KEY = process.env.INFERENCE_API_KEY;
 const BASE_URL = process.env.INFERENCE_BASE_URL || 'https://api.inference.sh';

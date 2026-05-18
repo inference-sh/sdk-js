@@ -12,7 +12,6 @@
 import {
   inference,
   tool,
-  appTool,
   internalTools,
   string,
   number,
@@ -124,7 +123,7 @@ Use tools when appropriate to help the user.`,
   console.log('Agent ready. Sending message...\n');
 
   // Send a message and handle streaming
-  const response = await agent.sendMessage(
+  await agent.sendMessage(
     'What is 42 * 17? Also, what\'s the weather in Paris?',
     {
       onMessage: (msg) => {

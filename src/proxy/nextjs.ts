@@ -21,8 +21,6 @@ import {
     PROXY_PATH,
     processProxyRequest,
     headersToRecord,
-    passthrough,
-    INF_TARGET_PARAM,
 } from "./index";
 
 // ============================================================================

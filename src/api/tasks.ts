@@ -114,9 +114,6 @@ export class TasksAPI {
       onUpdate,
       onPartialUpdate,
       wait = true,
-      autoReconnect = true,
-      maxReconnects = 5,
-      reconnectDelayMs = 1000,
     } = options;
 
     const task = await this.http.request<Task>('post', '/apps/run', {

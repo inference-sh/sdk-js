@@ -3,7 +3,7 @@
  *
  * Run with: node examples/basic.js
  */
-import { inference, TaskStatusCompleted, TaskStatusFailed } from '@inferencesh/sdk';
+import { inference } from '@inferencesh/sdk';
 
 // Initialize client
 const client = inference({
