@@ -6,7 +6,7 @@ import {
   ChatDTO,
   ChatMessageDTO,
   ResourceStatusDTO,
-  AgentConfig,
+  AgentConfigInput as AgentConfig,
   AgentDTO,
   AgentVersionDTO,
   CreateAgentRequest,
