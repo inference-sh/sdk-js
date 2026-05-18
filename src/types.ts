@@ -323,6 +323,242 @@ export interface SkillPublishRequest {
   context: string;
 }
 /**
+ * Scope represents an API key permission scope string.
+ */
+export type Scope = string;
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeAll: Scope = "*";
+/**
+ * Resource-level scopes (implies all actions)
+ */
+export const ScopeAgents: Scope = "agents";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeApps: Scope = "apps";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeConversations: Scope = "conversations";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFiles: Scope = "files";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeDatastores: Scope = "datastores";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeTemplates: Scope = "templates";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFlows: Scope = "flows";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeProjects: Scope = "projects";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeTeams: Scope = "teams";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeBilling: Scope = "billing";
+/**
+ * Action-level scopes for Agents
+ */
+export const ScopeAgentsRead: Scope = "agents:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeAgentsWrite: Scope = "agents:write";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeAgentsExecute: Scope = "agents:execute";
+/**
+ * Action-level scopes for Apps
+ */
+export const ScopeAppsRead: Scope = "apps:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeAppsWrite: Scope = "apps:write";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeAppsExecute: Scope = "apps:execute";
+/**
+ * Action-level scopes for Conversations/Chats
+ */
+export const ScopeConversationsRead: Scope = "conversations:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeConversationsWrite: Scope = "conversations:write";
+/**
+ * Action-level scopes for Files
+ */
+export const ScopeFilesRead: Scope = "files:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFilesWrite: Scope = "files:write";
+/**
+ * Action-level scopes for Datastores
+ */
+export const ScopeDatastoresRead: Scope = "datastores:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeDatastoresWrite: Scope = "datastores:write";
+/**
+ * Action-level scopes for Flows
+ */
+export const ScopeFlowsRead: Scope = "flows:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFlowsWrite: Scope = "flows:write";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFlowsExecute: Scope = "flows:execute";
+/**
+ * Action-level scopes for Projects
+ */
+export const ScopeProjectsRead: Scope = "projects:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeProjectsWrite: Scope = "projects:write";
+/**
+ * Action-level scopes for Teams
+ */
+export const ScopeTeamsRead: Scope = "teams:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeTeamsWrite: Scope = "teams:write";
+/**
+ * Action-level scopes for Billing
+ */
+export const ScopeBillingRead: Scope = "billing:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeBillingWrite: Scope = "billing:write";
+/**
+ * Action-level scopes for Secrets (sensitive - not in read/run presets)
+ */
+export const ScopeSecretsRead: Scope = "secrets:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeSecretsWrite: Scope = "secrets:write";
+/**
+ * Action-level scopes for Integrations
+ */
+export const ScopeIntegrationsRead: Scope = "integrations:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeIntegrationsWrite: Scope = "integrations:write";
+/**
+ * Action-level scopes for Engines
+ */
+export const ScopeEnginesRead: Scope = "engines:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeEnginesWrite: Scope = "engines:write";
+/**
+ * Action-level scopes for API Keys
+ */
+export const ScopeApiKeysRead: Scope = "apikeys:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeApiKeysWrite: Scope = "apikeys:write";
+/**
+ * Action-level scopes for User profile
+ */
+export const ScopeUserRead: Scope = "user:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeUserWrite: Scope = "user:write";
+/**
+ * Action-level scopes for Settings/Notifications
+ */
+export const ScopeSettingsRead: Scope = "settings:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeSettingsWrite: Scope = "settings:write";
+/**
  * ScopeGroup identifies a category of scopes for UI grouping
  */
 export type ScopeGroup = string;
@@ -345,7 +581,7 @@ export const ScopeGroupSettings: ScopeGroup = "settings";
  * ScopeDefinition describes a single scope for UI rendering
  */
 export interface ScopeDefinition {
-  value: string; // The scope string (e.g., "agents:read")
+  value: Scope; // The scope string (e.g., "agents:read")
   label: string; // Human-readable label
   description: string; // Longer description
   group: ScopeGroup; // Category for grouping
@@ -365,7 +601,7 @@ export interface ScopePreset {
   id: string;
   label: string;
   description: string;
-  scopes: string[];
+  scopes: Scope[];
 }
 /**
  * AppPricing configures all pricing using CEL expressions.
@@ -1926,12 +2162,52 @@ export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
 export const TeamTypeSystem: TeamType = "system";
 /**
+ * ToolCallType represents the type field on a tool call (wire format).
+ */
+export type ToolCallType = string;
+/**
+ * ToolParamType represents a JSON Schema parameter type for tool definitions.
+ */
+export type ToolParamType = string;
+/**
+ * Tool types and parameter types
+ */
+export const ToolTypeFunction: ToolCallType = "function";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeObject: ToolParamType = "object";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeString: ToolParamType = "string";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeInteger: ToolParamType = "integer";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeNumber: ToolParamType = "number";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeBoolean: ToolParamType = "boolean";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeArray: ToolParamType = "array";
+/**
+ * Tool types and parameter types
+ */
+export const ToolParamTypeNull: ToolParamType = "null";
+/**
  * ToolCall represents a tool call from an LLM response (wire format)
  * This is a transport object for parsing LLM responses, not a database model
  */
 export interface ToolCall {
   id: string;
-  type: string; // "function"
+  type: ToolCallType; // "function"
   function: ToolCallFunction;
 }
 /**
@@ -1956,7 +2232,7 @@ export interface FileRef {
  * Tool represents a tool definition for LLM function calling
  */
 export interface Tool {
-  type: string;
+  type: ToolCallType;
   function: ToolFunction;
 }
 export interface ToolFunction {
@@ -1966,14 +2242,14 @@ export interface ToolFunction {
   required?: string[];
 }
 export interface ToolParameters {
-  type: string;
+  type: ToolParamType;
   title: string;
   properties?: ToolParameterProperties;
   required?: string[];
 }
 export type ToolParameterProperties = { [key: string]: ToolParameterProperty};
 export interface ToolParameterProperty {
-  type: string;
+  type: ToolParamType;
   title: string;
   description: string;
   properties?: ToolParameterProperties;
