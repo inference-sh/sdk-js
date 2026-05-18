@@ -2,7 +2,7 @@
  * Unit tests for streamable HTTP client
  */
 
-import { streamable, streamableRaw, StreamableManager, StreamableMessage } from './streamable';
+import { streamable, streamableRaw, StreamableManager } from './streamable';
 
 // Mock fetch for unit tests
 const mockFetch = (chunks: string[]) => {

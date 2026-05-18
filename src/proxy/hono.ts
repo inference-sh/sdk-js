@@ -19,7 +19,6 @@ import {
     getEnvApiKey,
     passthrough,
     headersToRecord,
-    INF_TARGET_PARAM,
 } from "./index";
 
 export interface HonoProxyOptions {

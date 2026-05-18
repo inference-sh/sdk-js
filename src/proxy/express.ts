@@ -17,7 +17,6 @@ import {
     PROXY_PATH,
     processProxyRequest,
     HttpHeaderValue,
-    INF_TARGET_PARAM,
 } from "./index";
 
 /** Default proxy route path */
