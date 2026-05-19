@@ -33,6 +33,10 @@ describe('parseStatus', () => {
   it('should return TaskStatusUnknown for unrecognized strings', () => {
     expect(parseStatus('not_a_real_status')).toBe(TaskStatusUnknown);
   });
+
+  it('should return TaskStatusUnknown for non-string non-number values', () => {
+    expect(parseStatus(true as unknown as string)).toBe(TaskStatusUnknown);
+  });
 });
 
 describe('isTerminalStatus', () => {

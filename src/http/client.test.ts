@@ -156,5 +156,49 @@ describe('HttpClient', () => {
       expect(calledUrl).toContain('ids=');
       expect(decodeURIComponent(calledUrl)).toContain('["a","b"]');
     });
+
+    it('should use top-level message field in HTTP error responses', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve(JSON.stringify({ message: 'service unavailable' })),
+      });
+
+      await expect(client().request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        message: expect.stringContaining('service unavailable'),
+      });
+    });
+  });
+
+  describe('getStreamableConfig', () => {
+    it('should include bearer token in direct mode', () => {
+      const config = new HttpClient({ apiKey: 'secret-key' }).getStreamableConfig(
+        '/tasks/task-1/stream'
+      );
+
+      expect(config.url).toBe('https://api.inference.sh/tasks/task-1/stream');
+      expect(config.headers.Authorization).toBe('Bearer secret-key');
+    });
+
+    it('should route through proxy with target URL header', () => {
+      const config = new HttpClient({
+        proxyUrl: 'https://proxy.example.com/api',
+      }).getStreamableConfig('/tasks/task-1/stream');
+
+      expect(config.url).toContain('https://proxy.example.com/api');
+      expect(config.url).toContain('__inf_target=');
+      expect(config.headers['x-inf-target-url']).toBe(
+        'https://api.inference.sh/tasks/task-1/stream'
+      );
+    });
+
+    it('should use getToken when apiKey is not set', () => {
+      const config = new HttpClient({
+        getToken: () => 'dynamic-token',
+      }).getStreamableConfig('/tasks/task-1/stream');
+
+      expect(config.headers.Authorization).toBe('Bearer dynamic-token');
+    });
   });
 });

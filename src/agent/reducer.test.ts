@@ -122,4 +122,29 @@ describe('chatReducer', () => {
 
     expect(chatReducer(state, { type: 'RESET' })).toEqual(initialState);
   });
+
+  it('SET_CHAT_ID should update chatId', () => {
+    const next = chatReducer(initialState, { type: 'SET_CHAT_ID', payload: 'chat-99' });
+    expect(next.chatId).toBe('chat-99');
+  });
+
+  it('SET_MESSAGES should replace the message list', () => {
+    const messages = [makeMessage('msg-a', 1)];
+    const next = chatReducer(initialState, { type: 'SET_MESSAGES', payload: messages });
+    expect(next.messages).toEqual(messages);
+  });
+
+  it('SET_CONNECTION_STATUS and SET_ERROR should update connection fields', () => {
+    const streaming = chatReducer(initialState, {
+      type: 'SET_CONNECTION_STATUS',
+      payload: 'streaming',
+    });
+    expect(streaming.connectionStatus).toBe('streaming');
+
+    const errored = chatReducer(streaming, {
+      type: 'SET_ERROR',
+      payload: 'stream failed',
+    });
+    expect(errored.error).toBe('stream failed');
+  });
 });
