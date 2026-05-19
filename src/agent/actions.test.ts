@@ -374,4 +374,181 @@ describe('createActions', () => {
       expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
     });
   });
+
+  describe('streamChat error handling', () => {
+    it('should reset to idle when initial fetchChat fails', async () => {
+      mockAgentApi.fetchChat.mockRejectedValueOnce(new Error('fetch failed'));
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      await internalActions.streamChat('chat-full-id-123');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'idle',
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+      expect(StreamableManager).not.toHaveBeenCalled();
+    });
+
+    it('should dispatch UPDATE_CHAT when chats stream events arrive', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_CHAT',
+        payload: expect.objectContaining({ status: ChatStatusBusy }),
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
+  });
+
+  describe('pollChat', () => {
+    it('should fetch full chat when poll status changes', async () => {
+      const { ctx: baseCtx } = createTestContext({ getStreamEnabled: () => false });
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        client: {
+          ...baseCtx.client,
+          http: { ...baseCtx.client.http, request: jest.fn().mockResolvedValue({ status: ChatStatusBusy }) },
+        },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as ChatDTO)
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [makeMessage()],
+        } as unknown as ChatDTO);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      await pollInstances[0].options.onData?.({ status: 'idle' });
+      await Promise.resolve();
+
+      expect(mockAgentApi.fetchChat).toHaveBeenCalledTimes(2);
+    });
+
+    it('should call onError when poll fetch fails', async () => {
+      const onError = jest.fn();
+      const { ctx: baseCtx } = createTestContext({ getStreamEnabled: () => false });
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onError },
+        client: {
+          ...baseCtx.client,
+          http: { ...baseCtx.client.http, request: jest.fn().mockResolvedValue({ status: ChatStatusBusy }) },
+        },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as ChatDTO)
+        .mockRejectedValueOnce(new Error('poll fetch failed'));
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      await pollInstances[0].options.onData?.({ status: 'idle' });
+      await Promise.resolve();
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'poll fetch failed' }));
+    });
+  });
+
+  describe('client tool deduplication', () => {
+    it('should not submit the same client tool invocation twice', async () => {
+      const handler = jest.fn().mockResolvedValue('ok');
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const toolMessage = makeMessage({
+        chat_id: 'chat-short',
+        tool_invocations: [
+          {
+            id: 'tool-inv-dup',
+            type: ToolTypeClient,
+            status: ToolInvocationStatusAwaitingInput,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      });
+
+      onMessage(toolMessage);
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('publicActions lifecycle', () => {
+    it('reset should stop stream and dispatch RESET', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+      publicActions.reset();
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'RESET' });
+    });
+
+    it('stopGeneration should call stopChat when chatId exists', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      publicActions.stopGeneration();
+
+      expect(mockAgentApi.stopChat).toHaveBeenCalledWith(ctx.client, 'chat-short');
+    });
+
+    it('submitToolResult should set error state when API fails', async () => {
+      mockAgentApi.submitToolResult.mockRejectedValueOnce(new Error('submit failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.submitToolResult('inv-1', 'result')).rejects.toThrow(
+        'submit failed'
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'submit failed' }));
+    });
+  });
 });

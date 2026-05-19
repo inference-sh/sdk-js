@@ -158,4 +158,9 @@ describe('chatReducer', () => {
     });
     expect(errored.error).toBe('stream failed');
   });
+
+  it('should return the same state for unknown action types', () => {
+    const state = chatReducer(initialState, { type: 'UNKNOWN' } as never);
+    expect(state).toBe(initialState);
+  });
 });
