@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Typed SDK constants for integrations: `IntegrationProvider*`, `IntegrationAuthType*`, `IntegrationStatus*`
+- `IntegrationDTO` fields (`provider`, `type`, `auth`, `status`) now use those typed aliases
+- Additional `InstanceStatus*` constants (`creating`, `pending_provider`, `error`, `deleting`)
+- `ToolParamType*` constants for JSON Schema tool parameter types (distinct from `ToolCallType`)
+
 ## [0.1.1] - 2024-11-30
 
 ### Added
