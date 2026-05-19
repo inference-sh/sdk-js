@@ -3,6 +3,7 @@ import {
   appTool,
   agentTool,
   webhookTool,
+  httpTool,
   internalTools,
   string,
   number,
@@ -138,6 +139,21 @@ describe('ClientToolBuilder (tool)', () => {
   it('creates tool with display name', () => {
     const t = tool('get_data').display('Get Data').build();
     expect(t.display_name).toBe('Get Data');
+  });
+
+  it('creates tool with displayName alias', () => {
+    const t = tool('get_data').displayName('Get Data').build();
+    expect(t.display_name).toBe('Get Data');
+  });
+
+  it('returns schema and handler from handler()', async () => {
+    const clientTool = tool('greet')
+      .describe('Say hi')
+      .param('name', string('Name'))
+      .handler(async (args) => `Hello, ${args.name}`);
+
+    expect(clientTool.schema.name).toBe('greet');
+    expect(await clientTool.handler({ name: 'Ada' })).toBe('Hello, Ada');
   });
 
   it('creates tool with parameters', () => {
@@ -294,6 +310,23 @@ describe('AgentToolBuilder (agentTool)', () => {
 
     expect(t.display_name).toBe('Code Assistant');
     expect(t.require_approval).toBe(true);
+  });
+});
+
+describe('HTTPToolBuilder (httpTool)', () => {
+  it('includes custom method and headers in the built tool', () => {
+    const t = httpTool('fetch', 'https://api.example.com/data')
+      .method('GET')
+      .header('X-Custom', '1')
+      .build();
+
+    expect(t.http?.method).toBe('GET');
+    expect(t.http?.headers).toEqual({ 'X-Custom': '1' });
+  });
+
+  it('omits method when POST is the default', () => {
+    const t = httpTool('post', 'https://api.example.com').build();
+    expect(t.http?.method).toBeUndefined();
   });
 });
 
