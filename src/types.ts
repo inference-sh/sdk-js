@@ -2523,35 +2523,35 @@ export type ToolCallType = string;
  */
 export type ToolParamType = string;
 /**
- * Tool types and parameter types
+ * Tool call types
  */
 export const ToolTypeFunction: ToolCallType = "function";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeObject: ToolParamType = "object";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeString: ToolParamType = "string";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeInteger: ToolParamType = "integer";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeNumber: ToolParamType = "number";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeBoolean: ToolParamType = "boolean";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeArray: ToolParamType = "array";
 /**
- * Tool types and parameter types
+ * Tool parameter types
  */
 export const ToolParamTypeNull: ToolParamType = "null";
 /**
