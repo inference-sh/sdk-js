@@ -7,7 +7,13 @@ import {
   sendMessage,
   submitToolResult,
   getChatStreamConfig,
+  fetchChat,
+  stopChat,
+  approveTool,
+  rejectTool,
+  alwaysAllowTool,
 } from './api';
+import { InferenceError } from '../http/errors';
 import { ToolTypeClient } from '../types';
 
 const mockFetch = jest.fn();
@@ -164,6 +170,90 @@ describe('agent/api', () => {
       expect(config.url).toContain('/chats/chat-xyz/stream');
       expect(config.headers).toEqual(
         expect.objectContaining({ Authorization: expect.stringContaining('Bearer') })
+      );
+    });
+  });
+
+  describe('fetchChat', () => {
+    it('should return chat data on success', async () => {
+      const chat = { id: 'chat-1', status: 'idle', chat_messages: [] };
+      mockJsonResponse({ success: true, data: chat });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+      expect(result).toEqual(chat);
+    });
+
+    it('should return null when the request fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve(JSON.stringify({ message: 'not found' })),
+      });
+
+      const result = await fetchChat(makeClient(), 'missing-chat');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('stopChat', () => {
+    it('should POST to /chats/{id}/stop', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await stopChat(makeClient(), 'chat-1');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/chats/chat-1/stop'),
+        expect.anything()
+      );
+    });
+
+    it('should swallow errors without throwing', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+      await expect(stopChat(makeClient(), 'chat-1')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('human-in-the-loop tool actions', () => {
+    it('approveTool should POST to /tools/{id}/invoke', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await approveTool(makeClient(), 'inv-approve');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tools/inv-approve/invoke'),
+        expect.anything()
+      );
+    });
+
+    it('rejectTool should POST reason to /tools/{id}/reject', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await rejectTool(makeClient(), 'inv-reject', 'unsafe action');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ reason: 'unsafe action' });
+    });
+
+    it('alwaysAllowTool should POST tool_name to the chat tools endpoint', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'browser_navigate');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
+      expect(JSON.parse(String(init.body))).toEqual({ tool_name: 'browser_navigate' });
+    });
+
+    it('should rethrow API errors from approveTool', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve(JSON.stringify({ message: 'forbidden' })),
+      });
+
+      await expect(approveTool(makeClient(), 'inv-denied')).rejects.toBeInstanceOf(
+        InferenceError
       );
     });
   });

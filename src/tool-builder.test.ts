@@ -3,6 +3,9 @@ import {
   appTool,
   agentTool,
   webhookTool,
+  httpTool,
+  callTool,
+  mcpTool,
   internalTools,
   string,
   number,
@@ -13,7 +16,14 @@ import {
   array,
   optional,
 } from './tool-builder';
-import { ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook } from './types';
+import {
+  ToolTypeClient,
+  ToolTypeApp,
+  ToolTypeAgent,
+  ToolTypeHook,
+  ToolTypeHTTP,
+  ToolTypeMCP,
+} from './types';
 
 describe('Schema Helpers', () => {
   describe('string', () => {
@@ -330,6 +340,76 @@ describe('WebhookToolBuilder (webhookTool)', () => {
       },
       required: ['message'],
     });
+  });
+});
+
+describe('HTTPToolBuilder (httpTool / callTool)', () => {
+  it('creates HTTP tool with default POST method', () => {
+    const t = httpTool('fetch_data', 'https://api.example.com/data')
+      .describe('Fetch external data')
+      .build();
+
+    expect(t.type).toBe(ToolTypeHTTP);
+    expect(t.http?.url).toBe('https://api.example.com/data');
+    expect(t.http?.method).toBeUndefined();
+    expect(t.description).toBe('Fetch external data');
+  });
+
+  it('supports custom method, headers, and integration auth', () => {
+    const t = httpTool('gmail_send', 'https://gmail.googleapis.com/send')
+      .method('PUT')
+      .auth({ integration: 'google', integrationId: 'int-123' })
+      .header('X-Custom', 'value')
+      .param('to', string('Recipient'))
+      .build();
+
+    expect(t.http).toEqual({
+      url: 'https://gmail.googleapis.com/send',
+      method: 'PUT',
+      auth: { type: 'integration', provider: 'google', integration_id: 'int-123' },
+      headers: { 'X-Custom': 'value' },
+      input_schema: {
+        type: 'object',
+        properties: { to: { type: 'string', description: 'Recipient' } },
+        required: ['to'],
+      },
+    });
+  });
+
+  it('supports api_key and bearer auth', () => {
+    const apiKeyTool = httpTool('api', 'https://api.example.com')
+      .auth({ apiKey: 'SECRET', header: 'X-Api-Key' })
+      .build();
+    const bearerTool = callTool('api2', 'https://api.example.com/v2')
+      .auth({ bearer: 'token-abc' })
+      .build();
+
+    expect(apiKeyTool.http?.auth).toEqual({
+      type: 'api_key',
+      secret: 'SECRET',
+      header: 'X-Api-Key',
+    });
+    expect(bearerTool.http?.auth).toEqual({
+      type: 'bearer',
+      secret: 'token-abc',
+    });
+  });
+});
+
+describe('MCPToolBuilder (mcpTool)', () => {
+  it('creates MCP tool bound to an integration', () => {
+    const t = mcpTool('notion_search', 'int-notion-1', 'search_pages')
+      .describe('Search Notion pages')
+      .requireApproval()
+      .build();
+
+    expect(t.type).toBe(ToolTypeMCP);
+    expect(t.mcp).toEqual({
+      integration_id: 'int-notion-1',
+      tool_name: 'search_pages',
+    });
+    expect(t.require_approval).toBe(true);
+    expect(t.description).toBe('Search Notion pages');
   });
 });
 

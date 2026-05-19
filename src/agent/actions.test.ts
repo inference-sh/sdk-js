@@ -239,6 +239,85 @@ describe('createActions', () => {
     });
   });
 
+  describe('pollChat', () => {
+    it('should surface fetch errors via onError when status changes', async () => {
+      const onError = jest.fn();
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onError },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as import('../types').ChatDTO)
+        .mockRejectedValueOnce(new Error('chat fetch failed'));
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const pollOnData = pollInstances[0].options.onData;
+      await pollOnData?.({ status: ChatStatusBusy } as never);
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'chat fetch failed' }));
+    });
+  });
+
+  describe('publicActions.stopGeneration', () => {
+    it('should call stopChat when a chatId exists', () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      publicActions.stopGeneration();
+
+      expect(mockAgentApi.stopChat).toHaveBeenCalledWith(ctx.client, 'chat-short');
+    });
+
+    it('should no-op when there is no chatId', () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      publicActions.stopGeneration();
+
+      expect(mockAgentApi.stopChat).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('publicActions.submitToolResult', () => {
+    it('should dispatch error state and rethrow when submit fails', async () => {
+      const onError = jest.fn();
+      mockAgentApi.submitToolResult.mockRejectedValueOnce(new Error('submit failed'));
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.submitToolResult('inv-1', 'result')).rejects.toThrow(
+        'submit failed'
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalled();
+    });
+  });
+
+  describe('internalActions.setChatId', () => {
+    it('should reset and stop stream when chatId is cleared', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+      internalActions.setChatId(null);
+
+      expect(streamInstances[0].stop).toHaveBeenCalled();
+      expect(dispatch).toHaveBeenCalledWith({ type: 'RESET' });
+    });
+  });
+
   describe('publicActions.sendMessage', () => {
     it('should call onChatCreated and start streaming for a new chat', async () => {
       const onChatCreated = jest.fn();
