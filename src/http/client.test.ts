@@ -83,7 +83,13 @@ describe('HttpClient', () => {
     it('should throw InferenceError when success is false', async () => {
       mockJsonResponse({ success: false, error: { message: 'Invalid request' } });
 
-      await expect(client().request('get', '/tasks/1')).rejects.toBeInstanceOf(InferenceError);
+      try {
+        await client().request('get', '/tasks/1');
+        fail('expected InferenceError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(InferenceError);
+        expect((e as InferenceError).message).toContain('Invalid request');
+      }
     });
 
     it('should throw RequirementsNotMetException on HTTP 412', async () => {
@@ -152,6 +158,40 @@ describe('HttpClient', () => {
       const calledUrl = mockFetch.mock.calls[0][0] as string;
       expect(calledUrl).toContain('ids=');
       expect(decodeURIComponent(calledUrl)).toContain('["a","b"]');
+    });
+
+    it('should use getToken when apiKey is not set', async () => {
+      const getToken = jest.fn().mockReturnValue('dynamic-token');
+      mockJsonResponse({ success: true, data: { ok: true } });
+
+      await new HttpClient({ getToken }).request('get', '/tasks/1');
+
+      const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>;
+      expect(getToken).toHaveBeenCalled();
+      expect(headers.Authorization).toBe('Bearer dynamic-token');
+    });
+  });
+
+  describe('getStreamableConfig', () => {
+    it('should return API URL and bearer token in direct mode', () => {
+      const config = new HttpClient({ apiKey: 'key', baseUrl: 'https://api.example.com' }).getStreamableConfig(
+        '/tasks/t1/stream'
+      );
+
+      expect(config.url).toBe('https://api.example.com/tasks/t1/stream');
+      expect(config.headers.Authorization).toBe('Bearer key');
+    });
+
+    it('should route through proxy with target header in proxy mode', () => {
+      const config = new HttpClient({
+        proxyUrl: 'https://proxy.example.com',
+      }).getStreamableConfig('/tasks/t1/stream');
+
+      expect(config.url).toContain('https://proxy.example.com');
+      expect(config.url).toContain('__inf_target=');
+      expect(config.headers['x-inf-target-url']).toBe(
+        'https://api.inference.sh/tasks/t1/stream'
+      );
     });
   });
 });
