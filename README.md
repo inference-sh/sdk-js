@@ -221,6 +221,58 @@ const result = await client.tasks.run({
 - Maximum timeout: 3600 seconds (1 hour)
 - Each successful call resets the idle timer
 
+#### Session management API
+
+Manage sessions directly without running a task:
+
+```typescript
+// Inspect a session
+const info = await client.sessions.get(sessionId);
+console.log(info.status, info.expires_at, info.call_count);
+
+// List active sessions
+const sessions = await client.sessions.list();
+
+// Extend idle timeout without a task call (sliding window)
+await client.sessions.keepalive(sessionId);
+
+// Release the worker immediately
+await client.sessions.end(sessionId);
+```
+
+#### Session errors
+
+```typescript
+import {
+  SessionNotFoundError,
+  SessionExpiredError,
+  SessionEndedError,
+} from '@inferencesh/sdk';
+
+try {
+  await client.tasks.run({
+    app: 'my-stateful-app',
+    input: { prompt: 'hello' },
+    session: sessionId,
+  });
+} catch (error) {
+  if (
+    error instanceof SessionNotFoundError ||
+    error instanceof SessionExpiredError ||
+    error instanceof SessionEndedError
+  ) {
+    // Start a new session and retry
+    const result = await client.tasks.run({
+      app: 'my-stateful-app',
+      input: { prompt: 'hello' },
+      session: 'new',
+    });
+  } else {
+    throw error;
+  }
+}
+```
+
 For complete session documentation including error handling, best practices, and advanced patterns, see the [Sessions Developer Guide](https://inference.sh/docs/extend/sessions).
 
 ## Agent Chat
@@ -265,20 +317,16 @@ import { inference, tool, string } from '@inferencesh/sdk';
 
 const client = inference({ apiKey: 'your-api-key' });
 
-// Create ad-hoc agent
+// Create ad-hoc agent (config uses API field names: core_app, system_prompt)
+const weatherTool = tool('get_weather')
+  .describe('Get current weather')
+  .param('city', string('City name'))
+  .build();
+
 const agent = client.agents.create({
-  coreApp: 'infsh/claude-sonnet-4@abc123',  // LLM to use
-  systemPrompt: 'You are a helpful assistant.',
-  tools: [
-    tool('get_weather')
-      .description('Get current weather')
-      .params({ city: string('City name') })
-      .handler(async (args) => {
-        // Your tool logic here
-        return JSON.stringify({ temp: 72, conditions: 'sunny' });
-      })
-      .build()
-  ]
+  core_app: { ref: 'infsh/claude-sonnet-4@abc123' },
+  system_prompt: 'You are a helpful assistant.',
+  tools: [weatherTool], // only schemas are sent to the API; handlers stay client-side
 });
 
 await agent.sendMessage('What is the weather in Paris?', {
@@ -291,6 +339,22 @@ await agent.sendMessage('What is the weather in Paris?', {
 ```
 
 For multi-turn chats, the SDK opens the chat stream before sending the next message so updates are not missed. Use `stopChat()` to cancel in-flight generation (`POST /chats/{id}/stop`), and `reset()` to clear the current chat and start fresh.
+
+### File attachments
+
+Pass files in `sendMessage` options. `Blob` values are uploaded first; objects with a `uri` (already uploaded via `client.files.upload`) are attached as-is:
+
+```typescript
+const uploaded = await client.files.upload(imageBlob, {
+  filename: 'photo.png',
+  contentType: 'image/png',
+});
+
+await agent.sendMessage('Describe this image', {
+  files: [imageBlob, uploaded], // Blob uploads; FileDTO reuses uri
+  onMessage: (msg) => console.log(msg),
+});
+```
 
 ### Structured Output
 
@@ -322,7 +386,7 @@ const output = await agent.run('Analyze: Great product!');
 |--------|-------------|
 | `sendMessage(text, options?)` | Send a message; streams or polls until idle when callbacks or `stream: false` |
 | `run(text, options?)` | Send and return structured `chat.output` (always uses polling) |
-| `getChat(chatId?)` | Get the current or specified chat |
+| `getChat(chatId?)` | Get the current or specified chat (`chat_messages` on the returned chat) |
 | `stopChat()` | Stop generation for the current chat (no-op if no active chat) |
 | `submitToolResult(toolId, resultOrAction)` | Submit result for a client tool (string or `{action, form_data}`) |
 | `startStreaming(options?)` | Manually attach to `/chats/{id}/stream` for the current chat |
@@ -405,11 +469,20 @@ const agent = client.agents.create('namespace/name@version');
 **Ad-hoc mode:**
 ```typescript
 const agent = client.agents.create({
-  coreApp: 'infsh/claude-sonnet-4@abc123',
-  systemPrompt: 'You are helpful.',
-  tools: [...]
+  core_app: { ref: 'infsh/claude-sonnet-4@abc123' },
+  system_prompt: 'You are helpful.',
+  tools: [...],
 });
 ```
+
+### `client.sessions`
+
+| Method | HTTP | Description |
+|--------|------|-------------|
+| `get(sessionId)` | `GET /sessions/{id}` | Session metadata (`status`, `expires_at`, `call_count`, …) |
+| `list()` | `GET /sessions` | All sessions (empty array if none) |
+| `keepalive(sessionId)` | `POST /sessions/{id}/keepalive` | Reset idle expiration |
+| `end(sessionId)` | `DELETE /sessions/{id}` | End session and release worker |
 
 ## Task Status Constants
 
