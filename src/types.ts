@@ -1281,10 +1281,10 @@ export interface InstanceTypeBootTime {
  * IntegrationDTO for API responses (never exposes tokens)
  */
 export interface IntegrationDTO extends BaseModelDTO, PermissionModelDTO {
-  provider: string;
-  type: string;
-  auth: string;
-  status: string;
+  provider: IntegrationProvider;
+  type: IntegrationAuthType;
+  auth: IntegrationAuthType;
+  status: IntegrationStatus;
   display_name: string;
   icon_url?: string;
   scopes: StringSlice;
@@ -2301,8 +2301,12 @@ export const CloudMassedCompute: InstanceCloudProvider = "massedcompute";
 export const CloudVultr: InstanceCloudProvider = "vultr";
 export const CloudShade: InstanceCloudProvider = "shade";
 export type InstanceStatus = string;
+export const InstanceStatusCreating: InstanceStatus = "creating";
+export const InstanceStatusPendingProvider: InstanceStatus = "pending_provider";
 export const InstanceStatusPending: InstanceStatus = "pending";
 export const InstanceStatusActive: InstanceStatus = "active";
+export const InstanceStatusError: InstanceStatus = "error";
+export const InstanceStatusDeleting: InstanceStatus = "deleting";
 export const InstanceStatusDeleted: InstanceStatus = "deleted";
 export type InstanceTypeDeploymentType = string;
 export const InstanceTypeDeploymentTypeVM: InstanceTypeDeploymentType = "vm";
@@ -2392,6 +2396,38 @@ export const ContentViolenceNonGraphic: ContentRating = "violence_non_graphic";
 export const ContentViolenceGraphic: ContentRating = "violence_graphic";
 export const ContentGore: ContentRating = "gore";
 export const ContentUnrated: ContentRating = "unrated";
+/**
+ * IntegrationProvider represents an external integration provider.
+ */
+export type IntegrationProvider = string;
+export const IntegrationProviderGoogle: IntegrationProvider = "google";
+export const IntegrationProviderSlack: IntegrationProvider = "slack";
+export const IntegrationProviderNotion: IntegrationProvider = "notion";
+export const IntegrationProviderGitHub: IntegrationProvider = "github";
+export const IntegrationProviderX: IntegrationProvider = "x";
+export const IntegrationProviderMicrosoft: IntegrationProvider = "microsoft";
+export const IntegrationProviderSalesforce: IntegrationProvider = "salesforce";
+export const IntegrationProviderDiscord: IntegrationProvider = "discord";
+export const IntegrationProviderGCP: IntegrationProvider = "gcp";
+export const IntegrationProviderMCP: IntegrationProvider = "mcp";
+export const IntegrationProviderReddit: IntegrationProvider = "reddit";
+/**
+ * IntegrationAuthType describes the authentication mechanism of an integration.
+ */
+export type IntegrationAuthType = string;
+export const IntegrationAuthTypeServiceAccount: IntegrationAuthType = "service_account";
+export const IntegrationAuthTypeOAuth: IntegrationAuthType = "oauth";
+export const IntegrationAuthTypeAPIKey: IntegrationAuthType = "api_key";
+export const IntegrationAuthTypeWIF: IntegrationAuthType = "wif";
+export const IntegrationAuthTypeMCP: IntegrationAuthType = "mcp";
+/**
+ * IntegrationStatus represents the status of an integration connection.
+ */
+export type IntegrationStatus = string;
+export const IntegrationStatusConnected: IntegrationStatus = "connected";
+export const IntegrationStatusDisconnected: IntegrationStatus = "disconnected";
+export const IntegrationStatusExpired: IntegrationStatus = "expired";
+export const IntegrationStatusError: IntegrationStatus = "error";
 export type WidgetNodeType = string;
 export const WidgetNodeTypeText: WidgetNodeType = "text";
 export const WidgetNodeTypeMarkdown: WidgetNodeType = "markdown";
