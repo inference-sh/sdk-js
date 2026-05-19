@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Exported `IntegrationStatus` and `IntegrationAuthType` string constants (codegen)
+- Exported `ToolParamType` constants for JSON Schema tool parameter types
+
+### Changed
+
+- README: agent file attachment routing (`input.images` vs `input.files`), tool builder (`httpTool`, `displayName`), and `onToolCall` dispatch behavior
+
 ## [0.6.7] - 2026-05-19
 
 ### Added

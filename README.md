@@ -338,20 +338,71 @@ await agent.sendMessage('What is the weather in Paris?', {
 });
 ```
 
+`onToolCall` runs at most once per client tool invocation ID while the chat is busy (streaming or polling). If you do not handle a tool in `onToolCall`, call `submitToolResult` yourself before the agent can continue.
+
 For multi-turn chats, the SDK opens the chat stream before sending the next message so updates are not missed. Use `stopChat()` to cancel in-flight generation (`POST /chats/{id}/stop`), and `reset()` to clear the current chat and start fresh.
+
+### Tool builder
+
+Build tool schemas with the fluent API (`tool`, `appTool`, `agentTool`, `webhookTool`, `httpTool`, `internalTools`) and parameter helpers (`string`, `number`, `integer`, `boolean`, `enumOf`, `object`, `array`, `optional`):
+
+```typescript
+import {
+  tool,
+  appTool,
+  httpTool,
+  internalTools,
+  string,
+  optional,
+} from '@inferencesh/sdk';
+
+// Client tool (runs in your app via onToolCall)
+const search = tool('search')
+  .displayName('Web Search')
+  .describe('Search the web')
+  .param('query', string('Search query'))
+  .build();
+
+// App tool (runs on inference.sh)
+const generate = appTool('generate', 'infsh/flux-schnell@latest')
+  .describe('Generate an image')
+  .param('prompt', string('Prompt'))
+  .build();
+
+// HTTP tool (custom method and headers; POST is the default and omitted from the schema)
+const fetchData = httpTool('fetch', 'https://api.example.com/data')
+  .method('GET')
+  .header('Authorization', 'Bearer token')
+  .build();
+
+const agent = client.agents.create({
+  core_app: { ref: 'infsh/claude-sonnet-4@latest' },
+  system_prompt: 'You are helpful.',
+  tools: [search, generate, fetchData],
+  internal_tools: internalTools().plan().memory().build(),
+});
+```
+
+Use `.build()` to send only the schema to the API. Use `.handler(fn)` when you need a local handler object (`{ schema, handler }`) — for example with the React `@inferencesh/sdk/agent` provider, which runs handlers automatically and submits results (or a JSON error if the handler throws).
+
+See `examples/tool-builder.ts` for more patterns.
 
 ### File attachments
 
-Pass files in `sendMessage` options. `Blob` values are uploaded first; objects with a `uri` (already uploaded via `client.files.upload`) are attached as-is:
+Pass files in `sendMessage` options. `Blob` values are uploaded first; objects with a `uri` (already uploaded via `client.files.upload`) are attached as-is. The SDK routes attachments by MIME type: `content_type` starting with `image/` go to `input.images`; all other types go to `input.files` on the run request.
 
 ```typescript
-const uploaded = await client.files.upload(imageBlob, {
+const image = await client.files.upload(imageBlob, {
   filename: 'photo.png',
   contentType: 'image/png',
 });
+const doc = await client.files.upload(pdfBlob, {
+  filename: 'notes.pdf',
+  contentType: 'application/pdf',
+});
 
-await agent.sendMessage('Describe this image', {
-  files: [imageBlob, uploaded], // Blob uploads; FileDTO reuses uri
+await agent.sendMessage('Summarize the PDF and describe the photo', {
+  files: [image, doc],
   onMessage: (msg) => console.log(msg),
 });
 ```
@@ -459,7 +510,7 @@ Uploads a file to inference.sh.
 
 Creates an agent instance from a template or ad-hoc configuration. `client.agent(...)` is an alias for `client.agents.create(...)`.
 
-**`sendMessage` options:** `onMessage`, `onChat`, `onToolCall`, `files`, `stream`, `pollIntervalMs`. Client tools with status `awaiting_input` are dispatched once per invocation ID via `onToolCall`.
+**`sendMessage` options:** `onMessage`, `onChat`, `onToolCall`, `files`, `stream`, `pollIntervalMs`. Attachments in `files` are split into `input.images` (image MIME types) and `input.files` (everything else). Client tools with status `awaiting_input` are dispatched once per invocation ID via `onToolCall`.
 
 **Template mode:**
 ```typescript
@@ -506,6 +557,11 @@ This SDK is written in TypeScript and includes full type definitions. All types 
 
 ```typescript
 import type { Task, ApiTaskRequest, RunOptions } from '@inferencesh/sdk';
+import {
+  IntegrationStatusConnected,
+  IntegrationAuthTypeOAuth,
+  ToolParamTypeString,
+} from '@inferencesh/sdk';
 ```
 
 ## Requirements
