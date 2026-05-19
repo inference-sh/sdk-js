@@ -55,3 +55,21 @@ describe('error type guards', () => {
     expect(new WorkerLostError('sess-4').statusCode).toBe(500);
   });
 });
+
+describe('error classes', () => {
+  it('RequirementsNotMetException.fromResponse should default empty errors', () => {
+    const err = RequirementsNotMetException.fromResponse({}, 412);
+    expect(err.errors).toEqual([]);
+    expect(err.statusCode).toBe(412);
+    expect(err.message).toBe('requirements not met');
+  });
+
+  it('session error subclasses should expose sessionId and statusCode', () => {
+    expect(new SessionNotFoundError('sess-a').sessionId).toBe('sess-a');
+    expect(new SessionNotFoundError('sess-a').statusCode).toBe(404);
+
+    expect(new SessionExpiredError('sess-b').statusCode).toBe(410);
+    expect(new SessionEndedError('sess-c').message).toContain('sess-c');
+    expect(new WorkerLostError('sess-d').name).toBe('WorkerLostError');
+  });
+});
