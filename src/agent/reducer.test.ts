@@ -122,4 +122,51 @@ describe('chatReducer', () => {
 
     expect(chatReducer(state, { type: 'RESET' })).toEqual(initialState);
   });
+
+  it('SET_CHAT_ID should update chatId', () => {
+    const next = chatReducer(initialState, { type: 'SET_CHAT_ID', payload: 'chat-99' });
+    expect(next.chatId).toBe('chat-99');
+  });
+
+  it('SET_CHAT with null should clear chat and messages', () => {
+    const chat = makeChat();
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const next = chatReducer(state, { type: 'SET_CHAT', payload: null });
+
+    expect(next.chat).toBeNull();
+    expect(next.messages).toEqual([]);
+    expect(next.connectionStatus).toBe('idle');
+  });
+
+  it('SET_MESSAGES should replace the message list', () => {
+    const messages = [makeMessage('msg-a', 1)];
+    const next = chatReducer(initialState, { type: 'SET_MESSAGES', payload: messages });
+    expect(next.messages).toEqual(messages);
+  });
+
+  it('ADD_MESSAGE should append and sort by order', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_MESSAGES',
+      payload: [makeMessage('msg-2', 2)],
+    });
+
+    const next = chatReducer(state, { type: 'ADD_MESSAGE', payload: makeMessage('msg-1', 1) });
+
+    expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+  });
+
+  it('SET_CONNECTION_STATUS and SET_ERROR should update connection fields', () => {
+    const streaming = chatReducer(initialState, {
+      type: 'SET_CONNECTION_STATUS',
+      payload: 'streaming',
+    });
+    expect(streaming.connectionStatus).toBe('streaming');
+
+    const errored = chatReducer(streaming, {
+      type: 'SET_ERROR',
+      payload: 'stream failed',
+    });
+    expect(errored.error).toBe('stream failed');
+  });
 });
