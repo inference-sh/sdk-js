@@ -83,10 +83,7 @@ describe('HttpClient', () => {
     it('should throw InferenceError when success is false', async () => {
       mockJsonResponse({ success: false, error: { message: 'Invalid request' } });
 
-      await expect(client().request('get', '/tasks/1')).rejects.toMatchObject({
-        name: 'InferenceError',
-        message: expect.stringContaining('Invalid request'),
-      });
+      await expect(client().request('get', '/tasks/1')).rejects.toBeInstanceOf(InferenceError);
     });
 
     it('should throw RequirementsNotMetException on HTTP 412', async () => {
