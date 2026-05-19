@@ -1,5 +1,5 @@
 import { HttpClient, createHttpClient } from './client';
-import { RequirementsNotMetException } from './errors';
+import { InferenceError, RequirementsNotMetException } from './errors';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
