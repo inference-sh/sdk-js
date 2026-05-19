@@ -129,12 +129,13 @@ console.log('No internal tools:', JSON.stringify(noInternal, null, 2));
 // Full Agent Config Example
 // =============================================================================
 
+// Ad-hoc agent config uses API field names (snake_case)
 const agentConfig = {
-  coreApp: 'infsh/claude-sonnet-4@latest',
+  core_app: { ref: 'infsh/claude-sonnet-4@latest' },
   name: 'Form Assistant',
-  systemPrompt: 'You are a helpful assistant that can interact with forms.',
+  system_prompt: 'You are a helpful assistant that can interact with forms.',
   tools: [scanUI, fillField, interact, generateImage],
-  internalTools: internalTools().memory().build(),
+  internal_tools: internalTools().memory().build(),
 };
 
 console.log('\n=== Full Agent Config ===');
