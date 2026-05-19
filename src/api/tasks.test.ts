@@ -109,6 +109,17 @@ describe('TasksAPI.run (polling mode)', () => {
     ).rejects.toThrow('network down');
   });
 
+  it('should reject when status polling fails', async () => {
+    const runningTask = makeTask();
+
+    mockJsonResponse({ success: true, data: runningTask });
+    mockFetch.mockRejectedValueOnce(new Error('status endpoint down'));
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
+    ).rejects.toThrow('status endpoint down');
+  });
+
   it('should parse string terminal statuses from the status endpoint', async () => {
     const runningTask = makeTask();
     const completedTask = makeTask({ status: TaskStatusCompleted });
