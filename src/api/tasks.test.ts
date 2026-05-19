@@ -114,3 +114,87 @@ describe('TasksAPI.run (polling mode)', () => {
     expect(result.status).toBe(TaskStatusCompleted);
   });
 });
+
+function mockNdjsonStream(lines: string[]) {
+  let chunkIndex = 0;
+  const mockReader = {
+    read: jest.fn().mockImplementation(async () => {
+      if (chunkIndex >= lines.length) {
+        return { done: true, value: undefined };
+      }
+      return { done: false, value: new TextEncoder().encode(lines[chunkIndex++]) };
+    }),
+    releaseLock: jest.fn(),
+  };
+
+  return {
+    ok: true,
+    status: 200,
+    body: { getReader: () => mockReader },
+  };
+}
+
+describe('TasksAPI.run (streaming mode)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const streamApi = () =>
+    new TasksAPI(
+      new HttpClient({
+        apiKey: 'test-key',
+        stream: true,
+      })
+    );
+
+  it('should resolve when NDJSON stream reports completion', async () => {
+    const runningTask = makeTask();
+    const completedTask = makeTask({
+      status: TaskStatusCompleted,
+      output: { result: 'done' },
+    });
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ success: true, data: runningTask })),
+      })
+      .mockResolvedValueOnce(
+        mockNdjsonStream([
+          `${JSON.stringify({ status: TaskStatusRunning })}\n`,
+          `${JSON.stringify(completedTask)}\n`,
+        ])
+      );
+
+    const onUpdate = jest.fn();
+    const result = await streamApi().run(
+      { app: 'test-app', input: {} },
+      {},
+      { wait: true, stream: true, onUpdate }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('should reject when NDJSON stream reports failure', async () => {
+    const runningTask = makeTask();
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ success: true, data: runningTask })),
+      })
+      .mockResolvedValueOnce(
+        mockNdjsonStream([
+          `${JSON.stringify({ status: TaskStatusFailed, error: 'GPU OOM' })}\n`,
+        ])
+      );
+
+    await expect(
+      streamApi().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: true })
+    ).rejects.toThrow('GPU OOM');
+  });
+});
