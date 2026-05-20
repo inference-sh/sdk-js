@@ -1,8 +1,12 @@
 import { HttpClient, createHttpClient } from './client';
 import { InferenceError, RequirementsNotMetException } from './errors';
+import { EventSource } from 'eventsource';
+
+jest.mock('eventsource');
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+const MockEventSource = EventSource as unknown as jest.Mock;
 
 function mockJsonResponse(body: unknown, status = 200, ok = true) {
   mockFetch.mockResolvedValueOnce({
@@ -198,6 +202,63 @@ describe('HttpClient', () => {
       }).getStreamableConfig('/tasks/task-1/stream');
 
       expect(config.headers.Authorization).toBe('Bearer dynamic-token');
+    });
+  });
+
+  describe('createEventSource', () => {
+    beforeEach(() => {
+      MockEventSource.mockReset();
+    });
+
+    it('should attach Bearer token in direct mode via custom fetch', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const client = new HttpClient({ apiKey: 'sse-key' });
+      await client.createEventSource('/tasks/task-1/stream');
+
+      expect(capturedFetch).toBeDefined();
+      await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', { headers: {} });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.inference.sh/tasks/task-1/stream',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer sse-key',
+          }),
+        })
+      );
+    });
+
+    it('should route through proxy with target URL header on custom fetch', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((url, options) => {
+        capturedFetch = options?.fetch;
+        expect(url).toContain('https://proxy.example.com');
+        expect(url).toContain('__inf_target=');
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const client = new HttpClient({ proxyUrl: 'https://proxy.example.com' });
+      await client.createEventSource('/tasks/task-1/stream');
+
+      await capturedFetch!('https://proxy.example.com', { headers: {} });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://proxy.example.com',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'x-inf-target-url': 'https://api.inference.sh/tasks/task-1/stream',
+          }),
+        })
+      );
     });
   });
 });

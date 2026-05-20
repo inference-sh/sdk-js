@@ -122,6 +122,9 @@ describe('createActions', () => {
       assistantMessage: makeMessage(),
     });
     mockAgentApi.submitToolResult.mockResolvedValue(undefined);
+    mockAgentApi.approveTool.mockResolvedValue(undefined);
+    mockAgentApi.rejectTool.mockResolvedValue(undefined);
+    mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
   });
 
   describe('updateMessage (via stream listeners)', () => {
@@ -549,6 +552,123 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'submit failed' }));
+    });
+
+    it('clearError should reset error and connection status to idle', () => {
+      const { ctx, dispatch } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      publicActions.clearError();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: undefined,
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'idle',
+      });
+    });
+  });
+
+  describe('HIL tool actions', () => {
+    it('approveTool should delegate to the API', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.approveTool('inv-approve');
+
+      expect(mockAgentApi.approveTool).toHaveBeenCalledWith(ctx.client, 'inv-approve');
+    });
+
+    it('rejectTool should pass an optional reason', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.rejectTool('inv-reject', 'unsafe');
+
+      expect(mockAgentApi.rejectTool).toHaveBeenCalledWith(
+        ctx.client,
+        'inv-reject',
+        'unsafe'
+      );
+    });
+
+    it('alwaysAllowTool should no-op without a chatId', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.alwaysAllowTool('inv-allow', 'my_tool');
+
+      expect(mockAgentApi.alwaysAllowTool).not.toHaveBeenCalled();
+    });
+
+    it('alwaysAllowTool should call API when chatId exists', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.alwaysAllowTool('inv-allow', 'my_tool');
+
+      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(
+        ctx.client,
+        'chat-short',
+        'inv-allow',
+        'my_tool'
+      );
+    });
+
+    it('approveTool should set error state when API fails', async () => {
+      mockAgentApi.approveTool.mockRejectedValueOnce(new Error('approve failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.approveTool('inv-1')).rejects.toThrow('approve failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'approve failed' }));
+    });
+  });
+
+  describe('setChatId', () => {
+    it('should no-op when the chat id is unchanged', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.setChatId('chat-short');
+      await Promise.resolve();
+
+      expect(StreamableManager).not.toHaveBeenCalled();
+    });
+
+    it('should reset and stop stream when chat id is cleared', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      internalActions.setChatId(null);
+
+      expect(streamInstances[0].stop).toHaveBeenCalled();
+      expect(dispatch).toHaveBeenCalledWith({ type: 'RESET' });
+    });
+
+    it('should start streaming when switching to a new chat id', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => null });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.setChatId('chat-new');
+      await Promise.resolve();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT_ID',
+        payload: 'chat-new',
+      });
+      expect(StreamableManager).toHaveBeenCalled();
     });
   });
 });
