@@ -26,6 +26,7 @@ These examples demonstrate how to use the `@inferencesh/sdk` package.
 | `agent-template.ts` | `npx tsx examples/agent-template.ts` | Chat with a workspace agent template (`AGENT=namespace/name@shortid`) |
 | `agent-chat.ts` | `npx tsx examples/agent-chat.ts` | Ad-hoc agent with client tools and multi-turn chat |
 | `tool-builder.ts` | `npx tsx examples/tool-builder.ts` | Tool schema builder and manual `ToolParamType*` schemas (no API key) |
+| `test-debug.ts` | `npx tsx examples/test-debug.ts` | Minimal ad-hoc agent chat (streaming); requires `INFERENCE_API_KEY` |
 
 ## SDK constants
 
@@ -37,3 +38,5 @@ The README documents typed constants for tasks, integrations, instances, and too
 - **Tool schemas:** `ToolParamType*` — JSON Schema `type` values when building `AgentTool` manually (the tool builder infers these automatically)
 
 See the [Integrations guide](https://inference.sh/docs/extend/integrations) for declaring OAuth integrations in `inf.yml`.
+
+When copying JavaScript from inference.sh/docs, use `@inferencesh/sdk` and `inference()` — see README section **Using examples from inference.sh/docs** for legacy import and field-name mappings.

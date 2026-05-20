@@ -277,7 +277,7 @@ For complete session documentation including error handling, best practices, and
 
 ## Agent Chat
 
-Chat with AI agents using `client.agents.create()`.
+Chat with AI agents using `client.agents.create()` (or the `client.agent()` alias).
 
 ### Using a Template Agent
 
@@ -434,6 +434,10 @@ Runs a task on inference.sh.
 | `onPartialUpdate` | `function` | - | Callback for partial NDJSON stream updates `(task, fields)` |
 | `maxReconnects` | `number` | `5` | Max poll retries when `stream: false` |
 
+### `client.run(params, options?)`
+
+Convenience wrapper around `client.tasks.run()` that runs `files.processInput()` on `params.input` before submitting the task. Prefer this when task inputs may include `Blob` values or uploaded file references.
+
 ### `client.tasks.get(taskId)`
 
 Gets a task by ID.
@@ -584,6 +588,32 @@ const schema = {
 ```
 
 The fluent tool builder (`string()`, `number()`, `object()`, …) infers these types automatically.
+
+## Tool Call Types
+
+`ToolCallType` is the wire-format discriminator on tool definitions and LLM tool calls. Use `ToolTypeFunction` (exported constant `"function"`) — not `ToolParamType*`, which are JSON Schema parameter types:
+
+```typescript
+import { ToolTypeFunction } from '@inferencesh/sdk';
+
+const toolCall = {
+  type: ToolTypeFunction,
+  function: { name: 'get_weather', arguments: '{"city":"Paris"}' },
+};
+```
+
+## Using examples from inference.sh/docs
+
+Some pages on [inference.sh/docs](https://inference.sh/docs) still show legacy JavaScript snippets. Map them to this SDK as follows:
+
+| Docs site (legacy) | `@inferencesh/sdk` |
+|--------------------|-------------------|
+| `@anthropic/inference-sdk` | `@inferencesh/sdk` |
+| `new Inference({ apiKey })` | `inference({ apiKey })` |
+| `client.run({ app, input, session })` | Same — or `client.tasks.run()` without automatic input file processing |
+| `expiresAt`, `callCount` (camelCase) | `expires_at`, `call_count` on `AppSessionDTO` |
+
+Session management, error types, and task parameters match the [Sessions guide](https://inference.sh/docs/extend/sessions); use snake_case field names as returned by the API.
 
 ## TypeScript Support
 
