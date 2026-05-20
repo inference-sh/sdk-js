@@ -12,6 +12,9 @@ import {
   tool,
   appTool,
   agentTool,
+  httpTool,
+  callTool,
+  mcpTool,
   webhookTool,
   internalTools,
   string,
@@ -21,6 +24,7 @@ import {
   object,
   array,
   optional,
+  IntegrationProviderGoogle,
   ToolParamTypeObject,
   ToolParamTypeString,
 } from '../src';
@@ -106,6 +110,31 @@ const sendSlack = webhookTool('send_slack', 'https://hooks.slack.com/services/..
   .build();
 
 console.log('\nsend_slack (webhook tool):', JSON.stringify(sendSlack, null, 2));
+
+// HTTP tool — authenticated requests (preferred over webhookTool)
+const gmailSend = httpTool('gmail_send', 'https://api.example.com/send')
+  .describe('Send email via connected Gmail integration')
+  .method('POST')
+  .auth({ integration: IntegrationProviderGoogle, integrationId: 'int-123' })
+  .build();
+
+console.log('\ngmail_send (http tool, integration auth):', JSON.stringify(gmailSend, null, 2));
+
+const apiFetch = callTool('fetch', 'https://api.example.com/data')
+  .method('GET')
+  .auth({ bearer: 'token-example' })
+  .header('Accept', 'application/json')
+  .build();
+
+console.log('\nfetch (callTool alias, bearer auth):', JSON.stringify(apiFetch, null, 2));
+
+// MCP tool — calls a tool on a connected MCP server
+const notionSearch = mcpTool('notion_search', 'mcp-integration-id', 'search')
+  .describe('Search Notion')
+  .param('query', string('Search query'))
+  .build();
+
+console.log('\nnotion_search (mcp tool):', JSON.stringify(notionSearch, null, 2));
 
 // =============================================================================
 // Internal Tools Configuration
