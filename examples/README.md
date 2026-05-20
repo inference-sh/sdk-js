@@ -27,6 +27,10 @@ These examples demonstrate how to use the `@inferencesh/sdk` package.
 | `agent-chat.ts` | `npx tsx examples/agent-chat.ts` | Ad-hoc agent with client tools and multi-turn chat |
 | `tool-builder.ts` | `npx tsx examples/tool-builder.ts` | Tool builders (`tool`, `httpTool`, `mcpTool`, …) and `ToolParamType*` schemas (no API key) |
 
+## Platform APIs and proxy
+
+The README also documents workspace resource APIs (`client.apps`, `client.flows`, `client.flowRuns`, `client.engines`, `client.chats`) and the [server-side proxy](https://github.com/inference-sh/sdk-js#server-side-proxy) for browser clients (`proxyUrl` + `@inferencesh/sdk/proxy/*` handlers).
+
 ## SDK constants
 
 The README documents typed constants for tasks, integrations, instances, and tool parameters:

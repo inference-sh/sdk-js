@@ -275,6 +275,49 @@ try {
 
 For complete session documentation including error handling, best practices, and advanced patterns, see the [Sessions Developer Guide](https://inference.sh/docs/extend/sessions).
 
+## Server-side proxy
+
+Use the proxy helpers when a browser or mobile app needs the SDK but must not embed an API key. Your server holds `INFERENCE_API_KEY`; the client uses `proxyUrl` instead.
+
+### Server setup
+
+Install the SDK on your backend and mount a handler at `/api/inference/proxy` (or another path — update the client `proxyUrl` to match):
+
+```typescript
+// Next.js App Router — app/api/inference/proxy/route.ts
+import { handlers } from '@inferencesh/sdk/proxy/nextjs';
+export const { GET, POST, PUT } = handlers;
+```
+
+```typescript
+// Express
+import express from 'express';
+import { createHandler, PROXY_ROUTE } from '@inferencesh/sdk/proxy/express';
+
+const app = express();
+app.use(express.json());
+app.all(PROXY_ROUTE, createHandler());
+```
+
+Also available: `@inferencesh/sdk/proxy/hono`, `/proxy/remix`, and `/proxy/svelte`. Set `INFERENCE_API_KEY` in the server environment (or pass `apiKey` to `createHandler()`).
+
+The proxy forwards requests only to `*.inference.sh` hosts. Clients send the upstream URL via the `x-inf-target-url` header; for SSE/EventSource (browsers cannot set custom headers), the SDK appends `__inf_target` as a query parameter on `proxyUrl`.
+
+### Browser client
+
+```typescript
+const client = inference({
+  proxyUrl: '/api/inference/proxy', // no apiKey in the browser
+});
+
+const result = await client.tasks.run({
+  app: 'my-app',
+  input: { prompt: 'hello' },
+});
+```
+
+Express handlers stream SSE, NDJSON, and binary responses. Next.js Page Router (`pageHandler`) buffers responses and does not support streaming.
+
 ## Agent Chat
 
 Chat with AI agents using `client.agents.create()`.
@@ -552,6 +595,71 @@ const agent = client.agents.create({
 | `list()` | `GET /sessions` | All sessions (empty array if none) |
 | `keepalive(sessionId)` | `POST /sessions/{id}/keepalive` | Reset idle expiration |
 | `end(sessionId)` | `DELETE /sessions/{id}` | End session and release worker |
+
+### `client.apps`
+
+Manage apps in your workspace (cursor-paginated `list` via `POST /apps/list`):
+
+| Method | Description |
+|--------|-------------|
+| `list(params?)` | List apps |
+| `get(appId)` | Get app by ID |
+| `getByName(name)` | Get by namespace path (e.g. `'inference/claude-haiku'`) |
+| `getByVersionId(appId, versionId)` | Get a specific version |
+| `create(data)` / `update(appId, data)` / `delete(appId)` | CRUD |
+| `duplicate(appId)` | Clone an app |
+| `listVersions(appId, params?)` | List versions |
+| `setCurrentVersion(appId, versionId)` | Set active version |
+| `updateVisibility(appId, visibility)` | Change visibility |
+| `transferOwnership(appId, newTeamId)` | Transfer to another team |
+| `getLicense(appId)` / `saveLicense(appId, license)` | License records |
+
+### `client.flows`
+
+| Method | Description |
+|--------|-------------|
+| `list(params?)` | List flows (`POST /flows/list`) |
+| `get(flowId)` / `create(name)` / `update(flowId, data)` / `delete(flowId)` | CRUD |
+| `duplicate(flowId)` | Clone a flow |
+| `listVersions(flowId, params?)` | List flow versions |
+| `createApp(flowId)` | Materialize an app from a flow (`POST /flows/{id}/app`) |
+| `transferOwnership(flowId, newTeamId)` | Transfer ownership |
+| `stream(flowId)` | SSE updates (`/flows/{id}/stream`) |
+
+### `client.flowRuns`
+
+| Method | Description |
+|--------|-------------|
+| `list(params?)` | List flow runs (`POST /flowruns/list`) |
+| `get(flowRunId)` | Get a run |
+| `create(flowId, input?)` | Start a run |
+| `clone(flowRunId)` / `update(flowRunId, data)` / `cancel(flowRunId)` | Lifecycle |
+| `updateVisibility(flowRunId, visibility)` | Change visibility |
+| `stream(flowRunId)` | SSE run updates |
+| `streamTasks(flowRunId)` | SSE task updates for the run |
+
+### `client.engines`
+
+| Method | Description |
+|--------|-------------|
+| `list(params?)` | List engines (`POST /engines/list`) |
+| `get(engineId)` / `create(data)` / `update(engineId, data)` / `delete(engineId)` | CRUD |
+| `getForResources({ app_ids?, agent_ids? })` | Engines for specific apps or agents |
+| `stop(engineId)` / `restart(engineId)` | Control engine lifecycle |
+| `updateVisibility(engineId, visibility)` / `transferOwnership(engineId, newTeamId)` | Admin |
+| `stream(engineId)` | SSE engine updates |
+
+Use `EngineStatus*` constants (`running`, `pending`, `draining`, `stopping`, `stopped`) with `EngineDTO.status`.
+
+### `client.chats`
+
+Workspace chat history (distinct from per-agent `getChat()`):
+
+| Method | Description |
+|--------|-------------|
+| `list(params?)` | List chats (`POST /chats/list`) |
+| `get(chatId)` / `update(chatId, data)` / `delete(chatId)` | CRUD |
+| `getTrace(chatId)` | Observability trace for debugging |
 
 ## Task Status Constants
 

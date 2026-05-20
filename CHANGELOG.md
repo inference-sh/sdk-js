@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- README server-side proxy guide (`@inferencesh/sdk/proxy/*`, `proxyUrl`, `INFERENCE_API_KEY`)
+- README API reference for `client.apps`, `client.flows`, `client.flowRuns`, `client.engines`, and `client.chats`
+
 ## [0.6.8] - 2026-05-20
 
 ### Added
