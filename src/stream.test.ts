@@ -273,6 +273,184 @@ describe('StreamManager', () => {
 
       expect(createEventSource).toHaveBeenCalledTimes(1);
     });
+
+    it('should stop reconnecting after maxReconnects initial failures', async () => {
+      jest.useFakeTimers();
+      const onError = jest.fn();
+      const createEventSource = jest
+        .fn()
+        .mockResolvedValue(mockEventSource as unknown as EventSource);
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: true,
+        maxReconnects: 2,
+        reconnectDelayMs: 100,
+        onError,
+      });
+
+      await manager.connect();
+      mockEventSource.onerror?.({} as Event);
+
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(2);
+
+      mockEventSource.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      mockEventSource.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
+    });
+
+    it('should call onError and stop when createEventSource throws', async () => {
+      jest.useFakeTimers();
+      const onError = jest.fn();
+      const createEventSource = jest
+        .fn()
+        .mockRejectedValue(new Error('connection refused'));
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: false,
+        onError,
+      });
+
+      await manager.connect();
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'connection refused' }));
+      jest.useRealTimers();
+    });
+  });
+
+  describe('stopAfter and clearStopTimeout', () => {
+    it('should stop after the configured delay', async () => {
+      jest.useFakeTimers();
+      const onStop = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => mockEventSource as unknown as EventSource,
+        onStop,
+      });
+
+      await manager.connect();
+      manager.stopAfter(5000);
+
+      jest.advanceTimersByTime(5000);
+      expect(mockEventSource.close).toHaveBeenCalled();
+      expect(onStop).toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('should cancel a pending stop when clearStopTimeout is called', async () => {
+      jest.useFakeTimers();
+      const manager = new StreamManager({
+        createEventSource: async () => mockEventSource as unknown as EventSource,
+      });
+
+      await manager.connect();
+      manager.stopAfter(5000);
+      manager.clearStopTimeout();
+
+      jest.advanceTimersByTime(5000);
+      expect(mockEventSource.close).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+  });
+
+  describe('addEventListener lifecycle', () => {
+    it('should register listeners on an existing connection when added after connect', async () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      const manager = new StreamManager({
+        createEventSource: async () => eventSource as unknown as EventSource,
+      });
+
+      await manager.connect();
+
+      const onChat = jest.fn();
+      manager.addEventListener('chats', onChat);
+
+      const payload = { id: 'chat-2' };
+      typedListeners.chats?.forEach((handler) =>
+        handler({ data: JSON.stringify(payload) } as MessageEvent)
+      );
+
+      expect(onChat).toHaveBeenCalledWith(payload);
+    });
+
+    it('should remove a listener when the cleanup function is called', async () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      const manager = new StreamManager({
+        createEventSource: async () => eventSource as unknown as EventSource,
+      });
+
+      const onChat = jest.fn();
+      const unsubscribe = manager.addEventListener('chats', onChat);
+      await manager.connect();
+
+      unsubscribe();
+      typedListeners.chats?.forEach((handler) =>
+        handler({ data: '{"id":"chat-3"}' } as MessageEvent)
+      );
+
+      expect(onChat).not.toHaveBeenCalled();
+    });
+
+    it('should call onError when typed event payload is invalid JSON', async () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      const onError = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => eventSource as unknown as EventSource,
+        onError,
+      });
+
+      manager.addEventListener('chats', jest.fn());
+      await manager.connect();
+
+      typedListeners.chats?.forEach((handler) =>
+        handler({ data: 'not-json' } as MessageEvent)
+      );
+
+      expect(onError).toHaveBeenCalled();
+    });
   });
 });
 
