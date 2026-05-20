@@ -485,3 +485,51 @@ describe('Agent.submitToolResult', () => {
     expect(body.result).toBe(JSON.stringify(payload));
   });
 });
+
+describe('AgentsAPI (template CRUD)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should GET /agents/internal-tools for getInternalTools()', async () => {
+    const tools = [{ name: 'search', description: 'Search the web' }];
+    mockJsonResponse({ success: true, data: tools });
+
+    const result = await api().getInternalTools();
+
+    expect(result).toEqual(tools);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/internal-tools');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST team_id for transferOwnership()', async () => {
+    const agent = { id: 'agent-1' };
+    mockJsonResponse({ success: true, data: agent });
+
+    await api().transferOwnership('agent-1', 'team-42');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1/transfer');
+    expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-42' });
+  });
+
+  it('should POST /agents for createAgent()', async () => {
+    const payload = { name: 'support-bot', core_app: { ref: 'app/ref' } };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse({ success: true, data: created });
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result).toEqual(created);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+});

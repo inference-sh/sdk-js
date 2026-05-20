@@ -1,6 +1,7 @@
 import {
   INF_TARGET_HEADER,
   INF_TARGET_PARAM,
+  headersToRecord,
   processProxyRequest,
   type ProxyAdapter,
 } from './index';
@@ -42,6 +43,16 @@ function createTestAdapter(overrides: Partial<ProxyAdapter<ProxyResult>> = {}): 
 
   return adapter;
 }
+
+describe('headersToRecord', () => {
+  it('should convert Headers to a plain record', () => {
+    const headers = new Headers({ 'x-test': 'value', 'content-type': 'application/json' });
+    expect(headersToRecord(headers)).toEqual({
+      'x-test': 'value',
+      'content-type': 'application/json',
+    });
+  });
+});
 
 describe('processProxyRequest', () => {
   const originalFetch = global.fetch;
