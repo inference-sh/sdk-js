@@ -21,6 +21,8 @@ import {
   object,
   array,
   optional,
+  ToolParamTypeObject,
+  ToolParamTypeString,
 } from '../src';
 
 // =============================================================================
@@ -130,13 +132,30 @@ console.log('No internal tools:', JSON.stringify(noInternal, null, 2));
 // =============================================================================
 
 const agentConfig = {
-  coreApp: 'infsh/claude-sonnet-4@latest',
+  core_app: { ref: 'infsh/claude-sonnet-4@latest' },
   name: 'Form Assistant',
-  systemPrompt: 'You are a helpful assistant that can interact with forms.',
+  system_prompt: 'You are a helpful assistant that can interact with forms.',
   tools: [scanUI, fillField, interact, generateImage],
-  internalTools: internalTools().memory().build(),
+  internal_tools: internalTools().memory().build(),
 };
 
 console.log('\n=== Full Agent Config ===');
 console.log(JSON.stringify(agentConfig, null, 2));
+
+// =============================================================================
+// Manual JSON Schema (ToolParamType* constants)
+// =============================================================================
+// Use when defining AgentTool schemas without the fluent builder.
+// See README "Tool Parameter Types" for all ToolParamType* exports.
+
+const weatherInputSchema = {
+  type: ToolParamTypeObject,
+  properties: {
+    city: { type: ToolParamTypeString, description: 'City name' },
+  },
+  required: ['city'],
+};
+
+console.log('\n=== Manual input_schema (ToolParamType*) ===');
+console.log(JSON.stringify(weatherInputSchema, null, 2));
 
