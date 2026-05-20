@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- README: server-side proxy handlers (`@inferencesh/sdk/proxy/*`) and browser `proxyUrl` setup for frontend apps
 - Typed SDK constants for integrations: `IntegrationProvider*`, `IntegrationAuthType*`, `IntegrationStatus*`
 - `IntegrationDTO` fields (`provider`, `type`, `auth`, `status`) now use those typed aliases
 - Additional `InstanceStatus*` constants (`creating`, `pending_provider`, `error`, `deleting`)
 - `ToolParamType*` constants for JSON Schema tool parameter types (distinct from `ToolCallType`)
+
+### Fixed
+
+- Dev dependency security updates: `next@^16.2.6`, `@sveltejs/kit@^2.60.1`, and npm overrides for transitive `postcss`, `cookie`, `svelte`, and `devalue`
 
 ## [0.6.7] - 2026-05-19
 

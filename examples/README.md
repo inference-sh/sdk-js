@@ -37,3 +37,5 @@ The README documents typed constants for tasks, integrations, instances, and too
 - **Tool schemas:** `ToolParamType*` — JSON Schema `type` values when building `AgentTool` manually (the tool builder infers these automatically)
 
 See the [Integrations guide](https://inference.sh/docs/extend/integrations) for declaring OAuth integrations in `inf.yml`.
+
+For browser apps, see the README **Server-side proxy** section (`@inferencesh/sdk/proxy/*` handlers and `proxyUrl` client config).

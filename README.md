@@ -393,6 +393,68 @@ const output = await agent.run('Analyze: Great product!');
 | `disconnect()` | Stop active stream/poll connections |
 | `reset()` | Disconnect and clear chat state so the next message starts a new chat |
 
+## Server-side proxy (browser apps)
+
+Use the proxy subpath when a browser or mobile app needs the SDK but you must not ship an API key. Your server holds `INFERENCE_API_KEY`; the client uses `proxyUrl` instead.
+
+**Server:** mount a handler at `/api/inference/proxy` (or another path — point `proxyUrl` at that URL).
+
+**Client:** omit `apiKey` and set `proxyUrl` to your handler URL (same origin or CORS-enabled):
+
+```typescript
+const client = inference({
+  proxyUrl: '/api/inference/proxy',
+});
+```
+
+The SDK forwards requests to your proxy with the real API URL in the `x-inf-target-url` header (or `__inf_target` query param for SSE/EventSource, which cannot set custom headers). The proxy validates `*.inference.sh` hosts, injects `Authorization: Bearer …`, and streams the upstream response back.
+
+Set `INFERENCE_API_KEY` on the server. Optional handler options: `apiKey`, `allowedDomains` (extra `RegExp` host patterns).
+
+### Framework handlers
+
+| Framework | Import | Export |
+|-----------|--------|--------|
+| Next.js App Router | `@inferencesh/sdk/proxy/nextjs` | `handlers` (`GET`, `POST`, `PUT`) — supports SSE streaming |
+| Next.js Pages Router | `@inferencesh/sdk/proxy/nextjs` | `pageHandler` (no streaming) |
+| Express | `@inferencesh/sdk/proxy/express` | `createHandler()`, `PROXY_ROUTE` |
+| Hono | `@inferencesh/sdk/proxy/hono` | `createHandler()` |
+| Remix | `@inferencesh/sdk/proxy/remix` | `createHandler()` |
+| SvelteKit | `@inferencesh/sdk/proxy/svelte` | `createHandler()` |
+
+**Next.js App Router** (`app/api/inference/proxy/route.ts`):
+
+```typescript
+import { handlers } from '@inferencesh/sdk/proxy/nextjs';
+
+export const { GET, POST, PUT } = handlers;
+```
+
+**Express:**
+
+```typescript
+import express from 'express';
+import { createHandler, PROXY_ROUTE } from '@inferencesh/sdk/proxy/express';
+
+const app = express();
+app.use(express.json());
+app.all(PROXY_ROUTE, createHandler());
+```
+
+**SvelteKit** (`src/routes/api/inference/proxy/+server.ts`):
+
+```typescript
+import { createHandler } from '@inferencesh/sdk/proxy/svelte';
+
+const handler = createHandler();
+
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;
+```
+
+Low-level integration: `processProxyRequest` and `ProxyAdapter` from `@inferencesh/sdk/proxy`.
+
 ## API Reference
 
 ### `inference(config)`
@@ -401,11 +463,14 @@ Creates a new inference client.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `config.apiKey` | `string` | Yes | Your inference.sh API key |
+| `config.apiKey` | `string` | Yes* | Your inference.sh API key |
+| `config.getToken` | `() => string \| null \| undefined` | Yes* | Dynamic token resolver (alternative to `apiKey`) |
 | `config.baseUrl` | `string` | No | Custom API URL (default: `https://api.inference.sh`) |
 | `config.stream` | `boolean` | No | Use NDJSON streaming (`true`, default) or status polling (`false`) |
 | `config.pollIntervalMs` | `number` | No | Poll interval when `stream: false` (default: `2000`) |
-| `config.proxyUrl` | `string` | No | Proxy base URL for frontend apps (keeps API keys server-side) |
+| `config.proxyUrl` | `string` | Yes* | Proxy base URL for frontend apps (keeps API keys server-side) |
+
+\* Provide at least one of `apiKey`, `getToken`, or `proxyUrl`.
 
 ### `client.tasks.run(params, options?)`
 
