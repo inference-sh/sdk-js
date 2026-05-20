@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { FlowRunStatusRunning } from '../types';
 import { FlowRunsAPI } from './flow-runs';
 
 const mockFetch = jest.fn();
@@ -19,6 +20,30 @@ describe('FlowRunsAPI', () => {
 
   const api = () => new FlowRunsAPI(new HttpClient({ apiKey: 'test-key' }));
 
+  it('should POST /flowruns/list for list()', async () => {
+    const flowRuns = { items: [{ id: 'fr-1' }], next_cursor: null };
+    mockJsonResponse({ success: true, data: flowRuns });
+
+    const result = await api().list();
+
+    expect(result).toEqual(flowRuns);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flowruns/list');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should GET /flowruns/{id} for get()', async () => {
+    const flowRun = { id: 'fr-1' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    const result = await api().get('fr-1');
+
+    expect(result).toEqual(flowRun);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flowruns/fr-1');
+    expect(init.method).toBe('GET');
+  });
+
   it('should POST flow and input for create()', async () => {
     const flowRun = { id: 'fr-1', flow: 'flow-1' };
     mockJsonResponse({ success: true, data: flowRun });
@@ -31,6 +56,37 @@ describe('FlowRunsAPI', () => {
       flow: 'flow-1',
       input: { prompt: 'hi' },
     });
+  });
+
+  it('should POST clone for clone()', async () => {
+    const flowRun = { id: 'fr-clone' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    const result = await api().clone('fr-1');
+
+    expect(result).toEqual(flowRun);
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain('/flowruns/fr-1/clone');
+  });
+
+  it('should POST update for update()', async () => {
+    const flowRun = { id: 'fr-1', status: FlowRunStatusRunning };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    await api().update('fr-1', { status: FlowRunStatusRunning });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ status: FlowRunStatusRunning });
+  });
+
+  it('should POST visibility for updateVisibility()', async () => {
+    const flowRun = { id: 'fr-1', visibility: 'team' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    await api().updateVisibility('fr-1', 'team');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
   });
 
   it('should POST /flowruns/{id}/cancel for cancel()', async () => {
