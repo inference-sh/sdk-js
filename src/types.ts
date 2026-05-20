@@ -2237,6 +2237,7 @@ export const GraphEdgeTypeExecution: GraphEdgeType = "execution";
 export const GraphEdgeTypeParent: GraphEdgeType = "parent";
 export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor";
 export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate";
+export const GraphEdgeTypeReferences: GraphEdgeType = "references";
 export type EntitlementSource = string;
 export const EntitlementSourceTier: EntitlementSource = "tier";
 export const EntitlementSourceOverride: EntitlementSource = "override";
