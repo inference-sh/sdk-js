@@ -9,6 +9,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "types": ["node", "jest"],
     "jsx": "react-jsx"
   },

@@ -1,6 +1,7 @@
 import { APIResponse, RequirementError } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource } from 'eventsource';
+import { version } from '../../package.json';
 
 /**
  * Error handler that can intercept errors and optionally retry the request.
@@ -70,7 +71,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': `inference-sdk-js/${version}`, ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.streamDefault = config.stream ?? true;
