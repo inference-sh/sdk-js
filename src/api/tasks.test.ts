@@ -284,3 +284,103 @@ describe('TasksAPI.run (streaming mode)', () => {
     );
   });
 });
+
+describe('TasksAPI (CRUD and admin)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key' }));
+
+  it('should POST /tasks/list for list()', async () => {
+    const page = { items: [{ id: 'task-1' }], next_cursor: null };
+    mockJsonResponse({ success: true, data: page });
+
+    const result = await api().list({ limit: 5 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/list');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 5 });
+  });
+
+  it('should GET /tasks/featured for listFeatured()', async () => {
+    const page = { items: [{ id: 'task-f' }], next_cursor: null };
+    mockJsonResponse({ success: true, data: page });
+
+    const result = await api().listFeatured({ cursor: 'abc' });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/featured');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /tasks/{id} for get()', async () => {
+    const task = makeTask();
+    mockJsonResponse({ success: true, data: task });
+
+    const result = await api().get('task-1');
+
+    expect(result).toEqual(task);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should DELETE /tasks/{id} for delete()', async () => {
+    mockJsonResponse({ success: true, data: null });
+
+    await api().delete('task-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should POST /tasks/{id}/cancel for cancel()', async () => {
+    mockJsonResponse({ success: true, data: null });
+
+    await api().cancel('task-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/cancel');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should POST visibility for updateVisibility()', async () => {
+    const task = makeTask({ visibility: 'public' });
+    mockJsonResponse({ success: true, data: task });
+
+    const result = await api().updateVisibility('task-1', 'public');
+
+    expect(result).toEqual(task);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+  });
+
+  it('should POST is_featured for feature()', async () => {
+    const task = makeTask({ is_featured: true });
+    mockJsonResponse({ success: true, data: task });
+
+    await api().feature('task-1', true);
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/featured');
+    expect(JSON.parse(init.body as string)).toEqual({ is_featured: true });
+  });
+
+  it('should open SSE on /tasks/{id}/stream for stream()', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const createEventSource = jest
+      .spyOn(http, 'createEventSource')
+      .mockResolvedValue(null);
+
+    const tasks = new TasksAPI(http);
+    await tasks.stream('task-42');
+
+    expect(createEventSource).toHaveBeenCalledWith('/tasks/task-42/stream');
+    createEventSource.mockRestore();
+  });
+});

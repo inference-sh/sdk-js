@@ -68,4 +68,61 @@ describe('FlowRunsAPI', () => {
     expect(createEventSource).toHaveBeenCalledWith('/flowruns/fr-42/tasks/stream');
     createEventSource.mockRestore();
   });
+
+  it('should POST /flowruns/list for list()', async () => {
+    const page = { items: [{ id: 'fr-1' }], next_cursor: null };
+    mockJsonResponse({ success: true, data: page });
+
+    const result = await api().list({ limit: 10 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flowruns/list');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should GET /flowruns/{id} for get()', async () => {
+    const flowRun = { id: 'fr-1' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    const result = await api().get('fr-1');
+
+    expect(result).toEqual(flowRun);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flowruns/fr-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /flowruns/{id}/clone for clone()', async () => {
+    const flowRun = { id: 'fr-clone' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    const result = await api().clone('fr-1');
+
+    expect(result).toEqual(flowRun);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flowruns/fr-1/clone');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should POST /flowruns/{id} for update()', async () => {
+    const flowRun = { id: 'fr-1', fail_on_error: false };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    const result = await api().update('fr-1', { fail_on_error: false });
+
+    expect(result).toEqual(flowRun);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ fail_on_error: false });
+  });
+
+  it('should POST visibility for updateVisibility()', async () => {
+    const flowRun = { id: 'fr-1', visibility: 'public' };
+    mockJsonResponse({ success: true, data: flowRun });
+
+    await api().updateVisibility('fr-1', 'public');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+  });
 });
