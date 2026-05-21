@@ -287,6 +287,25 @@ export interface ApiAgentRunRequest {
   stream?: boolean;
 }
 /**
+ * CreateAgentMessageRequest is the request for creating agent messages.
+ */
+export interface CreateAgentMessageRequest {
+  chat_id?: string;
+  agent_id?: string;
+  agent_version_id?: string;
+  agent?: string;
+  tool_call_id?: string;
+  input: ChatTaskInput;
+  integration_context?: IntegrationContext;
+  agent_config?: AgentConfigInput;
+  agent_name?: string;
+  context?: { [key: string]: string};
+}
+export interface CreateAgentMessageResponse {
+  user_message?: ChatMessageDTO;
+  assistant_message?: ChatMessageDTO;
+}
+/**
  * ToolResultRequest represents a tool result submission
  */
 export interface ToolResultRequest {
@@ -301,6 +320,42 @@ export interface PartialFile {
   content_type?: string;
   size?: number /* int64 */;
   filename?: string;
+}
+export interface FileCreateRequest {
+  category?: string;
+  files: PartialFile[];
+}
+/**
+ * AppVersionInput is the API input shape for app version config (no gorm tags).
+ */
+export interface AppVersionInput {
+  metadata?: { [key: string]: any};
+  repository?: string;
+  setup_schema?: any;
+  input_schema?: any;
+  output_schema?: any;
+  functions?: { [key: string]: AppFunction};
+  default_function?: string;
+  variants?: { [key: string]: AppVariant};
+  env?: { [key: string]: string};
+  kernel?: string;
+  required_secrets?: SecretRequirement[];
+  required_integrations?: IntegrationRequirement[];
+  resources?: AppResources;
+}
+/**
+ * CreateAppRequest is the request body for POST /apps
+ */
+export interface CreateAppRequest {
+  id?: string;
+  namespace?: string;
+  name: string;
+  description?: string;
+  agent_description?: string;
+  category?: AppCategory;
+  images?: AppImages;
+  version?: AppVersionInput;
+  preserve_current_version?: boolean;
 }
 export interface SkillPublishRequest {
   namespace?: string;
@@ -322,12 +377,30 @@ export interface SkillPublishRequest {
   user_invocable?: boolean;
   context: string;
 }
+export interface CheckoutCreateRequest {
+  amount: number /* int64 */;
+  success_url: string;
+  cancel_url: string;
+}
 export interface AuthResponse {
   user?: UserDTO;
   session_id: string;
   otp_required?: boolean;
   redirect_to?: string;
   provider?: string;
+}
+export interface DeviceAuthResponse {
+  user_code: string;
+  device_code: string;
+  poll_url: string;
+  approve_url: string;
+  expires_in: number /* int */;
+  interval: number /* int */;
+}
+export interface DeviceAuthPollResponse {
+  status: DeviceAuthStatus;
+  api_key?: string;
+  team_id?: string;
 }
 export interface TeamCreateRequest {
   name: string;
@@ -344,12 +417,61 @@ export interface TeamMemberAddRequest {
 export interface TeamMemberUpdateRoleRequest {
   role: TeamRole;
 }
+export interface SecretCreateRequest {
+  key: string;
+  value: string;
+  description?: string;
+}
+export interface SecretUpdateRequest {
+  value: string;
+  description?: string;
+}
+export interface IntegrationConnectRequest {
+  provider: string;
+  type: string;
+  scopes?: string[];
+  api_key?: string;
+  metadata?: { [key: string]: any};
+}
 export interface IntegrationCompleteOAuthRequest {
   provider: string;
   type: string;
   code: string;
   state: string;
   code_verifier?: string;
+}
+export interface IntegrationConnectResponse {
+  integration?: IntegrationDTO;
+  auth_url?: string;
+  state?: string;
+  code_verifier?: string;
+  instructions?: string;
+  requires_confirmation?: boolean;
+  confirmation_type?: string;
+  message?: string;
+}
+export interface ProjectCreateRequest {
+  name: string;
+  type: ProjectType;
+}
+export interface ProjectUpdateRequest {
+  name: string;
+}
+export interface MoveAgentToProjectRequest {
+  agent_id: string;
+  project_id: string;
+}
+/**
+ * CancelTaskRequest is the optional request body for task cancellation.
+ */
+export interface CancelTaskRequest {
+  force: boolean; // If true, skip graceful cancel and force kill immediately
+  timeout: number /* int */; // Milliseconds to wait for graceful cancel (default 10000)
+}
+export interface CreateApiKeyRequest {
+  name: string;
+  expires_at?: string /* RFC3339 */;
+  scopes?: string[];
 }
 /**
  * Scope represents an API key permission scope string.
@@ -816,6 +938,24 @@ export interface PublicAppStoreDTO {
   rank: number /* int */;
   has_approved_version: boolean;
   page_id?: string;
+}
+/**
+ * AuthSessionDTO is a safe representation of AuthSession for API responses.
+ */
+export interface AuthSessionDTO {
+  id: string;
+  created_at: string /* RFC3339 */;
+  expires_at: string /* RFC3339 */;
+  ip: string;
+  city: string;
+  country: string;
+  country_code: string;
+  region: string;
+  os: string;
+  browser: string;
+  browser_version: string;
+  auth_method: string;
+  current: boolean;
 }
 /**
  * BaseModelDTO is the contract-layer base embed — same fields, no gorm tags.
@@ -1365,6 +1505,50 @@ export interface SkillVersionDTO extends BaseModelDTO {
   metadata?: { [key: string]: string};
 }
 /**
+ * KnowledgeDTO — generic DTO for /knowledge endpoints (all types)
+ */
+export interface KnowledgeDTO extends BaseModelDTO, PermissionModelDTO {
+  namespace: string;
+  name: string;
+  description: string;
+  type: string;
+  lifecycle: string;
+  version_id: string;
+  version?: KnowledgeVersionDTO;
+}
+export interface KnowledgeVersionDTO extends BaseModelDTO {
+  knowledge_id: string;
+  content: KnowledgeFile;
+  files: KnowledgeFile[];
+  content_hash: string;
+  description: string;
+  tags: string[];
+  metadata?: { [key: string]: string};
+  source_url?: string;
+  mutation_type?: string;
+  version_notes?: string;
+  last_confirmed_at?: string /* RFC3339 */;
+}
+/**
+ * ResourceRef is a compact reference to any resource (knowledge, app, agent).
+ */
+export interface ResourceRef {
+  id: string;
+  namespace: string;
+  name: string;
+  type: ResourceType; // knowledge, app, agent
+  resource_kind: string; // e.g. "skill", "observation", "concept" for knowledge; empty for app/agent
+  description: string;
+}
+/**
+ * ReferencesResponse is returned by the references endpoint.
+ */
+export interface ReferencesResponse {
+  resource: ResourceRef;
+  references: ResourceRef[]; // outgoing: resources this entry mentions
+  referenced_by: ResourceRef[]; // incoming: resources that mention this entry
+}
+/**
  * SkillLineageResponse is returned by the lineage endpoint.
  */
 export interface SkillLineageResponse {
@@ -1419,6 +1603,42 @@ export interface SkillStoreListingDTO {
  * StringSlice is a custom type for storing string slices
  */
 export type StringSlice = string[];
+/**
+ * MCPServerDTO is the API response shape for the resource.
+ */
+export interface MCPServerDTO {
+  id: string;
+  PermissionModelDTO: PermissionModelDTO;
+  slug: string;
+  name: string;
+  description: string;
+  icon_url: string;
+  server_url: string;
+  auth_type: MCPServerAuthType;
+  oauth_client_id?: string;
+  default_scopes: StringSlice;
+  documentation_url: string;
+}
+/**
+ * NotificationDTO is the data transfer object
+ */
+export interface NotificationDTO extends BaseModelDTO, PermissionModelDTO {
+  type: NotificationType;
+  channel: NotificationChannel;
+  priority: NotificationPriority;
+  status: NotificationStatus;
+  recipient_email?: string;
+  subject: string;
+  body?: string;
+  scheduled_at?: string /* RFC3339 */;
+  sent_at?: string /* RFC3339 */;
+  delivered_at?: string /* RFC3339 */;
+  failed_at?: string /* RFC3339 */;
+  error_message?: string;
+  retry_count: number /* int */;
+  reference_type?: string;
+  reference_id?: string;
+}
 /**
  * NotificationPreferencesDTO is the data transfer object
  */
@@ -1504,6 +1724,36 @@ export interface MenuDTO extends BaseModelDTO, PermissionModelDTO {
   items: MenuItem[];
 }
 /**
+ * PlanLimit defines a single resource limit or feature gate within a plan.
+ */
+export interface PlanLimit {
+  type: EntitlementType;
+  enabled?: boolean;
+  unlimited?: boolean;
+  limit?: number /* int */;
+  enforcement?: EnforcementMode;
+}
+/**
+ * PlanLimits maps entitlement resources to their limits
+ */
+export type PlanLimits = { [key: EntitlementResource]: PlanLimit};
+/**
+ * PlanDTO for API responses
+ */
+export interface PlanDTO extends BaseModelDTO {
+  name: string;
+  description: string;
+  display_order: number /* int */;
+  active: boolean;
+  self_serve?: boolean;
+  price_monthly?: number /* int */;
+  price_yearly?: number /* int */;
+  credits_monthly: number /* int64 */;
+  provider_price_id_monthly?: string;
+  provider_price_id_yearly?: string;
+  limits: PlanLimits;
+}
+/**
  * ProjectModelDTO provides optional project association for DTOs
  */
 export interface ProjectModelDTO {
@@ -1522,6 +1772,141 @@ export interface ProjectDTO extends BaseModelDTO, PermissionModelDTO {
   parent_id?: string;
   parent?: ProjectDTO;
   children: (ProjectDTO | undefined)[];
+}
+/**
+ * RefRouteDTO for API responses
+ */
+export interface RefRouteDTO extends BaseModelDTO {
+  type: RefRouteType;
+  alias_ref: string;
+  target_ref: string;
+  primary: boolean;
+  description: string;
+  enabled: boolean;
+}
+/**
+ * KnowledgeCreateRequest is the request body for POST /knowledge.
+ */
+export interface KnowledgeCreateRequest {
+  name: string;
+  description?: string;
+  /**
+   * Knowledge type: concept, skill, observation, preference, reference, person, project, agent-config
+   */
+  type?: string;
+  /**
+   * Lifecycle: permanent (no decay) or decay (confidence decreases over time)
+   */
+  lifecycle?: string;
+  /**
+   * Version content (inline — creates first version)
+   */
+  version?: KnowledgeVersionInput;
+}
+/**
+ * KnowledgeVersionInput is the input shape for creating/updating a knowledge version.
+ */
+export interface KnowledgeVersionInput {
+  description?: string;
+  content?: KnowledgeFile;
+  files?: KnowledgeFile[];
+  tags?: string[];
+  metadata?: { [key: string]: string};
+  source_url?: string;
+  mutation_type?: string;
+  version_notes?: string;
+}
+/**
+ * KnowledgeUpdateRequest is the request body for PUT /knowledge/{id}.
+ */
+export interface KnowledgeUpdateRequest {
+  description?: string;
+  version?: KnowledgeVersionInput;
+}
+/**
+ * CreateSubscriptionRequest is the request body for POST /subscriptions.
+ */
+export interface CreateSubscriptionRequest {
+  plan_id: string;
+  interval?: string; // "monthly" or "yearly", default "monthly"
+  success_url?: string;
+  cancel_url?: string;
+}
+/**
+ * ChangePlanRequest is the request body for POST /subscriptions/change.
+ */
+export interface ChangePlanRequest {
+  plan_id: string;
+}
+/**
+ * CancelSubscriptionRequest is the request body for POST /subscriptions/cancel.
+ */
+export interface CancelSubscriptionRequest {
+  at_period_end?: boolean;
+}
+/**
+ * OAuthAuthorizeInfoResponse is returned by GET /oauth/authorize/info.
+ */
+export interface OAuthAuthorizeInfoResponse {
+  client_name: string;
+  client_type: string;
+  origin: string;
+  verified: boolean;
+  scopes: Scope[];
+  redirect_host: string;
+}
+/**
+ * OAuthApproveRequest is the request body for POST /oauth/authorize/approve.
+ */
+export interface OAuthApproveRequest {
+  client_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  state: string;
+  scope: string;
+}
+/**
+ * OAuthRedirectResponse wraps a redirect URI.
+ */
+export interface OAuthRedirectResponse {
+  redirect_uri: string;
+}
+/**
+ * OAuthConnectedApp represents an authorized OAuth client.
+ */
+export interface OAuthConnectedApp {
+  client_id: string;
+  client_name: string;
+  client_type: string;
+  origin: string;
+  verified: boolean;
+  scopes: string;
+  authorized_at: string /* RFC3339 */;
+}
+/**
+ * ChargeAmountRequest is the request for charging a saved payment method.
+ */
+export interface ChargeAmountRequest {
+  amount: number /* int64 */;
+}
+/**
+ * CompletePaymentRequest finishes a checkout or payment session.
+ */
+export interface CompletePaymentRequest {
+  session_id?: string;
+  payment_id?: string;
+}
+/**
+ * UpdateIntegrationScopesRequest updates integration scopes.
+ */
+export interface UpdateIntegrationScopesRequest {
+  scopes: string[];
+}
+/**
+ * UpdateTaskVisibilityRequest sets task visibility.
+ */
+export interface UpdateTaskVisibilityRequest {
+  visibility: string;
 }
 /**
  * RequirementError represents a single missing requirement with actionable info
@@ -1561,6 +1946,31 @@ export interface CheckRequirementsResponse {
  * To expose a type to SDK consumers: reference it in this struct.
  */
 export interface SDKTypes {
+}
+/**
+ * SecretDTO for API responses - VALUE IS NEVER EXPOSED
+ */
+export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
+  key: string;
+  masked_value: string;
+  description?: string;
+  scope?: SecretScope;
+}
+/**
+ * SubscriptionDTO for API responses
+ */
+export interface SubscriptionDTO extends BaseModelDTO {
+  team_id: string;
+  stripe_subscription_id?: string;
+  plan_id: string;
+  plan?: PlanDTO;
+  interval: SubscriptionInterval;
+  status: SubscriptionStatus;
+  current_period_start: string /* RFC3339 */;
+  current_period_end: string /* RFC3339 */;
+  trial_end?: string /* RFC3339 */;
+  cancel_at_period_end: boolean;
+  credits_per_period: number /* int64 */;
 }
 /**
  * Hardware/System related types
@@ -1731,6 +2141,61 @@ export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   usage_events: (UsageEventDTO | undefined)[];
   session_id?: string;
   session_timeout?: number /* int */;
+}
+/**
+ * TaskResultDTO is a slim response for task run/result endpoints.
+ */
+export interface TaskResultDTO {
+  id: string;
+  short_id: string;
+  status: TaskStatus;
+  status_text: string;
+  output: any;
+  error?: string;
+  session_id?: string;
+  created_at: string /* RFC3339 */;
+  updated_at: string /* RFC3339 */;
+  run_at?: string /* RFC3339 */;
+}
+/**
+ * TaskLogsDTO is a lightweight response for task logs endpoint.
+ */
+export interface TaskLogsDTO {
+  task_id: string;
+  status: TaskStatus;
+  events: TaskEvent[];
+  logs: TaskLog[];
+}
+/**
+ * TaskTimingGroup represents a high-level phase of task execution with its duration.
+ */
+export interface TaskTimingGroup {
+  label: string;
+  start_at: string;
+  end_at?: string;
+  duration: string;
+  duration_ms: number /* int64 */;
+}
+/**
+ * TaskTimingEvent represents a single status transition with the time spent before the next transition.
+ */
+export interface TaskTimingEvent {
+  status: string;
+  timestamp: string;
+  duration?: string;
+  duration_ms?: number /* int64 */;
+  next_status?: string;
+}
+/**
+ * TaskTimingsDTO is the response for the task timings endpoint.
+ */
+export interface TaskTimingsDTO {
+  task_id: string;
+  status: TaskStatus;
+  total_duration: string;
+  total_duration_ms: number /* int64 */;
+  groups: TaskTimingGroup[];
+  events: TaskTimingEvent[];
 }
 /**
  * TeamMemberDTO is the API response for a team member.
@@ -2017,6 +2482,15 @@ export type Visibility = string;
 export const VisibilityPrivate: Visibility = "private";
 export const VisibilityPublic: Visibility = "public";
 export const VisibilityUnlisted: Visibility = "unlisted";
+export type SubscriptionStatus = string;
+export const SubscriptionStatusTrialing: SubscriptionStatus = "trialing";
+export const SubscriptionStatusActive: SubscriptionStatus = "active";
+export const SubscriptionStatusPastDue: SubscriptionStatus = "past_due";
+export const SubscriptionStatusCanceled: SubscriptionStatus = "canceled";
+export const SubscriptionStatusPaused: SubscriptionStatus = "paused";
+export type SubscriptionInterval = string;
+export const SubscriptionIntervalMonthly: SubscriptionInterval = "monthly";
+export const SubscriptionIntervalYearly: SubscriptionInterval = "yearly";
 export type ChatStatus = string;
 export const ChatStatusBusy: ChatStatus = "busy";
 export const ChatStatusIdle: ChatStatus = "idle";
@@ -2043,6 +2517,11 @@ export const ChatMessageContentTypeReasoning: ChatMessageContentType = "reasonin
 export const ChatMessageContentTypeImage: ChatMessageContentType = "image";
 export const ChatMessageContentTypeFile: ChatMessageContentType = "file";
 export const ChatMessageContentTypeTool: ChatMessageContentType = "tool";
+export type IntegrationType = string;
+export const IntegrationTypeSlack: IntegrationType = "slack";
+export const IntegrationTypeDiscord: IntegrationType = "discord";
+export const IntegrationTypeTeams: IntegrationType = "teams";
+export const IntegrationTypeTelegram: IntegrationType = "telegram";
 /**
  * ChatData contains agent-specific data for a chat session
  */
@@ -2071,6 +2550,13 @@ export interface ChatMessageContent {
   image?: string;
   file?: string;
   tool_calls?: ToolCall[];
+}
+/**
+ * IntegrationContext holds integration-specific metadata for a chat
+ */
+export interface IntegrationContext {
+  integration_type?: IntegrationType;
+  integration_metadata?: any;
 }
 /**
  * ChatTaskInput is the input envelope for a chat LLM task
@@ -2227,6 +2713,13 @@ export const GraphNodeStatusCancelled: GraphNodeStatus = "cancelled";
 export const GraphNodeStatusSkipped: GraphNodeStatus = "skipped";
 export const GraphNodeStatusBlocked: GraphNodeStatus = "blocked";
 /**
+ * ResourceType identifies what kind of resource a graph node represents.
+ */
+export type ResourceType = string;
+export const ResourceTypeKnowledge: ResourceType = "knowledge";
+export const ResourceTypeApp: ResourceType = "app";
+export const ResourceTypeAgent: ResourceType = "agent";
+/**
  * GraphEdgeType defines the type of edge relationship
  */
 export type GraphEdgeType = string;
@@ -2238,6 +2731,22 @@ export const GraphEdgeTypeParent: GraphEdgeType = "parent";
 export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor";
 export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate";
 export const GraphEdgeTypeReferences: GraphEdgeType = "references";
+/**
+ * SecretScope defines the visibility/purpose of a secret
+ */
+export type SecretScope = string;
+/**
+ * SecretScopeTeam is a normal user secret, visible in team secret lists
+ */
+export const SecretScopeTeam: SecretScope = "team";
+/**
+ * SecretScopeInternal is an integration-managed secret, hidden from user lists
+ */
+export const SecretScopeInternal: SecretScope = "internal";
+/**
+ * SecretScopeSystem is a global system setting, owned by system team, admin-only
+ */
+export const SecretScopeSystem: SecretScope = "system";
 export type EntitlementSource = string;
 export const EntitlementSourceTier: EntitlementSource = "tier";
 export const EntitlementSourceOverride: EntitlementSource = "override";
@@ -2347,6 +2856,13 @@ export const VideoRes1080P: VideoResolution = "1080p";
 export const VideoRes1440P: VideoResolution = "1440p";
 export const VideoRes4K: VideoResolution = "4k";
 /**
+ * MCPServerAuthType describes how a server authenticates clients.
+ */
+export type MCPServerAuthType = string;
+export const MCPServerAuthOAuth: MCPServerAuthType = "oauth";
+export const MCPServerAuthAPIKey: MCPServerAuthType = "api_key";
+export const MCPServerAuthNone: MCPServerAuthType = "none";
+/**
  * TeamInviteStatus represents the status of a team invitation
  */
 export type TeamInviteStatus = string;
@@ -2355,6 +2871,10 @@ export const TeamInviteStatusAccepted: TeamInviteStatus = "accepted";
 export const TeamInviteStatusDeclined: TeamInviteStatus = "declined";
 export const TeamInviteStatusExpired: TeamInviteStatus = "expired";
 export const TeamInviteStatusRevoked: TeamInviteStatus = "revoked";
+export type RefRouteType = string;
+export const RefRouteTypeApp: RefRouteType = "app";
+export const RefRouteTypeAgent: RefRouteType = "agent";
+export const RefRouteTypeSkill: RefRouteType = "skill";
 export type FilterOperator = string;
 export const OpEqual: FilterOperator = "eq";
 export const OpNotEqual: FilterOperator = "neq";
@@ -2372,6 +2892,14 @@ export const OpIsNull: FilterOperator = "is_null";
 export const OpIsNotNull: FilterOperator = "is_not_null";
 export const OpIsEmpty: FilterOperator = "is_empty";
 export const OpIsNotEmpty: FilterOperator = "is_not_empty";
+export type DeviceAuthStatus = string;
+export const DeviceAuthStatusPending: DeviceAuthStatus = "pending";
+export const DeviceAuthStatusApproved: DeviceAuthStatus = "approved";
+export const DeviceAuthStatusExpired: DeviceAuthStatus = "expired";
+export const DeviceAuthStatusDenied: DeviceAuthStatus = "denied";
+export const DeviceAuthStatusValid: DeviceAuthStatus = "valid";
+export const DeviceAuthStatusInvalid: DeviceAuthStatus = "invalid";
+export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
 export type EntitlementResource = string;
 export const ResourceAPIKeys: EntitlementResource = "api_keys";
 export const ResourceConnectors: EntitlementResource = "connectors";
@@ -2456,6 +2984,74 @@ export const WidgetNodeTypeTransition: WidgetNodeType = "transition";
 export const WidgetNodeTypePlanList: WidgetNodeType = "plan-list";
 export const WidgetNodeTypeKeyValue: WidgetNodeType = "key-value";
 export const WidgetNodeTypeStatusBadge: WidgetNodeType = "status-badge";
+/**
+ * NotificationChannel represents a delivery channel
+ */
+export type NotificationChannel = string;
+export const NotificationChannelEmail: NotificationChannel = "email";
+export const NotificationChannelSMS: NotificationChannel = "sms";
+export const NotificationChannelPush: NotificationChannel = "push";
+export const NotificationChannelSlack: NotificationChannel = "slack";
+/**
+ * NotificationPriority represents notification priority
+ */
+export type NotificationPriority = string;
+export const NotificationPriorityLow: NotificationPriority = "low";
+export const NotificationPriorityNormal: NotificationPriority = "normal";
+export const NotificationPriorityHigh: NotificationPriority = "high";
+export const NotificationPriorityCritical: NotificationPriority = "critical";
+/**
+ * NotificationType represents the type/category of notification
+ */
+export type NotificationType = string;
+/**
+ * Billing notifications
+ */
+export const NotificationTypeLowBalance: NotificationType = "low_balance";
+export const NotificationTypeAutoRecharge: NotificationType = "auto_recharge";
+export const NotificationTypePaymentSuccess: NotificationType = "payment_success";
+export const NotificationTypePaymentFailed: NotificationType = "payment_failed";
+export const NotificationTypeUsageSummary: NotificationType = "usage_summary";
+export const NotificationTypeSpendingLimit: NotificationType = "spending_limit";
+export const NotificationTypeInvoice: NotificationType = "invoice";
+/**
+ * Account notifications
+ */
+export const NotificationTypeWelcome: NotificationType = "welcome";
+export const NotificationTypeWelcomeAgents: NotificationType = "welcome_agents";
+export const NotificationTypeWelcomeApps: NotificationType = "welcome_apps";
+export const NotificationTypeWelcomeFlows: NotificationType = "welcome_flows";
+export const NotificationTypeWelcomeSDK: NotificationType = "welcome_sdk";
+export const NotificationTypePasswordReset: NotificationType = "password_reset";
+export const NotificationTypeEmailVerify: NotificationType = "email_verify";
+export const NotificationTypeSecurityAlert: NotificationType = "security_alert";
+/**
+ * Task notifications
+ */
+export const NotificationTypeTaskComplete: NotificationType = "task_complete";
+export const NotificationTypeTaskFailed: NotificationType = "task_failed";
+/**
+ * System notifications
+ */
+export const NotificationTypeSystemAlert: NotificationType = "system_alert";
+export const NotificationTypeMaintenance: NotificationType = "maintenance";
+export const NotificationTypeTosUpdate: NotificationType = "tos_update";
+export const NotificationTypeServiceNotice: NotificationType = "service_notice";
+/**
+ * Team notifications
+ */
+export const NotificationTypeTeamInvite: NotificationType = "team_invite";
+/**
+ * NotificationStatus represents the status of a notification
+ */
+export type NotificationStatus = string;
+export const NotificationStatusPending: NotificationStatus = "pending";
+export const NotificationStatusProcessing: NotificationStatus = "processing";
+export const NotificationStatusSent: NotificationStatus = "sent";
+export const NotificationStatusDelivered: NotificationStatus = "delivered";
+export const NotificationStatusFailed: NotificationStatus = "failed";
+export const NotificationStatusBounced: NotificationStatus = "bounced";
+export const NotificationStatusCancelled: NotificationStatus = "cancelled";
 /**
  * TaskStatus represents the state of a task in its lifecycle.
  */
