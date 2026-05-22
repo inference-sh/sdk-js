@@ -1,4 +1,4 @@
-import { APIResponse, RequirementError } from '../types';
+import { RequirementError } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource } from 'eventsource';
 
@@ -196,7 +196,6 @@ export class HttpClient {
     const response = await fetch(fetchUrl, fetchOptions);
     const responseText = await response.text();
 
-    // Try to parse as JSON
     let data: any = null;
     try {
       data = JSON.parse(responseText);
@@ -204,29 +203,15 @@ export class HttpClient {
       // Not JSON
     }
 
-    // Detect response format: v2 (bare DTO + problem+json) vs v1 (APIResponse envelope)
-    const isV2 = headers['X-API-Version'] === '2';
-
-    // Check for HTTP errors
+    // HTTP errors → RFC 9457 problem+json
     if (!response.ok) {
-      // Check for RequirementsNotMetException (412 with errors array)
       if (response.status === 412 && data && 'errors' in data && Array.isArray(data.errors)) {
         throw RequirementsNotMetException.fromResponse(data as { errors: RequirementError[] }, response.status);
       }
 
       let errorDetail: string | undefined;
       if (data && typeof data === 'object') {
-        if (isV2 && 'detail' in data) {
-          // RFC 9457 problem+json
-          errorDetail = data.detail || data.title;
-        } else if ('error' in data && data.error) {
-          // v1 envelope
-          errorDetail = typeof data.error === 'object' ? data.error.message : String(data.error);
-        } else if ('message' in data) {
-          errorDetail = String(data.message);
-        } else {
-          errorDetail = JSON.stringify(data);
-        }
+        errorDetail = data.detail || data.title || data.message || JSON.stringify(data);
       } else if (responseText) {
         errorDetail = responseText.slice(0, 500);
       }
@@ -234,27 +219,11 @@ export class HttpClient {
       throw new InferenceError(response.status, errorDetail || 'Request failed', responseText);
     }
 
-    // Handle 204 No Content (e.g., DELETE requests)
     if (response.status === 204 || !responseText) {
       return undefined as T;
     }
 
-    if (isV2) {
-      // v2: response IS the data
-      return data as T;
-    }
-
-    // v1: unwrap envelope
-    const apiResponse = data as APIResponse<T>;
-    if (!apiResponse?.success) {
-      let errorMessage = apiResponse?.error?.message;
-      if (!errorMessage) {
-        errorMessage = `Request failed (success=false). Response: ${responseText.slice(0, 500)}`;
-      }
-      throw new InferenceError(response.status, errorMessage, responseText);
-    }
-
-    return (apiResponse.data ?? null) as T;
+    return data as T;
   }
 
   /**
