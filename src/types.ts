@@ -1907,6 +1907,32 @@ export interface UpdateIntegrationScopesRequest {
   scopes: string[];
 }
 /**
+ * SuggestRequest is the input for the suggest endpoint.
+ */
+export interface SuggestRequest {
+  query: string;
+  limit?: number /* int */;
+  category?: string;
+  agent?: boolean;
+}
+/**
+ * SuggestResponse is the output of the suggest endpoint.
+ */
+export interface SuggestResponse {
+  query: string;
+  results: SuggestResult[];
+}
+/**
+ * SuggestResult is a single result item from the suggest endpoint.
+ */
+export interface SuggestResult {
+  type: string;
+  name: string;
+  description: string;
+  command: string;
+  score: number /* float64 */;
+}
+/**
  * RequirementError represents a single missing requirement with actionable info
  */
 export interface RequirementError {
@@ -2796,18 +2822,32 @@ export const ToolTypeClient: ToolType = "client";
 export const ToolTypeInternal: ToolType = "internal";
 export type InstanceCloudProvider = string;
 export const CloudAWS: InstanceCloudProvider = "aws";
+export const CloudAmaya: InstanceCloudProvider = "amaya";
 export const CloudAzure: InstanceCloudProvider = "azure";
-export const CloudLambdaLabs: InstanceCloudProvider = "lambdalabs";
-export const CloudTensorDock: InstanceCloudProvider = "tensordock";
-export const CloudRunPod: InstanceCloudProvider = "runpod";
-export const CloudLatitude: InstanceCloudProvider = "latitude";
+export const CloudBoostrun: InstanceCloudProvider = "boostrun";
+export const CloudCrusoe: InstanceCloudProvider = "crusoe";
+export const CloudDatacrunch: InstanceCloudProvider = "datacrunch";
+export const CloudDenvr: InstanceCloudProvider = "denvr";
+export const CloudDigitalOcean: InstanceCloudProvider = "digitalocean";
+export const CloudExcessSupply: InstanceCloudProvider = "excesssupply";
+export const CloudHorizon: InstanceCloudProvider = "horizon";
+export const CloudHyperstack: InstanceCloudProvider = "hyperstack";
+export const CloudIMWT: InstanceCloudProvider = "imwt";
 export const CloudJarvisLabs: InstanceCloudProvider = "jarvislabs";
+export const CloudLambdaLabs: InstanceCloudProvider = "lambdalabs";
+export const CloudLatitude: InstanceCloudProvider = "latitude";
+export const CloudMassedCompute: InstanceCloudProvider = "massedcompute";
+export const CloudNebius: InstanceCloudProvider = "nebius";
 export const CloudOblivus: InstanceCloudProvider = "oblivus";
 export const CloudPaperspace: InstanceCloudProvider = "paperspace";
-export const CloudDatacrunch: InstanceCloudProvider = "datacrunch";
-export const CloudMassedCompute: InstanceCloudProvider = "massedcompute";
-export const CloudVultr: InstanceCloudProvider = "vultr";
+export const CloudPhyntec: InstanceCloudProvider = "phyntec";
+export const CloudRunPod: InstanceCloudProvider = "runpod";
+export const CloudScaleway: InstanceCloudProvider = "scaleway";
 export const CloudShade: InstanceCloudProvider = "shade";
+export const CloudTensorDock: InstanceCloudProvider = "tensordock";
+export const CloudVerda: InstanceCloudProvider = "verda";
+export const CloudVoltagePark: InstanceCloudProvider = "voltagepark";
+export const CloudVultr: InstanceCloudProvider = "vultr";
 export type InstanceStatus = string;
 export const InstanceStatusCreating: InstanceStatus = "creating";
 export const InstanceStatusPendingProvider: InstanceStatus = "pending_provider";
