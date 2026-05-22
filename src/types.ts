@@ -1389,6 +1389,7 @@ export interface InstanceDTO extends BaseModelDTO, PermissionModelDTO {
  */
 export interface InstanceTypeDTO extends BaseModelDTO, PermissionModelDTO {
   cloud: InstanceCloudProvider;
+  cloud_logo_url?: string;
   region: string;
   shade_instance_type: string;
   cloud_instance_type: string;
