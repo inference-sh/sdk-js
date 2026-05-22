@@ -70,7 +70,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', 'X-API-Version': '2', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.streamDefault = config.stream ?? true;
@@ -197,12 +197,15 @@ export class HttpClient {
     const responseText = await response.text();
 
     // Try to parse as JSON
-    let data: APIResponse<T> | { errors?: RequirementError[] } | null = null;
+    let data: any = null;
     try {
       data = JSON.parse(responseText);
     } catch {
       // Not JSON
     }
+
+    // Detect response format: v2 (bare DTO + problem+json) vs v1 (APIResponse envelope)
+    const isV2 = headers['X-API-Version'] === '2';
 
     // Check for HTTP errors
     if (!response.ok) {
@@ -211,14 +214,16 @@ export class HttpClient {
         throw RequirementsNotMetException.fromResponse(data as { errors: RequirementError[] }, response.status);
       }
 
-      // General error handling
       let errorDetail: string | undefined;
       if (data && typeof data === 'object') {
-        const apiData = data as APIResponse<T>;
-        if (apiData.error) {
-          errorDetail = typeof apiData.error === 'object' ? apiData.error.message : String(apiData.error);
+        if (isV2 && 'detail' in data) {
+          // RFC 9457 problem+json
+          errorDetail = data.detail || data.title;
+        } else if ('error' in data && data.error) {
+          // v1 envelope
+          errorDetail = typeof data.error === 'object' ? data.error.message : String(data.error);
         } else if ('message' in data) {
-          errorDetail = String((data as { message: string }).message);
+          errorDetail = String(data.message);
         } else {
           errorDetail = JSON.stringify(data);
         }
@@ -230,10 +235,16 @@ export class HttpClient {
     }
 
     // Handle 204 No Content (e.g., DELETE requests)
-    if (response.status === 204) {
+    if (response.status === 204 || !responseText) {
       return undefined as T;
     }
 
+    if (isV2) {
+      // v2: response IS the data
+      return data as T;
+    }
+
+    // v1: unwrap envelope
     const apiResponse = data as APIResponse<T>;
     if (!apiResponse?.success) {
       let errorMessage = apiResponse?.error?.message;
