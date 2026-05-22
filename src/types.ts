@@ -1511,8 +1511,8 @@ export interface KnowledgeDTO extends BaseModelDTO, PermissionModelDTO {
   namespace: string;
   name: string;
   description: string;
-  type: string;
-  lifecycle: string;
+  type: KnowledgeType;
+  lifecycle: KnowledgeLifecycle;
   version_id: string;
   version?: KnowledgeVersionDTO;
 }
@@ -1790,14 +1790,9 @@ export interface RefRouteDTO extends BaseModelDTO {
 export interface KnowledgeCreateRequest {
   name: string;
   description?: string;
-  /**
-   * Knowledge type: concept, skill, observation, preference, reference, person, project, agent-config
-   */
-  type?: string;
-  /**
-   * Lifecycle: permanent (no decay) or decay (confidence decreases over time)
-   */
-  lifecycle?: string;
+  repo_url?: string;
+  type?: KnowledgeType;
+  lifecycle?: KnowledgeLifecycle;
   /**
    * Version content (inline — creates first version)
    */
@@ -1884,6 +1879,12 @@ export interface OAuthConnectedApp {
   authorized_at: string /* RFC3339 */;
 }
 /**
+ * SetVisibilityRequest is used by admin endpoints to set visibility.
+ */
+export interface SetVisibilityRequest {
+  visibility: string;
+}
+/**
  * ChargeAmountRequest is the request for charging a saved payment method.
  */
 export interface ChargeAmountRequest {
@@ -1901,12 +1902,6 @@ export interface CompletePaymentRequest {
  */
 export interface UpdateIntegrationScopesRequest {
   scopes: string[];
-}
-/**
- * UpdateTaskVisibilityRequest sets task visibility.
- */
-export interface UpdateTaskVisibilityRequest {
-  visibility: string;
 }
 /**
  * RequirementError represents a single missing requirement with actionable info
@@ -2875,6 +2870,18 @@ export type RefRouteType = string;
 export const RefRouteTypeApp: RefRouteType = "app";
 export const RefRouteTypeAgent: RefRouteType = "agent";
 export const RefRouteTypeSkill: RefRouteType = "skill";
+export type KnowledgeType = string;
+export const KnowledgeTypeConcept: KnowledgeType = "concept";
+export const KnowledgeTypeSkill: KnowledgeType = "skill";
+export const KnowledgeTypeObservation: KnowledgeType = "observation";
+export const KnowledgeTypePreference: KnowledgeType = "preference";
+export const KnowledgeTypeReference: KnowledgeType = "reference";
+export const KnowledgeTypePerson: KnowledgeType = "person";
+export const KnowledgeTypeProject: KnowledgeType = "project";
+export const KnowledgeTypeAgentConfig: KnowledgeType = "agent-config";
+export type KnowledgeLifecycle = string;
+export const KnowledgeLifecyclePermanent: KnowledgeLifecycle = "permanent";
+export const KnowledgeLifecycleDecay: KnowledgeLifecycle = "decay";
 export type FilterOperator = string;
 export const OpEqual: FilterOperator = "eq";
 export const OpNotEqual: FilterOperator = "neq";
