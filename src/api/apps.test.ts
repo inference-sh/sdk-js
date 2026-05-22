@@ -65,14 +65,15 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ license: 'key-abc' });
   });
 
-  it('should POST version_id for setCurrentVersion()', async () => {
+  it('should PUT /apps/{id}/versions/{versionId}/current for setCurrentVersion()', async () => {
     const app = { id: 'app-1', current_version_id: 'ver-2' };
     mockJsonResponse(app);
 
     await api().setCurrentVersion('app-1', 'ver-2');
 
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({ version_id: 'ver-2' });
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/app-1/versions/ver-2/current');
+    expect(init.method).toBe('PUT');
   });
 
   it('should POST /apps/{id}/duplicate for duplicate()', async () => {
