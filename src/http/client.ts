@@ -223,6 +223,11 @@ export class HttpClient {
       return undefined as T;
     }
 
+    // Safety: if server returned v1 envelope (missing middleware), unwrap it
+    if (data && typeof data === 'object' && !Array.isArray(data) && 'success' in data && 'data' in data) {
+      return (data as any).data as T;
+    }
+
     return data as T;
   }
 
