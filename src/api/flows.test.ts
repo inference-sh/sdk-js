@@ -21,7 +21,7 @@ describe('FlowsAPI', () => {
 
   it('should POST name for create()', async () => {
     const flow = { id: 'flow-1', name: 'My Flow' };
-    mockJsonResponse({ success: true, data: flow });
+    mockJsonResponse(flow);
 
     const result = await api().create('My Flow');
 
@@ -32,7 +32,7 @@ describe('FlowsAPI', () => {
 
   it('should POST /flows/{id}/app for createApp()', async () => {
     const app = { id: 'app-from-flow' };
-    mockJsonResponse({ success: true, data: app });
+    mockJsonResponse(app);
 
     const result = await api().createApp('flow-1');
 

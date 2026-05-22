@@ -53,21 +53,14 @@ describe('HttpClient', () => {
     const client = () => new HttpClient({ apiKey: 'test-key' });
 
     it('should return parsed data on success', async () => {
-      mockJsonResponse({ success: true, data: { id: 'task-1' } });
+      mockJsonResponse({ id: 'task-1' });
 
       const result = await client().request<{ id: string }>('get', '/tasks/task-1');
       expect(result).toEqual({ id: 'task-1' });
     });
 
-    it('should return null when success is true but data field is omitted', async () => {
-      mockJsonResponse({ success: true });
-
-      const result = await client().request<null>('post', '/tasks/task-1/cancel');
-      expect(result).toBeNull();
-    });
-
-    it('should return null when success is true with explicit data: null', async () => {
-      mockJsonResponse({ success: true, data: null });
+    it('should return null for null response body', async () => {
+      mockJsonResponse(null);
 
       const result = await client().request<null>('post', '/tasks/task-1/cancel');
       expect(result).toBeNull();
@@ -84,8 +77,8 @@ describe('HttpClient', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should throw InferenceError when success is false', async () => {
-      mockJsonResponse({ success: false, error: { message: 'Invalid request' } });
+    it('should throw InferenceError on non-ok response', async () => {
+      mockJsonResponse({ message: 'Invalid request' }, 400, false);
 
       const err = await client().request('get', '/tasks/1').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(InferenceError);
@@ -124,7 +117,7 @@ describe('HttpClient', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          text: () => Promise.resolve(JSON.stringify({ success: true, data: { ok: true } })),
+          text: () => Promise.resolve(JSON.stringify({ ok: true })),
         });
 
       const result = await httpClient.request<{ ok: boolean }>('get', '/tasks/1');
@@ -134,7 +127,7 @@ describe('HttpClient', () => {
 
     it('should route through proxy with x-inf-target-url header', async () => {
       const proxyClient = new HttpClient({ proxyUrl: 'https://proxy.example.com' });
-      mockJsonResponse({ success: true, data: { id: '1' } });
+      mockJsonResponse({ id: '1' });
 
       await proxyClient.request('get', '/tasks/1');
 
@@ -149,7 +142,7 @@ describe('HttpClient', () => {
     });
 
     it('should serialize array query params as JSON', async () => {
-      mockJsonResponse({ success: true, data: [] });
+      mockJsonResponse([]);
 
       await client().request('get', '/tasks', {
         params: { ids: ['a', 'b'] },

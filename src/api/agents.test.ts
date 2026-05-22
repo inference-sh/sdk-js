@@ -67,18 +67,15 @@ describe('Agent.sendMessage (polling mode)', () => {
     const assistantMessage = makeMessage({ id: 'asst-1' });
 
     mockJsonResponse({
-      success: true,
-      data: { user_message: userMessage, assistant_message: assistantMessage },
+      user_message: userMessage, assistant_message: assistantMessage,
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
     });
 
     const onChat = jest.fn();
@@ -101,27 +98,20 @@ describe('Agent.sendMessage (polling mode)', () => {
     const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
 
     mockJsonResponse({
-      success: true,
-      data: {
-        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
         assistant_message: makeMessage(),
-      },
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: {
-        id: 'chat-1',
+      id: 'chat-1',
         status: ChatStatusBusy,
         chat_messages: [messageWithTool],
-      },
     });
     // Same status again — stub poll should not re-dispatch tool
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [messageWithTool] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [messageWithTool],
     });
 
     const onMessage = jest.fn();
@@ -141,22 +131,18 @@ describe('Agent.sendMessage (polling mode)', () => {
     const assistantMessage = makeMessage();
 
     mockJsonResponse({
-      success: true,
-      data: { user_message: userMessage, assistant_message: assistantMessage },
+      user_message: userMessage, assistant_message: assistantMessage,
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy },
+      id: 'chat-1', status: ChatStatusBusy,
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle },
+      id: 'chat-1', status: ChatStatusIdle,
     });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, output: { answer: 42 } },
+      id: 'chat-1', status: ChatStatusIdle, output: { answer: 42 },
     });
 
     const output = await agent().run('compute');
@@ -187,8 +173,7 @@ describe('Agent.sendMessage (streaming mode)', () => {
           text: () =>
             Promise.resolve(
               JSON.stringify({
-                success: true,
-                data: { user_message: userMessage, assistant_message: assistantMessage },
+                user_message: userMessage, assistant_message: assistantMessage,
               })
             ),
         });
@@ -227,11 +212,8 @@ describe('Agent.sendMessage (streaming mode)', () => {
           text: () =>
             Promise.resolve(
               JSON.stringify({
-                success: true,
-                data: {
-                  user_message: makeMessage({ id: 'user-1', role: 'user' }),
+                user_message: makeMessage({ id: 'user-1', role: 'user' }),
                   assistant_message: makeMessage(),
-                },
               })
             ),
         });
@@ -264,21 +246,16 @@ describe('Agent.sendMessage (streaming mode)', () => {
     const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
 
     mockJsonResponse({
-      success: true,
-      data: {
-        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
         assistant_message: makeMessage(),
-      },
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
     });
 
     await agentInstance.sendMessage('first', { stream: false });
@@ -293,11 +270,8 @@ describe('Agent.sendMessage (streaming mode)', () => {
           text: () =>
             Promise.resolve(
               JSON.stringify({
-                success: true,
-                data: {
-                  user_message: makeMessage({ id: 'user-2', role: 'user' }),
+                user_message: makeMessage({ id: 'user-2', role: 'user' }),
                   assistant_message: makeMessage({ id: 'asst-2' }),
-                },
               })
             ),
         });
@@ -348,21 +322,16 @@ describe('Agent.sendMessage (file attachments)', () => {
     } as FileDTO;
 
     mockJsonResponse({
-      success: true,
-      data: {
-        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
         assistant_message: makeMessage(),
-      },
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
     });
 
     await agent().sendMessage('see attachments', {
@@ -404,27 +373,22 @@ describe('Agent lifecycle', () => {
     const agentInstance = agent();
 
     mockJsonResponse({
-      success: true,
-      data: {
-        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
         assistant_message: makeMessage(),
-      },
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
     });
 
     await agentInstance.sendMessage('hello', { stream: false });
     jest.clearAllMocks();
 
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
     await agentInstance.stopChat();
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -437,21 +401,16 @@ describe('Agent lifecycle', () => {
     const agentInstance = agent();
 
     mockJsonResponse({
-      success: true,
-      data: {
-        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
         assistant_message: makeMessage(),
-      },
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
     });
-    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      success: true,
-      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
     });
 
     await agentInstance.sendMessage('hello', { stream: false });
@@ -472,7 +431,7 @@ describe('Agent.submitToolResult', () => {
     const http = new HttpClient({ apiKey: 'test-key' });
     const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
 
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     const payload = {
       action: { type: 'form_submit', payload: { field: 'value' } },
@@ -498,7 +457,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
   it('should GET /agents/internal-tools for getInternalTools()', async () => {
     const tools = [{ name: 'search', description: 'Search the web' }];
-    mockJsonResponse({ success: true, data: tools });
+    mockJsonResponse(tools);
 
     const result = await api().getInternalTools();
 
@@ -510,7 +469,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
   it('should POST team_id for transferOwnership()', async () => {
     const agent = { id: 'agent-1' };
-    mockJsonResponse({ success: true, data: agent });
+    mockJsonResponse(agent);
 
     await api().transferOwnership('agent-1', 'team-42');
 
@@ -522,7 +481,7 @@ describe('AgentsAPI (template CRUD)', () => {
   it('should POST /agents for createAgent()', async () => {
     const payload = { name: 'support-bot', core_app: { ref: 'app/ref' } };
     const created = { id: 'agent-new', ...payload };
-    mockJsonResponse({ success: true, data: created });
+    mockJsonResponse(created);
 
     const result = await api().createAgent(payload as never);
 

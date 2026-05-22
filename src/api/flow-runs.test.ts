@@ -21,7 +21,7 @@ describe('FlowRunsAPI', () => {
 
   it('should POST flow and input for create()', async () => {
     const flowRun = { id: 'fr-1', flow: 'flow-1' };
-    mockJsonResponse({ success: true, data: flowRun });
+    mockJsonResponse(flowRun);
 
     const result = await api().create('flow-1', { prompt: 'hi' });
 
@@ -34,7 +34,7 @@ describe('FlowRunsAPI', () => {
   });
 
   it('should POST /flowruns/{id}/cancel for cancel()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().cancel('fr-1');
 

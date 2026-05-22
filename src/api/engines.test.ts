@@ -21,7 +21,7 @@ describe('EnginesAPI', () => {
 
   it('should POST resource ids for getForResources()', async () => {
     const engines = [{ id: 'eng-1' }];
-    mockJsonResponse({ success: true, data: engines });
+    mockJsonResponse(engines);
 
     const result = await api().getForResources({
       app_ids: ['app-1'],
@@ -38,7 +38,7 @@ describe('EnginesAPI', () => {
   });
 
   it('should POST /engines/{id}/stop for stop()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().stop('eng-1');
 
@@ -48,7 +48,7 @@ describe('EnginesAPI', () => {
   });
 
   it('should POST /engines/{id}/restart for restart()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().restart('eng-1');
 

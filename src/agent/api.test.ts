@@ -50,7 +50,7 @@ describe('agent/api', () => {
 
   describe('sendAdHocMessage', () => {
     it('should return null when the API response omits messages', async () => {
-      mockJsonResponse({ success: true, data: {} });
+      mockJsonResponse({});
 
       const result = await sendAdHocMessage(makeClient(), adHocConfig, null, 'hello');
 
@@ -58,7 +58,7 @@ describe('agent/api', () => {
     });
 
     it('should strip client tool handlers from the agents/run request body', async () => {
-      mockJsonResponse({ success: true, data: runResponse });
+      mockJsonResponse(runResponse);
 
       const handler = jest.fn().mockReturnValue('ok');
       await sendAdHocMessage(
@@ -95,8 +95,7 @@ describe('agent/api', () => {
   describe('sendTemplateMessage', () => {
     it('should return null when assistant_message is missing', async () => {
       mockJsonResponse({
-        success: true,
-        data: { user_message: { id: 'u1', chat_id: 'chat-1', role: 'user' } },
+        user_message: { id: 'u1', chat_id: 'chat-1', role: 'user' },
       });
 
       const result = await sendTemplateMessage(
@@ -110,7 +109,7 @@ describe('agent/api', () => {
     });
 
     it('should omit empty agent field for existing chats', async () => {
-      mockJsonResponse({ success: true, data: runResponse });
+      mockJsonResponse(runResponse);
 
       await sendTemplateMessage(makeClient(), { agent: '' }, 'chat-existing', 'hi');
 
@@ -123,7 +122,7 @@ describe('agent/api', () => {
 
   describe('sendMessage', () => {
     it('should pass FileRef attachments without uploading', async () => {
-      mockJsonResponse({ success: true, data: runResponse });
+      mockJsonResponse(runResponse);
 
       const fileRef = {
         id: 'f1',
@@ -144,7 +143,7 @@ describe('agent/api', () => {
       const uploadSpy = jest
         .spyOn(client.files, 'upload')
         .mockRejectedValue(new Error('upload failed'));
-      mockJsonResponse({ success: true, data: runResponse });
+      mockJsonResponse(runResponse);
 
       const file = new File(['data'], 'doc.txt', { type: 'text/plain' });
       await sendMessage(client, adHocConfig, null, 'with file', [file]);
@@ -163,9 +162,9 @@ describe('agent/api', () => {
         upload_url: 'https://upload.example/put',
         content_type: 'text/plain',
       };
-      mockJsonResponse({ success: true, data: [fileRecord] });
+      mockJsonResponse([fileRecord]);
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-      mockJsonResponse({ success: true, data: runResponse });
+      mockJsonResponse(runResponse);
 
       const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
       await sendMessage(makeClient(), adHocConfig, null, 'with file', [file]);
@@ -179,7 +178,7 @@ describe('agent/api', () => {
 
   describe('submitToolResult', () => {
     it('should wrap string results in { result }', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       await submitToolResult(makeClient(), 'inv-1', 'done');
 
@@ -189,7 +188,7 @@ describe('agent/api', () => {
     });
 
     it('should pass structured action objects through unchanged', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       const payload = {
         action: { type: 'approve', payload: { ok: true } },
@@ -204,7 +203,7 @@ describe('agent/api', () => {
   describe('fetchChat', () => {
     it('should return chat data on success', async () => {
       const chat = { id: 'chat-1', status: 'idle' };
-      mockJsonResponse({ success: true, data: chat });
+      mockJsonResponse(chat);
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
@@ -222,7 +221,7 @@ describe('agent/api', () => {
 
   describe('stopChat', () => {
     it('should POST to /chats/{id}/stop', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       await stopChat(makeClient(), 'chat-1');
 
@@ -240,7 +239,7 @@ describe('agent/api', () => {
 
   describe('HIL tool approval', () => {
     it('approveTool should POST to /tools/{id}/invoke', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       await approveTool(makeClient(), 'inv-approve');
 
@@ -250,7 +249,7 @@ describe('agent/api', () => {
     });
 
     it('rejectTool should POST reason to /tools/{id}/reject', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       await rejectTool(makeClient(), 'inv-reject', 'not safe');
 
@@ -260,7 +259,7 @@ describe('agent/api', () => {
     });
 
     it('alwaysAllowTool should POST tool_name to the chat tools endpoint', async () => {
-      mockJsonResponse({ success: true, data: null });
+      mockJsonResponse(null);
 
       await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'browser_tool');
 

@@ -46,7 +46,7 @@ describe('Inference', () => {
         output: { result: 'success' },
       };
 
-      const responseData = { success: true, data: mockTask };
+      const responseData = mockTask;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -75,7 +75,7 @@ describe('Inference', () => {
     });
 
     it('should throw error on API failure', async () => {
-      const responseData = { success: false, error: { message: 'Invalid app' } };
+      const responseData = { message: 'Invalid app' };
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
@@ -164,7 +164,7 @@ describe('Inference', () => {
 
   describe('cancel', () => {
     it('should make a POST request to cancel endpoint', async () => {
-      const responseData = { success: true, data: null };
+      const responseData = null;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -219,7 +219,7 @@ describe('namespaced APIs', () => {
         input: { message: 'hello world' },
       };
 
-      const responseData = { success: true, data: mockTask };
+      const responseData = mockTask;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -242,7 +242,7 @@ describe('namespaced APIs', () => {
 
     it('should get task via tasks.get()', async () => {
       const mockTask = { id: 'task-123', status: 7 };
-      const responseData = { success: true, data: mockTask };
+      const responseData = mockTask;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -261,7 +261,7 @@ describe('namespaced APIs', () => {
     });
 
     it('should cancel task via tasks.cancel()', async () => {
-      const responseData = { success: true, data: null };
+      const responseData = null;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -359,7 +359,7 @@ describe('uploadFile', () => {
       upload_url: 'https://upload.example.com/signed-url',
     };
 
-    const responseData = { success: true, data: [mockFile] };
+    const responseData = [mockFile];
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -387,7 +387,7 @@ describe('uploadFile', () => {
       // Missing upload_url
     };
 
-    const responseData = { success: true, data: [mockFile] };
+    const responseData = [mockFile];
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
