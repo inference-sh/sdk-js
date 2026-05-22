@@ -223,6 +223,17 @@ export class HttpClient {
       return undefined as T;
     }
 
+    // Unwrap API envelope { success: true, data: ... } / { success: false, error: ... }
+    if (data !== null && typeof data === 'object' && 'success' in data) {
+      if ((data as any).success === false) {
+        const err = (data as any).error;
+        const errorMessage = err && typeof err === 'object' ? err.message : err;
+        throw new InferenceError(response.status, String(errorMessage || 'Request failed'), responseText);
+      }
+      // success === true: return the data field (null when absent)
+      return ('data' in data ? (data as any).data : null) as T;
+    }
+
     return data as T;
   }
 
