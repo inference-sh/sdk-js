@@ -223,6 +223,19 @@ export class HttpClient {
       return undefined as T;
     }
 
+    // Unwrap the standard API envelope { success, data }
+    if (data && typeof data === 'object' && 'success' in data) {
+      if (!data.success) {
+        const errorMessage =
+          data.error?.message ||
+          data.message ||
+          data.detail ||
+          'Request failed';
+        throw new InferenceError(response.status, errorMessage, responseText);
+      }
+      return ('data' in data ? data.data : null) as T;
+    }
+
     return data as T;
   }
 
