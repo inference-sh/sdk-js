@@ -71,7 +71,7 @@ describe('FlowRunsAPI', () => {
 
   it('should POST /flowruns/list for list()', async () => {
     const page = { items: [{ id: 'fr-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list({ limit: 10 });
 
@@ -83,7 +83,7 @@ describe('FlowRunsAPI', () => {
 
   it('should GET /flowruns/{id} for get()', async () => {
     const flowRun = { id: 'fr-1' };
-    mockJsonResponse({ success: true, data: flowRun });
+    mockJsonResponse(flowRun);
 
     const result = await api().get('fr-1');
 
@@ -95,7 +95,7 @@ describe('FlowRunsAPI', () => {
 
   it('should POST /flowruns/{id}/clone for clone()', async () => {
     const flowRun = { id: 'fr-clone' };
-    mockJsonResponse({ success: true, data: flowRun });
+    mockJsonResponse(flowRun);
 
     const result = await api().clone('fr-1');
 
@@ -107,7 +107,7 @@ describe('FlowRunsAPI', () => {
 
   it('should POST /flowruns/{id} for update()', async () => {
     const flowRun = { id: 'fr-1', fail_on_error: false };
-    mockJsonResponse({ success: true, data: flowRun });
+    mockJsonResponse(flowRun);
 
     const result = await api().update('fr-1', { fail_on_error: false });
 
