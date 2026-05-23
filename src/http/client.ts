@@ -141,6 +141,22 @@ export class HttpClient {
   }
 
   /**
+   * Make an HTTP request and unwrap the API envelope `{ success: true, data: T }`.
+   * Use this for endpoints that return the standard success/data envelope format.
+   */
+  async requestEnveloped<T, P extends object = Record<string, unknown>>(
+    method: 'get' | 'post' | 'put' | 'delete',
+    endpoint: string,
+    options: {
+      params?: P;
+      data?: unknown;
+    } = {}
+  ): Promise<T> {
+    const envelope = await this.request<{ success: boolean; data: T }, P>(method, endpoint, options);
+    return envelope.data;
+  }
+
+  /**
    * Execute the actual HTTP request (internal)
    */
   private async executeRequest<T, P extends object = Record<string, unknown>>(

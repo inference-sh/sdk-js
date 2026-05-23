@@ -15,14 +15,14 @@ export class FlowRunsAPI {
    * List flow runs with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowRun>> {
-    return this.http.request<CursorListResponse<FlowRun>>('post', '/flowruns/list', { data: params });
+    return this.http.requestEnveloped<CursorListResponse<FlowRun>>('post', '/flowruns/list', { data: params });
   }
 
   /**
    * Get a flow run by ID
    */
   async get(flowRunId: string): Promise<FlowRun> {
-    return this.http.request<FlowRun>('get', `/flowruns/${flowRunId}`);
+    return this.http.requestEnveloped<FlowRun>('get', `/flowruns/${flowRunId}`);
   }
 
   /**
@@ -36,14 +36,14 @@ export class FlowRunsAPI {
    * Clone a flow run
    */
   async clone(flowRunId: string): Promise<FlowRun> {
-    return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}/clone`);
+    return this.http.requestEnveloped<FlowRun>('post', `/flowruns/${flowRunId}/clone`);
   }
 
   /**
    * Update a flow run
    */
   async update(flowRunId: string, data: Partial<FlowRun>): Promise<FlowRun> {
-    return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}`, { data });
+    return this.http.requestEnveloped<FlowRun>('post', `/flowruns/${flowRunId}`, { data });
   }
 
   /**

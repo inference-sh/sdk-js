@@ -24,28 +24,28 @@ export class AppsAPI {
    * Get an app by ID
    */
   async get(appId: string): Promise<App> {
-    return this.http.request<App>('get', `/apps/${appId}`);
+    return this.http.requestEnveloped<App>('get', `/apps/${appId}`);
   }
 
   /**
    * Get an app by version ID
    */
   async getByVersionId(appId: string, versionId: string): Promise<App> {
-    return this.http.request<App>('get', `/apps/${appId}/versions/${versionId}`);
+    return this.http.requestEnveloped<App>('get', `/apps/${appId}/versions/${versionId}`);
   }
 
   /**
    * Create a new app
    */
   async create(data: Partial<App>): Promise<App> {
-    return this.http.request<App>('post', '/apps', { data });
+    return this.http.requestEnveloped<App>('post', '/apps', { data });
   }
 
   /**
    * Update an app
    */
   async update(appId: string, data: Partial<App>): Promise<App> {
-    return this.http.request<App>('post', `/apps/${appId}`, { data });
+    return this.http.requestEnveloped<App>('post', `/apps/${appId}`, { data });
   }
 
   /**
@@ -66,7 +66,7 @@ export class AppsAPI {
    * List app versions
    */
   async listVersions(appId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AppVersionDTO>> {
-    return this.http.request<CursorListResponse<AppVersionDTO>>('post', `/apps/${appId}/versions/list`, { data: params });
+    return this.http.requestEnveloped<CursorListResponse<AppVersionDTO>>('post', `/apps/${appId}/versions/list`, { data: params });
   }
 
   /**
@@ -94,7 +94,7 @@ export class AppsAPI {
    * Get app license record
    */
   async getLicense(appId: string): Promise<LicenseRecordDTO> {
-    return this.http.request<LicenseRecordDTO>('get', `/apps/${appId}/license`);
+    return this.http.requestEnveloped<LicenseRecordDTO>('get', `/apps/${appId}/license`);
   }
 
   /**

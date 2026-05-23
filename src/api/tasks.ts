@@ -55,21 +55,21 @@ export class TasksAPI {
    * List tasks with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
-    return this.http.request<CursorListResponse<Task>>('post', '/tasks/list', { data: params });
+    return this.http.requestEnveloped<CursorListResponse<Task>>('post', '/tasks/list', { data: params });
   }
 
   /**
    * List featured tasks with cursor-based pagination
    */
   async listFeatured(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
-    return this.http.request<CursorListResponse<Task>>('get', '/tasks/featured', { params });
+    return this.http.requestEnveloped<CursorListResponse<Task>>('get', '/tasks/featured', { params });
   }
 
   /**
    * Get a task by ID
    */
   async get(taskId: string): Promise<Task> {
-    return this.http.request<Task>('get', `/tasks/${taskId}`);
+    return this.http.requestEnveloped<Task>('get', `/tasks/${taskId}`);
   }
 
   /**
@@ -235,7 +235,7 @@ export class TasksAPI {
    * Update task visibility
    */
   async updateVisibility(taskId: string, visibility: string): Promise<Task> {
-    return this.http.request<Task>('post', `/tasks/${taskId}/visibility`, { data: { visibility } });
+    return this.http.requestEnveloped<Task>('post', `/tasks/${taskId}/visibility`, { data: { visibility } });
   }
 
   /**

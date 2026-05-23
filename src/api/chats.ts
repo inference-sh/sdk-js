@@ -16,21 +16,21 @@ export class ChatsAPI {
    * List chats with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Chat>> {
-    return this.http.request<CursorListResponse<Chat>>('post', '/chats/list', { data: params });
+    return this.http.requestEnveloped<CursorListResponse<Chat>>('post', '/chats/list', { data: params });
   }
 
   /**
    * Get a chat by ID
    */
   async get(chatId: string): Promise<Chat> {
-    return this.http.request<Chat>('get', `/chats/${chatId}`);
+    return this.http.requestEnveloped<Chat>('get', `/chats/${chatId}`);
   }
 
   /**
    * Update a chat
    */
   async update(chatId: string, data: Partial<Chat>): Promise<Chat> {
-    return this.http.request<Chat>('post', `/chats/${chatId}`, { data });
+    return this.http.requestEnveloped<Chat>('post', `/chats/${chatId}`, { data });
   }
 
   /**

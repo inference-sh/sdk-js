@@ -242,7 +242,7 @@ describe('namespaced APIs', () => {
 
     it('should get task via tasks.get()', async () => {
       const mockTask = { id: 'task-123', status: 7 };
-      const responseData = mockTask;
+      const responseData = { success: true, data: mockTask };
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,

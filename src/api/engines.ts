@@ -15,14 +15,14 @@ export class EnginesAPI {
    * List engines with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Engine>> {
-    return this.http.request<CursorListResponse<Engine>>('post', '/engines/list', { data: params });
+    return this.http.requestEnveloped<CursorListResponse<Engine>>('post', '/engines/list', { data: params });
   }
 
   /**
    * Get an engine by ID
    */
   async get(engineId: string): Promise<Engine> {
-    return this.http.request<Engine>('get', `/engines/${engineId}`);
+    return this.http.requestEnveloped<Engine>('get', `/engines/${engineId}`);
   }
 
   /**
@@ -36,14 +36,14 @@ export class EnginesAPI {
    * Create a new engine
    */
   async create(data: Partial<Engine>): Promise<Engine> {
-    return this.http.request<Engine>('post', '/engines', { data });
+    return this.http.requestEnveloped<Engine>('post', '/engines', { data });
   }
 
   /**
    * Update an engine
    */
   async update(engineId: string, data: Partial<Engine>): Promise<Engine> {
-    return this.http.request<Engine>('post', `/engines/${engineId}`, { data });
+    return this.http.requestEnveloped<Engine>('post', `/engines/${engineId}`, { data });
   }
 
   /**

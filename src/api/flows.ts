@@ -17,14 +17,14 @@ export class FlowsAPI {
    * List flows with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Flow>> {
-    return this.http.request<CursorListResponse<Flow>>('post', '/flows/list', { data: params });
+    return this.http.requestEnveloped<CursorListResponse<Flow>>('post', '/flows/list', { data: params });
   }
 
   /**
    * Get a flow by ID
    */
   async get(flowId: string): Promise<Flow> {
-    return this.http.request<Flow>('get', `/flows/${flowId}`);
+    return this.http.requestEnveloped<Flow>('get', `/flows/${flowId}`);
   }
 
   /**
@@ -38,7 +38,7 @@ export class FlowsAPI {
    * Update a flow
    */
   async update(flowId: string, data: Partial<Flow>): Promise<Flow> {
-    return this.http.request<Flow>('post', `/flows/${flowId}`, { data });
+    return this.http.requestEnveloped<Flow>('post', `/flows/${flowId}`, { data });
   }
 
   /**
@@ -52,14 +52,14 @@ export class FlowsAPI {
    * Duplicate a flow
    */
   async duplicate(flowId: string): Promise<Flow> {
-    return this.http.request<Flow>('post', `/flows/${flowId}/duplicate`);
+    return this.http.requestEnveloped<Flow>('post', `/flows/${flowId}/duplicate`);
   }
 
   /**
    * List flow versions
    */
   async listVersions(flowId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowVersionDTO>> {
-    return this.http.request<CursorListResponse<FlowVersionDTO>>('post', `/flows/${flowId}/versions/list`, { data: params });
+    return this.http.requestEnveloped<CursorListResponse<FlowVersionDTO>>('post', `/flows/${flowId}/versions/list`, { data: params });
   }
 
   /**
