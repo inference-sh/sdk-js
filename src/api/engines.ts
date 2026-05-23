@@ -87,6 +87,20 @@ export class EnginesAPI {
   async transferOwnership(engineId: string, newTeamId: string): Promise<Engine> {
     return this.http.request<Engine>('post', `/engines/${engineId}/transfer`, { data: { team_id: newTeamId } });
   }
+
+  /**
+   * Extend engine duration
+   */
+  async extend(engineId: string): Promise<void> {
+    return this.http.request<void>('post', `/engines/${engineId}/extend`);
+  }
+
+  /**
+   * Drain an engine
+   */
+  async drain(engineId: string): Promise<void> {
+    return this.http.request<void>('post', `/engines/${engineId}/drain`);
+  }
 }
 
 export function createEnginesAPI(http: HttpClient): EnginesAPI {

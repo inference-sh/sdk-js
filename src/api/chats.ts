@@ -46,6 +46,27 @@ export class ChatsAPI {
   async getTrace(chatId: string): Promise<ChatTraceDTO> {
     return this.http.request<ChatTraceDTO>('get', `/chats/${chatId}/trace`);
   }
+
+  /**
+   * Get chat status
+   */
+  async getStatus(chatId: string): Promise<{ status: string }> {
+    return this.http.request<{ status: string }>('get', `/chats/${chatId}/status`);
+  }
+
+  /**
+   * Stop chat generation
+   */
+  async stop(chatId: string): Promise<void> {
+    return this.http.request<void>('post', `/chats/${chatId}/stop`);
+  }
+
+  /**
+   * Stream chat updates
+   */
+  stream(chatId: string) {
+    return this.http.createEventSource(`/chats/${chatId}/stream`);
+  }
 }
 
 export function createChatsAPI(http: HttpClient): ChatsAPI {
