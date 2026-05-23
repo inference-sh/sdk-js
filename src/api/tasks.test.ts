@@ -294,7 +294,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should POST /tasks/list for list()', async () => {
     const page = { items: [{ id: 'task-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list({ limit: 5 });
 
@@ -307,7 +307,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should GET /tasks/featured for listFeatured()', async () => {
     const page = { items: [{ id: 'task-f' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().listFeatured({ cursor: 'abc' });
 
@@ -319,7 +319,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should GET /tasks/{id} for get()', async () => {
     const task = makeTask();
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     const result = await api().get('task-1');
 
@@ -351,7 +351,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should POST visibility for updateVisibility()', async () => {
     const task = makeTask({ visibility: 'public' });
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     const result = await api().updateVisibility('task-1', 'public');
 

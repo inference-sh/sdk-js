@@ -90,7 +90,7 @@ describe('AppsAPI', () => {
 
   it('should GET /apps/{id} for get()', async () => {
     const app = { id: 'app-1', name: 'demo' };
-    mockJsonResponse({ success: true, data: app });
+    mockJsonResponse(app);
 
     const result = await api().get('app-1');
 
@@ -102,7 +102,7 @@ describe('AppsAPI', () => {
 
   it('should GET versioned app for getByVersionId()', async () => {
     const app = { id: 'app-1', version_id: 'ver-1' };
-    mockJsonResponse({ success: true, data: app });
+    mockJsonResponse(app);
 
     const result = await api().getByVersionId('app-1', 'ver-1');
 
@@ -113,7 +113,7 @@ describe('AppsAPI', () => {
 
   it('should POST /apps for create()', async () => {
     const app = { id: 'app-new', name: 'New App' };
-    mockJsonResponse({ success: true, data: app });
+    mockJsonResponse(app);
 
     const result = await api().create({ name: 'New App' });
 
@@ -126,7 +126,7 @@ describe('AppsAPI', () => {
 
   it('should POST /apps/{id} for update()', async () => {
     const app = { id: 'app-1', description: 'updated' };
-    mockJsonResponse({ success: true, data: app });
+    mockJsonResponse(app);
 
     const result = await api().update('app-1', { description: 'updated' });
 
@@ -148,7 +148,7 @@ describe('AppsAPI', () => {
 
   it('should POST /apps/{id}/versions/list for listVersions()', async () => {
     const versions = { items: [{ id: 'ver-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: versions });
+    mockJsonResponse(versions);
 
     const result = await api().listVersions('app-1', { limit: 20 });
 
@@ -170,7 +170,7 @@ describe('AppsAPI', () => {
 
   it('should GET /apps/{id}/license for getLicense()', async () => {
     const license = { app_id: 'app-1', license: 'MIT' };
-    mockJsonResponse({ success: true, data: license });
+    mockJsonResponse(license);
 
     const result = await api().getLicense('app-1');
 

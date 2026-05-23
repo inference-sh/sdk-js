@@ -71,7 +71,7 @@ describe('EnginesAPI', () => {
 
   it('should POST /engines/list for list()', async () => {
     const page = { items: [{ id: 'eng-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list();
 
@@ -83,7 +83,7 @@ describe('EnginesAPI', () => {
 
   it('should GET /engines/{id} for get()', async () => {
     const engine = { id: 'eng-1' };
-    mockJsonResponse({ success: true, data: engine });
+    mockJsonResponse(engine);
 
     const result = await api().get('eng-1');
 
@@ -95,7 +95,7 @@ describe('EnginesAPI', () => {
 
   it('should POST /engines for create()', async () => {
     const engine = { id: 'eng-new', name: 'worker' };
-    mockJsonResponse({ success: true, data: engine });
+    mockJsonResponse(engine);
 
     const result = await api().create({ name: 'worker' });
 
@@ -108,7 +108,7 @@ describe('EnginesAPI', () => {
 
   it('should POST /engines/{id} for update()', async () => {
     const engine = { id: 'eng-1', name: 'updated' };
-    mockJsonResponse({ success: true, data: engine });
+    mockJsonResponse(engine);
 
     const result = await api().update('eng-1', { name: 'updated' });
 
