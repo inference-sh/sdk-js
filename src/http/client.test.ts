@@ -166,6 +166,17 @@ describe('HttpClient', () => {
       });
     });
 
+    it('should use getToken for Authorization on regular requests', async () => {
+      mockJsonResponse({ id: 'task-1' });
+
+      const tokenClient = new HttpClient({ getToken: () => 'dynamic-key' });
+      await tokenClient.request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe('Bearer dynamic-key');
+    });
+
     it('should send X-API-Version 2 and X-Client-Source on every request', async () => {
       mockJsonResponse({ id: 'task-1' });
 
