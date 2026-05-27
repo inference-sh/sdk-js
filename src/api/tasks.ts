@@ -262,8 +262,8 @@ export class TasksAPI {
   /**
    * Get task telemetry
    */
-  async getTelemetry(taskId: string): Promise<unknown> {
-    return this.http.request<unknown>('get', `/tasks/${taskId}/telemetry`);
+  async getTelemetry(taskId: string): Promise<Record<string, unknown>[]> {
+    return this.http.request<Record<string, unknown>[]>('get', `/tasks/${taskId}/telemetry`);
   }
 }
 
