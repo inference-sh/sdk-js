@@ -101,6 +101,13 @@ export class EnginesAPI {
   async drain(engineId: string): Promise<void> {
     return this.http.request<void>('post', `/engines/${engineId}/drain`);
   }
+
+  /**
+   * Update an engine binary (drain + restart with new version)
+   */
+  async updateBinary(engineId: string): Promise<void> {
+    return this.http.request<void>('post', `/engines/${engineId}/update`);
+  }
 }
 
 export function createEnginesAPI(http: HttpClient): EnginesAPI {
