@@ -75,6 +75,51 @@ describe('FilesAPI', () => {
       expect(putCall[1]?.headers).toMatchObject({ 'Content-Type': 'text/plain' });
     });
 
+    it('should default media type to text/plain for data URIs without explicit type', async () => {
+      const fileRecord = {
+        id: 'file-4',
+        uri: 'inf://files/default-mt',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'text/plain',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      await api().upload('data:;base64,SGVsbG8=');
+
+      const putCall = mockFetch.mock.calls[1];
+      expect(putCall[1]?.headers).toMatchObject({ 'Content-Type': 'text/plain' });
+    });
+
+    it('should throw when server does not return upload_url', async () => {
+      mockJsonResponse([{ id: 'file-x', uri: '', upload_url: undefined }]);
+
+      await expect(api().upload('data:text/plain,hello')).rejects.toThrow(
+        'No upload URL provided by the server'
+      );
+    });
+
+    it('should throw when PUT to upload_url fails', async () => {
+      const fileRecord = {
+        id: 'file-5',
+        uri: 'inf://files/fail-put',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'text/plain',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      await expect(api().upload('data:text/plain,hello')).rejects.toThrow(
+        'Failed to upload file content'
+      );
+    });
+
     it('should decode URL-safe base64 in data URIs', async () => {
       const fileRecord = {
         id: 'file-2',

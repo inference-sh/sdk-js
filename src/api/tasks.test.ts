@@ -120,6 +120,27 @@ describe('TasksAPI.run (polling mode)', () => {
     ).rejects.toThrow('status endpoint down');
   });
 
+  it('should not refetch full task when poll status is unchanged', async () => {
+    const runningTask = makeTask();
+    const completedTask = makeTask({ status: TaskStatusCompleted, output: { ok: true } });
+
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
+    mockJsonResponse(completedTask);
+
+    await api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false });
+
+    const fullTaskGets = mockFetch.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/tasks/task-1') &&
+        !String(url).includes('/status') &&
+        (init as RequestInit).method === 'GET'
+    );
+    expect(fullTaskGets).toHaveLength(1);
+  });
+
   it('should parse string terminal statuses from the status endpoint', async () => {
     const runningTask = makeTask();
     const completedTask = makeTask({ status: TaskStatusCompleted });
@@ -285,6 +306,30 @@ describe('TasksAPI.run (streaming mode)', () => {
   });
 });
 
+describe('TasksAPI.create', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key' }));
+
+  it('should POST /apps/run for create()', async () => {
+    const task = makeTask();
+    mockJsonResponse(task);
+
+    const result = await api().create({ app: 'test-app', input: { prompt: 'hi' } });
+
+    expect(result).toEqual(task);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/run');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'test-app',
+      input: { prompt: 'hi' },
+    });
+  });
+});
+
 describe('TasksAPI (CRUD and admin)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -294,7 +339,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should POST /tasks/list for list()', async () => {
     const page = { items: [{ id: 'task-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list({ limit: 5 });
 
@@ -307,7 +352,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should GET /tasks/featured for listFeatured()', async () => {
     const page = { items: [{ id: 'task-f' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().listFeatured({ cursor: 'abc' });
 
@@ -319,7 +364,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should GET /tasks/{id} for get()', async () => {
     const task = makeTask();
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     const result = await api().get('task-1');
 
@@ -330,7 +375,7 @@ describe('TasksAPI (CRUD and admin)', () => {
   });
 
   it('should DELETE /tasks/{id} for delete()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().delete('task-1');
 
@@ -340,7 +385,7 @@ describe('TasksAPI (CRUD and admin)', () => {
   });
 
   it('should POST /tasks/{id}/cancel for cancel()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().cancel('task-1');
 
@@ -351,7 +396,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should POST visibility for updateVisibility()', async () => {
     const task = makeTask({ visibility: 'public' });
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     const result = await api().updateVisibility('task-1', 'public');
 
@@ -362,7 +407,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
   it('should POST is_featured for feature()', async () => {
     const task = makeTask({ is_featured: true });
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     await api().feature('task-1', true);
 
