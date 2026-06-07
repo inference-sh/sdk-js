@@ -1,6 +1,6 @@
 {
   "name": "@inferencesh/sdk",
-  "version": "0.5.20",
+  "version": "0.6.0",
   "description": "Official JavaScript/TypeScript SDK for inference.sh - Run AI models with a simple API",
   "type": "module",
   "main": "dist/index.js",
