@@ -1506,6 +1506,10 @@ export interface FlowVersion extends BaseModel {
    */
   config_hash: string;
   /**
+   * GraphVersion is an incrementing counter for optimistic locking on action-based edits
+   */
+  graph_version: number /* int64 */;
+  /**
    * Flow graph configuration
    */
   input_schema: any;
@@ -1593,6 +1597,7 @@ export interface FlowDTO extends BaseModel, PermissionModelDTO {
   viewport?: FlowViewport;
 }
 export interface FlowVersionDTO extends BaseModel {
+  graph_version: number /* int64 */;
   input_schema: any;
   input: FlowRunInputs;
   output_schema: any;
