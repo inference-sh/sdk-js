@@ -545,7 +545,7 @@ export class Agent {
     const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall);
 
     // Process files - either already uploaded (FileDTO with uri) or needs upload (Blob)
-    let imageUri: string | undefined;
+    let imageUris: string[] | undefined;
     let fileUris: string[] | undefined;
 
     if (options.files && options.files.length > 0) {
@@ -574,7 +574,7 @@ export class Agent {
       const images = allFiles.filter((f) => f.content_type?.startsWith('image/'));
       const others = allFiles.filter((f) => !f.content_type?.startsWith('image/'));
 
-      if (images.length > 0) imageUri = images[0].uri;
+      if (images.length > 0) imageUris = images.map((f) => f.uri);
       if (others.length > 0) fileUris = others.map((f) => f.uri);
     }
 
@@ -582,13 +582,13 @@ export class Agent {
       ? {
         chat_id: this.chatId,
         agent: this.config as string,
-        input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       }
       : {
         chat_id: this.chatId,
         agent_config: this.config as AgentConfig,
         agent_name: this.agentName,
-        input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
 
     // For existing chats with callbacks: Start streaming BEFORE POST so we don't miss updates
