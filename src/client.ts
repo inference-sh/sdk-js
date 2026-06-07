@@ -469,12 +469,48 @@ export class Inference {
   }
 
   /**
-     * Cancel a running task
-     *
-     * @param taskId - The ID of the task to cancel
-     */
+   * Cancel a running task
+   *
+   * @param taskId - The ID of the task to cancel
+   */
   async cancel(taskId: string): Promise<void> {
     return this._request<void>("post", `/tasks/${taskId}/cancel`);
+  }
+
+  /**
+   * Get a task by ID
+   *
+   * @param taskId - The ID of the task to fetch
+   * @returns The task data
+   *
+   * @example
+   * ```typescript
+   * const task = await client.getTask('abc123');
+   * console.log(task.status, task.output);
+   * ```
+   */
+  async getTask(taskId: string): Promise<Task> {
+    return this._request<Task>("get", `/tasks/${taskId}`);
+  }
+
+  /**
+   * Create an EventSource for streaming task updates
+   *
+   * @param taskId - The ID of the task to stream
+   * @returns EventSource for SSE streaming
+   *
+   * @example
+   * ```typescript
+   * const eventSource = client.streamTask('abc123');
+   * // Use with StreamManager for handling updates
+   * const manager = new StreamManager({
+   *   createEventSource: () => client.streamTask(taskId),
+   *   onData: (task) => console.log(task),
+   * });
+   * ```
+   */
+  streamTask(taskId: string): EventSource {
+    return this._createEventSource(`/tasks/${taskId}/stream`);
   }
 
   /**
