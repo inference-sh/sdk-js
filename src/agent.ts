@@ -44,10 +44,8 @@ export interface AdHocAgentOptions {
 
 /** Template agent configuration */
 export interface TemplateAgentOptions {
-  /** Agent ID */
-  agentId: string;
-  /** Version ID (optional) */
-  versionId?: string;
+  /** Agent reference: namespace/name@version (e.g., "my-org/assistant@abc123") */
+  agent: string;
 }
 
 export type AgentOptions = AdHocAgentOptions | TemplateAgentOptions;
@@ -122,8 +120,7 @@ export class Agent {
         }
       : {
           chat_id: this.chatId,
-          agent_id: (this.options as TemplateAgentOptions).agentId,
-          agent_version_id: (this.options as TemplateAgentOptions).versionId,
+          agent: (this.options as TemplateAgentOptions).agent,
           input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
         };
 
