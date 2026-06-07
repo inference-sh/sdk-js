@@ -96,6 +96,19 @@ describe('TasksAPI.run (polling mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
+  it('should reject when full task fetch fails after status change', async () => {
+    const runningTask = makeTask();
+
+    mockJsonResponse({ success: true, data: runningTask });
+    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
+    mockJsonResponse({ success: true, data: { status: TaskStatusCompleted } });
+    mockFetch.mockRejectedValueOnce(new Error('network down'));
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
+    ).rejects.toThrow('network down');
+  });
+
   it('should parse string terminal statuses from the status endpoint', async () => {
     const runningTask = makeTask();
     const completedTask = makeTask({ status: TaskStatusCompleted });
