@@ -16,9 +16,9 @@ describe('Inference', () => {
       expect(client).toBeInstanceOf(Inference);
     });
 
-    it('should throw error when apiKey is missing', () => {
-      expect(() => new Inference({ apiKey: '' })).toThrow('API key is required');
-      expect(() => new Inference({} as InferenceConfig)).toThrow('API key is required');
+    it('should throw error when neither apiKey nor proxyUrl is provided', () => {
+      expect(() => new Inference({ apiKey: '' })).toThrow('Either apiKey or proxyUrl is required');
+      expect(() => new Inference({} as InferenceConfig)).toThrow('Either apiKey or proxyUrl is required');
     });
 
     it('should use default baseUrl when not provided', () => {

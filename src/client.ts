@@ -52,10 +52,17 @@ export interface UploadFileOptions {
 }
 
 export interface InferenceConfig {
-  /** Your inference.sh API key */
-  apiKey: string;
+  /** Your inference.sh API key (required unless using proxyUrl) */
+  apiKey?: string;
   /** Custom API base URL (defaults to https://api.inference.sh) */
   baseUrl?: string;
+  /**
+   * Proxy URL for frontend apps.
+   * When set, requests are routed through your proxy server to protect API keys.
+   * @example "/api/inference/proxy"
+   * @example "https://myapp.com/api/inference/proxy"
+   */
+  proxyUrl?: string;
 }
 
 export interface RunOptions {
@@ -83,15 +90,18 @@ export interface RunOptions {
  * ```
  */
 export class Inference {
-  private readonly apiKey: string;
+  private readonly apiKey: string | undefined;
   private readonly baseUrl: string;
+  private readonly proxyUrl: string | undefined;
 
   constructor(config: InferenceConfig) {
-    if (!config.apiKey) {
-      throw new Error('API key is required');
+    // Either apiKey or proxyUrl must be provided
+    if (!config.apiKey && !config.proxyUrl) {
+      throw new Error('Either apiKey or proxyUrl is required');
     }
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || "https://api.inference.sh";
+    this.proxyUrl = config.proxyUrl;
   }
 
   /** @internal */
@@ -103,19 +113,31 @@ export class Inference {
       data?: Record<string, any>;
     } = {}
   ): Promise<T> {
-    const url = new URL(`${this.baseUrl}${endpoint}`);
+    // Build the target URL (always points to the API)
+    const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     if (options.params) {
       Object.entries(options.params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
+          targetUrl.searchParams.append(key, String(value));
         }
       });
     }
 
+    // In proxy mode, requests go to the proxy with target URL in a header
+    const isProxyMode = !!this.proxyUrl;
+    const fetchUrl = isProxyMode ? this.proxyUrl! : targetUrl.toString();
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${this.apiKey}`,
     };
+
+    if (isProxyMode) {
+      // Proxy mode: send target URL as header, no auth (proxy handles it)
+      headers["x-inf-target-url"] = targetUrl.toString();
+    } else {
+      // Direct mode: include authorization header
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
 
     const fetchOptions: RequestInit = {
       method: method.toUpperCase(),
@@ -127,7 +149,7 @@ export class Inference {
       fetchOptions.body = JSON.stringify(options.data);
     }
 
-    const response = await fetch(url.toString(), fetchOptions);
+    const response = await fetch(fetchUrl, fetchOptions);
     const responseText = await response.text();
 
     // Try to parse as JSON
@@ -183,15 +205,29 @@ export class Inference {
 
   /** @internal */
   _createEventSource(endpoint: string): EventSource {
-    const url = new URL(`${this.baseUrl}${endpoint}`);
-    return new EventSource(url.toString(), {
-      fetch: (input, init) => fetch(input, {
-        ...init,
-        headers: {
-          ...init.headers,
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-      }),
+    const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
+    const isProxyMode = !!this.proxyUrl;
+    const fetchUrl = isProxyMode ? this.proxyUrl! : targetUrl.toString();
+
+    return new EventSource(fetchUrl, {
+      fetch: (input, init) => {
+        const headers: Record<string, string> = {
+          ...(init?.headers as Record<string, string>),
+        };
+
+        if (isProxyMode) {
+          // Proxy mode: send target URL as header
+          headers["x-inf-target-url"] = targetUrl.toString();
+        } else {
+          // Direct mode: include authorization header
+          headers["Authorization"] = `Bearer ${this.apiKey}`;
+        }
+
+        return fetch(input, {
+          ...init,
+          headers,
+        });
+      },
     });
   }
 

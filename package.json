@@ -10,11 +10,41 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./proxy": {
+      "import": "./dist/proxy/index.mjs",
+      "require": "./dist/proxy/index.js",
+      "types": "./dist/proxy/index.d.ts"
+    },
+    "./proxy/nextjs": {
+      "import": "./dist/proxy/nextjs.mjs",
+      "require": "./dist/proxy/nextjs.js",
+      "types": "./dist/proxy/nextjs.d.ts"
+    },
+    "./proxy/express": {
+      "import": "./dist/proxy/express.mjs",
+      "require": "./dist/proxy/express.js",
+      "types": "./dist/proxy/express.d.ts"
+    },
+    "./proxy/hono": {
+      "import": "./dist/proxy/hono.mjs",
+      "require": "./dist/proxy/hono.js",
+      "types": "./dist/proxy/hono.d.ts"
+    },
+    "./proxy/remix": {
+      "import": "./dist/proxy/remix.mjs",
+      "require": "./dist/proxy/remix.js",
+      "types": "./dist/proxy/remix.d.ts"
+    },
+    "./proxy/svelte": {
+      "import": "./dist/proxy/svelte.mjs",
+      "require": "./dist/proxy/svelte.js",
+      "types": "./dist/proxy/svelte.d.ts"
     }
   },
   "scripts": {
     "build": "tsc && npm run build:esm",
-    "build:esm": "echo 'export * from \"./index.js\";' > dist/index.mjs",
+    "build:esm": "echo 'export * from \"./index.js\";' > dist/index.mjs && mkdir -p dist/proxy && for f in dist/proxy/*.js; do echo \"export * from \\\"./$(basename $f)\\\";\" > \"${f%.js}.mjs\"; done",
     "test": "jest --testPathIgnorePatterns=integration",
     "test:integration": "jest --testPathPattern=integration --testTimeout=120000 --runInBand",
     "test:all": "jest --testTimeout=120000 --runInBand",
@@ -39,7 +69,10 @@
     "typescript",
     "image-generation",
     "llm",
-    "generative-ai"
+    "generative-ai",
+    "proxy",
+    "nextjs",
+    "express"
   ],
   "author": "Okaris <hello@inference.sh>",
   "license": "MIT",
@@ -58,17 +91,41 @@
     "eventsource": "^4.0.0"
   },
   "devDependencies": {
+    "@sveltejs/kit": "^2.0.0",
+    "@types/express": "^5.0.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^24.1.0",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
+    "hono": "^4.0.0",
     "jest": "^29.7.0",
+    "next": "^15.0.0",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "ts-jest": "^29.2.5",
     "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "@sveltejs/kit": ">=2.0.0",
+    "express": ">=4.0.0",
+    "hono": ">=4.0.0",
+    "next": ">=13.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "@sveltejs/kit": {
+      "optional": true
+    }
   },
   "files": [
     "dist",
