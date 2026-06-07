@@ -29,7 +29,7 @@ export class EnginesAPI {
    * Get engines for specific resources (apps/agents)
    */
   async getForResources(request: { app_ids?: string[]; agent_ids?: string[] }): Promise<Engine[]> {
-    return this.http.request<Engine[]>('post', '/engines/for-resources', { data: request });
+    return this.http.request<Engine[]>('post', '/engines/resources', { data: request });
   }
 
   /**

@@ -200,7 +200,7 @@ export async function stopChat(client: AgentClient, chatId: string): Promise<voi
 }
 
 /**
- * Submit a tool result (for widgets/awaiting input)
+ * Submit a tool result (for client tools/widgets/awaiting input)
  */
 export async function submitToolResult(
   client: AgentClient,
@@ -209,7 +209,7 @@ export async function submitToolResult(
 ): Promise<void> {
   try {
     const data = typeof resultOrAction === 'string' ? { result: resultOrAction } : resultOrAction;
-    await client.http.request<void>('post', `/tools/${toolInvocationId}/result`, { data });
+    await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
   } catch (error) {
     console.error('[AgentSDK] Failed to submit tool result:', error);
     throw error;
@@ -250,8 +250,8 @@ export async function alwaysAllowTool(
   toolName: string
 ): Promise<void> {
   try {
-    await client.http.request<void>('post', `/chats/${chatId}/tools/always-allow`, {
-      data: { tool_invocation_id: toolInvocationId, tool_name: toolName }
+    await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
+      data: { tool_name: toolName }
     });
   } catch (error) {
     console.error('[AgentSDK] Failed to always-allow tool:', error);
