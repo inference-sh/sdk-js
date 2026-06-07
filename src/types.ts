@@ -175,7 +175,7 @@ export interface ClientToolConfigDTO {
  */
 export interface CoreAppConfig {
   id?: string;
-  version?: string;
+  version_id?: string;
   /**
    * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs, resolved at creation
    */
@@ -273,7 +273,7 @@ export interface AgentVersion extends BaseModel, PermissionModel {
 }
 export interface CoreAppConfigDTO {
   id?: string;
-  version?: string;
+  version_id?: string;
   ref?: string;
   app?: AppDTO;
   /**
@@ -339,7 +339,7 @@ export interface ApiAppRunRequest {
    */
   app?: string;
   /**
-   * Alternative: specify app by ID (for internal use)
+   * Deprecated: use App ref instead. Direct ID bypasses ref routing.
    */
   app_id?: string;
   version_id?: string;
@@ -777,7 +777,7 @@ export interface AppVersion extends BaseModel {
   metadata: { [key: string]: any};
   repository: string;
   flow_version_id?: string;
-  flow_version?: FlowVersion; // Snapshot for execution
+  flow_version?: FlowVersion;
   setup_schema: any;
   input_schema: any;
   output_schema: any;
@@ -1278,6 +1278,19 @@ export interface WorkerStateSummary {
 //////////
 // source: file.go
 
+/**
+ * FileMetadata holds probed media metadata cached on File records.
+ */
+export interface FileMetadata {
+  type?: string; // "image", "video", "audio"
+  width?: number /* int */;
+  height?: number /* int */;
+  duration?: number /* float64 */; // seconds
+  fps?: number /* float64 */;
+  sample_rate?: number /* int */;
+  channels?: number /* int */;
+  codec?: string;
+}
 export interface File extends BaseModel, PermissionModel {
   path: string;
   remote_path: string;
@@ -1287,6 +1300,7 @@ export interface File extends BaseModel, PermissionModel {
   size: number /* int64 */;
   filename: string;
   rating: ContentRating;
+  metadata?: FileMetadata;
 }
 export interface FileDTO extends BaseModel, PermissionModelDTO {
   path: string;
@@ -1297,6 +1311,7 @@ export interface FileDTO extends BaseModel, PermissionModelDTO {
   size: number /* int64 */;
   filename: string;
   rating: ContentRating;
+  metadata?: FileMetadata;
 }
 
 //////////
@@ -2191,6 +2206,12 @@ export interface Transaction extends BaseModel {
    * Metadata for the transaction
    */
   metadata: { [key: string]: any};
+  /**
+   * SideEffectsProcessed tracks whether side effects (notifications, auto-recharge,
+   * billing status changes) have been processed for this transaction.
+   * Set to true via WithSkipTxSideEffects context to skip side effects (e.g. migrations).
+   */
+  side_effects_processed: boolean;
 }
 /**
  * PaymentRecordStatus represents the status of a payment
@@ -2212,7 +2233,8 @@ export const PaymentRecordTypeAutoRecharge: PaymentRecordType = "auto_recharge";
 export interface PaymentRecord extends BaseModel, PermissionModel {
   type: PaymentRecordType;
   status: PaymentRecordStatus;
-  amount: number /* int64 */; // Amount in cents
+  amount: number /* int64 */; // Amount in cents (credit amount — what user gets)
+  service_fee: number /* int64 */; // Service fee in cents (charged on top of Amount)
   stripe_customer_id: string; // Stripe customer ID
   payment_intent_id: string; // Stripe PaymentIntent ID
   receipt_url: string; // Receipt URL
@@ -2302,12 +2324,19 @@ export interface UsageEvent extends BaseModel, PermissionModel {
   quantity: number /* int64 */;
   unit: string;
 }
+/**
+ * DiscountItem represents a single discount applied to a billing record
+ */
+export interface DiscountItem {
+  reason: string; // e.g. "task_failed", "promotion", "support_credit"
+  amount: number /* int64 */; // discount amount in microcents
+}
 export interface UsageBillingRecord extends BaseModel, PermissionModel {
   /**
    * Fee breakdown (all in microcents)
    */
   total: number /* int64 */;
-  discount: number /* int64 */; // Discount applied (e.g., failed task = 100% discount)
+  discount: number /* int64 */; // Total discount applied (sum of Discounts items)
   /**
    * User debit (total charged)
    */
