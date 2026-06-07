@@ -125,6 +125,9 @@ export class TasksAPI {
     }
 
     // Wait for completion with optional updates
+    // Accumulate state across partial updates to preserve fields like session_id
+    let accumulatedTask = { ...task };
+
     return new Promise<Task>((resolve, reject) => {
       const streamManager = new StreamManager<Task>({
         createEventSource: async () => this.http.createEventSource(`/tasks/${task.id}/stream`),
@@ -132,7 +135,9 @@ export class TasksAPI {
         maxReconnects,
         reconnectDelayMs,
         onData: (data) => {
-          const stripped = stripTask(data);
+          // Merge new data, preserving existing fields if not in update
+          accumulatedTask = { ...accumulatedTask, ...data };
+          const stripped = stripTask(accumulatedTask);
           onUpdate?.(stripped);
 
           if (data.status === TaskStatusCompleted) {
@@ -147,7 +152,9 @@ export class TasksAPI {
           }
         },
         onPartialData: (data, fields) => {
-          const stripped = stripTask(data);
+          // Merge partial update, preserving fields not in this update
+          accumulatedTask = { ...accumulatedTask, ...data };
+          const stripped = stripTask(accumulatedTask);
           onPartialUpdate?.(stripped, fields);
 
           if (data.status === TaskStatusCompleted) {
