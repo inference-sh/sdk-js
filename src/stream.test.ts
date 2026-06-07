@@ -166,6 +166,68 @@ describe('StreamManager', () => {
     });
   });
 
+  describe('addEventListener', () => {
+    it('should deliver typed SSE events to registered listeners', async () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      const manager = new StreamManager({
+        createEventSource: async () => eventSource as unknown as EventSource,
+      });
+
+      const onChat = jest.fn();
+      manager.addEventListener('chats', onChat);
+      await manager.connect();
+
+      const payload = { id: 'chat-1', status: 'open' };
+      typedListeners.chats?.forEach((handler) =>
+        handler({ data: JSON.stringify(payload) } as MessageEvent)
+      );
+
+      expect(onChat).toHaveBeenCalledWith(payload);
+    });
+
+    it('should unwrap partial wrappers for typed events', async () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      const manager = new StreamManager({
+        createEventSource: async () => eventSource as unknown as EventSource,
+      });
+
+      const onMessage = jest.fn();
+      manager.addEventListener('chat_messages', onMessage);
+      await manager.connect();
+
+      const inner = { id: 'msg-1', order: 1 };
+      typedListeners.chat_messages?.forEach((handler) =>
+        handler({
+          data: JSON.stringify({ data: inner, fields: ['order'] }),
+        } as MessageEvent)
+      );
+
+      expect(onMessage).toHaveBeenCalledWith(inner);
+    });
+  });
+
   describe('reconnection', () => {
     it('should attempt reconnection on error when autoReconnect is true', async () => {
       jest.useFakeTimers();

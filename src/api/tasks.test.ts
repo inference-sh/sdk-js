@@ -114,3 +114,123 @@ describe('TasksAPI.run (polling mode)', () => {
     expect(result.status).toBe(TaskStatusCompleted);
   });
 });
+
+function mockNdjsonStream(chunks: string[]) {
+  let chunkIndex = 0;
+  const mockReader = {
+    read: jest.fn().mockImplementation(async () => {
+      if (chunkIndex >= chunks.length) {
+        return { done: true, value: undefined };
+      }
+      return { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) };
+    }),
+    releaseLock: jest.fn(),
+  };
+  return {
+    ok: true,
+    status: 200,
+    body: { getReader: () => mockReader },
+  };
+}
+
+describe('TasksAPI.run (general)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const streamingApi = () => new TasksAPI(new HttpClient({ apiKey: 'test-key', stream: true }));
+
+  it('should return immediately when wait is false', async () => {
+    const task = makeTask();
+    mockJsonResponse({ success: true, data: task });
+
+    const result = await streamingApi().run(
+      { app: 'test-app', input: {} },
+      { prompt: 'hi' },
+      { wait: false }
+    );
+
+    expect(result.id).toBe('task-1');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TasksAPI.run (streaming mode)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key', stream: true }));
+
+  function setupStreamMocks(ndjsonChunks: string[], initialTask = makeTask()) {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/apps/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ success: true, data: initialTask })),
+        });
+      }
+      return Promise.resolve(mockNdjsonStream(ndjsonChunks));
+    });
+  }
+
+  it('should resolve when NDJSON stream reports completion', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusRunning, id: 'task-1' })}\n`,
+      `${JSON.stringify({ status: TaskStatusCompleted, id: 'task-1', output: { ok: true } })}\n`,
+    ]);
+
+    const onUpdate = jest.fn();
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      { prompt: 'hi' },
+      { wait: true, onUpdate }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('should reject when NDJSON stream reports failure', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusFailed, id: 'task-1', error: 'gpu OOM' })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('gpu OOM');
+  });
+
+  it('should reject when NDJSON stream reports cancellation', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusCancelled, id: 'task-1' })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('task cancelled');
+  });
+
+  it('should handle partial updates via onPartialUpdate', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        data: { status: TaskStatusCompleted, id: 'task-1', session_id: 'sess-1' },
+        fields: ['status'],
+      })}\n`,
+    ]);
+
+    const onPartialUpdate = jest.fn();
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      {},
+      { wait: true, onPartialUpdate }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(onPartialUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-1', status: TaskStatusCompleted }),
+      ['status']
+    );
+  });
+});
