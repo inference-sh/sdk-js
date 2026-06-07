@@ -108,9 +108,9 @@ async function main() {
   // Create client and ad-hoc agent
   const client = inference({ apiKey, baseUrl });
   const agent = client.agent({
-    coreApp: 'infsh/claude-haiku-45@375bg07t',
+    core_app_ref: 'infsh/claude-haiku-45@375bg07t',
     name: 'Tool Assistant',
-    systemPrompt: `You are a helpful assistant with access to tools.
+    system_prompt: `You are a helpful assistant with access to tools.
 Available tools:
 - calculator: Performs math operations
 - get_weather: Gets weather for a location
@@ -118,7 +118,7 @@ Available tools:
 
 Use tools when appropriate to help the user.`,
     tools: [calculatorTool, weatherTool, searchTool],
-    internalTools: internalTools().memory().build(),
+    internal_tools: internalTools().memory().build(),
   });
 
   console.log('Agent ready. Sending message...\n');
