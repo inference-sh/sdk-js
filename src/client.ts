@@ -165,9 +165,15 @@ export class Inference {
 
     const apiResponse = data as APIResponse<T>;
     if (!apiResponse?.success) {
+      // Build a helpful error message
+      let errorMessage = apiResponse?.error?.message;
+      if (!errorMessage) {
+        // No error message provided - show the response for debugging
+        errorMessage = `Request failed (success=false). Response: ${responseText.slice(0, 500)}`;
+      }
       throw new InferenceError(
         response.status,
-        apiResponse?.error?.message || 'Request failed',
+        errorMessage,
         responseText
       );
     }
