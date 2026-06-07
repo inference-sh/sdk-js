@@ -80,4 +80,50 @@ describe('MCPServersAPI', () => {
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('PUT');
   });
+
+  it('should GET /mcps/{slug} for get()', async () => {
+    const server = { slug: 'filesystem', name: 'Filesystem MCP' };
+    mockJsonResponse(server);
+
+    const result = await api().get('filesystem');
+
+    expect(result).toEqual(server);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/mcps/filesystem');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /mcp-servers/list for listOwned()', async () => {
+    const page = { items: [{ id: 'mcp-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().listOwned({ limit: 5 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/mcp-servers/list');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should GET /mcp-servers/{id} for getOwned()', async () => {
+    const server = { id: 'mcp-1', name: 'My MCP' };
+    mockJsonResponse(server);
+
+    const result = await api().getOwned('mcp-1');
+
+    expect(result).toEqual(server);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/mcp-servers/mcp-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should DELETE /mcp-servers/{id} for delete()', async () => {
+    mockJsonResponse(null);
+
+    await api().delete('mcp-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/mcp-servers/mcp-1');
+    expect(init.method).toBe('DELETE');
+  });
 });

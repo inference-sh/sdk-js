@@ -345,6 +345,87 @@ describe('namespaced APIs', () => {
       expect(typeof client.engines.get).toBe('function');
     });
   });
+
+  describe('client.knowledge', () => {
+    it('should have knowledge namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.knowledge).toBeDefined();
+      expect(typeof client.knowledge.list).toBe('function');
+      expect(typeof client.knowledge.getByName).toBe('function');
+    });
+  });
+
+  describe('client.skills', () => {
+    it('should have skills namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.skills).toBeDefined();
+      expect(typeof client.skills.list).toBe('function');
+      expect(typeof client.skills.resolve).toBe('function');
+    });
+  });
+
+  describe('client.teams', () => {
+    it('should have teams namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.teams).toBeDefined();
+      expect(typeof client.teams.me).toBe('function');
+      expect(typeof client.teams.getMembers).toBe('function');
+    });
+  });
+
+  describe('client.secrets', () => {
+    it('should have secrets namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.secrets).toBeDefined();
+      expect(typeof client.secrets.list).toBe('function');
+      expect(typeof client.secrets.reveal).toBe('function');
+    });
+  });
+
+  describe('client.apiKeys', () => {
+    it('should have apiKeys namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.apiKeys).toBeDefined();
+      expect(typeof client.apiKeys.list).toBe('function');
+      expect(typeof client.apiKeys.create).toBe('function');
+    });
+  });
+
+  describe('client.integrations', () => {
+    it('should have integrations namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.integrations).toBeDefined();
+      expect(typeof client.integrations.list).toBe('function');
+      expect(typeof client.integrations.checkRequirements).toBe('function');
+    });
+  });
+
+  describe('client.search', () => {
+    it('should have search namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.search).toBeDefined();
+      expect(typeof client.search.suggest).toBe('function');
+      expect(typeof client.search.search).toBe('function');
+    });
+  });
+
+  describe('client.projects', () => {
+    it('should have projects namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.projects).toBeDefined();
+      expect(typeof client.projects.list).toBe('function');
+      expect(typeof client.projects.get).toBe('function');
+    });
+  });
+
+  describe('client.mcpServers', () => {
+    it('should have mcpServers namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.mcpServers).toBeDefined();
+      expect(typeof client.mcpServers.list).toBe('function');
+      expect(typeof client.mcpServers.callTool).toBe('function');
+    });
+  });
 });
 
 describe('uploadFile', () => {

@@ -66,6 +66,73 @@ describe('KnowledgeAPI', () => {
     expect(url).toContain('/knowledge/know-1/transfer');
     expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-5' });
   });
+
+  it('should GET /knowledge/{id} for get()', async () => {
+    const entry = { id: 'know-1', name: 'docs' };
+    mockJsonResponse(entry);
+
+    const result = await api().get('know-1');
+
+    expect(result).toEqual(entry);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/knowledge/know-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /knowledge/{id} for update()', async () => {
+    const entry = { id: 'know-1', name: 'updated' };
+    mockJsonResponse(entry);
+
+    const result = await api().update('know-1', { name: 'updated' } as never);
+
+    expect(result).toEqual(entry);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+  });
+
+  it('should DELETE /knowledge/{id} for delete()', async () => {
+    mockJsonResponse(null);
+
+    await api().delete('know-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/knowledge/know-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should POST /knowledge/{id}/versions/list for listVersions()', async () => {
+    const page = { items: [{ id: 'ver-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().listVersions('know-1', { limit: 10 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/knowledge/know-1/versions/list');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 10 });
+  });
+
+  it('should GET /knowledge/{id}/versions/{versionId} for getVersion()', async () => {
+    const version = { id: 'ver-1', knowledge_id: 'know-1' };
+    mockJsonResponse(version);
+
+    const result = await api().getVersion('know-1', 'ver-1');
+
+    expect(result).toEqual(version);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/knowledge/know-1/versions/ver-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST visibility for updateVisibility()', async () => {
+    const entry = { id: 'know-1', visibility: 'team' };
+    mockJsonResponse(entry);
+
+    await api().updateVisibility('know-1', 'team');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
+  });
 });
 
 describe('SkillsAPI', () => {
@@ -120,5 +187,38 @@ describe('SkillsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/store/skills/list');
     expect(init.method).toBe('POST');
+  });
+
+  it('should GET /skills/resolve with ref only when skill is omitted', async () => {
+    mockJsonResponse({ ref: 'acme/skill@v1' });
+
+    await api().resolve('acme/skill@v1');
+
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain('/skills/resolve');
+    expect(url).toContain('ref=acme');
+    expect(url).not.toContain('skill=');
+  });
+
+  it('should GET /skills/{namespace}/{name}/content for getContent()', async () => {
+    mockJsonResponse({ body: '# Skill instructions' });
+
+    const result = await api().getContent('acme', 'research');
+
+    expect(result).toEqual({ body: '# Skill instructions' });
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/skills/acme/research/content');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST team_id for transferOwnership()', async () => {
+    const skill = { id: 'skill-1' };
+    mockJsonResponse(skill);
+
+    await api().transferOwnership('skill-1', 'team-8');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/skills/skill-1/transfer');
+    expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-8' });
   });
 });
