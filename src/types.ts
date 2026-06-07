@@ -22,7 +22,7 @@ export const ToolTypeApp: ToolType = "app"; // App tools - creates a Task
 export const ToolTypeAgent: ToolType = "agent"; // Sub-agent tools - creates a sub-Chat
 export const ToolTypeHook: ToolType = "hook"; // Webhook tools - HTTP POST to external URL (legacy)
 export const ToolTypeHTTP: ToolType = "http"; // HTTP tools - authenticated HTTP request/response
-export const ToolTypeCall: ToolType = "call"; // Call tools - alias for HTTP (preferred name)
+export const ToolTypeCall: ToolType = "call"; // Call tools - authenticated HTTP request/response (preferred over "http")
 export const ToolTypeMCP: ToolType = "mcp"; // MCP tools - calls remote MCP server
 export const ToolTypeClient: ToolType = "client"; // Client tools - executed by frontend
 export const ToolTypeInternal: ToolType = "internal"; // Internal/built-in tools (plan, memory, widget, finish)
@@ -120,6 +120,11 @@ export interface ToolAuthConfig {
   header?: string;
 }
 /**
+ * CallToolConfig is the preferred name for HTTPToolConfig.
+ * "call" is the user-facing type; "http" is kept for backward compatibility.
+ */
+export type CallToolConfig = HTTPToolConfig;
+/**
  * HTTPToolConfig contains configuration for an authenticated HTTP tool
  */
 export interface HTTPToolConfig {
@@ -162,6 +167,7 @@ export interface AgentTool {
   agent?: AgentToolConfig;
   hook?: HookToolConfig;
   http?: HTTPToolConfig;
+  call?: CallToolConfig;
   mcp?: MCPToolConfig;
   client?: ClientToolConfig;
   internal?: InternalToolConfig;
@@ -189,6 +195,7 @@ export interface AgentToolDTO {
   agent?: AgentToolConfigDTO;
   hook?: HookToolConfigDTO;
   http?: HTTPToolConfigDTO;
+  call?: HTTPToolConfigDTO;
   mcp?: MCPToolConfigDTO;
   client?: ClientToolConfigDTO;
 }
@@ -304,6 +311,17 @@ export interface SkillConfig {
   version_id?: string; // Optional pinned version
   url?: string; // URL to fetch skill content (legacy, kept for backwards compat)
   content?: string; // Inline skill content (legacy, kept for backwards compat)
+  preload?: boolean; // If true, inject into system prompt instead of on-demand
+}
+/**
+ * ContextField declares a context parameter expected by the agent.
+ * Context is caller-provided at chat creation, stored on Chat, and available in tool URL templates.
+ */
+export interface ContextField {
+  name: string;
+  description?: string;
+  required?: boolean;
+  default?: string;
 }
 /**
  * AgentConfig contains the shared configuration fields for agent execution.
@@ -331,6 +349,10 @@ export interface AgentConfig {
    * Skills available to this agent (loaded on-demand via skill_get tool)
    */
   skills?: SkillConfig[];
+  /**
+   * Context declares expected context parameters (resolved in tool URL templates via {{context.X}})
+   */
+  context?: ContextField[];
   /**
    * Internal tools configuration (plan, memory, widget, finish, skills)
    */
@@ -374,6 +396,10 @@ export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
    * Skills available to this agent (loaded on-demand via skill_get tool)
    */
   skills: SkillConfig[];
+  /**
+   * Context declarations
+   */
+  context?: ContextField[];
   /**
    * Internal tools configuration (plan, memory, widget, finish, skills)
    */
@@ -488,6 +514,10 @@ export interface ApiAgentRunRequest {
    */
   input: ChatTaskInput;
   /**
+   * Context values for this chat session (used in tool URL templates)
+   */
+  context?: { [key: string]: string};
+  /**
    * If true, returns SSE stream instead of JSON response
    */
   stream?: boolean;
@@ -519,6 +549,10 @@ export interface CreateAgentMessageRequest {
    * Optional name for the adhoc agent (used for deduplication and display)
    */
   agent_name?: string;
+  /**
+   * Context values for this chat session (used in tool URL templates)
+   */
+  context?: { [key: string]: string};
 }
 export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
@@ -976,7 +1010,7 @@ export interface App extends BaseModel, PermissionModel {
 }
 /**
  * AppPricing configures all pricing using CEL expressions
- * Empty expressions use defaults. All values in nanocents (1 cent = 1,000,000,000)
+ * Empty expressions use defaults. All values in microcents (1 cent = 1,000,000; 1 dollar = 100,000,000)
  */
 export interface AppPricing {
   prices: { [key: string]: number /* int64 */}; // custom price variables for use in expressions
@@ -988,7 +1022,7 @@ export interface AppPricing {
    */
   resource_expression: string;
   /**
-   * CEL expressions for each fee type (result in nanocents)
+   * CEL expressions for each fee type (result in microcents)
    * Available variables: inputs, outputs, prices, resource_fee, usage_seconds
    */
   inference_expression: string; // inference.sh platform fee
@@ -1343,6 +1377,7 @@ export interface ChatDTO extends BaseModel, PermissionModelDTO {
   children: (ChatDTO | undefined)[];
   status: ChatStatus;
   output?: any;
+  context?: { [key: string]: string};
   /**
    * Agent version reference
    */
