@@ -491,4 +491,16 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
+
+  it('should GET /agents/{namespace}/{name} for getByName()', async () => {
+    const agent = { id: 'agent-1', name: 'my-agent' };
+    mockJsonResponse(agent);
+
+    const result = await api().getByName('inference', 'my-agent');
+
+    expect(result).toEqual(agent);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/inference/my-agent');
+    expect(init.method).toBe('GET');
+  });
 });

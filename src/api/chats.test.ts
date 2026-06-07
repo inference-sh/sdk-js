@@ -76,4 +76,38 @@ describe('ChatsAPI', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
+
+  it('should GET /chats/{id}/status for getStatus()', async () => {
+    mockJsonResponse({ status: 'busy' });
+
+    const result = await api().getStatus('chat-1');
+
+    expect(result).toEqual({ status: 'busy' });
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1/status');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /chats/{id}/stop for stop()', async () => {
+    mockJsonResponse(null);
+
+    await api().stop('chat-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1/stop');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should open SSE on /chats/{id}/stream for stream()', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const createEventSource = jest
+      .spyOn(http, 'createEventSource')
+      .mockResolvedValue(null);
+
+    const chats = new ChatsAPI(http);
+    await chats.stream('chat-42');
+
+    expect(createEventSource).toHaveBeenCalledWith('/chats/chat-42/stream');
+    createEventSource.mockRestore();
+  });
 });

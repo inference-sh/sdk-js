@@ -428,4 +428,40 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(createEventSource).toHaveBeenCalledWith('/tasks/task-42/stream');
     createEventSource.mockRestore();
   });
+
+  it('should GET /tasks/{id}/logs for getLogs()', async () => {
+    const logs = { logs: [{ message: 'started', timestamp: '2026-01-01T00:00:00Z' }] };
+    mockJsonResponse(logs);
+
+    const result = await api().getLogs('task-1');
+
+    expect(result).toEqual(logs);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/logs');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /tasks/{id}/timings for getTimings()', async () => {
+    const timings = { total_ms: 1200, stages: [{ name: 'inference', ms: 900 }] };
+    mockJsonResponse(timings);
+
+    const result = await api().getTimings('task-1');
+
+    expect(result).toEqual(timings);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/timings');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /tasks/{id}/telemetry for getTelemetry()', async () => {
+    const telemetry = [{ metric: 'gpu_util', value: 0.82 }];
+    mockJsonResponse(telemetry);
+
+    const result = await api().getTelemetry('task-1');
+
+    expect(result).toEqual(telemetry);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/telemetry');
+    expect(init.method).toBe('GET');
+  });
 });
