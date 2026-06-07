@@ -56,7 +56,7 @@ describe('FlowsAPI', () => {
 
   it('should POST /flows/list for list()', async () => {
     const page = { items: [{ id: 'flow-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list({ limit: 10 });
 
@@ -68,7 +68,7 @@ describe('FlowsAPI', () => {
 
   it('should GET /flows/{id} for get()', async () => {
     const flow = { id: 'flow-1', name: 'Demo' };
-    mockJsonResponse({ success: true, data: flow });
+    mockJsonResponse(flow);
 
     const result = await api().get('flow-1');
 
@@ -80,7 +80,7 @@ describe('FlowsAPI', () => {
 
   it('should POST /flows/{id} for update()', async () => {
     const flow = { id: 'flow-1', name: 'Renamed' };
-    mockJsonResponse({ success: true, data: flow });
+    mockJsonResponse(flow);
 
     const result = await api().update('flow-1', { name: 'Renamed' });
 
@@ -90,7 +90,7 @@ describe('FlowsAPI', () => {
   });
 
   it('should DELETE /flows/{id} for delete()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().delete('flow-1');
 
@@ -101,7 +101,7 @@ describe('FlowsAPI', () => {
 
   it('should POST /flows/{id}/duplicate for duplicate()', async () => {
     const flow = { id: 'flow-copy' };
-    mockJsonResponse({ success: true, data: flow });
+    mockJsonResponse(flow);
 
     const result = await api().duplicate('flow-1');
 
@@ -112,7 +112,7 @@ describe('FlowsAPI', () => {
 
   it('should POST /flows/{id}/versions/list for listVersions()', async () => {
     const versions = { items: [{ id: 'ver-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: versions });
+    mockJsonResponse(versions);
 
     const result = await api().listVersions('flow-1');
 
@@ -123,7 +123,7 @@ describe('FlowsAPI', () => {
 
   it('should POST transfer with team_id for transferOwnership()', async () => {
     const flow = { id: 'flow-1' };
-    mockJsonResponse({ success: true, data: flow });
+    mockJsonResponse(flow);
 
     await api().transferOwnership('flow-1', 'team-42');
 

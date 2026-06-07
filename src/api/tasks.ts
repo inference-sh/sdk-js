@@ -3,6 +3,8 @@ import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import {
   TaskDTO as Task,
+  TaskLogsDTO,
+  TaskTimingsDTO,
   ResourceStatusDTO,
   ApiAppRunRequest,
   TaskStatusCompleted,
@@ -241,6 +243,27 @@ export class TasksAPI {
    */
   async feature(taskId: string, featured: boolean): Promise<Task> {
     return this.http.request<Task>('post', `/tasks/${taskId}/featured`, { data: { is_featured: featured } });
+  }
+
+  /**
+   * Get task logs
+   */
+  async getLogs(taskId: string): Promise<TaskLogsDTO> {
+    return this.http.request<TaskLogsDTO>('get', `/tasks/${taskId}/logs`);
+  }
+
+  /**
+   * Get task timings
+   */
+  async getTimings(taskId: string): Promise<TaskTimingsDTO> {
+    return this.http.request<TaskTimingsDTO>('get', `/tasks/${taskId}/timings`);
+  }
+
+  /**
+   * Get task telemetry
+   */
+  async getTelemetry(taskId: string): Promise<Record<string, unknown>[]> {
+    return this.http.request<Record<string, unknown>[]>('get', `/tasks/${taskId}/telemetry`);
   }
 }
 

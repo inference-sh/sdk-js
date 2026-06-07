@@ -43,7 +43,7 @@ describe('ChatsAPI', () => {
 
   it('should POST /chats/list for list()', async () => {
     const page = { items: [{ id: 'chat-1' }], next_cursor: null };
-    mockJsonResponse({ success: true, data: page });
+    mockJsonResponse(page);
 
     const result = await api().list({ limit: 25 });
 
@@ -56,7 +56,7 @@ describe('ChatsAPI', () => {
 
   it('should GET /chats/{id} for get()', async () => {
     const chat = { id: 'chat-1', status: 'open' };
-    mockJsonResponse({ success: true, data: chat });
+    mockJsonResponse(chat);
 
     const result = await api().get('chat-1');
 
@@ -68,7 +68,7 @@ describe('ChatsAPI', () => {
 
   it('should POST /chats/{id} for update()', async () => {
     const chat = { id: 'chat-1', name: 'Renamed' };
-    mockJsonResponse({ success: true, data: chat });
+    mockJsonResponse(chat);
 
     const result = await api().update('chat-1', { name: 'Renamed' });
 
