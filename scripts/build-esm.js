@@ -173,6 +173,16 @@ export const GraphEdgeTypeExecution = cjs.GraphEdgeTypeExecution;
   console.log('Copied dist/index.cjs -> dist/index.js');
 }
 
+// Known exports for each proxy module
+const proxyExports = {
+  'index': ['PROXY_PATH', 'processProxyRequest', 'headersToRecord', 'passthrough', 'INF_TARGET_PARAM'],
+  'nextjs': ['PROXY_ROUTE', 'pageHandler', 'handlers', 'handler', 'route'],
+  'express': ['PROXY_ROUTE', 'handler'],
+  'hono': ['PROXY_ROUTE', 'handler'],
+  'remix': ['PROXY_ROUTE', 'handler'],
+  'svelte': ['PROXY_ROUTE', 'handler'],
+};
+
 // Create ESM wrappers for proxy modules
 function createProxyWrappers() {
   const proxyDir = path.join(distDir, 'proxy');
@@ -192,10 +202,21 @@ function createProxyWrappers() {
     const cjsPath = path.join(proxyDir, cjsFile);
     fs.renameSync(jsPath, cjsPath);
 
-    // Create .mjs wrapper
-    const wrapper = `// ESM wrapper - re-export all from CommonJS
+    // Create .mjs wrapper with explicit exports
+    const exports = proxyExports[name] || [];
+    let wrapper;
+    if (exports.length > 0) {
+      const exportLines = exports.map(e => `export const ${e} = cjs.${e};`).join('\n');
+      wrapper = `// ESM wrapper - explicit re-exports from CommonJS
+import * as cjs from './${cjsFile}';
+${exportLines}
+`;
+    } else {
+      // Fallback for unknown modules
+      wrapper = `// ESM wrapper - re-export all from CommonJS
 export * from './${cjsFile}';
 `;
+    }
 
     fs.writeFileSync(path.join(proxyDir, mjsFile), wrapper);
 
@@ -205,6 +226,23 @@ export * from './${cjsFile}';
     console.log(`Created dist/proxy/${mjsFile}`);
   }
 }
+
+// Known exports for each agent module
+const agentExports = {
+  'index': [
+    'AgentChatProvider',
+    'useAgentChat', 'useAgentActions', 'useAgentClient', 'useAgentChatContext', 'useMessage',
+    'AgentChatContext',
+    'isAdHocConfig', 'isTemplateConfig', 'isClientTool', 'extractToolSchemas', 'extractClientToolHandlers',
+  ],
+  'provider': ['AgentChatProvider'],
+  'hooks': ['useAgentChat', 'useAgentActions', 'useAgentClient', 'useAgentChatContext', 'useMessage'],
+  'context': ['AgentChatContext'],
+  'reducer': ['chatReducer', 'initialState'],
+  'actions': ['createActions', 'getClientToolHandlers'],
+  'api': ['sendMessage', 'sendAdHocMessage', 'sendTemplateMessage', 'fetchChat', 'stopChat', 'submitToolResult', 'approveTool', 'rejectTool', 'alwaysAllowTool', 'uploadFile', 'createUnifiedStream'],
+  'types': ['isAdHocConfig', 'isTemplateConfig', 'isClientTool', 'extractToolSchemas', 'extractClientToolHandlers'],
+};
 
 // Create ESM wrappers for agent module
 function createAgentWrappers() {
@@ -226,10 +264,21 @@ function createAgentWrappers() {
     const cjsPath = path.join(agentDir, cjsFile);
     fs.renameSync(jsPath, cjsPath);
 
-    // Create .mjs wrapper
-    const wrapper = `// ESM wrapper - re-export all from CommonJS
+    // Create .mjs wrapper with explicit exports
+    const exports = agentExports[name] || [];
+    let wrapper;
+    if (exports.length > 0) {
+      const exportLines = exports.map(e => `export const ${e} = cjs.${e};`).join('\n');
+      wrapper = `// ESM wrapper - explicit re-exports from CommonJS
+import * as cjs from './${cjsFile}';
+${exportLines}
+`;
+    } else {
+      // Fallback for unknown modules
+      wrapper = `// ESM wrapper - re-export all from CommonJS
 export * from './${cjsFile}';
 `;
+    }
 
     fs.writeFileSync(path.join(agentDir, mjsFile), wrapper);
 
