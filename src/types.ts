@@ -947,6 +947,14 @@ export interface PermissionModelDTO {
   team?: TeamRelationDTO;
   visibility: Visibility;
 }
+/**
+ * ResourceStatusDTO is a lightweight status-only response for polling transports.
+ */
+export interface ResourceStatusDTO {
+  id: string;
+  status: any;
+  updated_at: string /* RFC3339 */;
+}
 
 //////////
 // source: chat.go
