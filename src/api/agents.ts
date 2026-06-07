@@ -1,9 +1,11 @@
 import { HttpClient } from '../http/client';
 import { StreamManager } from '../http/stream';
+import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
 import {
   ChatDTO,
   ChatMessageDTO,
+  ResourceStatusDTO,
   AgentConfig,
   AgentDTO,
   AgentVersionDTO,
@@ -39,6 +41,10 @@ export interface SendMessageOptions {
   onChat?: (chat: ChatDTO) => void;
   /** Callback when a client tool needs execution */
   onToolCall?: (invocation: { id: string; name: string; args: Record<string, unknown> }) => void;
+  /** Use SSE streaming (true) or polling (false). Overrides client default. */
+  stream?: boolean;
+  /** Polling interval in ms when stream is false. Overrides client default. */
+  pollIntervalMs?: number;
 }
 
 /**
@@ -53,6 +59,7 @@ export class Agent {
   private readonly agentName: string | undefined;
   private chatId: string | null = null;
   private stream: StreamManager<unknown> | null = null;
+  private poller: PollManager<ChatDTO> | null = null;
   private dispatchedToolCalls: Set<string> = new Set();
 
   /** @internal */
@@ -117,10 +124,15 @@ export class Agent {
         input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
 
-    // For existing chats with callbacks: Start streaming BEFORE POST so we don't miss updates
-    let streamPromise: Promise<void> | null = null;
+    const useStream = options.stream ?? this.http.getStreamDefault();
+    const waitFn = useStream
+      ? (opts: SendMessageOptions) => this.streamUntilIdle(opts)
+      : (opts: SendMessageOptions) => this.pollUntilIdle(opts);
+
+    // For existing chats with callbacks: Start waiting BEFORE POST so we don't miss updates
+    let waitPromise: Promise<void> | null = null;
     if (this.chatId && hasCallbacks) {
-      streamPromise = this.streamUntilIdle(options);
+      waitPromise = waitFn(options);
     }
 
     // Make the POST request
@@ -130,18 +142,18 @@ export class Agent {
       { data: body }
     );
 
-    // For new chats: Set chatId and start streaming immediately after POST
+    // For new chats: Set chatId and start waiting immediately after POST
     const isNewChat = !this.chatId && response.assistant_message.chat_id;
     if (isNewChat) {
       this.chatId = response.assistant_message.chat_id;
       if (hasCallbacks) {
-        streamPromise = this.streamUntilIdle(options);
+        waitPromise = waitFn(options);
       }
     }
 
-    // Wait for streaming to complete
-    if (streamPromise) {
-      await streamPromise;
+    // Wait for completion
+    if (waitPromise) {
+      await waitPromise;
     }
 
     return { userMessage: response.user_message, assistantMessage: response.assistant_message };
@@ -171,10 +183,12 @@ export class Agent {
     await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
   }
 
-  /** Stop streaming and cleanup */
+  /** Stop streaming/polling and cleanup */
   disconnect(): void {
     this.stream?.stop();
     this.stream = null;
+    this.poller?.stop();
+    this.poller = null;
   }
 
   /** Reset the agent (start fresh chat) */
@@ -231,6 +245,78 @@ export class Agent {
       });
 
       this.stream.connect();
+    });
+  }
+
+  /** Poll until chat becomes idle, dispatching callbacks on changes */
+  private pollUntilIdle(options: SendMessageOptions): Promise<void> {
+    if (!this.chatId) return Promise.resolve();
+
+    const intervalMs = options.pollIntervalMs ?? this.http.getPollIntervalMs();
+    let prevStatus: string | null = null;
+    let knownMessageIds = new Set<string>();
+
+    return new Promise((resolve) => {
+      this.poller?.stop();
+
+      this.poller = new PollManager<ChatDTO>({
+        pollFunction: async () => {
+          // Lightweight status check first
+          const status = await this.http.request<ResourceStatusDTO>('get', `/chats/${this.chatId}/status`);
+          if (status.status === prevStatus) {
+            // No change — return a stub to skip processing
+            return { status: status.status } as ChatDTO;
+          }
+          // Status changed — fetch full chat
+          return this.http.request<ChatDTO>('get', `/chats/${this.chatId}`);
+        },
+        intervalMs,
+        onData: (chat) => {
+          if ((chat as any).status === prevStatus && !(chat as any).chat_messages) return;
+          prevStatus = chat.status;
+
+          options.onChat?.(chat);
+
+          // Dispatch new/updated messages
+          if (chat.chat_messages && options.onMessage) {
+            for (const message of chat.chat_messages) {
+              if (!knownMessageIds.has(message.id)) {
+                knownMessageIds.add(message.id);
+                options.onMessage(message);
+              } else {
+                // Re-dispatch for potential updates
+                options.onMessage(message);
+              }
+
+              // Handle client tool invocations
+              if (message.tool_invocations && options.onToolCall) {
+                for (const inv of message.tool_invocations) {
+                  if (this.dispatchedToolCalls.has(inv.id)) continue;
+                  if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+                    this.dispatchedToolCalls.add(inv.id);
+                    options.onToolCall({
+                      id: inv.id,
+                      name: inv.function?.name || '',
+                      args: inv.function?.arguments || {},
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          if (chat.status === 'idle') {
+            this.poller?.stop();
+            this.poller = null;
+            resolve();
+          }
+        },
+        onError: (error) => {
+          console.warn('[Agent] Poll error:', error);
+        },
+      });
+
+      this.poller.start();
     });
   }
 }

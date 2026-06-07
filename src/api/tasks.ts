@@ -1,7 +1,9 @@
 import { HttpClient } from '../http/client';
 import { StreamManager } from '../http/stream';
+import { PollManager } from '../http/poll';
 import {
   TaskDTO as Task,
+  ResourceStatusDTO,
   ApiAppRunRequest,
   TaskStatusCompleted,
   TaskStatusFailed,
@@ -23,6 +25,10 @@ export interface RunOptions {
   maxReconnects?: number;
   /** Delay between reconnection attempts in ms (default: 1000) */
   reconnectDelayMs?: number;
+  /** Use SSE streaming (true) or polling (false). Overrides client default. */
+  stream?: boolean;
+  /** Polling interval in ms when stream is false. Overrides client default. */
+  pollIntervalMs?: number;
 }
 
 //TODO: This is ugly...
@@ -124,7 +130,13 @@ export class TasksAPI {
       return stripTask(task);
     }
 
-    // Wait for completion with optional updates
+    const useStream = options.stream ?? this.http.getStreamDefault();
+
+    if (!useStream) {
+      return this.pollUntilTerminal(task, options);
+    }
+
+    // Wait for completion with optional updates via SSE
     // Accumulate state across partial updates to preserve fields like session_id
     let accumulatedTask = { ...task };
 
@@ -175,6 +187,52 @@ export class TasksAPI {
       });
 
       streamManager.connect();
+    });
+  }
+
+  /** Poll GET /tasks/{id}/status until terminal, full-fetch on status change. */
+  private pollUntilTerminal(task: Task, options: RunOptions): Promise<Task> {
+    const { onUpdate, maxReconnects = 5 } = options;
+    const intervalMs = options.pollIntervalMs ?? this.http.getPollIntervalMs();
+    let prevStatus = task.status;
+
+    return new Promise<Task>((resolve, reject) => {
+      const poller = new PollManager<ResourceStatusDTO>({
+        pollFunction: () => this.http.request<ResourceStatusDTO>('get', `/tasks/${task.id}/status`),
+        intervalMs,
+        maxRetries: maxReconnects,
+        onData: async (statusData) => {
+          if (statusData.status === prevStatus) return;
+          prevStatus = statusData.status;
+
+          // Status changed — fetch full task
+          try {
+            const fullTask = await this.http.request<Task>('get', `/tasks/${task.id}`);
+            const stripped = stripTask(fullTask);
+            onUpdate?.(stripped);
+
+            if (fullTask.status === TaskStatusCompleted) {
+              poller.stop();
+              resolve(stripped);
+            } else if (fullTask.status === TaskStatusFailed) {
+              poller.stop();
+              reject(new Error(fullTask.error || 'task failed'));
+            } else if (fullTask.status === TaskStatusCancelled) {
+              poller.stop();
+              reject(new Error('task cancelled'));
+            }
+          } catch (err) {
+            poller.stop();
+            reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+        onError: (error) => {
+          reject(error);
+          poller.stop();
+        },
+      });
+
+      poller.start();
     });
   }
 

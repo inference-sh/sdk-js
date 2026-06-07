@@ -5,12 +5,13 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { ChatDTO, ChatMessageDTO } from '../types';
+import type { ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolTypeClient,
 } from '../types';
 import { StreamManager } from '../http/stream';
+import { PollManager } from '../http/poll';
 import type {
   AgentChatActions,
   ActionsContext,
@@ -32,7 +33,7 @@ const dispatchedToolInvocations = new Set<string>();
 // =============================================================================
 
 export function createActions(ctx: ActionsContext): ActionsResult {
-  const { client, dispatch, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, callbacks } = ctx;
+  const { client, dispatch, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
 
   // =========================================================================
   // Internal helpers
@@ -120,6 +121,12 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       return;
     }
 
+    if (!getStreamEnabled()) {
+      // Polling mode
+      pollChat(id);
+      return;
+    }
+
     // Single unified stream with TypedEvents (both Chat and ChatMessage events)
     const manager = new StreamManager<unknown>({
       createEventSource: () => api.createUnifiedStream(client, id),
@@ -159,6 +166,55 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     setStreamManager(manager);
     manager.connect();
+  };
+
+  /** Poll-based alternative to streaming for restricted environments */
+  const pollChat = (id: string) => {
+    let prevStatus: string | null = null;
+
+    const manager = new PollManager<ResourceStatusDTO>({
+      pollFunction: () => client.http.request<ResourceStatusDTO>('get', `/chats/${id}/status`),
+      intervalMs: getPollIntervalMs(),
+      onData: async (statusData) => {
+        if (statusData.status === prevStatus) return;
+        prevStatus = statusData.status as string;
+
+        // Status changed — fetch full chat
+        try {
+          const chat = await api.fetchChat(client, id);
+          if (chat) {
+            setChat(chat);
+            if (chat.chat_messages) {
+              for (const message of chat.chat_messages) {
+                updateMessage(message);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[AgentSDK] Poll fetch error:', err);
+          callbacks.onError?.(err instanceof Error ? err : new Error(String(err)));
+        }
+      },
+      onStart: () => {
+        dispatch({ type: 'SET_STATUS', payload: 'streaming' });
+        callbacks.onStatusChange?.('streaming');
+      },
+      onStop: () => {
+        if (getStreamManager()) {
+          setStreamManager(undefined);
+          dispatch({ type: 'SET_STATUS', payload: 'idle' });
+          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          callbacks.onStatusChange?.('idle');
+        }
+      },
+      onError: (error) => {
+        console.warn('[AgentSDK] Poll error:', error);
+        callbacks.onError?.(error);
+      },
+    });
+
+    setStreamManager(manager);
+    manager.start();
   };
 
   const stopStream = () => {
