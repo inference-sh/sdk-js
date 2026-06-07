@@ -32,10 +32,12 @@ export class InferenceError extends Error {
  *
  * @example
  * ```typescript
+ * import { isRequirementsNotMetException } from '@inferencesh/sdk';
+ *
  * try {
  *   const task = await client.run(params);
  * } catch (e) {
- *   if (e instanceof RequirementsNotMetException) {
+ *   if (isRequirementsNotMetException(e)) {
  *     for (const err of e.errors) {
  *       console.log(`Missing ${err.type}: ${err.key}`);
  *       if (err.action) {
@@ -170,5 +172,44 @@ export class WorkerLostError extends SessionError {
     super(sessionId, 500, `Worker lost for session: ${sessionId}`, responseBody);
     this.name = 'WorkerLostError';
   }
+}
+
+// =============================================================================
+// Type Guards
+// =============================================================================
+// These handle cross-module/bundle issues where instanceof may fail.
+// Use these instead of instanceof for reliable error checking.
+
+/**
+ * Type guard for RequirementsNotMetException.
+ * Handles cross-module issues where instanceof may fail.
+ */
+export function isRequirementsNotMetException(err: unknown): err is RequirementsNotMetException {
+  if (err instanceof RequirementsNotMetException) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as Record<string, unknown>;
+  return e.name === 'RequirementsNotMetException' ||
+    (e.statusCode === 412 && Array.isArray(e.errors));
+}
+
+/**
+ * Type guard for InferenceError.
+ */
+export function isInferenceError(err: unknown): err is InferenceError {
+  if (err instanceof InferenceError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as Record<string, unknown>;
+  return e.name === 'InferenceError' && typeof e.statusCode === 'number';
+}
+
+/**
+ * Type guard for SessionError (or any subclass).
+ */
+export function isSessionError(err: unknown): err is SessionError {
+  if (err instanceof SessionError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as Record<string, unknown>;
+  return typeof e.sessionId === 'string' && typeof e.statusCode === 'number' &&
+    ['SessionError', 'SessionNotFoundError', 'SessionExpiredError', 'SessionEndedError', 'WorkerLostError'].includes(e.name as string);
 }
 
