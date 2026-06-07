@@ -323,24 +323,6 @@ export interface ApiAppRunRequest {
   stream?: boolean;
 }
 /**
- * CreateTaskRequest is the request body for creating a task via /tasks endpoint.
- * Used internally by the app.
- */
-export interface CreateTaskRequest {
-  id?: string;
-  app_id: string;
-  version_id?: string;
-  function?: string;
-  infra?: Infra;
-  workers?: string[];
-  webhook?: string;
-  setup?: unknown;
-  input: unknown;
-  flow_run_id?: string;
-  chat_id?: string;
-  graph_id?: string;
-}
-/**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
  * Supports both template agents and ad-hoc agents.
  */
@@ -395,20 +377,6 @@ export interface CreateAgentMessageRequest {
 export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
   assistant_message?: ChatMessageDTO;
-}
-/**
- * CreateAgentRequest is the request body for creating/updating agent templates.
- * For new agents, omit the id field. For updates, include the id.
- */
-export interface CreateAgentRequest {
-  id?: string;
-  name: string;
-  images?: AgentImages;
-  version: AgentConfig & {
-    description?: string;
-    system_prompt?: string;
-    example_prompts?: string[];
-  };
 }
 /**
  * ToolResultRequest represents a tool result submission
@@ -977,83 +945,6 @@ export interface ChatMessageDTO extends BaseModel, PermissionModelDTO {
   tools?: Tool[];
   tool_call_id?: string;
   tool_invocations?: ToolInvocationDTO[];
-}
-
-//////////
-// source: graph.go
-
-/**
- * GraphNodeType defines the type of graph node
- */
-export type GraphNodeType = string;
-export const GraphNodeTypeUnknown: GraphNodeType = "unknown";
-export const GraphNodeTypeJoin: GraphNodeType = "join";
-export const GraphNodeTypeSplit: GraphNodeType = "split";
-export const GraphNodeTypeExecution: GraphNodeType = "execution";
-export const GraphNodeTypeResource: GraphNodeType = "resource";
-export const GraphNodeTypeApproval: GraphNodeType = "approval";
-export const GraphNodeTypeConditional: GraphNodeType = "conditional";
-export const GraphNodeTypeFlowNode: GraphNodeType = "flow_node";
-
-/**
- * GraphNodeStatus defines the status of a graph node
- */
-export type GraphNodeStatus = string;
-export const GraphNodeStatusPending: GraphNodeStatus = "pending";
-export const GraphNodeStatusReady: GraphNodeStatus = "ready";
-export const GraphNodeStatusRunning: GraphNodeStatus = "running";
-export const GraphNodeStatusCompleted: GraphNodeStatus = "completed";
-export const GraphNodeStatusFailed: GraphNodeStatus = "failed";
-export const GraphNodeStatusCancelled: GraphNodeStatus = "cancelled";
-export const GraphNodeStatusSkipped: GraphNodeStatus = "skipped";
-export const GraphNodeStatusBlocked: GraphNodeStatus = "blocked";
-
-/**
- * GraphEdgeType defines the type of edge relationship
- */
-export type GraphEdgeType = string;
-export const GraphEdgeTypeDependency: GraphEdgeType = "dependency";
-export const GraphEdgeTypeFlow: GraphEdgeType = "flow";
-export const GraphEdgeTypeConditional: GraphEdgeType = "conditional";
-export const GraphEdgeTypeExecution: GraphEdgeType = "execution";
-
-/**
- * GraphNodeDTO is the API representation of a graph node
- */
-export interface GraphNodeDTO extends BaseModel {
-  graph_id: string;
-  type: GraphNodeType;
-  label: string;
-  resource_id: string;
-  resource_type: string;
-  status: GraphNodeStatus;
-  metadata?: StringEncodedMap;
-  ready_at?: string;
-  started_at?: string;
-  completed_at?: string;
-  duration_ms?: number;
-}
-
-/**
- * GraphEdgeDTO is the API representation of a graph edge
- */
-export interface GraphEdgeDTO extends BaseModel {
-  type: GraphEdgeType;
-  from_node: string;
-  to_node: string;
-}
-
-/**
- * ChatTraceDTO is the trace response for chat observability
- */
-export interface ChatTraceDTO {
-  graph_id: string;
-  nodes: (GraphNodeDTO | undefined)[];
-  edges: (GraphEdgeDTO | undefined)[];
-  total_steps: number;
-  completed_steps: number;
-  running_steps: number;
-  failed_steps: number;
 }
 
 //////////
@@ -2362,6 +2253,12 @@ export interface WidgetNode {
   min?: string; // for DatePicker - min date
   max?: string; // for DatePicker - max date
   clearable?: boolean; // for Select/DatePicker
+  /**
+   * Action handlers for interactive elements
+   */
+  onClickAction?: WidgetAction; // for Button
+  onChangeAction?: WidgetAction; // for Input, Select
+  onCheckedChangeAction?: WidgetAction; // for Checkbox
   /**
    * Content props (Icon, Spacer, Divider, Chart)
    */
