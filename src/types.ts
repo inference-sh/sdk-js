@@ -40,6 +40,15 @@ export interface AppToolConfig {
    */
   app?: App;
   /**
+   * Function to call on multi-function apps (empty = app's default function)
+   */
+  function?: string;
+  /**
+   * SessionEnabled allows the agent to control sessions for this tool
+   * When true, agent can pass session parameter and sees session_id in output
+   */
+  session_enabled?: boolean;
+  /**
    * Pre-configured values
    */
   setup?: any; // One-time setup values
@@ -130,6 +139,14 @@ export interface AppToolConfigDTO {
   id?: string;
   version_id?: string;
   app?: AppDTO;
+  /**
+   * Function to call on multi-function apps
+   */
+  function?: string;
+  /**
+   * SessionEnabled allows the agent to control sessions for this tool
+   */
+  session_enabled?: boolean;
   /**
    * Pre-configured values
    */
