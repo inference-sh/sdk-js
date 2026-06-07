@@ -13,8 +13,8 @@ import type {
   ChatMessageRole,
   TaskStatus,
   AgentTool,
-  AgentConfig as GeneratedAgentConfig,
-  CoreAppConfig,
+  AgentConfigInput as GeneratedAgentConfig,
+  CoreAppConfigInput as CoreAppConfig,
   FileRef,
 } from '../types';
 import type { HttpClient } from '../http/client';

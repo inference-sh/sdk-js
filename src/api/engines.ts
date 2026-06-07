@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import {
-  EngineStateDTO as Engine,
+  EngineDTO as Engine,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
