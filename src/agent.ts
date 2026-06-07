@@ -155,9 +155,8 @@ export class Agent {
 
   /** Submit a tool result */
   async submitToolResult(toolInvocationId: string, result: string): Promise<void> {
-    if (!this.chatId) throw new Error('No active chat');
-    await this.request<void>('post', `/chats/${this.chatId}/tool-result`, {
-      data: { tool_invocation_id: toolInvocationId, result },
+    await this.request<void>('post', `/tools/${toolInvocationId}`, {
+      data: { result },
     });
   }
 
