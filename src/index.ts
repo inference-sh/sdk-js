@@ -7,6 +7,11 @@ export { InferenceError, RequirementsNotMetException } from './http/errors';
 export { TasksAPI, RunOptions } from './api/tasks';
 export { FilesAPI, UploadFileOptions } from './api/files';
 export { AgentsAPI, Agent, AgentOptions, SendMessageOptions } from './api/agents';
+export { AppsAPI } from './api/apps';
+export { ChatsAPI } from './api/chats';
+export { FlowsAPI } from './api/flows';
+export { FlowRunsAPI } from './api/flow-runs';
+export { EnginesAPI } from './api/engines';
 
 // Tool Builder (fluent API)
 export {
@@ -40,6 +45,11 @@ import { HttpClient, HttpClientConfig } from './http/client';
 import { TasksAPI, RunOptions } from './api/tasks';
 import { FilesAPI, UploadFileOptions } from './api/files';
 import { AgentsAPI, Agent, AgentOptions } from './api/agents';
+import { AppsAPI } from './api/apps';
+import { ChatsAPI } from './api/chats';
+import { FlowsAPI } from './api/flows';
+import { FlowRunsAPI } from './api/flow-runs';
+import { EnginesAPI } from './api/engines';
 import { ApiAppRunRequest, TaskDTO as Task, AgentConfig, File } from './types';
 
 export interface InferenceConfig {
@@ -68,6 +78,11 @@ export class Inference {
   readonly tasks: TasksAPI;
   readonly files: FilesAPI;
   readonly agents: AgentsAPI;
+  readonly apps: AppsAPI;
+  readonly chats: ChatsAPI;
+  readonly flows: FlowsAPI;
+  readonly flowRuns: FlowRunsAPI;
+  readonly engines: EnginesAPI;
 
   constructor(config: InferenceConfig | HttpClientConfig) {
     // Handle both simple config and full HttpClientConfig
@@ -82,6 +97,11 @@ export class Inference {
     this.files = new FilesAPI(this.http);
     this.tasks = new TasksAPI(this.http);
     this.agents = new AgentsAPI(this.http, this.files);
+    this.apps = new AppsAPI(this.http);
+    this.chats = new ChatsAPI(this.http);
+    this.flows = new FlowsAPI(this.http);
+    this.flowRuns = new FlowRunsAPI(this.http);
+    this.engines = new EnginesAPI(this.http);
   }
 
   // Legacy methods for backward compatibility

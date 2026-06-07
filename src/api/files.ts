@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { PartialFile, File } from '../types';
+import { PartialFile, File, CursorListRequest, CursorListResponse } from '../types';
 
 export interface UploadFileOptions {
   filename?: string;
@@ -13,6 +13,27 @@ export interface UploadFileOptions {
  */
 export class FilesAPI {
   constructor(private readonly http: HttpClient) {}
+
+  /**
+   * List files with cursor-based pagination
+   */
+  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<File>> {
+    return this.http.request<CursorListResponse<File>>('get', '/files', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * Get a file by ID
+   */
+  async get(fileId: string): Promise<File> {
+    return this.http.request<File>('get', `/files/${fileId}`);
+  }
+
+  /**
+   * Delete a file
+   */
+  async delete(fileId: string): Promise<void> {
+    return this.http.request<void>('delete', `/files/${fileId}`);
+  }
 
   /**
    * Upload a file (Blob or base64 string)

@@ -5,9 +5,13 @@ import {
   ChatDTO,
   ChatMessageDTO,
   AgentConfig,
+  AgentDTO,
+  AgentVersionDTO,
   File,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
+  CursorListRequest,
+  CursorListResponse,
 } from '../types';
 
 /** Options for creating an agent */
@@ -230,8 +234,72 @@ export class AgentsAPI {
     private readonly files: FilesAPI
   ) {}
 
+  // ==========================================================================
+  // Agent Template CRUD (stored agent configurations)
+  // ==========================================================================
+
   /**
-   * Create an agent for chat interactions
+   * List agent templates with cursor-based pagination
+   */
+  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentDTO>> {
+    return this.http.request<CursorListResponse<AgentDTO>>('get', '/agents', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * Get an agent template by ID
+   */
+  async get(agentId: string): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('get', `/agents/${agentId}`);
+  }
+
+  /**
+   * Create a new agent template
+   */
+  async createAgent(data: Partial<AgentDTO>): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('post', '/agents', { data });
+  }
+
+  /**
+   * Update an agent template
+   */
+  async update(agentId: string, data: Partial<AgentDTO>): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('put', `/agents/${agentId}`, { data });
+  }
+
+  /**
+   * Delete an agent template
+   */
+  async delete(agentId: string): Promise<void> {
+    return this.http.request<void>('delete', `/agents/${agentId}`);
+  }
+
+  /**
+   * Duplicate an agent template
+   */
+  async duplicate(agentId: string): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('post', `/agents/${agentId}/duplicate`);
+  }
+
+  /**
+   * List agent template versions
+   */
+  async listVersions(agentId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentVersionDTO>> {
+    return this.http.request<CursorListResponse<AgentVersionDTO>>('get', `/agents/${agentId}/versions`, { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * Transfer agent ownership to another team
+   */
+  async transferOwnership(agentId: string, newTeamId: string): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('post', `/agents/${agentId}/transfer`, { data: { team_id: newTeamId } });
+  }
+
+  // ==========================================================================
+  // Agent Runtime (chat interactions)
+  // ==========================================================================
+
+  /**
+   * Create an agent instance for chat interactions
    */
   create(config: string | AgentConfig, options?: AgentOptions): Agent {
     return new Agent(this.http, this.files, config, options);

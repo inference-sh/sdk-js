@@ -438,6 +438,31 @@ export interface CreateFlowRunRequest {
   flow: string;
   input: any;
 }
+/**
+ * Flow API response types (enables type tracing for SDK)
+ */
+export type FlowResponse = FlowDTO;
+export type FlowRunResponse = FlowRunDTO;
+export type FlowListResponse = CursorListResponse<FlowDTO>;
+export type FlowRunListResponse = CursorListResponse<FlowRunDTO>;
+/**
+ * Engine API response types (enables type tracing for SDK)
+ */
+export type EngineResponse = EngineStateDTO;
+export type EngineListResponse = CursorListResponse<EngineStateDTO>;
+/**
+ * CursorPaginationRequest is the standard request type for cursor-paginated list endpoints
+ * This alias ensures CursorListRequest is traced into SDK types
+ */
+export type CursorPaginationRequest = CursorListRequest;
+/**
+ * Generic list responses for SDK CRUD operations
+ */
+export type AppListResponse = CursorListResponse<AppDTO>;
+export type TaskListResponse = CursorListResponse<TaskDTO>;
+export type FileListResponse = CursorListResponse<FileDTO>;
+export type ChatListResponse = CursorListResponse<ChatDTO>;
+export type AgentListResponse = CursorListResponse<AgentDTO>;
 export interface CheckoutCreateRequest {
   amount: number /* int64 */;
   success_url: string;
@@ -595,6 +620,32 @@ export interface ProjectUpdateRequest {
 export interface MoveAgentToProjectRequest {
   agent_id: string;
   project_id: string;
+}
+
+//////////
+// source: api_internal.go
+
+export interface WorkerGPUConfig {
+  gpus: number /* int */[];
+}
+export interface WorkerCPUConfig {
+  count: number /* int */;
+}
+export interface WorkerConfig {
+  gpu: WorkerGPUConfig[];
+  cpu: WorkerCPUConfig;
+}
+export interface EngineConfig {
+  id: string;
+  name: string;
+  api_url: string;
+  engine_port: string;
+  workers: WorkerConfig;
+  api_key: string;
+  container_mode: boolean;
+  network_name: string;
+  cache_path: string;
+  gpus: string[];
 }
 
 //////////
@@ -920,6 +971,86 @@ export interface ChatMessageDTO extends BaseModel, PermissionModelDTO {
 export type StringEncodedMap = { [key: string]: any};
 
 //////////
+// source: cursor.go
+
+/**
+ * SearchRequest represents a search request
+ */
+export interface SearchRequest {
+  fields: string[];
+  term: string;
+  exact: boolean;
+}
+/**
+ * Filter represents a single filter condition
+ */
+export interface Filter {
+  field: string;
+  operator: FilterOperator;
+  value: any;
+}
+/**
+ * FilterOperator represents the type of filter operation
+ */
+export type FilterOperator = string;
+export const OpEqual: FilterOperator = "eq";
+export const OpNotEqual: FilterOperator = "neq";
+export const OpIn: FilterOperator = "in";
+export const OpNotIn: FilterOperator = "not_in";
+export const OpGreater: FilterOperator = "gt";
+export const OpGreaterEqual: FilterOperator = "gte";
+export const OpLess: FilterOperator = "lt";
+export const OpLessEqual: FilterOperator = "lte";
+export const OpLike: FilterOperator = "like";
+export const OpILike: FilterOperator = "ilike";
+export const OpContains: FilterOperator = "contains";
+export const OpNotContains: FilterOperator = "not_contains";
+/**
+ * Null checks
+ */
+export const OpIsNull: FilterOperator = "is_null";
+export const OpIsNotNull: FilterOperator = "is_not_null";
+/**
+ * Empty checks (for strings)
+ */
+export const OpIsEmpty: FilterOperator = "is_empty";
+export const OpIsNotEmpty: FilterOperator = "is_not_empty";
+/**
+ * SortOrder represents sorting configuration
+ */
+export interface SortOrder {
+  field: string;
+  dir: string; // "asc" or "desc"
+}
+/**
+ * CursorListRequest represents a cursor-based list request with all options
+ */
+export interface CursorListRequest {
+  cursor: string;
+  limit: number /* int */;
+  direction: string;
+  search?: SearchRequest;
+  filters: Filter[];
+  preloads: string[];
+  sort: SortOrder[];
+  fields: string[]; // Fields to select, empty means all fields
+  permissions: string[]; // Permissions to filter by, empty means all permissions
+  include_others: boolean; // Include other users' items in the response
+}
+/**
+ * CursorListResponse represents a cursor-based paginated response
+ */
+export interface CursorListResponse<T extends any> {
+  items: T[];
+  next_cursor: string; // Base64 encoded timestamp
+  prev_cursor: string; // Base64 encoded timestamp
+  has_next: boolean;
+  has_previous: boolean;
+  items_per_page: number /* int */;
+  total_items: number /* int */;
+}
+
+//////////
 // source: deviceauth.go
 
 export type DeviceAuthStatus = string;
@@ -942,6 +1073,15 @@ export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
+export interface EngineStateDTO extends BaseModel, PermissionModelDTO {
+  instance?: Instance;
+  config: EngineConfig;
+  name: string;
+  api_url: string;
+  status: EngineStatus;
+  system_info?: SystemInfo;
+  workers: (WorkerStateDTO | undefined)[];
+}
 export interface EngineStateSummary extends BaseModel, PermissionModelDTO {
   instance?: Instance;
   name: string;
@@ -974,6 +1114,20 @@ export interface WorkerRAM {
   id: string;
   worker_id: string;
   total: number /* uint64 */;
+}
+export interface WorkerStateDTO extends BaseModel {
+  user_id: string;
+  team_id: string;
+  index: number /* int */;
+  status: WorkerStatus;
+  engine_id: string;
+  task_id?: string;
+  app_id: string;
+  app_version_id: string;
+  gpus: WorkerGPU[];
+  cpus: WorkerCPU[];
+  rams: WorkerRAM[];
+  system_info: SystemInfo;
 }
 export interface WorkerStateSummary {
   id: string;
@@ -1099,6 +1253,32 @@ export interface OutputFieldMapping {
  * OutputMappings is a map of output field name to OutputFieldMapping.
  */
 export type OutputMappings = { [key: string]: OutputFieldMapping};
+export interface FlowDTO extends BaseModel, PermissionModelDTO {
+  name: string;
+  description: string;
+  card_image: string;
+  thumbnail: string;
+  banner_image: string;
+  /**
+   * Version references
+   */
+  draft_version_id: string;
+  draft_version?: FlowVersionDTO;
+  published_version_id: string;
+  published_version?: FlowVersionDTO;
+  /**
+   * Flattened draft version fields for backward compatibility
+   * These come from the draft version (the editable one)
+   */
+  input_schema: any;
+  input: FlowRunInputs;
+  output_schema: any;
+  output_mappings: OutputMappings;
+  node_data: FlowNodeDataMap;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  viewport?: FlowViewport;
+}
 export interface FlowVersionDTO extends BaseModel {
   short_id: string;
   input_schema: any;
@@ -1109,6 +1289,32 @@ export interface FlowVersionDTO extends BaseModel {
   nodes: FlowNode[];
   edges: FlowEdge[];
   viewport?: FlowViewport;
+}
+export interface NodeTaskDTO {
+  task_id: string;
+  task?: TaskDTO;
+}
+export type FlowRunStatus = number /* int */;
+export const FlowRunStatusUnknown: FlowRunStatus = 0; // 0
+export const FlowRunStatusPending: FlowRunStatus = 1; // 1
+export const FlowRunStatusRunning: FlowRunStatus = 2; // 2
+export const FlowRunStatusCompleted: FlowRunStatus = 3; // 3
+export const FlowRunStatusFailed: FlowRunStatus = 4; // 4
+export const FlowRunStatusCancelled: FlowRunStatus = 5; // 5
+export interface FlowRunDTO extends BaseModel, PermissionModelDTO {
+  flow_id: string;
+  flow_version_id: string;
+  flow_version?: FlowVersionDTO; // Snapshot at run time
+  task_id?: string;
+  status: FlowRunStatus;
+  error?: string;
+  flow_run_started?: string /* RFC3339 */;
+  flow_run_finished?: string /* RFC3339 */;
+  flow_run_cancelled?: string /* RFC3339 */;
+  input: FlowRunInputs;
+  fail_on_error: boolean;
+  output: any;
+  node_tasks: { [key: string]: NodeTaskDTO | undefined};
 }
 /**
  * Connection represents a connection between nodes in a flow
@@ -1365,11 +1571,42 @@ export interface InstanceEnvVar {
 //////////
 // source: system_info.go
 
+/**
+ * Hardware/System related types
+ */
+export interface SystemInfo {
+  hostname: string;
+  engine_version: string;
+  ipv4: string;
+  ipv6: string;
+  mac_address: string;
+  os: string;
+  docker: Docker;
+  wsl2: WSL2;
+  cpus: CPU[];
+  ram: RAM;
+  volumes: Volume[];
+  hf_cache: HFCacheInfo;
+  gpus: GPU[];
+}
 export interface TelemetrySystemInfo {
   cpus: CPU[];
   ram: RAM;
   gpus: GPU[];
   volumes: Volume[];
+}
+export interface Docker {
+  binary_path: string;
+  installed: boolean;
+  socket_path: string;
+  socket_available: boolean;
+  running: boolean;
+  version: string;
+}
+export interface WSL2 {
+  installed: boolean;
+  enabled: boolean;
+  version: string;
 }
 export interface CPU {
   name: string;
@@ -1411,6 +1648,42 @@ export interface GPU {
   memory_used: number /* uint64 */;
   memory_total: number /* uint64 */;
   temperature: number /* uint32 */;
+}
+/**
+ * CachedRevisionInfo represents information about a cached revision
+ */
+export interface CachedRevisionInfo {
+  commit_hash: string;
+  snapshot_path: string;
+  last_modified: string /* RFC3339 */;
+  size_on_disk: number /* int64 */;
+  size_on_disk_str: string;
+  nb_files: number /* int */;
+  refs: string[];
+}
+/**
+ * CachedRepoInfo represents information about a cached repository
+ */
+export interface CachedRepoInfo {
+  repo_id: string;
+  repo_type: string;
+  repo_path: string;
+  last_accessed: string /* RFC3339 */;
+  last_modified: string /* RFC3339 */;
+  size_on_disk: number /* int64 */;
+  size_on_disk_str: string;
+  nb_files: number /* int */;
+  refs: string[];
+  Revisions: CachedRevisionInfo[];
+}
+/**
+ * HFCacheInfo represents information about the Huggingface cache
+ */
+export interface HFCacheInfo {
+  cache_dir: string;
+  repos: CachedRepoInfo[];
+  size_on_disk: number /* int64 */;
+  warnings: string[];
 }
 
 //////////
