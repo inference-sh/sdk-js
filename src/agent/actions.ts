@@ -11,7 +11,7 @@ import {
   ToolTypeClient,
   ChatStatusBusy,
 } from '../types';
-import { StreamManager } from '../http/stream';
+import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import type {
   AgentChatActions,
@@ -129,11 +129,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     }
 
     // Single unified stream with TypedEvents (both Chat and ChatMessage events)
-    const manager = new StreamManager<unknown>({
-      createEventSource: () => api.createUnifiedStream(client, id),
-      autoReconnect: true,
-      maxReconnects: 3,
-      reconnectDelayMs: 3000,
+    const { url, headers } = api.getChatStreamConfig(client, id);
+    const manager = new StreamableManager<unknown>({
+      url,
+      headers,
       onError: (error) => {
         console.warn('[AgentSDK] Stream error:', error);
         callbacks.onError?.(error);
@@ -142,7 +141,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         dispatch({ type: 'SET_STATUS', payload: 'streaming' });
         callbacks.onStatusChange?.('streaming');
       },
-      onStop: () => {
+      onEnd: () => {
         // Only reset if this is an unexpected stop (stream died, max reconnects exhausted).
         // If stopStream() was called intentionally, it clears the manager ref first,
         // so getStreamManager() will be undefined and we skip the duplicate dispatch.
@@ -166,7 +165,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     setStreamManager(manager);
-    manager.connect();
+    manager.start();
   };
 
   /** Poll-based alternative to streaming for restricted environments */

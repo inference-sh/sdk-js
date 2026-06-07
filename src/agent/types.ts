@@ -17,7 +17,7 @@ import type {
   CoreAppConfig,
 } from '../types';
 import type { HttpClient } from '../http/client';
-import type { StreamManager } from '../http/stream';
+import type { StreamableManager } from '../http/streamable';
 import type { PollManager } from '../http/poll';
 
 // =============================================================================
@@ -38,7 +38,7 @@ export interface UploadedFile {
  */
 export interface AgentClient {
   /** HTTP client for API requests */
-  http: Pick<HttpClient, 'request' | 'createEventSource' | 'getStreamDefault' | 'getPollIntervalMs'>;
+  http: Pick<HttpClient, 'request' | 'getStreamableConfig' | 'getStreamDefault' | 'getPollIntervalMs'>;
   /** Files API for uploads */
   files: {
     upload: (data: string | Blob | globalThis.File) => Promise<UploadedFile>;
@@ -262,7 +262,7 @@ export type ChatAction =
  * Context for action creators
  */
 /** Union of manager types used for real-time updates */
-export type UpdateManager = StreamManager<unknown> | PollManager<unknown>;
+export type UpdateManager = StreamableManager<unknown> | PollManager<unknown>;
 
 export interface ActionsContext {
   client: AgentClient;

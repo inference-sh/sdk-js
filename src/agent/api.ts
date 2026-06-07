@@ -269,8 +269,8 @@ export async function uploadFile(client: AgentClient, file: globalThis.File): Pr
 }
 
 /**
- * Create a unified stream for chat events
+ * Get streamable config for chat streaming (NDJSON)
  */
-export function createUnifiedStream(client: AgentClient, chatId: string): Promise<EventSource | null> {
-  return client.http.createEventSource(`/chats/${chatId}/stream`);
+export function getChatStreamConfig(client: AgentClient, chatId: string): { url: string; headers: Record<string, string> } {
+  return client.http.getStreamableConfig(`/chats/${chatId}/stream`);
 }
