@@ -61,6 +61,13 @@ export class FlowRunsAPI {
   }
 
   /**
+   * Stream task updates for a flow run
+   */
+  streamTasks(flowRunId: string) {
+    return this.http.createEventSource(`/flowruns/${flowRunId}/tasks/stream`);
+  }
+
+  /**
    * Update flow run visibility
    */
   async updateVisibility(flowRunId: string, visibility: string): Promise<FlowRun> {

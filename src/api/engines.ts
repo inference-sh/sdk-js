@@ -52,6 +52,41 @@ export class EnginesAPI {
   async delete(engineId: string): Promise<void> {
     return this.http.request<void>('delete', `/engines/${engineId}`);
   }
+
+  /**
+   * Stream engine updates
+   */
+  stream(engineId: string) {
+    return this.http.createEventSource(`/engines/${engineId}/stream`);
+  }
+
+  /**
+   * Stop an engine
+   */
+  async stop(engineId: string): Promise<void> {
+    return this.http.request<void>('post', `/engines/${engineId}/stop`);
+  }
+
+  /**
+   * Restart an engine
+   */
+  async restart(engineId: string): Promise<void> {
+    return this.http.request<void>('post', `/engines/${engineId}/restart`);
+  }
+
+  /**
+   * Update engine visibility
+   */
+  async updateVisibility(engineId: string, visibility: string): Promise<Engine> {
+    return this.http.request<Engine>('post', `/engines/${engineId}/visibility`, { data: { visibility } });
+  }
+
+  /**
+   * Transfer engine ownership
+   */
+  async transferOwnership(engineId: string, newTeamId: string): Promise<Engine> {
+    return this.http.request<Engine>('post', `/engines/${engineId}/transfer`, { data: { team_id: newTeamId } });
+  }
 }
 
 export function createEnginesAPI(http: HttpClient): EnginesAPI {
