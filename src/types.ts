@@ -2387,6 +2387,10 @@ export interface MetaItem {
    */
   sample_rate?: number /* int */;
   /**
+   * Raw specific fields
+   */
+  cost?: number /* float64 */; // Cost in dollar cents (for raw/passthrough pricing)
+  /**
    * App-specific key-value pairs for custom pricing factors
    */
   extra?: { [key: string]: any};
