@@ -194,6 +194,159 @@ describe('Inference', () => {
   });
 });
 
+describe('namespaced APIs', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('client.tasks', () => {
+    it('should have tasks namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.tasks).toBeDefined();
+      expect(typeof client.tasks.run).toBe('function');
+      expect(typeof client.tasks.get).toBe('function');
+      expect(typeof client.tasks.cancel).toBe('function');
+      expect(typeof client.tasks.list).toBe('function');
+      expect(typeof client.tasks.create).toBe('function');
+    });
+
+    it('should create task via tasks.create()', async () => {
+      const mockTask = {
+        id: 'task-123',
+        status: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        input: { message: 'hello world' },
+      };
+
+      const responseData = { success: true, data: mockTask };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.tasks.create({
+        app_id: 'test-app',
+        input: { message: 'hello world!' },
+      });
+
+      expect(result.id).toBe('task-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should get task via tasks.get()', async () => {
+      const mockTask = { id: 'task-123', status: 7 };
+      const responseData = { success: true, data: mockTask };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.tasks.get('task-123');
+
+      expect(result.id).toBe('task-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should cancel task via tasks.cancel()', async () => {
+      const responseData = { success: true, data: null };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      await client.tasks.cancel('task-123');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123/cancel'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
+  describe('client.files', () => {
+    it('should have files namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.files).toBeDefined();
+      expect(typeof client.files.upload).toBe('function');
+      expect(typeof client.files.list).toBe('function');
+      expect(typeof client.files.get).toBe('function');
+      expect(typeof client.files.delete).toBe('function');
+    });
+  });
+
+  describe('client.agents', () => {
+    it('should have agents namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.agents).toBeDefined();
+      expect(typeof client.agents.list).toBe('function');
+      expect(typeof client.agents.get).toBe('function');
+      expect(typeof client.agents.create).toBe('function');
+    });
+  });
+
+  describe('client.apps', () => {
+    it('should have apps namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.apps).toBeDefined();
+      expect(typeof client.apps.list).toBe('function');
+      expect(typeof client.apps.get).toBe('function');
+      expect(typeof client.apps.getByName).toBe('function');
+    });
+  });
+
+  describe('client.chats', () => {
+    it('should have chats namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.chats).toBeDefined();
+      expect(typeof client.chats.list).toBe('function');
+      expect(typeof client.chats.get).toBe('function');
+    });
+  });
+
+  describe('client.flows', () => {
+    it('should have flows namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.flows).toBeDefined();
+      expect(typeof client.flows.list).toBe('function');
+      expect(typeof client.flows.get).toBe('function');
+    });
+  });
+
+  describe('client.flowRuns', () => {
+    it('should have flowRuns namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.flowRuns).toBeDefined();
+      expect(typeof client.flowRuns.list).toBe('function');
+      expect(typeof client.flowRuns.get).toBe('function');
+    });
+  });
+
+  describe('client.engines', () => {
+    it('should have engines namespace', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.engines).toBeDefined();
+      expect(typeof client.engines.list).toBe('function');
+      expect(typeof client.engines.get).toBe('function');
+    });
+  });
+});
+
 describe('uploadFile', () => {
   beforeEach(() => {
     jest.clearAllMocks();
