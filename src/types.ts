@@ -322,6 +322,35 @@ export interface SkillPublishRequest {
   user_invocable?: boolean;
   context: string;
 }
+export interface AuthResponse {
+  user?: UserDTO;
+  session_id: string;
+  otp_required?: boolean;
+  redirect_to?: string;
+  provider?: string;
+}
+export interface TeamCreateRequest {
+  name: string;
+  username: string;
+  email: string;
+}
+export interface TeamSetupRequest {
+  username: string;
+}
+export interface TeamMemberAddRequest {
+  email: string;
+  role: TeamRole;
+}
+export interface TeamMemberUpdateRoleRequest {
+  role: TeamRole;
+}
+export interface IntegrationCompleteOAuthRequest {
+  provider: string;
+  type: string;
+  code: string;
+  state: string;
+  code_verifier?: string;
+}
 /**
  * Scope represents an API key permission scope string.
  */
@@ -595,6 +624,14 @@ export interface ScopeGroupDefinition {
   description: string;
 }
 /**
+ * ScopesResponse is the API response for GET /scopes
+ */
+export interface ScopesResponse {
+  scopes: ScopeDefinition[];
+  groups: ScopeGroupDefinition[];
+  presets: ScopePreset[];
+}
+/**
  * ScopePreset represents a predefined bundle of scopes for common use cases
  */
 export interface ScopePreset {
@@ -602,6 +639,17 @@ export interface ScopePreset {
   label: string;
   description: string;
   scopes: Scope[];
+}
+/**
+ * ApiKeyDTO for API responses
+ */
+export interface ApiKeyDTO extends BaseModelDTO, PermissionModelDTO {
+  name: string;
+  key: string;
+  last_used_at: string /* RFC3339 */;
+  expires_at?: string /* RFC3339 */;
+  scopes: Scope[];
+  source?: string;
 }
 /**
  * AppPricing configures all pricing using CEL expressions.
@@ -1010,6 +1058,20 @@ export interface WorkerRAM {
   total: number /* uint64 */;
 }
 /**
+ * EntitlementDTO for API responses
+ */
+export interface EntitlementDTO extends BaseModelDTO {
+  team_id: string;
+  resource: EntitlementResource;
+  type: EntitlementType;
+  enabled: boolean;
+  unlimited: boolean;
+  limit: number /* int */;
+  source: EntitlementSource;
+  enforcement: EnforcementMode;
+  expires_at?: string /* RFC3339 */;
+}
+/**
  * FileMetadata holds probed media metadata cached on File records.
  */
 export interface FileMetadata {
@@ -1216,6 +1278,54 @@ export interface InstanceTypeBootTime {
   sample_size: number /* int */;
 }
 /**
+ * IntegrationDTO for API responses (never exposes tokens)
+ */
+export interface IntegrationDTO extends BaseModelDTO, PermissionModelDTO {
+  provider: string;
+  type: string;
+  auth: string;
+  status: string;
+  display_name: string;
+  icon_url?: string;
+  scopes: StringSlice;
+  expires_at?: string /* RFC3339 */;
+  service_account_email?: string;
+  metadata?: { [key: string]: any};
+  account_identifier?: string;
+  account_name?: string;
+  is_primary: boolean;
+  error_message?: string;
+}
+/**
+ * IntegrationConfigDTO is the API response for integration configuration
+ */
+export interface IntegrationConfigDTO {
+  provider: string;
+  type: string;
+  auth: string;
+  name: string;
+  short_name: string;
+  description: string;
+  icon_url?: string;
+  how_it_works?: string[];
+  docs_url?: string;
+  secret_fields?: SecretFieldConfig[];
+  allows_byok: boolean;
+  available: boolean;
+  has_managed: boolean;
+  integration?: IntegrationDTO;
+}
+/**
+ * SecretFieldConfig defines a secret field for the UI
+ */
+export interface SecretFieldConfig {
+  key: string;
+  label: string;
+  placeholder: string;
+  sensitive: boolean;
+  optional: boolean;
+}
+/**
  * KnowledgeFile represents a file in a knowledge entry
  */
 export interface KnowledgeFile {
@@ -1306,6 +1416,44 @@ export interface SkillStoreListingDTO {
   tags?: string[];
 }
 /**
+ * StringSlice is a custom type for storing string slices
+ */
+export type StringSlice = string[];
+/**
+ * NotificationPreferencesDTO is the data transfer object
+ */
+export interface NotificationPreferencesDTO extends BaseModelDTO, PermissionModelDTO {
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  push_enabled: boolean;
+  slack_enabled: boolean;
+  billing_notifications: boolean;
+  task_notifications: boolean;
+  system_notifications: boolean;
+  marketing_emails: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  timezone: string;
+}
+/**
+ * UpdateNotificationPreferencesRequest is the request to update preferences
+ */
+export interface UpdateNotificationPreferencesRequest {
+  email_enabled?: boolean;
+  sms_enabled?: boolean;
+  push_enabled?: boolean;
+  slack_enabled?: boolean;
+  billing_notifications?: boolean;
+  task_notifications?: boolean;
+  system_notifications?: boolean;
+  marketing_emails?: boolean;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  timezone?: string;
+}
+/**
  * PageMetadata holds metadata for a page
  */
 export interface PageMetadata {
@@ -1391,6 +1539,20 @@ export interface SetupAction {
   type: string; // "add_secret" | "connect" | "add_scopes"
   provider?: string; // For integration actions
   scopes?: string[]; // Scopes to request
+}
+/**
+ * CheckRequirementsRequest is the request body for checking requirements
+ */
+export interface CheckRequirementsRequest {
+  secrets?: SecretRequirement[];
+  integrations?: IntegrationRequirement[];
+}
+/**
+ * CheckRequirementsResponse is the API response for checking requirements
+ */
+export interface CheckRequirementsResponse {
+  satisfied: boolean;
+  errors?: RequirementError[];
 }
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
@@ -1571,6 +1733,26 @@ export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   session_timeout?: number /* int */;
 }
 /**
+ * TeamMemberDTO is the API response for a team member.
+ */
+export interface TeamMemberDTO {
+  id: string;
+  user_id: string;
+  team_id: string;
+  role: TeamRole;
+  user?: TeamMemberUserDTO;
+}
+/**
+ * TeamMemberUserDTO is a lightweight user view within team membership.
+ */
+export interface TeamMemberUserDTO {
+  id: string;
+  email: string;
+  name: string;
+  full_name: string;
+  avatar_url: string;
+}
+/**
  * TeamRelationDTO is a lightweight team reference embedded in other DTOs.
  */
 export interface TeamRelationDTO {
@@ -1581,6 +1763,27 @@ export interface TeamRelationDTO {
   username: string;
   avatar_url: string;
   setup_completed: boolean;
+}
+/**
+ * TeamInviteDTO is the public representation of an invite
+ */
+export interface TeamInviteDTO {
+  id: string;
+  team_id: string;
+  email: string;
+  role: TeamRole;
+  status: TeamInviteStatus;
+  expires_at: string /* RFC3339 */;
+  created_at: string /* RFC3339 */;
+  invited_by?: TeamMemberUserDTO;
+  team?: TeamRelationDTO;
+}
+/**
+ * TeamInviteCreateRequest is used when creating a team invite
+ */
+export interface TeamInviteCreateRequest {
+  email: string;
+  role: TeamRole;
 }
 /**
  * ToolInvocationFunction contains the function details for a tool invocation
@@ -1605,6 +1808,31 @@ export interface ToolInvocationDTO extends BaseModelDTO, PermissionModelDTO {
   widget?: Widget;
 }
 /**
+ * MetaItem represents metadata about an input or output item
+ */
+export interface MetaItem {
+  type: MetaItemType;
+  tokens?: number /* int */;
+  width?: number /* int */;
+  height?: number /* int */;
+  resolution_mp?: number /* float64 */;
+  steps?: number /* int */;
+  count?: number /* int */;
+  resolution?: VideoResolution;
+  seconds?: number /* float64 */;
+  fps?: number /* int */;
+  sample_rate?: number /* int */;
+  cost?: number /* float64 */;
+  extra?: { [key: string]: any};
+}
+/**
+ * OutputMeta contains structured metadata about task inputs and outputs for pricing calculation
+ */
+export interface OutputMeta {
+  inputs: MetaItem[];
+  outputs: MetaItem[];
+}
+/**
  * UsageEventDTO is the API representation of a usage event.
  */
 export interface UsageEventDTO extends BaseModelDTO, PermissionModelDTO {
@@ -1618,6 +1846,18 @@ export interface UsageEventDTO extends BaseModelDTO, PermissionModelDTO {
   unit: string;
 }
 /**
+ * UserDTO is the API response for a full user.
+ */
+export interface UserDTO extends BaseModelDTO {
+  default_team_id: string;
+  role: Role;
+  email: string;
+  name: string;
+  full_name: string;
+  avatar_url: string;
+  metadata?: UserMetadataDTO;
+}
+/**
  * UserRelationDTO is a lightweight user reference embedded in other DTOs.
  */
 export interface UserRelationDTO {
@@ -1626,6 +1866,17 @@ export interface UserRelationDTO {
   updated_at: string /* RFC3339 */;
   role: Role;
   avatar_url: string;
+}
+/**
+ * UserMetadataDTO is the API representation of user metadata.
+ */
+export interface UserMetadataDTO {
+  user_id: string;
+  completed_onboarding: boolean;
+  use_case: string;
+  use_case_reason: string;
+  use_case_privacy: string;
+  signup_source: string;
 }
 /**
  * WidgetAction represents an action triggered by a widget button
@@ -1986,6 +2237,20 @@ export const GraphEdgeTypeExecution: GraphEdgeType = "execution";
 export const GraphEdgeTypeParent: GraphEdgeType = "parent";
 export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor";
 export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate";
+export type EntitlementSource = string;
+export const EntitlementSourceTier: EntitlementSource = "tier";
+export const EntitlementSourceOverride: EntitlementSource = "override";
+export const EntitlementSourceWhitelist: EntitlementSource = "whitelist";
+export const EntitlementSourceTrial: EntitlementSource = "trial";
+export type EntitlementType = string;
+export const EntitlementTypeBoolean: EntitlementType = "boolean";
+export const EntitlementTypeLimit: EntitlementType = "limit";
+/**
+ * EnforcementMode controls how limit violations are handled.
+ */
+export type EnforcementMode = string;
+export const EnforcementBlock: EnforcementMode = "block";
+export const EnforcementWarn: EnforcementMode = "warn";
 export type PageStatus = number /* int */;
 export const PageStatusUnknown: PageStatus = 0;
 export const PageStatusDraft: PageStatus = 1;
@@ -2058,6 +2323,33 @@ export const ProjectTypeOther: ProjectType = "other";
 export type UsageEventResourceTier = string;
 export const UsageEventResourceTierPrivate: UsageEventResourceTier = "private";
 export const UsageEventResourceTierCloud: UsageEventResourceTier = "cloud";
+/**
+ * MetaItemType is the type discriminator for MetaItem
+ */
+export type MetaItemType = string;
+export const MetaItemTypeText: MetaItemType = "text";
+export const MetaItemTypeImage: MetaItemType = "image";
+export const MetaItemTypeVideo: MetaItemType = "video";
+export const MetaItemTypeAudio: MetaItemType = "audio";
+export const MetaItemTypeRaw: MetaItemType = "raw";
+/**
+ * VideoResolution represents standard video resolution presets
+ */
+export type VideoResolution = string;
+export const VideoRes480P: VideoResolution = "480p";
+export const VideoRes720P: VideoResolution = "720p";
+export const VideoRes1080P: VideoResolution = "1080p";
+export const VideoRes1440P: VideoResolution = "1440p";
+export const VideoRes4K: VideoResolution = "4k";
+/**
+ * TeamInviteStatus represents the status of a team invitation
+ */
+export type TeamInviteStatus = string;
+export const TeamInviteStatusPending: TeamInviteStatus = "pending";
+export const TeamInviteStatusAccepted: TeamInviteStatus = "accepted";
+export const TeamInviteStatusDeclined: TeamInviteStatus = "declined";
+export const TeamInviteStatusExpired: TeamInviteStatus = "expired";
+export const TeamInviteStatusRevoked: TeamInviteStatus = "revoked";
 export type FilterOperator = string;
 export const OpEqual: FilterOperator = "eq";
 export const OpNotEqual: FilterOperator = "neq";
@@ -2075,6 +2367,23 @@ export const OpIsNull: FilterOperator = "is_null";
 export const OpIsNotNull: FilterOperator = "is_not_null";
 export const OpIsEmpty: FilterOperator = "is_empty";
 export const OpIsNotEmpty: FilterOperator = "is_not_empty";
+export type EntitlementResource = string;
+export const ResourceAPIKeys: EntitlementResource = "api_keys";
+export const ResourceConnectors: EntitlementResource = "connectors";
+export const ResourceKnowledgeBases: EntitlementResource = "knowledge_bases";
+export const ResourcePrivateApps: EntitlementResource = "private_apps";
+export const ResourceStorageMB: EntitlementResource = "storage_mb";
+export const ResourceConcurrency: EntitlementResource = "concurrency";
+export const ResourceRatePerMin: EntitlementResource = "rate_per_min";
+export const ResourceSeats: EntitlementResource = "seats";
+export const ResourceTaskExecutions: EntitlementResource = "task_executions";
+export const ResourceFeatureScopes: EntitlementResource = "feature:scopes";
+export const ResourceFeatureWebhooks: EntitlementResource = "feature:webhooks";
+export const ResourceFeatureBYOK: EntitlementResource = "feature:byok";
+export const ResourceFeatureTeamBilling: EntitlementResource = "feature:team_billing";
+export const ResourceFeatureAutoRecharge: EntitlementResource = "feature:auto_recharge";
+export const ResourceFeatureInvoices: EntitlementResource = "feature:invoices";
+export const ResourceFeaturePublishApps: EntitlementResource = "feature:publish_apps";
 export type ContentRating = string;
 export const ContentSafe: ContentRating = "safe";
 export const ContentSexualSuggestive: ContentRating = "sexual_suggestive";
@@ -2161,6 +2470,14 @@ export type TeamType = string;
 export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
 export const TeamTypeSystem: TeamType = "system";
+export type TeamStatus = string;
+export const TeamStatusActive: TeamStatus = "active";
+export const TeamStatusSuspended: TeamStatus = "suspended";
+export const TeamStatusTerminated: TeamStatus = "terminated";
+export type TeamRole = string;
+export const TeamRoleOwner: TeamRole = "owner";
+export const TeamRoleAdmin: TeamRole = "admin";
+export const TeamRoleMember: TeamRole = "member";
 /**
  * ToolCallType represents the type field on a tool call (wire format).
  */
