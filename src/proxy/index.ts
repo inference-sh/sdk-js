@@ -184,12 +184,13 @@ export async function processProxyRequest<T>(
     const proxyId = `@inferencesh/sdk-proxy/${adapter.framework}`;
 
     // 6. Make upstream request
+    const accept = firstValue(adapter.header("accept"));
     const response = await fetch(targetUrl, {
         method: adapter.method,
         headers: {
             ...forwardHeaders,
             authorization: firstValue(adapter.header("authorization")) ?? `Bearer ${apiKey}`,
-            accept: "application/json",
+            accept: accept || "application/json",
             "content-type": contentType || "application/json",
             "user-agent": userAgent || proxyId,
             "x-inf-proxy": proxyId,
