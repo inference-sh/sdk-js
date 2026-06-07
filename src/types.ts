@@ -764,6 +764,10 @@ export interface AppVersion {
   required_secrets?: SecretRequirement[];
   required_integrations?: IntegrationRequirement[];
   resources: AppResources;
+  /**
+   * Checksum is the SHA256 checksum of the uploaded zip file
+   */
+  checksum?: string;
 }
 export interface AppDTO extends BaseModel, PermissionModelDTO {
   namespace: string;
@@ -795,6 +799,10 @@ export interface AppVersionDTO extends BaseModel {
   required_secrets?: SecretRequirement[];
   required_integrations?: IntegrationRequirement[];
   resources: AppResources;
+  /**
+   * Checksum is the SHA256 checksum of the uploaded zip file
+   */
+  checksum?: string;
 }
 
 //////////
