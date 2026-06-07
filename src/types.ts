@@ -451,6 +451,14 @@ export interface ToolResultRequest {
   result: string;
 }
 /**
+ * WebhookEvent is the envelope for task webhook deliveries.
+ */
+export interface WebhookEvent<T extends any> {
+  event: string;
+  timestamp: string /* RFC3339 */;
+  data: T;
+}
+/**
  * HookPayload represents the request body sent to a webhook when a hook tool is invoked
  */
 export interface HookPayload {
@@ -2050,7 +2058,7 @@ export interface Task extends BaseModel, PermissionModel {
   setup?: any;
   input: any;
   output: any;
-  error: string;
+  error?: string;
   rating: ContentRating;
   /**
    * Relationships
@@ -2125,7 +2133,7 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   setup?: any;
   input: any;
   output: any;
-  error: string;
+  error?: string;
   rating: ContentRating;
   events: TaskEvent[];
   logs: TaskLog[];
