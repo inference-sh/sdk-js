@@ -288,7 +288,6 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     stopGeneration: () => {
       const chatId = getChatId();
-      stopStream();
       if (chatId) {
         api.stopChat(client, chatId);
       }
