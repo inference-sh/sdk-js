@@ -9,6 +9,7 @@ import type { ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolTypeClient,
+  ChatStatusBusy,
 } from '../types';
 import { StreamManager } from '../http/stream';
 import { PollManager } from '../http/poll';
@@ -42,7 +43,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   const setChat = (chat: ChatDTO | null) => {
     dispatch({ type: 'SET_CHAT', payload: chat });
     if (chat) {
-      const status = chat.status === 'busy' ? 'streaming' : 'idle';
+      const status = chat.status === ChatStatusBusy ? 'streaming' : 'idle';
       callbacks.onStatusChange?.(status);
     }
   };

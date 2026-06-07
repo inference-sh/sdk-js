@@ -13,6 +13,7 @@ import {
   File,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
+  ChatStatusBusy,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
@@ -125,13 +126,14 @@ export class Agent {
       };
 
     const useStream = options.stream ?? this.http.getStreamDefault();
-    const waitFn = useStream
-      ? (opts: SendMessageOptions) => this.streamUntilIdle(opts)
-      : (opts: SendMessageOptions) => this.pollUntilIdle(opts);
+    const shouldWait = useStream === false || hasCallbacks;
+    const waitFn = useStream === false
+      ? (opts: SendMessageOptions) => this.pollUntilIdle(opts)
+      : (opts: SendMessageOptions) => this.streamUntilIdle(opts);
 
-    // For existing chats with callbacks: Start waiting BEFORE POST so we don't miss updates
+    // For existing chats: Start waiting BEFORE POST so we don't miss updates
     let waitPromise: Promise<void> | null = null;
-    if (this.chatId && hasCallbacks) {
+    if (this.chatId && shouldWait) {
       waitPromise = waitFn(options);
     }
 
@@ -146,7 +148,7 @@ export class Agent {
     const isNewChat = !this.chatId && response.assistant_message.chat_id;
     if (isNewChat) {
       this.chatId = response.assistant_message.chat_id;
-      if (hasCallbacks) {
+      if (shouldWait) {
         waitPromise = waitFn(options);
       }
     }
@@ -220,7 +222,7 @@ export class Agent {
 
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
         options.onChat?.(chat);
-        if (chat.status === 'idle') {
+        if (chat.status !== ChatStatusBusy) {
           resolve();
         }
       });
@@ -305,7 +307,7 @@ export class Agent {
             }
           }
 
-          if (chat.status === 'idle') {
+          if (chat.status !== ChatStatusBusy) {
             this.poller?.stop();
             this.poller = null;
             resolve();
