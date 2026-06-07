@@ -229,13 +229,13 @@ describe('namespaced APIs', () => {
 
       const client = new Inference({ apiKey: 'test-api-key' });
       const result = await client.tasks.create({
-        app_id: 'test-app',
+        app: 'test-org/test-app@v1',
         input: { message: 'hello world!' },
       });
 
       expect(result.id).toBe('task-123');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/tasks'),
+        expect.stringContaining('/apps/run'),
         expect.objectContaining({ method: 'POST' })
       );
     });
