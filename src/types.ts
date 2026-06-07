@@ -1749,6 +1749,7 @@ export interface UsageBillingRecord {
    * Fee breakdown (all in microcents)
    */
   total: number /* int64 */;
+  discount: number /* int64 */; // Discount applied (e.g., failed task = 100% discount)
   /**
    * User debit (total charged)
    */
@@ -1894,11 +1895,36 @@ export const WidgetNodeTypeCheckbox: WidgetNodeType = "checkbox";
 export const WidgetNodeTypeRow: WidgetNodeType = "row";
 export const WidgetNodeTypeCol: WidgetNodeType = "col";
 /**
- * Data-bound node types (read from ToolInvocation.Data via DataKey)
+ * Layout node types
  */
-export const WidgetNodeTypePlanList: WidgetNodeType = "plan-list"; // Renders plan steps from Data
-export const WidgetNodeTypeKeyValue: WidgetNodeType = "key-value"; // Renders key-value pairs from Data
-export const WidgetNodeTypeStatusBadge: WidgetNodeType = "status-badge"; // Renders status badge from Data
+export const WidgetNodeTypeBox: WidgetNodeType = "box";
+export const WidgetNodeTypeSpacer: WidgetNodeType = "spacer";
+export const WidgetNodeTypeDivider: WidgetNodeType = "divider";
+export const WidgetNodeTypeForm: WidgetNodeType = "form";
+/**
+ * Typography node types
+ */
+export const WidgetNodeTypeTitle: WidgetNodeType = "title";
+export const WidgetNodeTypeCaption: WidgetNodeType = "caption";
+export const WidgetNodeTypeLabel: WidgetNodeType = "label";
+/**
+ * Control node types
+ */
+export const WidgetNodeTypeTextarea: WidgetNodeType = "textarea";
+export const WidgetNodeTypeRadioGroup: WidgetNodeType = "radio-group";
+export const WidgetNodeTypeDatePicker: WidgetNodeType = "date-picker";
+/**
+ * Content node types
+ */
+export const WidgetNodeTypeIcon: WidgetNodeType = "icon";
+export const WidgetNodeTypeChart: WidgetNodeType = "chart";
+export const WidgetNodeTypeTransition: WidgetNodeType = "transition";
+/**
+ * Data-bound node types (deprecated - use templates instead)
+ */
+export const WidgetNodeTypePlanList: WidgetNodeType = "plan-list";
+export const WidgetNodeTypeKeyValue: WidgetNodeType = "key-value";
+export const WidgetNodeTypeStatusBadge: WidgetNodeType = "status-badge";
 /**
  * WidgetNode represents a UI element in a widget (text, input, select, etc.)
  */
@@ -1918,8 +1944,60 @@ export interface WidgetNode {
   children?: WidgetNode[];
   gap?: number /* int */;
   /**
-   * Data binding - for data-bound node types, specifies which key in ToolInvocation.Data to read
-   * Empty string means read entire Data object (useful for key-value display)
+   * Layout props (Box, Row, Col, Form)
+   */
+  align?: string; // start|center|end|baseline|stretch
+  justify?: string; // start|center|end|between|around|evenly
+  padding?: any; // number or {top,right,bottom,left}
+  background?: any; // string or {light,dark}
+  radius?: string; // 2xs|xs|sm|md|lg|xl|2xl|full|none
+  direction?: string; // row|col (for Form)
+  wrap?: string; // nowrap|wrap|wrap-reverse
+  flex?: any; // string|number
+  /**
+   * Typography props (Text, Title, Caption, Label)
+   */
+  size?: string; // xs|sm|md|lg|xl|2xl|3xl
+  weight?: string; // normal|medium|semibold|bold
+  color?: any; // string or {light,dark}
+  textAlign?: string; // start|center|end
+  truncate?: boolean;
+  maxLines?: number /* int */;
+  /**
+   * Control props (Input, Textarea, Select, Checkbox, RadioGroup, DatePicker, Button)
+   */
+  disabled?: boolean;
+  required?: boolean;
+  rows?: number /* int */; // for Textarea
+  fieldName?: string; // for Label
+  submit?: boolean; // for Button - makes it a form submit button
+  pattern?: string; // for Input - regex validation
+  min?: string; // for DatePicker - min date
+  max?: string; // for DatePicker - max date
+  clearable?: boolean; // for Select/DatePicker
+  /**
+   * Content props (Icon, Spacer, Divider, Chart)
+   */
+  iconName?: string; // for Icon
+  spacing?: any; // for Divider
+  minSize?: any; // for Spacer
+  height?: any; // number or string
+  width?: any; // number or string
+  /**
+   * Chart specific props
+   */
+  chartData?: any; // []map[string]interface{}
+  chartSeries?: any; // []ChartSeries
+  xAxis?: any; // string or XAxisConfig
+  showYAxis?: boolean;
+  showLegend?: boolean;
+  showTooltip?: boolean;
+  /**
+   * Form-specific props
+   */
+  onSubmitAction?: WidgetAction; // for Form
+  /**
+   * Data binding (deprecated - use templates instead)
    */
   dataKey?: string;
 }
