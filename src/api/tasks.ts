@@ -248,7 +248,7 @@ export class TasksAPI {
    * Feature/unfeature a task
    */
   async feature(taskId: string, featured: boolean): Promise<Task> {
-    return this.http.request<Task>('post', `/tasks/${taskId}/featured`, { data: { featured } });
+    return this.http.request<Task>('post', `/tasks/${taskId}/featured`, { data: { is_featured: featured } });
   }
 }
 
