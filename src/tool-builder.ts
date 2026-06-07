@@ -110,10 +110,24 @@ class ClientToolBuilder extends ToolBuilder {
 
 class AppToolBuilder extends ToolBuilder {
   private appRef: string;
+  private setupValues?: Record<string, unknown>;
+  private inputValues?: Record<string, unknown>;
 
   constructor(name: string, appRef: string) {
     super(name);
     this.appRef = appRef;
+  }
+
+  /** Set one-time setup values (hidden from agent, passed on every call) */
+  setup(values: Record<string, unknown>): this {
+    this.setupValues = values;
+    return this;
+  }
+
+  /** Set default input values (agent can override these) */
+  input(values: Record<string, unknown>): this {
+    this.inputValues = values;
+    return this;
   }
 
   build(): AgentTool {
@@ -123,7 +137,11 @@ class AppToolBuilder extends ToolBuilder {
       description: this.desc,
       type: ToolTypeApp,
       require_approval: this.approval || undefined,
-      app: { ref: this.appRef },
+      app: {
+        ref: this.appRef,
+        setup: this.setupValues,
+        input: this.inputValues,
+      },
     };
   }
 }
