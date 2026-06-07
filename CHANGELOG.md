@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2024-01-XX
+## [0.1.1] - 2024-11-30
+
+### Added
+
+- Partial data handling for streaming updates (matches Python SDK behavior)
+- `onPartialUpdate` callback option to receive list of changed fields
+- Export `StreamManager` and `PartialDataWrapper` types
+
+### Fixed
+
+- Stream updates now properly extract data from server's partial update wrapper
+- Removed unused `onYield` callback
+
+## [0.1.0] - 2024-11-30
 
 ### Added
 
