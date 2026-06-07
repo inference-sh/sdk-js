@@ -59,6 +59,18 @@ const result = await client.run({
 console.log('Output:', result.output);
 ```
 
+### With Setup Parameters
+
+Setup parameters configure the app instance (e.g., model selection). Workers with matching setup are "warm" and skip setup:
+
+```typescript
+const result = await client.run({
+  app: 'my-app',
+  setup: { model: 'schnell' },  // Setup parameters
+  input: { prompt: 'hello' }
+});
+```
+
 ### Fire and Forget
 
 ```typescript
@@ -156,6 +168,7 @@ Runs a task on inference.sh.
 |-----------|------|----------|-------------|
 | `params.app` | `string` | Yes | App identifier (e.g., `'username/app-name'`) |
 | `params.input` | `object` | Yes | Input parameters for the app |
+| `params.setup` | `object` | No | Setup parameters (affects worker warmth/scheduling) |
 | `params.infra` | `string` | No | Infrastructure: `'cloud'` or `'private'` |
 | `params.variant` | `string` | No | App variant to use |
 
