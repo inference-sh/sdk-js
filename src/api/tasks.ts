@@ -20,12 +20,8 @@ export interface RunOptions {
   onPartialUpdate?: (update: Task, fields: string[]) => void;
   /** Wait for task completion (default: true) */
   wait?: boolean;
-  /** Auto-reconnect on connection loss (default: true) */
-  autoReconnect?: boolean;
-  /** Maximum reconnection attempts (default: 5) */
+  /** Maximum retry attempts when using polling mode (stream: false). Default: 5 */
   maxReconnects?: number;
-  /** Delay between reconnection attempts in ms (default: 1000) */
-  reconnectDelayMs?: number;
   /** Use SSE streaming (true) or polling (false). Overrides client default. */
   stream?: boolean;
   /** Polling interval in ms when stream is false. Overrides client default. */
@@ -114,9 +110,6 @@ export class TasksAPI {
       onUpdate,
       onPartialUpdate,
       wait = true,
-      autoReconnect = true,
-      maxReconnects = 5,
-      reconnectDelayMs = 1000,
     } = options;
 
     const task = await this.http.request<Task>('post', '/apps/run', {

@@ -8,10 +8,6 @@ import type { Dispatch } from 'react';
 import type {
   ChatDTO,
   ChatMessageDTO,
-  ToolInvocationDTO,
-  ChatMessageContent,
-  ChatMessageRole,
-  TaskStatus,
   AgentTool,
   AgentConfigInput as GeneratedAgentConfig,
   CoreAppConfigInput as CoreAppConfig,

@@ -25,7 +25,6 @@ export interface PollManagerOptions<T> {
 }
 
 export class PollManager<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private options: any;
   private interval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;

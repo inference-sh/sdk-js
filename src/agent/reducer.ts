@@ -4,8 +4,8 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { ChatDTO, ChatMessageDTO } from '../types';
-import type { AgentChatState, ChatAction, ChatStatus } from './types';
+import type { ChatMessageDTO } from '../types';
+import type { AgentChatState, ChatAction } from './types';
 
 // =============================================================================
 // Initial State
