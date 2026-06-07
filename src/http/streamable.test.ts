@@ -184,6 +184,200 @@ describe('streamable', () => {
       }
     }).rejects.toThrow('HTTP 401: Unauthorized');
   });
+
+  // Edge cases for chunking/buffering
+  describe('chunking edge cases', () => {
+    it('should handle message split across many chunks', async () => {
+      // Split a single JSON object into 5 tiny chunks
+      global.fetch = mockFetch([
+        '{"id":',
+        '123,',
+        '"name"',
+        ':"test',
+        '"}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({ id: 123, name: 'test' });
+    });
+
+    it('should handle single-byte chunks', async () => {
+      const json = '{"id":1}\n';
+      const chunks = json.split('').map(c => c); // One char per chunk
+      global.fetch = mockFetch(chunks) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({ id: 1 });
+    });
+
+    it('should handle newline exactly at chunk boundary', async () => {
+      global.fetch = mockFetch([
+        '{"id":1}',
+        '\n',
+        '{"id":2}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should handle multiple messages in single chunk', async () => {
+      global.fetch = mockFetch([
+        '{"id":1}\n{"id":2}\n{"id":3}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(3);
+    });
+
+    it('should handle empty chunks', async () => {
+      global.fetch = mockFetch([
+        '{"id":1}\n',
+        '',
+        '',
+        '{"id":2}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should handle trailing data without final newline', async () => {
+      global.fetch = mockFetch([
+        '{"id":1}\n',
+        '{"id":2}', // No trailing newline
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(2);
+    });
+  });
+
+  describe('unicode handling', () => {
+    it('should handle unicode in messages', async () => {
+      global.fetch = mockFetch([
+        '{"text":"Hello 世界 🎉"}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results[0]).toEqual({ text: 'Hello 世界 🎉' });
+    });
+
+    it('should handle unicode split across chunks', async () => {
+      // 世 is 3 bytes in UTF-8: E4 B8 96
+      // Split it across chunks
+      const encoder = new TextEncoder();
+      const fullText = '{"text":"世"}\n';
+      const bytes = encoder.encode(fullText);
+
+      // Create mock that returns raw bytes split mid-character
+      let chunkIndex = 0;
+      const chunks = [
+        bytes.slice(0, 10),  // '{"text":"' + first byte of 世
+        bytes.slice(10),     // rest of 世 + '"}\n'
+      ];
+
+      const mockReader = {
+        read: jest.fn().mockImplementation(async () => {
+          if (chunkIndex >= chunks.length) {
+            return { done: true, value: undefined };
+          }
+          return { done: false, value: chunks[chunkIndex++] };
+        }),
+        releaseLock: jest.fn(),
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: { getReader: () => mockReader },
+      }) as any;
+
+      const results: any[] = [];
+      for await (const item of streamable('http://test.com/stream')) {
+        results.push(item);
+      }
+
+      expect(results[0]).toEqual({ text: '世' });
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle invalid JSON gracefully', async () => {
+      global.fetch = mockFetch([
+        '{"id":1}\n',
+        'not valid json\n',
+        '{"id":2}\n',
+      ]) as any;
+
+      const results: any[] = [];
+      await expect(async () => {
+        for await (const item of streamable('http://test.com/stream')) {
+          results.push(item);
+        }
+      }).rejects.toThrow(); // Should throw on invalid JSON
+
+      // First valid message should have been processed
+      expect(results).toHaveLength(1);
+    });
+
+    it('should handle network error mid-stream', async () => {
+      let readCount = 0;
+      const mockReader = {
+        read: jest.fn().mockImplementation(async () => {
+          readCount++;
+          if (readCount === 1) {
+            return { done: false, value: new TextEncoder().encode('{"id":1}\n') };
+          }
+          throw new Error('Network error');
+        }),
+        releaseLock: jest.fn(),
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: { getReader: () => mockReader },
+      }) as any;
+
+      const results: any[] = [];
+      await expect(async () => {
+        for await (const item of streamable('http://test.com/stream')) {
+          results.push(item);
+        }
+      }).rejects.toThrow('Network error');
+
+      expect(results).toHaveLength(1);
+    });
+  });
 });
 
 describe('streamableRaw', () => {
