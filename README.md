@@ -24,19 +24,21 @@ Get your API key from the [inference.sh dashboard](https://app.inference.sh/sett
 ## Quick Start
 
 ```typescript
-import { inference } from '@inferencesh/sdk';
+import { inference, TaskStatusCompleted } from '@inferencesh/sdk';
 
 const client = inference({ apiKey: 'your-api-key' });
 
 // Run a task and wait for the result
-const result = await client.run({
+const result = await client.tasks.run({
   app: 'your-app',
   input: {
     prompt: 'Hello, world!'
   }
 });
 
-console.log(result.output);
+if (result.status === TaskStatusCompleted) {
+  console.log(result.output);
+}
 ```
 
 ## Usage
@@ -44,17 +46,19 @@ console.log(result.output);
 ### Basic Usage
 
 ```typescript
-import { inference } from '@inferencesh/sdk';
+import { inference, TaskStatusCompleted } from '@inferencesh/sdk';
 
 const client = inference({ apiKey: 'your-api-key' });
 
 // Wait for result (default behavior)
-const result = await client.run({
+const result = await client.tasks.run({
   app: 'my-app',
   input: { prompt: 'Generate something amazing' }
 });
 
-console.log('Output:', result.output);
+if (result.status === TaskStatusCompleted) {
+  console.log('Output:', result.output);
+}
 ```
 
 ### With Setup Parameters
@@ -62,7 +66,7 @@ console.log('Output:', result.output);
 Setup parameters configure the app instance (e.g., model selection). Workers with matching setup are "warm" and skip setup:
 
 ```typescript
-const result = await client.run({
+const result = await client.tasks.run({
   app: 'my-app',
   setup: { model: 'schnell' },  // Setup parameters
   input: { prompt: 'hello' }
@@ -73,7 +77,7 @@ const result = await client.run({
 
 ```typescript
 // Get task info immediately without waiting
-const task = await client.run(
+const task = await client.tasks.run(
   { app: 'my-app', input: { prompt: 'hello' } },
   { wait: false }
 );
@@ -85,7 +89,7 @@ console.log('Status:', task.status);
 ### Real-time Status Updates
 
 ```typescript
-const result = await client.run(
+const result = await client.tasks.run(
   { app: 'my-app', input: { prompt: 'hello' } },
   {
     onUpdate: (update) => {
@@ -101,18 +105,18 @@ const result = await client.run(
 ```typescript
 async function processImages(images: string[]) {
   const results = [];
-  
+
   for (const image of images) {
-    const result = await client.run({
+    const result = await client.tasks.run({
       app: 'image-processor',
       input: { image }
     }, {
       onUpdate: (update) => console.log(`Processing: ${update.status}`)
     });
-    
+
     results.push(result);
   }
-  
+
   return results;
 }
 ```
@@ -121,13 +125,13 @@ async function processImages(images: string[]) {
 
 ```typescript
 // Upload from base64
-const file = await client.uploadFile('data:image/png;base64,...', {
+const file = await client.files.upload('data:image/png;base64,...', {
   filename: 'image.png',
   contentType: 'image/png'
 });
 
 // Use the uploaded file in a task
-const result = await client.run({
+const result = await client.tasks.run({
   app: 'image-app',
   input: { image: file.uri }
 });
@@ -136,18 +140,18 @@ const result = await client.run({
 ### Cancel a Task
 
 ```typescript
-const task = await client.run(
+const task = await client.tasks.run(
   { app: 'long-running-app', input: {} },
   { wait: false }
 );
 
 // Cancel if needed
-await client.cancel(task.id);
+await client.tasks.cancel(task.id);
 ```
 
 ## Agent Chat
 
-Chat with AI agents using `client.agent()`.
+Chat with AI agents using `client.agents.create()`.
 
 ### Using a Template Agent
 
@@ -159,7 +163,7 @@ import { inference } from '@inferencesh/sdk';
 const client = inference({ apiKey: 'your-api-key' });
 
 // Create agent from template
-const agent = client.agent('my-org/assistant@abc123');
+const agent = client.agents.create('my-org/assistant@abc123');
 
 // Send a message with streaming
 await agent.sendMessage('Hello!', {
@@ -188,7 +192,7 @@ import { inference, tool, string } from '@inferencesh/sdk';
 const client = inference({ apiKey: 'your-api-key' });
 
 // Create ad-hoc agent
-const agent = client.agent({
+const agent = client.agents.create({
   coreApp: 'infsh/claude-sonnet-4@abc123',  // LLM to use
   systemPrompt: 'You are a helpful assistant.',
   tools: [
@@ -235,7 +239,7 @@ Creates a new inference client.
 | `config.apiKey` | `string` | Yes | Your inference.sh API key |
 | `config.baseUrl` | `string` | No | Custom API URL (default: `https://api.inference.sh`) |
 
-### `client.run(params, options?)`
+### `client.tasks.run(params, options?)`
 
 Runs a task on inference.sh.
 
@@ -259,11 +263,15 @@ Runs a task on inference.sh.
 | `maxReconnects` | `number` | `5` | Max reconnection attempts |
 | `reconnectDelayMs` | `number` | `1000` | Delay between reconnects (ms) |
 
-### `client.cancel(taskId)`
+### `client.tasks.get(taskId)`
+
+Gets a task by ID.
+
+### `client.tasks.cancel(taskId)`
 
 Cancels a running task.
 
-### `client.uploadFile(data, options?)`
+### `client.files.upload(data, options?)`
 
 Uploads a file to inference.sh.
 
@@ -275,6 +283,24 @@ Uploads a file to inference.sh.
 | `options.filename` | `string` | Filename |
 | `options.contentType` | `string` | MIME type |
 | `options.public` | `boolean` | Make file publicly accessible |
+
+### `client.agents.create(templateOrConfig)`
+
+Creates an agent instance from a template or ad-hoc configuration.
+
+**Template mode:**
+```typescript
+const agent = client.agents.create('namespace/name@version');
+```
+
+**Ad-hoc mode:**
+```typescript
+const agent = client.agents.create({
+  coreApp: 'infsh/claude-sonnet-4@abc123',
+  systemPrompt: 'You are helpful.',
+  tools: [...]
+});
+```
 
 ## Task Status Constants
 
