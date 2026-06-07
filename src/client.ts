@@ -7,9 +7,11 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
+  RequirementError,
 } from './types';
 import { StreamManager } from './stream';
 import { EventSource } from 'eventsource';
+import { InferenceError, RequirementsNotMetException } from './errors';
 
 export interface UploadFileOptions {
   filename?: string;
@@ -94,13 +96,51 @@ export class Inference {
     }
 
     const response = await fetch(url.toString(), fetchOptions);
-    const data = await response.json() as APIResponse<T>;
-
-    if (!data.success) {
-      throw new Error(data.error?.message || "Request failed");
+    const responseText = await response.text();
+    
+    // Try to parse as JSON
+    let data: APIResponse<T> | { errors?: RequirementError[] } | null = null;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      // Not JSON
     }
 
-    return data.data as T;
+    // Check for HTTP errors
+    if (!response.ok) {
+      // Check for RequirementsNotMetException (412 with errors array)
+      if (response.status === 412 && data && 'errors' in data && Array.isArray(data.errors)) {
+        throw RequirementsNotMetException.fromResponse(data as { errors: RequirementError[] }, response.status);
+      }
+
+      // General error handling
+      let errorDetail: string | undefined;
+      if (data && typeof data === 'object') {
+        const apiData = data as APIResponse<T>;
+        if (apiData.error) {
+          errorDetail = typeof apiData.error === 'object' ? apiData.error.message : String(apiData.error);
+        } else if ('message' in data) {
+          errorDetail = String((data as { message: string }).message);
+        } else {
+          errorDetail = JSON.stringify(data);
+        }
+      } else if (responseText) {
+        errorDetail = responseText.slice(0, 500);
+      }
+
+      throw new InferenceError(response.status, errorDetail || 'Request failed', responseText);
+    }
+
+    const apiResponse = data as APIResponse<T>;
+    if (!apiResponse?.success) {
+      throw new InferenceError(
+        response.status,
+        apiResponse?.error?.message || 'Request failed',
+        responseText
+      );
+    }
+
+    return apiResponse.data as T;
   }
 
   private createEventSource(endpoint: string): EventSource {
