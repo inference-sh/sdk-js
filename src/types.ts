@@ -2175,6 +2175,10 @@ export interface Team extends BaseModel {
    * Personal teams start with SetupCompleted=false and a generated temporary username
    */
   setup_completed: boolean;
+  /**
+   * MaxConcurrency limits total active tasks for this team (0 = use default)
+   */
+  max_concurrency: number /* int */;
 }
 export interface TeamDTO extends BaseModel {
   type: TeamType;
@@ -2183,6 +2187,7 @@ export interface TeamDTO extends BaseModel {
   avatar_url: string;
   email: string;
   setup_completed: boolean;
+  max_concurrency: number /* int */;
 }
 export type TeamRole = string;
 export const TeamRoleOwner: TeamRole = "owner";
