@@ -48,6 +48,11 @@ export interface SendMessageOptions {
   pollIntervalMs?: number;
 }
 
+export interface AgentRunOptions extends Omit<SendMessageOptions, 'stream'> {
+  /** Polling interval in ms (default: 2000) */
+  pollIntervalMs?: number;
+}
+
 /**
  * Agent for chat interactions
  *
@@ -191,6 +196,19 @@ export class Agent {
     this.stream = null;
     this.poller?.stop();
     this.poller = null;
+  }
+
+  /**
+   * Run the agent and return structured output.
+   *
+   * Sends a message, waits for completion (always polls, no SSE), then returns
+   * `chat.output` — the parsed finish tool result. Returns `null` if the agent
+   * finished without calling the finish tool.
+   */
+  async run(text: string, options: AgentRunOptions = {}): Promise<any> {
+    await this.sendMessage(text, { ...options, stream: false });
+    const chat = await this.getChat();
+    return chat?.output ?? null;
   }
 
   /** Reset the agent (start fresh chat) */
