@@ -148,7 +148,6 @@ export interface ClientToolConfigDTO {
 export interface CoreAppConfig {
   id: string;
   version_id: string;
-  app?: App;
 }
 export interface Agent {
   BaseModel: BaseModel;
@@ -416,6 +415,10 @@ export interface PartialFile {
   filename?: string;
 }
 export interface FileCreateRequest {
+  /**
+   * Category determines the storage path prefix: "uploads" (default), "inputs", "outputs", "repos"
+   */
+  category?: string;
   files: PartialFile[];
 }
 export interface CreateFlowRequest {
@@ -1389,6 +1392,19 @@ export interface GPU {
 //////////
 // source: task.go
 
+/**
+ * TaskStatus represents the state of a task in its lifecycle.
+ * DESIGN NOTES:
+ * - Stored as int in DB for compact storage and efficient equality checks.
+ * - The int values are ordered to allow SQL range queries (status < ?) for performance.
+ * - IMPORTANT: If you add new statuses in the MIDDLE of the sequence, you must:
+ *  1. Write a migration to shift existing values
+ *  2. Update SDKs and frontends
+ *     - ALTERNATIVE: Add new statuses at the END to avoid migrations, but then you
+ *     cannot use range comparisons (< >) and must use explicit checks (IN, NOT IN).
+ *     - Kubernetes/Temporal use strings and explicit checks for maximum flexibility.
+ *     Consider switching to strings if range comparisons become a maintenance burden.
+ */
 export type TaskStatus = number /* int */;
 export const TaskStatusUnknown: TaskStatus = 0; // 0
 export const TaskStatusReceived: TaskStatus = 1; // 1
