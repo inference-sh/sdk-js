@@ -129,35 +129,6 @@ log_info "Bumping version ($BUMP_TYPE)..."
 CURRENT_VERSION=$(node -p "require('./package.json').version")
 log_info "Current version: v$CURRENT_VERSION"
 
-# Bump version (this modifies package.json and package-lock.json)
-NEW_VERSION=$(npm version "$BUMP_TYPE" --no-git-tag-version | tr -d 'v')
-log_success "New version: v$NEW_VERSION"
-
-# ============================================================================
-# Create Git Commit and Tag
-# ============================================================================
-
-echo ""
-log_info "Creating git commit and tag..."
-
-git add package.json package-lock.json
-git commit -m "chore: release v$NEW_VERSION"
-git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-
-log_success "Created commit and tag"
-
-# ============================================================================
-# Push to Remote
-# ============================================================================
-
-echo ""
-log_info "Pushing to remote..."
-
-git push origin main
-git push origin "v$NEW_VERSION"
-
-log_success "Pushed to remote"
-
 # ============================================================================
 # Create GitHub Release
 # ============================================================================
@@ -165,8 +136,8 @@ log_success "Pushed to remote"
 echo ""
 log_info "Creating GitHub release..."
 
-gh release create "v$NEW_VERSION" \
-    --title "v$NEW_VERSION" \
+gh release create "v$CURRENT_VERSION" \
+    --title "v$CURRENT_VERSION" \
     --generate-notes
 
 log_success "GitHub release created"
@@ -177,7 +148,7 @@ log_success "GitHub release created"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_success "Release v$NEW_VERSION completed successfully!"
+log_success "Release v$CURRENT_VERSION completed successfully!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "The GitHub Actions workflow will now:"
