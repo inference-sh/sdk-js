@@ -45,6 +45,9 @@ export {
 } from './tool-builder';
 export type { ClientTool, ClientToolHandler } from './tool-builder';
 
+// Status utilities (handle both int and string status values)
+export { parseStatus, isTerminalStatus } from './utils';
+
 // Types - includes TaskStatus constants and all DTOs
 export * from './types';
 

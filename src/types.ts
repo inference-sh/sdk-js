@@ -376,6 +376,11 @@ export interface ApiAppRunRequest {
    * Session timeout in seconds (1-3600). Only valid when session="new"
    */
   session_timeout?: number /* int */;
+  /**
+   * Schedule execution for a specific time (ISO 8601 UTC, e.g. "2026-02-24T15:30:00Z").
+   * Task stays queued until this time. Past timestamps run immediately.
+   */
+  run_at?: string;
 }
 /**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
@@ -2169,21 +2174,17 @@ export interface HFCacheInfo {
 /**
  * TaskStatus represents the state of a task in its lifecycle.
  * DESIGN NOTES:
- * - Stored as int in DB for compact storage and efficient equality checks.
- * - The int values are ordered to allow SQL range queries (status < ?) for performance.
- * - IMPORTANT: If you add new statuses in the MIDDLE of the sequence, you must:
- *  1. Write a migration to shift existing values
- *  2. Update SDKs and frontends
- *     - ALTERNATIVE: Add new statuses at the END to avoid migrations, but then you
- *     cannot use range comparisons (< >) and must use explicit checks (IN, NOT IN).
- *     - Kubernetes/Temporal use strings and explicit checks for maximum flexibility.
- *     Consider switching to strings if range comparisons become a maintenance burden.
+ * - Stored as int in DB for compact storage. New statuses can be added with any int value.
+ * - Logical ordering is defined by statusOrder map, NOT by the int values.
+ * - To add a new status: add const with next available int, add to statusOrder at correct position.
+ * - SQL queries use explicit lists (IN, NOT IN) via helper functions, not range comparisons.
+ * - This design allows future migration to string-based storage without breaking changes.
  */
 export type TaskStatus = number /* int */;
 export const TaskStatusUnknown: TaskStatus = 0; // 0
 export const TaskStatusReceived: TaskStatus = 1; // 1
 export const TaskStatusQueued: TaskStatus = 2; // 2
-export const TaskStatusScheduled: TaskStatus = 3; // 3
+export const TaskStatusDispatched: TaskStatus = 3; // 3 - Worker assigned, task sent to worker
 export const TaskStatusPreparing: TaskStatus = 4; // 4
 export const TaskStatusServing: TaskStatus = 5; // 5
 export const TaskStatusSettingUp: TaskStatus = 6; // 6
@@ -2261,6 +2262,10 @@ export interface Task extends BaseModel, PermissionModel {
    * Session timeout in seconds (only used when session="new")
    */
   session_timeout?: number /* int */;
+  /**
+   * Scheduled execution time (UTC). Scheduler skips task until this time.
+   */
+  run_at?: string /* RFC3339 */;
 }
 export interface TaskEvent {
   id: string;
@@ -2307,6 +2312,7 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   engine?: EngineStateSummary;
   worker_id?: string;
   worker?: WorkerStateSummary;
+  run_at?: string /* RFC3339 */;
   webhook?: string;
   setup?: any;
   input: any;
@@ -2568,6 +2574,17 @@ export interface UsageEvent extends BaseModel, PermissionModel {
 export interface DiscountItem {
   reason: string; // e.g. "task_failed", "promotion", "support_credit"
   amount: number /* int64 */; // discount amount in microcents
+}
+/**
+ * FeeConfig controls which fees are enabled for billing.
+ * Used in CEL evaluation context (as "fees") and stored for auditing.
+ * true = fee is enabled/charged, false = fee is disabled/skipped.
+ * nil FeeConfig defaults to all fees enabled.
+ */
+export interface FeeConfig {
+  inference?: boolean; // Platform inference fee
+  royalty?: boolean; // App creator royalty
+  partner?: boolean; // API/partner passthrough (disabled for BYOK)
 }
 export interface UsageBillingRecord extends BaseModel, PermissionModel {
   /**

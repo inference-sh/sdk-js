@@ -11,6 +11,7 @@ import {
   CursorListRequest,
   CursorListResponse,
 } from '../types';
+import { parseStatus } from '../utils';
 
 export interface RunOptions {
   /** Callback for real-time status updates */
@@ -152,13 +153,13 @@ export class TasksAPI {
           const stripped = stripTask(accumulatedTask);
           onUpdate?.(stripped);
 
-          if (data.status === TaskStatusCompleted) {
+          if (parseStatus(data.status) === TaskStatusCompleted) {
             streamManager.stop();
             resolve(stripped);
-          } else if (data.status === TaskStatusFailed) {
+          } else if (parseStatus(data.status) === TaskStatusFailed) {
             streamManager.stop();
             reject(new Error(data.error || 'task failed'));
-          } else if (data.status === TaskStatusCancelled) {
+          } else if (parseStatus(data.status) === TaskStatusCancelled) {
             streamManager.stop();
             reject(new Error('task cancelled'));
           }
@@ -169,13 +170,13 @@ export class TasksAPI {
           const stripped = stripTask(accumulatedTask);
           onPartialUpdate?.(stripped, fields);
 
-          if (data.status === TaskStatusCompleted) {
+          if (parseStatus(data.status) === TaskStatusCompleted) {
             streamManager.stop();
             resolve(stripped);
-          } else if (data.status === TaskStatusFailed) {
+          } else if (parseStatus(data.status) === TaskStatusFailed) {
             streamManager.stop();
             reject(new Error(data.error || 'task failed'));
-          } else if (data.status === TaskStatusCancelled) {
+          } else if (parseStatus(data.status) === TaskStatusCancelled) {
             streamManager.stop();
             reject(new Error('task cancelled'));
           }
@@ -211,13 +212,13 @@ export class TasksAPI {
             const stripped = stripTask(fullTask);
             onUpdate?.(stripped);
 
-            if (fullTask.status === TaskStatusCompleted) {
+            if (parseStatus(fullTask.status) === TaskStatusCompleted) {
               poller.stop();
               resolve(stripped);
-            } else if (fullTask.status === TaskStatusFailed) {
+            } else if (parseStatus(fullTask.status) === TaskStatusFailed) {
               poller.stop();
               reject(new Error(fullTask.error || 'task failed'));
-            } else if (fullTask.status === TaskStatusCancelled) {
+            } else if (parseStatus(fullTask.status) === TaskStatusCancelled) {
               poller.stop();
               reject(new Error('task cancelled'));
             }
