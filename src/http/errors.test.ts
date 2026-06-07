@@ -1,7 +1,10 @@
 import {
   InferenceError,
   RequirementsNotMetException,
+  SessionEndedError,
+  SessionExpiredError,
   SessionNotFoundError,
+  WorkerLostError,
   isInferenceError,
   isRequirementsNotMetException,
   isSessionError,
@@ -43,5 +46,12 @@ describe('error type guards', () => {
       })
     ).toBe(true);
     expect(isSessionError({ name: 'InferenceError', statusCode: 500 })).toBe(false);
+  });
+
+  it('session error subclasses should expose sessionId', () => {
+    expect(new SessionNotFoundError('sess-1').sessionId).toBe('sess-1');
+    expect(new SessionExpiredError('sess-2').statusCode).toBe(410);
+    expect(new SessionEndedError('sess-3').name).toBe('SessionEndedError');
+    expect(new WorkerLostError('sess-4').statusCode).toBe(500);
   });
 });
