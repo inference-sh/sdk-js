@@ -21,7 +21,7 @@ describe('ChatsAPI', () => {
 
   it('should GET /chats/{id}/trace for getTrace()', async () => {
     const trace = { chat_id: 'chat-1', spans: [] };
-    mockJsonResponse({ success: true, data: trace });
+    mockJsonResponse(trace);
 
     const result = await api().getTrace('chat-1');
 
@@ -32,7 +32,7 @@ describe('ChatsAPI', () => {
   });
 
   it('should DELETE /chats/{id} for delete()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().delete('chat-9');
 

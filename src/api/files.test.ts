@@ -34,7 +34,7 @@ describe('FilesAPI', () => {
         content_type: 'image/png',
       };
 
-      mockJsonResponse({ success: true, data: [fileRecord] });
+      mockJsonResponse([fileRecord]);
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
 
       const input = {
@@ -52,10 +52,7 @@ describe('FilesAPI', () => {
 
   describe('upload', () => {
     it('should reject invalid data URI format when uploading content', async () => {
-      mockJsonResponse({
-        success: true,
-        data: [{ id: 'file-x', uri: '', upload_url: 'https://upload.example.com/put' }],
-      });
+      mockJsonResponse([{ id: 'file-x', uri: '', upload_url: 'https://upload.example.com/put' }]);
 
       await expect(api().upload('data:invalid')).rejects.toThrow('Invalid data URI format');
     });
@@ -68,7 +65,7 @@ describe('FilesAPI', () => {
         content_type: 'text/plain',
       };
 
-      mockJsonResponse({ success: true, data: [fileRecord] });
+      mockJsonResponse([fileRecord]);
       mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
 
       // "SGVsbG8" is "Hello" in standard base64; URL-safe variant uses '-' instead of '+'

@@ -50,10 +50,10 @@ describe('TasksAPI.run (polling mode)', () => {
     const runningTask = makeTask();
     const completedTask = makeTask({ status: TaskStatusCompleted, output: { ok: true } });
 
-    mockJsonResponse({ success: true, data: runningTask });
-    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
-    mockJsonResponse({ success: true, data: { status: TaskStatusCompleted } });
-    mockJsonResponse({ success: true, data: completedTask });
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
+    mockJsonResponse(completedTask);
 
     const onUpdate = jest.fn();
     const result = await api().run(
@@ -72,10 +72,10 @@ describe('TasksAPI.run (polling mode)', () => {
     const runningTask = makeTask();
     const failedTask = makeTask({ status: TaskStatusFailed, error: 'model error' });
 
-    mockJsonResponse({ success: true, data: runningTask });
-    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
-    mockJsonResponse({ success: true, data: { status: TaskStatusFailed } });
-    mockJsonResponse({ success: true, data: failedTask });
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusFailed });
+    mockJsonResponse(failedTask);
 
     await expect(
       api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
@@ -86,10 +86,10 @@ describe('TasksAPI.run (polling mode)', () => {
     const runningTask = makeTask();
     const cancelledTask = makeTask({ status: TaskStatusCancelled });
 
-    mockJsonResponse({ success: true, data: runningTask });
-    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
-    mockJsonResponse({ success: true, data: { status: TaskStatusCancelled } });
-    mockJsonResponse({ success: true, data: cancelledTask });
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCancelled });
+    mockJsonResponse(cancelledTask);
 
     await expect(
       api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
@@ -99,9 +99,9 @@ describe('TasksAPI.run (polling mode)', () => {
   it('should reject when full task fetch fails after status change', async () => {
     const runningTask = makeTask();
 
-    mockJsonResponse({ success: true, data: runningTask });
-    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
-    mockJsonResponse({ success: true, data: { status: TaskStatusCompleted } });
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
     mockFetch.mockRejectedValueOnce(new Error('network down'));
 
     await expect(
@@ -112,7 +112,7 @@ describe('TasksAPI.run (polling mode)', () => {
   it('should reject when status polling fails', async () => {
     const runningTask = makeTask();
 
-    mockJsonResponse({ success: true, data: runningTask });
+    mockJsonResponse(runningTask);
     mockFetch.mockRejectedValueOnce(new Error('status endpoint down'));
 
     await expect(
@@ -124,10 +124,10 @@ describe('TasksAPI.run (polling mode)', () => {
     const runningTask = makeTask();
     const completedTask = makeTask({ status: TaskStatusCompleted });
 
-    mockJsonResponse({ success: true, data: runningTask });
-    mockJsonResponse({ success: true, data: { status: TaskStatusRunning } });
-    mockJsonResponse({ success: true, data: { status: 'completed' } });
-    mockJsonResponse({ success: true, data: completedTask });
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: 'completed' });
+    mockJsonResponse(completedTask);
 
     const result = await api().run(
       { app: 'test-app', input: {} },
@@ -166,7 +166,7 @@ describe('TasksAPI.run (general)', () => {
 
   it('should return immediately when wait is false', async () => {
     const task = makeTask();
-    mockJsonResponse({ success: true, data: task });
+    mockJsonResponse(task);
 
     const result = await streamingApi().run(
       { app: 'test-app', input: {} },
@@ -192,7 +192,7 @@ describe('TasksAPI.run (streaming mode)', () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          text: () => Promise.resolve(JSON.stringify({ success: true, data: initialTask })),
+          text: () => Promise.resolve(JSON.stringify(initialTask)),
         });
       }
       return Promise.resolve(mockNdjsonStream(ndjsonChunks));

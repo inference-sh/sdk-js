@@ -21,7 +21,7 @@ describe('SessionsAPI', () => {
 
   it('should GET /sessions/{id} for get()', async () => {
     const session = { id: 'sess_1', status: 'active' };
-    mockJsonResponse({ success: true, data: session });
+    mockJsonResponse(session);
 
     const result = await api().get('sess_1');
 
@@ -32,7 +32,7 @@ describe('SessionsAPI', () => {
   });
 
   it('should return an empty array when list() response is null', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     const result = await api().list();
 
@@ -43,7 +43,7 @@ describe('SessionsAPI', () => {
 
   it('should POST /sessions/{id}/keepalive for keepalive()', async () => {
     const session = { id: 'sess_2', status: 'active' };
-    mockJsonResponse({ success: true, data: session });
+    mockJsonResponse(session);
 
     const result = await api().keepalive('sess_2');
 
@@ -54,7 +54,7 @@ describe('SessionsAPI', () => {
   });
 
   it('should DELETE /sessions/{id} for end()', async () => {
-    mockJsonResponse({ success: true, data: null });
+    mockJsonResponse(null);
 
     await api().end('sess_3');
 
