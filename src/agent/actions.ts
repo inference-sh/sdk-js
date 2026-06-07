@@ -16,6 +16,7 @@ import type {
   ActionsContext,
   ActionsResult,
   InternalActions,
+  UploadedFile,
 } from './types';
 import { isAdHocConfig, extractClientToolHandlers } from './types';
 import * as api from './api';
@@ -156,7 +157,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   // =========================================================================
 
   const publicActions: AgentChatActions = {
-    sendMessage: async (text: string, files?: File[]) => {
+    sendMessage: async (text: string, files?: UploadedFile[]) => {
       const agentConfig = getConfig();
       const chatId = getChatId();
 
@@ -196,6 +197,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
       }
+    },
+
+    uploadFile: async (file: File) => {
+      return api.uploadFile(client, file);
     },
 
     stopGeneration: () => {

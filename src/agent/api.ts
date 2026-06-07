@@ -260,6 +260,14 @@ export async function alwaysAllowTool(
 }
 
 /**
+ * Upload a file and return the uploaded file reference
+ */
+export async function uploadFile(client: AgentClient, file: globalThis.File): Promise<UploadedFile> {
+  const result = await client.files.upload(file);
+  return result;
+}
+
+/**
  * Create a unified stream for chat events
  */
 export function createUnifiedStream(client: AgentClient, chatId: string): Promise<EventSource | null> {
