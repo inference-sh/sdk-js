@@ -135,3 +135,6 @@ help:
 	@echo "  format         Format with Prettier"
 
 .DEFAULT_GOAL := help
+
+main:
+	git push origin dev:main
