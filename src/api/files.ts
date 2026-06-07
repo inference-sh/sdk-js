@@ -133,13 +133,25 @@ export class FilesAPI {
     }
 
     // Handle base64 strings or data URIs
-    if (
-      typeof input === 'string' &&
-      (input.startsWith('data:') ||
-        /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(input))
-    ) {
-      const file = await this.upload(input);
-      return file.uri;
+    // Only treat as base64 if it's a data URI OR if it looks like base64 AND is reasonably long
+    // Short strings like "key1" or "test" shouldn't be treated as base64
+    if (typeof input === 'string') {
+      if (input.startsWith('data:')) {
+        // Data URIs are always treated as files
+        const file = await this.upload(input);
+        return file.uri;
+      }
+
+      // For raw base64, require minimum length (64 chars ~= 48 bytes of data)
+      // and must match base64 pattern with proper padding
+      if (
+        input.length >= 64 &&
+        /^[A-Za-z0-9+/]+={0,2}$/.test(input) &&
+        input.length % 4 === 0
+      ) {
+        const file = await this.upload(input);
+        return file.uri;
+      }
     }
 
     return input;
