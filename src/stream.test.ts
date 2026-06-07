@@ -98,8 +98,9 @@ describe('StreamManager', () => {
       const partialWrapper = { data: innerData, fields };
       mockEventSource.onmessage?.({ data: JSON.stringify(partialWrapper) } as MessageEvent);
 
+      // When onPartialData is provided, only it is called (not onData)
       expect(onPartialData).toHaveBeenCalledWith(innerData, fields);
-      expect(onData).toHaveBeenCalledWith(innerData);
+      expect(onData).not.toHaveBeenCalled();
     });
 
     it('should not call onPartialData for non-partial data', async () => {
