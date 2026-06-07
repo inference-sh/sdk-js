@@ -540,6 +540,7 @@ export interface CreateAgentRequest {
 export interface SDKTypes {
 }
 export interface SkillPublishRequest {
+  namespace?: string; // admin-only: override namespace (e.g. GitHub owner)
   name: string;
   description: string;
   category: string;
@@ -978,6 +979,16 @@ export interface ResourceStatusDTO {
   status: any;
   updated_at: string /* RFC3339 */;
 }
+
+//////////
+// source: billing.go
+
+/**
+ * PaymentProvider represents the payment provider being used
+ */
+export type PaymentProvider = string;
+export const PaymentProviderNone: PaymentProvider = "";
+export const PaymentProviderStripe: PaymentProvider = "stripe";
 
 //////////
 // source: chat.go
@@ -1631,6 +1642,173 @@ export interface IntegrationDTO extends BaseModel, PermissionModelDTO {
   account_name?: string; // Display name of connected account
   is_primary: boolean; // Default account for this provider:type (for future multi-account support)
   error_message?: string;
+}
+
+//////////
+// source: invoice.go
+
+/**
+ * InvoiceType distinguishes invoices from credit notes
+ */
+export type InvoiceType = string;
+export const InvoiceTypeInvoice: InvoiceType = "invoice";
+export const InvoiceTypeCreditNote: InvoiceType = "credit_note";
+/**
+ * InvoiceStatus represents the lifecycle status of an invoice
+ */
+export type InvoiceStatus = string;
+export const InvoiceStatusDraft: InvoiceStatus = "draft"; // Not yet finalized, can be edited
+export const InvoiceStatusFinalized: InvoiceStatus = "finalized"; // Locked, has invoice number
+export const InvoiceStatusCorrected: InvoiceStatus = "corrected"; // Superseded by a credit note
+export const InvoiceStatusVoided: InvoiceStatus = "voided"; // Cancelled before finalize
+/**
+ * TaxMode determines how tax is handled on the invoice
+ */
+export type TaxMode = string;
+export const TaxModeNone: TaxMode = "none"; // No VAT (US domestic, non-EU)
+export const TaxModeVAT: TaxMode = "vat"; // VAT charged (EU B2C)
+export const TaxModeReverseCharge: TaxMode = "reverse_charge"; // Reverse charge (EU B2B)
+/**
+ * Invoice represents a legal invoice or credit note
+ */
+export interface Invoice extends BaseModel, PermissionModel {
+  /**
+   * Invoice Identity
+   */
+  type: InvoiceType;
+  invoice_number: string; // INF-2026-000001 or INF-CN-2026-000001
+  series: string;
+  status: InvoiceStatus;
+  /**
+   * Dates
+   */
+  issue_date: string /* RFC3339 */;
+  service_period_start?: string /* RFC3339 */;
+  service_period_end?: string /* RFC3339 */;
+  finalized_at?: string /* RFC3339 */;
+  /**
+   * Issuer Snapshot (frozen from admin settings at creation)
+   */
+  issuer_legal_name: string;
+  issuer_address: string; // Formatted multi-line address
+  issuer_country: string; // ISO 2-letter code
+  issuer_tax_id: string;
+  issuer_email: string;
+  /**
+   * Customer Snapshot (frozen from BillingSettings at creation)
+   */
+  customer_legal_name: string;
+  customer_address: string; // Formatted multi-line address
+  customer_country: string; // ISO 2-letter code
+  customer_vat_number: string;
+  customer_email: string;
+  is_business_customer: boolean;
+  customer_vat_validated: boolean; // Was VAT validated when invoice created
+  /**
+   * Financial (all amounts in cents, matches PaymentRecord)
+   * For credit notes, amounts are NEGATIVE
+   */
+  currency: string;
+  subtotal_amount: number /* int64 */; // Credits purchased
+  service_fee: number /* int64 */; // Our fee
+  tax_rate: number /* int64 */; // Basis points (2000 = 20%)
+  tax_amount: number /* int64 */; // Computed tax
+  total_amount: number /* int64 */; // What customer paid
+  tax_mode: TaxMode;
+  /**
+   * Linkage to payment
+   */
+  payment_record_id: string;
+  provider_payment_id: string; // For display on PDF
+  /**
+   * Corrections (for credit notes referencing original invoice)
+   */
+  original_invoice_id?: string;
+  correction_reason: string;
+  /**
+   * Storage
+   */
+  pdf_path: string; // Path in file service
+  snapshot: string; // JSON snapshot at finalize time
+  /**
+   * Relations
+   */
+  items: InvoiceItem[];
+}
+/**
+ * InvoiceItem represents a line item on an invoice
+ */
+export interface InvoiceItem extends BaseModel {
+  invoice_id: string;
+  description: string;
+  quantity: number /* int64 */;
+  unit_price: number /* int64 */; // Cents
+  line_total: number /* int64 */; // Cents (quantity * unit_price)
+}
+
+//////////
+// source: payment.go
+
+/**
+ * PaymentRecordStatus represents the status of a payment
+ */
+export type PaymentRecordStatus = number /* int */;
+export const PaymentRecordStatusPending: PaymentRecordStatus = 0;
+export const PaymentRecordStatusComplete: PaymentRecordStatus = 1;
+export const PaymentRecordStatusFailed: PaymentRecordStatus = 2;
+export const PaymentRecordStatusExpired: PaymentRecordStatus = 3;
+/**
+ * PaymentRecordType represents the type of payment
+ */
+export type PaymentRecordType = string;
+export const PaymentRecordTypeCheckout: PaymentRecordType = "checkout"; // Checkout session (manual top-up)
+export const PaymentRecordTypeAutoRecharge: PaymentRecordType = "auto_recharge"; // Direct charge (auto-recharge)
+/**
+ * TaxBreakdownItem represents a single tax component
+ */
+export interface TaxBreakdownItem {
+  amount: number /* int64 */; // Tax amount in cents
+  rate: number /* int */; // Tax rate in basis points (1900 = 19.00%)
+  jurisdiction?: string; // Tax jurisdiction (e.g., "DE", "US-CA")
+  display_name?: string; // Human-readable name (e.g., "VAT", "Sales Tax")
+  inclusive?: boolean; // Whether tax is included in the amount
+}
+/**
+ * PaymentRecord stores payment details for checkout sessions and direct charges (provider-agnostic)
+ * Field naming follows Stripe conventions for financial clarity.
+ */
+export interface PaymentRecord extends BaseModel, PermissionModel {
+  type: PaymentRecordType;
+  status: PaymentRecordStatus;
+  currency: string;
+  /**
+   * Financial amounts (Stripe-style naming)
+   */
+  credit_amount: number /* int64 */; // Credit added to balance (what user purchased)
+  service_fee: number /* int64 */; // Platform fee (charged on top)
+  amount_subtotal: number /* int64 */; // CreditAmount + ServiceFee (before tax)
+  amount_tax: number /* int64 */; // Tax amount
+  amount_total: number /* int64 */; // Total charged to customer
+  /**
+   * Tax breakdown by jurisdiction (for invoicing)
+   */
+  tax_breakdown?: TaxBreakdownItem[];
+  /**
+   * Provider-agnostic fields
+   */
+  provider: PaymentProvider; // "stripe", "paddle", etc.
+  provider_customer_id: string; // Provider's customer ID
+  provider_session_id: string; // Checkout session ID (indexed for lookup)
+  provider_payment_id: string; // PaymentIntent, Paddle txn, etc.
+  receipt_url: string;
+  /**
+   * Provider-specific details (checkout URLs, session IDs, etc.)
+   */
+  provider_metadata: { [key: string]: any};
+  /**
+   * Related invoice (if one exists) - loaded via preload
+   */
+  invoice?: Invoice;
 }
 
 //////////
@@ -2299,37 +2477,6 @@ export interface Transaction extends BaseModel {
    * Set to true via WithSkipTxSideEffects context to skip side effects (e.g. migrations).
    */
   side_effects_processed: boolean;
-}
-/**
- * PaymentRecordStatus represents the status of a payment
- */
-export type PaymentRecordStatus = number /* int */;
-export const PaymentRecordStatusPending: PaymentRecordStatus = 0;
-export const PaymentRecordStatusComplete: PaymentRecordStatus = 1;
-export const PaymentRecordStatusFailed: PaymentRecordStatus = 2;
-export const PaymentRecordStatusExpired: PaymentRecordStatus = 3;
-/**
- * PaymentRecordType represents the type of payment
- */
-export type PaymentRecordType = string;
-export const PaymentRecordTypeCheckout: PaymentRecordType = "checkout"; // Stripe Checkout session (manual top-up)
-export const PaymentRecordTypeAutoRecharge: PaymentRecordType = "auto_recharge"; // Direct charge (auto-recharge)
-/**
- * PaymentRecord stores Stripe payment details for both checkout sessions and direct charges
- */
-export interface PaymentRecord extends BaseModel, PermissionModel {
-  type: PaymentRecordType;
-  status: PaymentRecordStatus;
-  amount: number /* int64 */; // Amount in cents (credit amount — what user gets)
-  service_fee: number /* int64 */; // Service fee in cents (charged on top of Amount)
-  stripe_customer_id: string; // Stripe customer ID
-  payment_intent_id: string; // Stripe PaymentIntent ID
-  receipt_url: string; // Receipt URL
-  /**
-   * Checkout-specific fields (only set for checkout type)
-   */
-  session_id: string; // Stripe Checkout Session ID
-  session_url: string; // Checkout URL
 }
 
 //////////
