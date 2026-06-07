@@ -27,6 +27,14 @@ export { ChatsAPI } from './api/chats';
 export { FlowsAPI } from './api/flows';
 export { FlowRunsAPI } from './api/flow-runs';
 export { EnginesAPI } from './api/engines';
+export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
+export { TeamsAPI, MeResponse } from './api/teams';
+export { SecretsAPI } from './api/secrets';
+export { ApiKeysAPI } from './api/api-keys';
+export { IntegrationsAPI } from './api/integrations';
+export { SearchAPI } from './api/search';
+export { ProjectsAPI } from './api/projects';
+export { MCPServersAPI } from './api/mcp-servers';
 
 // Tool Builder (fluent API)
 export {
@@ -72,6 +80,14 @@ import { ChatsAPI } from './api/chats';
 import { FlowsAPI } from './api/flows';
 import { FlowRunsAPI } from './api/flow-runs';
 import { EnginesAPI } from './api/engines';
+import { KnowledgeAPI, SkillsAPI } from './api/knowledge';
+import { TeamsAPI } from './api/teams';
+import { SecretsAPI } from './api/secrets';
+import { ApiKeysAPI } from './api/api-keys';
+import { IntegrationsAPI } from './api/integrations';
+import { SearchAPI } from './api/search';
+import { ProjectsAPI } from './api/projects';
+import { MCPServersAPI } from './api/mcp-servers';
 import { ApiAppRunRequest, TaskDTO as Task, AgentConfigInput as AgentConfig, FileDTO as File } from './types';
 
 export interface InferenceConfig {
@@ -115,6 +131,15 @@ export class Inference {
   readonly flows: FlowsAPI;
   readonly flowRuns: FlowRunsAPI;
   readonly engines: EnginesAPI;
+  readonly knowledge: KnowledgeAPI;
+  readonly skills: SkillsAPI;
+  readonly teams: TeamsAPI;
+  readonly secrets: SecretsAPI;
+  readonly apiKeys: ApiKeysAPI;
+  readonly integrations: IntegrationsAPI;
+  readonly search: SearchAPI;
+  readonly projects: ProjectsAPI;
+  readonly mcpServers: MCPServersAPI;
 
   constructor(config: InferenceConfig | HttpClientConfig) {
     // Handle both simple config and full HttpClientConfig
@@ -138,6 +163,15 @@ export class Inference {
     this.flows = new FlowsAPI(this.http);
     this.flowRuns = new FlowRunsAPI(this.http);
     this.engines = new EnginesAPI(this.http);
+    this.knowledge = new KnowledgeAPI(this.http);
+    this.skills = new SkillsAPI(this.http);
+    this.teams = new TeamsAPI(this.http);
+    this.secrets = new SecretsAPI(this.http);
+    this.apiKeys = new ApiKeysAPI(this.http);
+    this.integrations = new IntegrationsAPI(this.http);
+    this.search = new SearchAPI(this.http);
+    this.projects = new ProjectsAPI(this.http);
+    this.mcpServers = new MCPServersAPI(this.http);
   }
 
   // Legacy methods for backward compatibility

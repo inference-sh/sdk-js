@@ -433,6 +433,13 @@ export class AgentsAPI {
   }
 
   /**
+   * Get an agent by namespace/name (e.g., "inference/my-agent")
+   */
+  async getByName(namespace: string, name: string): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('get', `/agents/${namespace}/${name}`);
+  }
+
+  /**
    * Get internal tools for the agent
    */
   async getInternalTools(): Promise<InternalToolDefinition[]> {

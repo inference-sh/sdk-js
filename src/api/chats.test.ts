@@ -40,4 +40,40 @@ describe('ChatsAPI', () => {
     expect(url).toContain('/chats/chat-9');
     expect(init.method).toBe('DELETE');
   });
+
+  it('should POST /chats/list for list()', async () => {
+    const page = { items: [{ id: 'chat-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().list({ limit: 25 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/list');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 25 });
+  });
+
+  it('should GET /chats/{id} for get()', async () => {
+    const chat = { id: 'chat-1', status: 'open' };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result).toEqual(chat);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /chats/{id} for update()', async () => {
+    const chat = { id: 'chat-1', name: 'Renamed' };
+    mockJsonResponse(chat);
+
+    const result = await api().update('chat-1', { name: 'Renamed' });
+
+    expect(result).toEqual(chat);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
+  });
 });

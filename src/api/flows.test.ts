@@ -53,4 +53,81 @@ describe('FlowsAPI', () => {
     expect(createEventSource).toHaveBeenCalledWith('/flows/flow-5/stream');
     createEventSource.mockRestore();
   });
+
+  it('should POST /flows/list for list()', async () => {
+    const page = { items: [{ id: 'flow-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().list({ limit: 10 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flows/list');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should GET /flows/{id} for get()', async () => {
+    const flow = { id: 'flow-1', name: 'Demo' };
+    mockJsonResponse(flow);
+
+    const result = await api().get('flow-1');
+
+    expect(result).toEqual(flow);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flows/flow-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /flows/{id} for update()', async () => {
+    const flow = { id: 'flow-1', name: 'Renamed' };
+    mockJsonResponse(flow);
+
+    const result = await api().update('flow-1', { name: 'Renamed' });
+
+    expect(result).toEqual(flow);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
+  });
+
+  it('should DELETE /flows/{id} for delete()', async () => {
+    mockJsonResponse(null);
+
+    await api().delete('flow-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flows/flow-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should POST /flows/{id}/duplicate for duplicate()', async () => {
+    const flow = { id: 'flow-copy' };
+    mockJsonResponse(flow);
+
+    const result = await api().duplicate('flow-1');
+
+    expect(result).toEqual(flow);
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain('/flows/flow-1/duplicate');
+  });
+
+  it('should POST /flows/{id}/versions/list for listVersions()', async () => {
+    const versions = { items: [{ id: 'ver-1' }], next_cursor: null };
+    mockJsonResponse(versions);
+
+    const result = await api().listVersions('flow-1');
+
+    expect(result).toEqual(versions);
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(url).toContain('/flows/flow-1/versions/list');
+  });
+
+  it('should POST transfer with team_id for transferOwnership()', async () => {
+    const flow = { id: 'flow-1' };
+    mockJsonResponse(flow);
+
+    await api().transferOwnership('flow-1', 'team-42');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-42' });
+  });
 });
