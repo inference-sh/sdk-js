@@ -2,54 +2,45 @@
   "name": "@inferencesh/sdk",
   "version": "0.4.23",
   "description": "Official JavaScript/TypeScript SDK for inference.sh - Run AI models with a simple API",
+  "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./proxy": {
-      "import": "./dist/proxy/index.mjs",
-      "require": "./dist/proxy/index.js",
-      "types": "./dist/proxy/index.d.ts"
+      "types": "./dist/proxy/index.d.ts",
+      "default": "./dist/proxy/index.js"
     },
     "./proxy/nextjs": {
-      "import": "./dist/proxy/nextjs.mjs",
-      "require": "./dist/proxy/nextjs.js",
-      "types": "./dist/proxy/nextjs.d.ts"
+      "types": "./dist/proxy/nextjs.d.ts",
+      "default": "./dist/proxy/nextjs.js"
     },
     "./proxy/express": {
-      "import": "./dist/proxy/express.mjs",
-      "require": "./dist/proxy/express.js",
-      "types": "./dist/proxy/express.d.ts"
+      "types": "./dist/proxy/express.d.ts",
+      "default": "./dist/proxy/express.js"
     },
     "./proxy/hono": {
-      "import": "./dist/proxy/hono.mjs",
-      "require": "./dist/proxy/hono.js",
-      "types": "./dist/proxy/hono.d.ts"
+      "types": "./dist/proxy/hono.d.ts",
+      "default": "./dist/proxy/hono.js"
     },
     "./proxy/remix": {
-      "import": "./dist/proxy/remix.mjs",
-      "require": "./dist/proxy/remix.js",
-      "types": "./dist/proxy/remix.d.ts"
+      "types": "./dist/proxy/remix.d.ts",
+      "default": "./dist/proxy/remix.js"
     },
     "./proxy/svelte": {
-      "import": "./dist/proxy/svelte.mjs",
-      "require": "./dist/proxy/svelte.js",
-      "types": "./dist/proxy/svelte.d.ts"
+      "types": "./dist/proxy/svelte.d.ts",
+      "default": "./dist/proxy/svelte.js"
     },
     "./agent": {
-      "import": "./dist/agent/index.mjs",
-      "require": "./dist/agent/index.js",
-      "types": "./dist/agent/index.d.ts"
+      "types": "./dist/agent/index.d.ts",
+      "default": "./dist/agent/index.js"
     }
   },
   "scripts": {
-    "build": "tsc && npm run build:esm",
-    "build:esm": "node scripts/build-esm.js",
+    "build": "tsc",
     "test": "jest --testPathIgnorePatterns=integration",
     "test:integration": "jest --testPathPattern=integration --testTimeout=120000 --runInBand",
     "test:all": "jest --testTimeout=120000 --runInBand",
@@ -61,8 +52,7 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "clean": "rimraf dist coverage",
     "prepublishOnly": "npm run clean && npm run build && npm test",
-    "example": "node examples/basic.cjs",
-    "test:local": "node examples/_local-test.cjs"
+    "example": "node examples/basic.js"
   },
   "keywords": [
     "inference",
