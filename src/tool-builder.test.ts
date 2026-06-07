@@ -4,6 +4,8 @@ import {
   agentTool,
   webhookTool,
   httpTool,
+  callTool,
+  mcpTool,
   internalTools,
   string,
   number,
@@ -14,7 +16,15 @@ import {
   array,
   optional,
 } from './tool-builder';
-import { ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook } from './types';
+import {
+  ToolTypeClient,
+  ToolTypeApp,
+  ToolTypeAgent,
+  ToolTypeHook,
+  ToolTypeHTTP,
+  ToolTypeMCP,
+  IntegrationProviderGoogle,
+} from './types';
 
 describe('Schema Helpers', () => {
   describe('string', () => {
@@ -327,6 +337,56 @@ describe('HTTPToolBuilder (httpTool)', () => {
   it('omits method when POST is the default', () => {
     const t = httpTool('post', 'https://api.example.com').build();
     expect(t.http?.method).toBeUndefined();
+  });
+
+  it('should attach integration auth with provider and integration id', () => {
+    const t = httpTool('gmail_send', 'https://api.example.com/send')
+      .auth({ integration: IntegrationProviderGoogle, integrationId: 'int-123' })
+      .build();
+
+    expect(t.type).toBe(ToolTypeHTTP);
+    expect(t.http?.auth).toEqual({
+      type: 'integration',
+      provider: IntegrationProviderGoogle,
+      integration_id: 'int-123',
+    });
+  });
+
+  it('should attach api key auth with default header', () => {
+    const t = httpTool('fetch', 'https://api.example.com').auth({ apiKey: 'KEY' }).build();
+
+    expect(t.http?.auth).toEqual({
+      type: 'api_key',
+      secret: 'KEY',
+      header: 'X-API-Key',
+    });
+  });
+
+  it('should attach bearer auth', () => {
+    const t = httpTool('fetch', 'https://api.example.com')
+      .auth({ bearer: 'token-abc' })
+      .build();
+
+    expect(t.http?.auth).toEqual({
+      type: 'bearer',
+      secret: 'token-abc',
+    });
+  });
+
+  it('callTool should be an alias for httpTool', () => {
+    const t = callTool('ping', 'https://api.example.com/ping').method('GET').build();
+    expect(t.type).toBe(ToolTypeHTTP);
+    expect(t.http?.method).toBe('GET');
+  });
+});
+
+describe('MCPToolBuilder (mcpTool)', () => {
+  it('creates MCP tool with integration and tool name', () => {
+    const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
+
+    expect(t.type).toBe(ToolTypeMCP);
+    expect(t.mcp).toEqual({ integration_id: 'int-mcp-1', tool_name: 'search' });
+    expect(t.description).toBe('Search docs');
   });
 });
 

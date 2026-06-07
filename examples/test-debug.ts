@@ -2,15 +2,19 @@ import { inference } from '../src';
 import type { ChatMessageDTO, ChatDTO } from '../src/types';
 
 async function main() {
-  const client = inference({ 
-    apiKey: '1nfsh-40d0xtgj90nd2tbtxjg2s96e1p',
-    baseUrl: 'https://api-dev.inference.sh'
-  });
-  
+  const apiKey = process.env.INFERENCE_API_KEY;
+  const baseUrl = process.env.INFERENCE_BASE_URL || 'https://api.inference.sh';
+  if (!apiKey) {
+    console.error('Set INFERENCE_API_KEY environment variable');
+    process.exit(1);
+  }
+
+  const client = inference({ apiKey, baseUrl });
+
   const agent = client.agent({
-    coreApp: 'infsh/claude-haiku-45@375bg07t',
+    core_app: { ref: 'infsh/claude-haiku-45@375bg07t' },
     name: 'Simple Test',
-    systemPrompt: 'You are a helpful assistant. Keep responses brief.',
+    system_prompt: 'You are a helpful assistant. Keep responses brief.',
   });
 
   console.log('Sending message...');

@@ -10,7 +10,8 @@ import { AppSessionDTO } from '../types';
  *
  * @example
  * ```typescript
- * const client = new Inference({ apiKey: '...' });
+ * import { inference } from '@inferencesh/sdk';
+ * const client = inference({ apiKey: '...' });
  *
  * // Get session info
  * const info = await client.sessions.get('sess_abc123');
