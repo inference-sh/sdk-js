@@ -205,9 +205,20 @@ export class Inference {
 
   /** @internal */
   _createEventSource(endpoint: string): EventSource {
+
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     const isProxyMode = !!this.proxyUrl;
-    const fetchUrl = isProxyMode ? this.proxyUrl! : targetUrl.toString();
+
+    // For proxy mode: Browser EventSource can't send custom headers,
+    // so append target URL as query param instead
+    let fetchUrl: string;
+    if (isProxyMode) {
+      const proxyUrlWithQuery = new URL(this.proxyUrl!, window?.location?.origin || 'http://localhost');
+      proxyUrlWithQuery.searchParams.set('__inf_target', targetUrl.toString());
+      fetchUrl = proxyUrlWithQuery.toString();
+    } else {
+      fetchUrl = targetUrl.toString();
+    }
 
     return new EventSource(fetchUrl, {
       fetch: (input, init) => {
@@ -216,7 +227,7 @@ export class Inference {
         };
 
         if (isProxyMode) {
-          // Proxy mode: send target URL as header
+          // Proxy mode: also send target URL as header (for non-browser clients)
           headers["x-inf-target-url"] = targetUrl.toString();
         } else {
           // Direct mode: include authorization header
@@ -518,7 +529,7 @@ export class Agent {
   }
 
   /** Send a message to the agent */
-  async sendMessage(text: string, options: SendMessageOptions = {}): Promise<ChatMessageDTO> {
+  async sendMessage(text: string, options: SendMessageOptions = {}): Promise<{ userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO }> {
     const isTemplate = typeof this.config === 'string';
 
     // Upload files if provided
@@ -527,20 +538,18 @@ export class Agent {
 
     if (options.files && options.files.length > 0) {
       const uploadedFiles = await Promise.all(
-        options.files.map(f => this.client.uploadFile(f))
+        options.files.map((file) => this.client.uploadFile(file))
       );
-
-      const images = uploadedFiles.filter(f => f.content_type?.startsWith('image/'));
-      const others = uploadedFiles.filter(f => !f.content_type?.startsWith('image/'));
-
+      const images = uploadedFiles.filter((f) => f.content_type?.startsWith('image/'));
+      const others = uploadedFiles.filter((f) => !f.content_type?.startsWith('image/'));
       if (images.length > 0) imageUri = images[0].uri;
-      if (others.length > 0) fileUris = others.map(f => f.uri);
+      if (others.length > 0) fileUris = others.map((f) => f.uri);
     }
 
-    const body = isTemplate
+    const body: Record<string, unknown> = isTemplate
       ? {
         chat_id: this.chatId,
-        agent_ref: this.config as string,
+        agent: this.config as string,
         input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       }
       : {
@@ -566,7 +575,7 @@ export class Agent {
       await this.streamUntilIdle(options);
     }
 
-    return response.assistant_message;
+    return { userMessage: response.user_message, assistantMessage: response.assistant_message };
   }
 
   /** Get chat by ID */

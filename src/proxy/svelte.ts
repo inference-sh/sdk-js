@@ -1,14 +1,14 @@
 /**
- * SvelteKit proxy handler for Inference.sh API
+ * @inferencesh/sdk/proxy/svelte - SvelteKit Proxy Handler
  *
  * Works with SvelteKit's +server.ts route handlers.
  *
  * @example
  * ```typescript
  * // src/routes/api/inference/proxy/+server.ts
- * import { createRequestHandler } from "@inferencesh/sdk/proxy/svelte";
+ * import { createHandler } from "@inferencesh/sdk/proxy/svelte";
  *
- * const handler = createRequestHandler();
+ * const handler = createHandler();
  *
  * export const GET = handler;
  * export const POST = handler;
@@ -18,55 +18,43 @@
 
 import type { RequestEvent } from "@sveltejs/kit";
 import {
-    handleRequest,
-    resolveApiKeyFromEnv,
-    responsePassthrough,
-    fromHeaders,
+    processProxyRequest,
+    getEnvApiKey,
+    passthrough,
+    headersToRecord,
+    INF_TARGET_PARAM,
 } from "./index";
 
 export interface SvelteProxyOptions {
-    /**
-     * Custom function to resolve the API key.
-     * Defaults to reading from INFERENCE_API_KEY environment variable.
-     */
+    /** Custom function to resolve the API key */
     resolveApiKey?: () => Promise<string | undefined>;
 }
 
 type SvelteRequestHandler = (event: RequestEvent) => Promise<Response>;
 
 /**
- * Creates a SvelteKit request handler that proxies requests to the Inference.sh API.
+ * Creates a SvelteKit request handler for the Inference.sh proxy.
  *
  * @param options - Proxy options
  * @returns A SvelteKit request handler function
- *
- * @example
- * ```typescript
- * // src/routes/api/inference/proxy/+server.ts
- * import { createRequestHandler } from "@inferencesh/sdk/proxy/svelte";
- *
- * const handler = createRequestHandler();
- *
- * export const GET = handler;
- * export const POST = handler;
- * export const PUT = handler;
- * ```
  */
-export function createRequestHandler({
-    resolveApiKey = resolveApiKeyFromEnv,
+export function createHandler({
+    resolveApiKey = getEnvApiKey,
 }: SvelteProxyOptions = {}): SvelteRequestHandler {
     return async (event) => {
         const request = event.request;
+        const url = new URL(request.url);
         const responseHeaders = new Headers();
 
-        return handleRequest({
-            id: "svelte",
+        return processProxyRequest({
+            framework: "sveltekit",
             method: request.method,
-            getRequestBody: async () => request.text(),
-            getHeaders: () => fromHeaders(request.headers),
-            getHeader: (name) => request.headers.get(name),
-            sendHeader: (name, value) => responseHeaders.set(name, value),
-            respondWith: (status, data) =>
+            body: () => request.text(),
+            headers: () => headersToRecord(request.headers),
+            header: (name) => request.headers.get(name),
+            query: (name) => url.searchParams.get(name) ?? undefined,
+            setHeader: (name: string, value: string) => responseHeaders.set(name, value),
+            error: (status: number, data: string | object) =>
                 new Response(JSON.stringify(data), {
                     status,
                     headers: {
@@ -74,8 +62,11 @@ export function createRequestHandler({
                         ...Object.fromEntries(responseHeaders.entries()),
                     },
                 }),
-            sendResponse: responsePassthrough,
-            resolveApiKey,
+            respond: passthrough,
+            apiKey: resolveApiKey,
         });
     };
 }
+
+/** @deprecated Use createHandler */
+export const createRequestHandler = createHandler;

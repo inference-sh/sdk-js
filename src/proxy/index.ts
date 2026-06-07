@@ -1,167 +1,222 @@
 /**
- * @inferencesh/sdk/proxy - Server-side proxy for Inference.sh API
+ * @inferencesh/sdk/proxy - Secure Server Proxy for Inference.sh API
  *
  * Protects API keys by proxying requests from frontend apps through your server.
  * Supports Next.js (App & Page Router), Express, Hono, Remix, and SvelteKit.
+ *
+ * @example Next.js App Router
+ * ```typescript
+ * // app/api/inference/proxy/route.ts
+ * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
+ * export const { GET, POST, PUT } = createHandler();
+ * ```
  */
 
-export const TARGET_URL_HEADER = "x-inf-target-url";
-export const DEFAULT_PROXY_ROUTE = "/api/inference/proxy";
+// ============================================================================
+// Constants
+// ============================================================================
 
-const INFERENCE_API_KEY = process.env.INFERENCE_API_KEY;
+/** Header name for target URL */
+export const INF_TARGET_HEADER = "x-inf-target-url";
 
-export type HeaderValue = string | string[] | undefined | null;
+/** Query param fallback for EventSource (browsers can't send headers with SSE) */
+export const INF_TARGET_PARAM = "__inf_target";
 
-// Only allow requests to inference.sh domains
-const INFERENCE_URL_REGEX = /(\.|^)inference\.sh$/;
+/** Default proxy route path */
+export const PROXY_PATH = "/api/inference/proxy";
+
+/** Valid inference.sh domain pattern */
+const VALID_DOMAIN_PATTERN = /(\.|^)inference\.sh$/;
+
+/** Headers stripped from response (fetch auto-decompresses) */
+const STRIP_RESPONSE_HEADERS = ["content-length", "content-encoding"];
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Header value from various HTTP libraries */
+export type HttpHeaderValue = string | string[] | undefined | null;
 
 /**
- * The proxy behavior interface - a subset of request/response objects
- * that abstracts framework-specific APIs.
+ * Framework adapter interface for proxy handlers.
+ * Implement this to support a new framework.
  */
-export interface ProxyBehavior<ResponseType> {
-    /** Framework identifier for logging/debugging */
-    id: string;
-    /** HTTP method */
+export interface ProxyAdapter<T> {
+    /** Framework name for user-agent */
+    framework: string;
+
+    /** HTTP method of the request */
     method: string;
-    /** Return an error response */
-    respondWith(status: number, data: string | object): ResponseType;
-    /** Pass through a fetch Response */
-    sendResponse(response: Response): Promise<ResponseType>;
-    /** Get all headers as a record */
-    getHeaders(): Record<string, HeaderValue>;
-    /** Get a single header value */
-    getHeader(name: string): HeaderValue;
-    /** Set a response header */
-    sendHeader(name: string, value: string): void;
-    /** Get the request body as a string */
-    getRequestBody(): Promise<string | undefined>;
-    /** Optional custom API key resolver */
-    resolveApiKey?: () => Promise<string | undefined>;
+
+    /** Get request body as string */
+    body: () => Promise<string | undefined>;
+
+    /** Get all request headers */
+    headers: () => Record<string, HttpHeaderValue>;
+
+    /** Get single header value */
+    header: (name: string) => HttpHeaderValue;
+
+    /** Get query parameter (optional, for SSE fallback) */
+    query?: (name: string) => string | undefined;
+
+    /** Set response header */
+    setHeader: (name: string, value: string) => void;
+
+    /** Send error response */
+    error: (status: number, message: string | object) => T;
+
+    /** Pass through fetch Response */
+    respond: (response: Response) => Promise<T>;
+
+    /** Custom API key resolver (optional) */
+    apiKey?: () => Promise<string | undefined>;
 }
 
 /**
- * Utility to get a header value as string from potentially array value.
+ * Proxy handler options.
  */
-function singleHeaderValue(value: HeaderValue): string | undefined {
+export interface ProxyOptions {
+    /** Custom API key (defaults to INFERENCE_API_KEY env var) */
+    apiKey?: string;
+
+    /** Allow requests to additional domains (besides *.inference.sh) */
+    allowedDomains?: RegExp[];
+}
+
+// ============================================================================
+// Utilities
+// ============================================================================
+
+/** Get first value from header (may be array) */
+function firstValue(value: HttpHeaderValue): string | undefined {
     if (!value) return undefined;
-    if (Array.isArray(value)) return value[0];
-    return value;
+    return Array.isArray(value) ? value[0] : value;
 }
 
-/**
- * Get the API key from environment variables.
- */
-function getApiKey(): string | undefined {
-    return INFERENCE_API_KEY;
+/** Get API key from environment */
+function envApiKey(): string | undefined {
+    return process.env.INFERENCE_API_KEY;
 }
 
-// Headers to exclude from response passthrough
-const EXCLUDED_HEADERS = ["content-length", "content-encoding"];
+/** Check if domain is allowed */
+function isAllowedDomain(host: string, extraDomains?: RegExp[]): boolean {
+    if (VALID_DOMAIN_PATTERN.test(host)) return true;
+    if (extraDomains) {
+        return extraDomains.some((pattern) => pattern.test(host));
+    }
+    return false;
+}
+
+// ============================================================================
+// Core Handler
+// ============================================================================
 
 /**
- * Core proxy request handler.
+ * Process a proxied request to the Inference.sh API.
  *
- * Proxies requests to the Inference.sh API with server-side credential injection.
- * This handler is framework-agnostic and works via the ProxyBehavior interface.
+ * This is the core handler that works with any framework via the ProxyAdapter interface.
+ * Framework-specific handlers (Next.js, Express, etc.) wrap this function.
  *
- * @param behavior - Framework-specific request/response handling
- * @returns Promise that resolves when the request is handled
+ * @param adapter - Framework-specific adapter
+ * @param options - Optional configuration
+ * @returns Promise resolving to the framework's response type
  */
-export async function handleRequest<ResponseType>(
-    behavior: ProxyBehavior<ResponseType>
-): Promise<ResponseType> {
-    // 1. Get and validate target URL
-    const targetUrl = singleHeaderValue(behavior.getHeader(TARGET_URL_HEADER));
+export async function processProxyRequest<T>(
+    adapter: ProxyAdapter<T>,
+    options?: ProxyOptions
+): Promise<T> {
+    // 1. Extract target URL (header first, query param fallback for SSE)
+    let targetUrl = firstValue(adapter.header(INF_TARGET_HEADER));
+
+    if (!targetUrl && adapter.query) {
+        const queryParam = adapter.query(INF_TARGET_PARAM);
+        if (queryParam) {
+            targetUrl = decodeURIComponent(queryParam);
+        }
+    }
+
     if (!targetUrl) {
-        return behavior.respondWith(400, {
-            error: `Missing the ${TARGET_URL_HEADER} header`,
+        return adapter.error(400, {
+            error: `Missing ${INF_TARGET_HEADER} header or ${INF_TARGET_PARAM} query param`,
         });
     }
 
-    // 2. Validate target is an inference.sh domain
-    let urlHost: string;
+    // 2. Validate target domain
+    let host: string;
     try {
-        urlHost = new URL(targetUrl).host;
+        host = new URL(targetUrl).host;
     } catch {
-        return behavior.respondWith(400, {
-            error: `Invalid ${TARGET_URL_HEADER} header: not a valid URL`,
+        return adapter.error(400, { error: "Invalid target URL" });
+    }
+
+    if (!isAllowedDomain(host, options?.allowedDomains)) {
+        return adapter.error(412, {
+            error: `Target must be an inference.sh domain, got: ${host}`,
         });
     }
 
-    if (!INFERENCE_URL_REGEX.test(urlHost)) {
-        return behavior.respondWith(412, {
-            error: `Invalid ${TARGET_URL_HEADER} header: must be an inference.sh domain`,
-        });
-    }
-
-    // 3. Get API key
-    const apiKey = behavior.resolveApiKey
-        ? await behavior.resolveApiKey()
-        : getApiKey();
+    // 3. Resolve API key
+    const apiKey = options?.apiKey
+        ?? (adapter.apiKey ? await adapter.apiKey() : undefined)
+        ?? envApiKey();
 
     if (!apiKey) {
-        return behavior.respondWith(401, {
+        return adapter.error(401, {
             error: "Missing INFERENCE_API_KEY environment variable",
         });
     }
 
-    // 4. Build forwarded headers (x-inf-* prefixed)
-    const forwardedHeaders: Record<string, string> = {};
-    const allHeaders = behavior.getHeaders();
-    for (const key of Object.keys(allHeaders)) {
+    // 4. Collect x-inf-* headers to forward
+    const forwardHeaders: Record<string, string> = {};
+    const allHeaders = adapter.headers();
+    for (const [key, value] of Object.entries(allHeaders)) {
         if (key.toLowerCase().startsWith("x-inf-")) {
-            const value = singleHeaderValue(allHeaders[key]);
-            if (value) {
-                forwardedHeaders[key.toLowerCase()] = value;
-            }
+            const v = firstValue(value);
+            if (v) forwardHeaders[key.toLowerCase()] = v;
         }
     }
 
-    // 5. Forward content-type if present
-    const contentType = singleHeaderValue(behavior.getHeader("content-type"));
+    // 5. Build request headers
+    const contentType = firstValue(adapter.header("content-type"));
+    const userAgent = firstValue(adapter.header("user-agent"));
+    const proxyId = `@inferencesh/sdk-proxy/${adapter.framework}`;
 
-    // 6. Build proxy user agent
-    const proxyUserAgent = `@inferencesh/sdk-proxy/${behavior.id}`;
-    const userAgent = singleHeaderValue(behavior.getHeader("user-agent"));
-
-    // 7. Make the proxied request
-    const res = await fetch(targetUrl, {
-        method: behavior.method,
+    // 6. Make upstream request
+    const response = await fetch(targetUrl, {
+        method: adapter.method,
         headers: {
-            ...forwardedHeaders,
-            authorization:
-                singleHeaderValue(behavior.getHeader("authorization")) ??
-                `Bearer ${apiKey}`,
+            ...forwardHeaders,
+            authorization: firstValue(adapter.header("authorization")) ?? `Bearer ${apiKey}`,
             accept: "application/json",
             "content-type": contentType || "application/json",
-            "user-agent": userAgent || proxyUserAgent,
-            "x-inf-client-proxy": proxyUserAgent,
+            "user-agent": userAgent || proxyId,
+            "x-inf-proxy": proxyId,
         } as HeadersInit,
-        body:
-            behavior.method?.toUpperCase() === "GET"
-                ? undefined
-                : await behavior.getRequestBody(),
+        body: adapter.method.toUpperCase() === "GET" ? undefined : await adapter.body(),
     });
 
-    // 8. Copy response headers (excluding certain ones)
-    res.headers.forEach((value, key) => {
-        if (!EXCLUDED_HEADERS.includes(key.toLowerCase())) {
-            behavior.sendHeader(key, value);
+    // 7. Forward response headers (strip compression headers since fetch decompresses)
+    response.headers.forEach((value, key) => {
+        if (!STRIP_RESPONSE_HEADERS.includes(key.toLowerCase())) {
+            adapter.setHeader(key, value);
         }
     });
 
-    // 9. Return the response
-    return behavior.sendResponse(res);
+    // 8. Return response
+    return adapter.respond(response);
 }
 
+// ============================================================================
+// Helpers for Framework Adapters
+// ============================================================================
+
 /**
- * Convert a Headers object to a plain record.
+ * Convert Headers object to plain record.
  */
-export function fromHeaders(
-    headers: Headers
-): Record<string, string | string[]> {
-    const result: Record<string, string | string[]> = {};
+export function headersToRecord(headers: Headers): Record<string, string> {
+    const result: Record<string, string> = {};
     headers.forEach((value, key) => {
         result[key] = value;
     });
@@ -169,11 +224,39 @@ export function fromHeaders(
 }
 
 /**
- * Simple passthrough for Response objects (used in app router style handlers).
+ * Simple response passthrough (for App Router style handlers).
  */
-export const responsePassthrough = (res: Response) => Promise.resolve(res);
+export const passthrough = (res: Response) => Promise.resolve(res);
 
 /**
- * Resolve API key from environment (exposed for custom handlers).
+ * Resolve API key from INFERENCE_API_KEY env var.
  */
-export const resolveApiKeyFromEnv = () => Promise.resolve(getApiKey());
+export const getEnvApiKey = () => Promise.resolve(envApiKey());
+
+// ============================================================================
+// Legacy Exports (backwards compatibility)
+// ============================================================================
+
+/** @deprecated Use INF_TARGET_HEADER */
+export const TARGET_URL_HEADER = INF_TARGET_HEADER;
+
+/** @deprecated Use INF_TARGET_PARAM */
+export const TARGET_URL_QUERY_PARAM = INF_TARGET_PARAM;
+
+/** @deprecated Use PROXY_PATH */
+export const DEFAULT_PROXY_ROUTE = PROXY_PATH;
+
+/** @deprecated Use ProxyAdapter */
+export type ProxyBehavior<T> = ProxyAdapter<T>;
+
+/** @deprecated Use processProxyRequest */
+export const handleRequest = processProxyRequest;
+
+/** @deprecated Use headersToRecord */
+export const fromHeaders = headersToRecord;
+
+/** @deprecated Use passthrough */
+export const responsePassthrough = passthrough;
+
+/** @deprecated Use getEnvApiKey */
+export const resolveApiKeyFromEnv = getEnvApiKey;

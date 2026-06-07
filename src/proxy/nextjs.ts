@@ -1,57 +1,69 @@
 /**
- * Next.js proxy handlers for Inference.sh API
+ * @inferencesh/sdk/proxy/nextjs - Next.js Proxy Handlers
  *
- * Supports both App Router (route handlers) and Page Router (API handlers).
+ * Supports both App Router (route handlers) and Page Router (API routes).
  *
  * @example App Router (app/api/inference/proxy/route.ts)
  * ```typescript
- * import { route } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = route;
+ * import { handlers } from "@inferencesh/sdk/proxy/nextjs";
+ * export const { GET, POST, PUT } = handlers;
  * ```
  *
  * @example Page Router (pages/api/inference/proxy.ts)
  * ```typescript
- * export { handler as default } from "@inferencesh/sdk/proxy/nextjs";
+ * export { pageHandler as default } from "@inferencesh/sdk/proxy/nextjs";
  * ```
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import type { NextApiHandler } from "next/types";
 import {
-    DEFAULT_PROXY_ROUTE,
-    fromHeaders,
-    handleRequest,
-    responsePassthrough,
+    PROXY_PATH,
+    processProxyRequest,
+    headersToRecord,
+    passthrough,
+    INF_TARGET_PARAM,
 } from "./index";
 
-/**
- * The default proxy route path.
- */
-export const PROXY_ROUTE = DEFAULT_PROXY_ROUTE;
+// ============================================================================
+// Exports
+// ============================================================================
+
+/** Default proxy route path */
+export const PROXY_ROUTE = PROXY_PATH;
+
+// ============================================================================
+// Page Router Handler
+// ============================================================================
 
 /**
- * Page Router handler for the Inference.sh proxy.
+ * Page Router API handler for the Inference.sh proxy.
  *
- * Note: Page Router proxy doesn't support streaming responses.
- * For streaming, use the App Router.
+ * Note: Page Router doesn't support streaming responses.
+ * For streaming SSE, use the App Router.
  *
  * @example
  * ```typescript
  * // pages/api/inference/proxy.ts
- * export { handler as default } from "@inferencesh/sdk/proxy/nextjs";
+ * export { pageHandler as default } from "@inferencesh/sdk/proxy/nextjs";
  * ```
  */
-export const handler: NextApiHandler = async (request, response) => {
-    return handleRequest({
-        id: "nextjs-page-router",
+export const pageHandler: NextApiHandler = async (request, response) => {
+    return processProxyRequest({
+        framework: "nextjs-pages",
         method: request.method || "POST",
-        getRequestBody: async () => JSON.stringify(request.body),
-        getHeaders: () => request.headers as Record<string, string | string[]>,
-        getHeader: (name) => request.headers[name],
-        sendHeader: (name, value) => response.setHeader(name, value),
-        respondWith: (status, data) => response.status(status).json(data),
-        sendResponse: async (res) => {
-            if (res.headers.get("content-type")?.includes("application/json")) {
+        body: async () => JSON.stringify(request.body),
+        headers: () => request.headers as Record<string, string | string[]>,
+        header: (name) => request.headers[name],
+        query: (name) => {
+            const value = request.query[name];
+            return Array.isArray(value) ? value[0] : value;
+        },
+        setHeader: (name, value) => response.setHeader(name, value),
+        error: (status, data) => response.status(status).json(data),
+        respond: async (res) => {
+            const contentType = res.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
                 return response.status(res.status).json(await res.json());
             }
             return response.status(res.status).send(await res.text());
@@ -59,45 +71,70 @@ export const handler: NextApiHandler = async (request, response) => {
     });
 };
 
+// ============================================================================
+// App Router Handler
+// ============================================================================
+
 /**
- * App Router handler for the Inference.sh proxy.
- *
+ * Create an App Router handler for the Inference.sh proxy.
  * Supports full streaming passthrough for SSE responses.
- *
- * @param request - Next.js request object
- * @returns Response object
  */
-async function routeHandler(request: NextRequest) {
+async function appHandler(request: NextRequest) {
     const responseHeaders = new Headers();
-    return await handleRequest({
-        id: "nextjs-app-router",
+    const url = new URL(request.url);
+
+    return processProxyRequest({
+        framework: "nextjs-app",
         method: request.method,
-        getRequestBody: async () => request.text(),
-        getHeaders: () => fromHeaders(request.headers),
-        getHeader: (name) => request.headers.get(name),
-        sendHeader: (name, value) => responseHeaders.set(name, value),
-        respondWith: (status, data) =>
-            NextResponse.json(data, {
-                status,
+        body: () => request.text(),
+        headers: () => headersToRecord(request.headers),
+        header: (name) => request.headers.get(name),
+        query: (name) => url.searchParams.get(name) ?? undefined,
+        setHeader: (name, value) => responseHeaders.set(name, value),
+        error: (status, data) =>
+            NextResponse.json(data, { status, headers: responseHeaders }),
+        respond: async (response) => {
+            // Return new Response with cleaned headers (content-encoding stripped)
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
                 headers: responseHeaders,
-            }),
-        sendResponse: responsePassthrough,
+            });
+        },
     });
 }
 
+// ============================================================================
+// Route Exports
+// ============================================================================
+
 /**
- * App Router route exports.
+ * App Router route handlers.
  *
  * @example
  * ```typescript
  * // app/api/inference/proxy/route.ts
- * import { route } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = route;
+ * import { handlers } from "@inferencesh/sdk/proxy/nextjs";
+ * export const { GET, POST, PUT } = handlers;
  * ```
  */
+export const handlers = {
+    GET: appHandler,
+    POST: appHandler,
+    PUT: appHandler,
+};
+
+// ============================================================================
+// Legacy Exports (backwards compatibility)
+// ============================================================================
+
+/** @deprecated Use pageHandler */
+export const handler = pageHandler;
+
+/** @deprecated Use handlers */
 export const route = {
-    handler: routeHandler,
-    GET: routeHandler,
-    POST: routeHandler,
-    PUT: routeHandler,
+    handler: appHandler,
+    GET: appHandler,
+    POST: appHandler,
+    PUT: appHandler,
 };
