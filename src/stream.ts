@@ -183,20 +183,15 @@ export class StreamManager<T> {
         if (this.isStopped) return;
         try {
           const parsed = JSON.parse(e.data);
-          
+
           // Check if this is a partial data wrapper from the server
           if (isPartialDataWrapper<T>(parsed)) {
-            // Extract the actual data from the wrapper
-            const actualData = parsed.data;
-            const fields = parsed.fields;
-            
-            // Call onPartialData if provided
+            // Call onPartialData if provided, otherwise onData with extracted data
             if (this.options.onPartialData) {
-              this.options.onPartialData(actualData, fields);
+              this.options.onPartialData(parsed.data, parsed.fields);
+            } else {
+              this.options.onData?.(parsed.data);
             }
-            
-            // Always call onData with the extracted data
-            this.options.onData?.(actualData);
           } else {
             // Not a partial wrapper, treat as full data
             this.options.onData?.(parsed as T);

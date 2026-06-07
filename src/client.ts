@@ -20,18 +20,11 @@ import { StreamManager } from './stream';
 import { EventSource } from 'eventsource';
 import { InferenceError, RequirementsNotMetException } from './errors';
 
-// =============================================================================
-// Agent Types
-// =============================================================================
-
-/**
- * Ad-hoc agent configuration - extends AgentConfig with core_app_ref required
- * Uses Partial to make fields optional for ad-hoc usage
- */
-export type AdHocAgentConfig = Partial<AgentConfig> & {
-  /** Core LLM app ref: namespace/name@shortid (required for ad-hoc agents) */
-  core_app_ref: string;
-};
+/** Options for creating an agent */
+export interface AgentOptions {
+  /** Optional name for the adhoc agent (used for deduplication and display) */
+  name?: string;
+}
 
 export interface SendMessageOptions {
   /** File attachments (Blob or base64 data URI) */
@@ -492,12 +485,18 @@ export class Inference {
    *   tools: [...]
    * })
    * 
+   * // Ad-hoc agent with name for grouping
+   * const agent = client.agent(
+   *   { core_app_ref: 'infsh/claude-sonnet-4@xyz789' },
+   *   { name: 'My Assistant' }
+   * )
+   * 
    * // Send messages
    * const response = await agent.sendMessage('Hello!')
    * ```
    */
-  agent(config: string | AdHocAgentConfig): Agent {
-    return new Agent(this, config);
+  agent(config: string | AgentConfig, options?: AgentOptions): Agent {
+    return new Agent(this, config, options);
   }
 }
 
@@ -512,15 +511,17 @@ export class Inference {
  */
 export class Agent {
   private readonly client: Inference;
-  private readonly config: string | AdHocAgentConfig;
+  private readonly config: string | AgentConfig;
+  private readonly agentName: string | undefined;
   private chatId: string | null = null;
   private stream: StreamManager<unknown> | null = null;
   private dispatchedToolCalls: Set<string> = new Set();
 
   /** @internal */
-  constructor(client: Inference, config: string | AdHocAgentConfig) {
+  constructor(client: Inference, config: string | AgentConfig, options?: AgentOptions) {
     this.client = client;
     this.config = config;
+    this.agentName = options?.name;
   }
 
   /** Get current chat ID */
@@ -531,6 +532,7 @@ export class Agent {
   /** Send a message to the agent */
   async sendMessage(text: string, options: SendMessageOptions = {}): Promise<{ userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO }> {
     const isTemplate = typeof this.config === 'string';
+    const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall);
 
     // Upload files if provided
     let imageUri: string | undefined;
@@ -554,25 +556,36 @@ export class Agent {
       }
       : {
         chat_id: this.chatId,
-        agent_config: this.config as AdHocAgentConfig,
+        agent_config: this.config as AgentConfig,
+        agent_name: this.agentName,
         input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
 
+    // For existing chats with callbacks: Start streaming BEFORE POST so we don't miss updates
+    let streamPromise: Promise<void> | null = null;
+    if (this.chatId && hasCallbacks) {
+      streamPromise = this.streamUntilIdle(options);
+    }
+
+    // Make the POST request
     const response = await this.client._request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
       'post',
       '/agents/run',
       { data: body }
     );
 
-    // Start streaming for new chats or continue existing stream
+    // For new chats: Set chatId and start streaming immediately after POST
     const isNewChat = !this.chatId && response.assistant_message.chat_id;
     if (isNewChat) {
       this.chatId = response.assistant_message.chat_id;
+      if (hasCallbacks) {
+        streamPromise = this.streamUntilIdle(options);
+      }
     }
 
-    // Wait for streaming to complete if callbacks are provided
-    if (options.onMessage || options.onChat || options.onToolCall) {
-      await this.streamUntilIdle(options);
+    // Wait for streaming to complete
+    if (streamPromise) {
+      await streamPromise;
     }
 
     return { userMessage: response.user_message, assistantMessage: response.assistant_message };
@@ -620,6 +633,28 @@ export class Agent {
     this.dispatchedToolCalls.clear();
   }
 
+  /**
+   * Start streaming for the current chat.
+   * Call this after sendMessage to receive real-time updates.
+   * This is useful when you want to manage streaming separately from sendMessage.
+   * 
+   * @example
+   * ```typescript
+   * // Send message without waiting for streaming
+   * const { userMessage, assistantMessage } = await agent.sendMessage('hello');
+   * 
+   * // Start streaming separately
+   * agent.startStreaming({
+   *   onMessage: (msg) => console.log(msg.content),
+   *   onChat: (chat) => console.log(chat.status),
+   * });
+   * ```
+   */
+  startStreaming(options: Omit<SendMessageOptions, 'files'> = {}): void {
+    if (!this.chatId) return;
+    this.streamUntilIdle(options);
+  }
+
   /** Stream events until chat becomes idle */
   private streamUntilIdle(options: SendMessageOptions): Promise<void> {
     if (!this.chatId) return Promise.resolve();
@@ -633,6 +668,7 @@ export class Agent {
         autoReconnect: true,
       });
 
+      // Listen for Chat object updates (status changes)
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
         options.onChat?.(chat);
         // Resolve when chat becomes idle (generation complete)
@@ -641,6 +677,7 @@ export class Agent {
         }
       });
 
+      // Listen for ChatMessage updates
       this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
         options.onMessage?.(message);
 
