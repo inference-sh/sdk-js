@@ -11,7 +11,7 @@ import {
  * Flows API
  */
 export class FlowsAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List flows with cursor-based pagination
@@ -38,7 +38,7 @@ export class FlowsAPI {
    * Update a flow
    */
   async update(flowId: string, data: Partial<Flow>): Promise<Flow> {
-    return this.http.request<Flow>('put', `/flows/${flowId}`, { data });
+    return this.http.request<Flow>('post', `/flows/${flowId}`, { data });
   }
 
   /**

@@ -42,7 +42,7 @@ function stripTask(task: Task): Task {
  * Tasks API
  */
 export class TasksAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List tasks with cursor-based pagination
@@ -55,7 +55,7 @@ export class TasksAPI {
    * List featured tasks with cursor-based pagination
    */
   async listFeatured(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
-    return this.http.request<CursorListResponse<Task>>('post', '/tasks/featured', { data: params });
+    return this.http.request<CursorListResponse<Task>>('get', '/tasks/featured', { params });
   }
 
   /**
@@ -173,14 +173,14 @@ export class TasksAPI {
    * Update task visibility
    */
   async updateVisibility(taskId: string, visibility: string): Promise<Task> {
-    return this.http.request<Task>('put', `/tasks/${taskId}/visibility`, { data: { visibility } });
+    return this.http.request<Task>('post', `/tasks/${taskId}/visibility`, { data: { visibility } });
   }
 
   /**
    * Feature/unfeature a task
    */
   async feature(taskId: string, featured: boolean): Promise<Task> {
-    return this.http.request<Task>('put', `/tasks/${taskId}/feature`, { data: { featured } });
+    return this.http.request<Task>('post', `/tasks/${taskId}/featured`, { data: { featured } });
   }
 }
 

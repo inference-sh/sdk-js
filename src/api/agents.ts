@@ -106,16 +106,16 @@ export class Agent {
 
     const body: Record<string, unknown> = isTemplate
       ? {
-          chat_id: this.chatId,
-          agent: this.config as string,
-          input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        }
+        chat_id: this.chatId,
+        agent: this.config as string,
+        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+      }
       : {
-          chat_id: this.chatId,
-          agent_config: this.config as AgentConfig,
-          agent_name: this.agentName,
-          input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        };
+        chat_id: this.chatId,
+        agent_config: this.config as AgentConfig,
+        agent_name: this.agentName,
+        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+      };
 
     // For existing chats with callbacks: Start streaming BEFORE POST so we don't miss updates
     let streamPromise: Promise<void> | null = null;
@@ -242,7 +242,7 @@ export class AgentsAPI {
   constructor(
     private readonly http: HttpClient,
     private readonly files: FilesAPI
-  ) {}
+  ) { }
 
   // ==========================================================================
   // Agent Template CRUD (stored agent configurations)
@@ -273,7 +273,7 @@ export class AgentsAPI {
    * Update an agent template
    */
   async update(agentId: string, data: Partial<AgentDTO>): Promise<AgentDTO> {
-    return this.http.request<AgentDTO>('put', `/agents/${agentId}`, { data });
+    return this.http.request<AgentDTO>('post', `/agents/${agentId}`, { data });
   }
 
   /**
@@ -308,7 +308,7 @@ export class AgentsAPI {
    * Update agent visibility
    */
   async updateVisibility(agentId: string, visibility: string): Promise<AgentDTO> {
-    return this.http.request<AgentDTO>('put', `/agents/${agentId}/visibility`, { data: { visibility } });
+    return this.http.request<AgentDTO>('post', `/agents/${agentId}/visibility`, { data: { visibility } });
   }
 
   /**
