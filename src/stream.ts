@@ -81,10 +81,13 @@ export class StreamManager<T> {
     source.addEventListener(eventName, (e: MessageEvent) => {
       if (this.isStopped) return;
       try {
-        const data = JSON.parse(e.data);
+        const parsed = JSON.parse(e.data);
         const listeners = this.eventListeners.get(eventName);
         if (listeners?.size) {
-          listeners.forEach(callback => callback(data));
+          // Extract actual data from partial wrapper if present
+          // Server may send {data: T, fields: [...]} for typed events too
+          const actualData = isPartialDataWrapper(parsed) ? parsed.data : parsed;
+          listeners.forEach(callback => callback(actualData));
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Invalid JSON');
