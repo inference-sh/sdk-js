@@ -601,6 +601,7 @@ export interface DeviceAuthPollResponse {
 export interface DeviceAuthApproveRequest {
   code: string; // The user_code
   team_id: string; // The team to associate the API key with
+  scopes?: string[]; // Optional: restrict the API key to specific scopes
 }
 /**
  * DeviceAuthApproveResponse is returned after approval
@@ -756,6 +757,40 @@ export interface EngineConfig {
    * If empty, derived as http://host.docker.internal:{EnginePort}.
    */
   engine_internal_api_url: string;
+}
+
+//////////
+// source: api_key_scopes.go
+
+/**
+ * ScopeGroup identifies a category of scopes for UI grouping
+ */
+export type ScopeGroup = string;
+export const ScopeGroupAgents: ScopeGroup = "agents";
+export const ScopeGroupApps: ScopeGroup = "apps";
+export const ScopeGroupConversations: ScopeGroup = "conversations";
+export const ScopeGroupFiles: ScopeGroup = "files";
+export const ScopeGroupDatastores: ScopeGroup = "datastores";
+export const ScopeGroupFlows: ScopeGroup = "flows";
+export const ScopeGroupProjects: ScopeGroup = "projects";
+export const ScopeGroupTeams: ScopeGroup = "teams";
+export const ScopeGroupBilling: ScopeGroup = "billing";
+/**
+ * ScopeDefinition describes a single scope for UI rendering
+ */
+export interface ScopeDefinition {
+  value: string; // The scope string (e.g., "agents:read")
+  label: string; // Human-readable label
+  description: string; // Longer description
+  group: ScopeGroup; // Category for grouping
+}
+/**
+ * ScopeGroupDefinition describes a group of scopes for UI rendering
+ */
+export interface ScopeGroupDefinition {
+  id: ScopeGroup;
+  label: string;
+  description: string;
 }
 
 //////////
