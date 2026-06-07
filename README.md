@@ -340,6 +340,75 @@ await agent.sendMessage('What is the weather in Paris?', {
 
 For multi-turn chats, the SDK opens the chat stream before sending the next message so updates are not missed. Use `stopChat()` to cancel in-flight generation (`POST /chats/{id}/stop`), and `reset()` to clear the current chat and start fresh.
 
+### Tool builder
+
+Use the fluent builders to define `AgentTool` schemas. Client tools (`tool`) run in your app via `onToolCall`; server-side tools run on inference.sh.
+
+| Builder | Runs on | Description |
+|---------|---------|-------------|
+| `tool(name)` | Client | Local handler; only the schema is sent to the API |
+| `appTool(name, appRef)` | Server | Invoke another inference app |
+| `agentTool(name, agentRef)` | Server | Delegate to a sub-agent |
+| `httpTool(name, url)` / `callTool(name, url)` | Server | HTTP request with credential injection (preferred over `webhookTool`) |
+| `webhookTool(name, url)` | Server | Unsigned webhook (legacy; use `httpTool` for new tools) |
+| `mcpTool(name, integrationId, toolName)` | Server | Call a tool on a connected MCP integration |
+| `internalTools()` | Server | Built-in plan, memory, and widget tools |
+
+```typescript
+import {
+  inference,
+  tool,
+  appTool,
+  httpTool,
+  mcpTool,
+  internalTools,
+  string,
+  IntegrationProviderGoogle,
+} from '@inferencesh/sdk';
+
+const clientTool = tool('get_weather')
+  .describe('Get current weather')
+  .param('city', string('City name'))
+  .build();
+
+// HTTP tool with OAuth integration credentials (injected server-side)
+const gmailSend = httpTool('gmail_send', 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send')
+  .describe('Send an email via Gmail')
+  .method('POST')
+  .auth({ integration: IntegrationProviderGoogle, integrationId: 'your-integration-id' })
+  .build();
+
+// API key or bearer auth
+const fetchData = httpTool('fetch', 'https://api.example.com/data')
+  .method('GET')
+  .auth({ apiKey: 'YOUR_KEY', header: 'X-API-Key' }) // default header: X-API-Key
+  .header('Accept', 'application/json')
+  .build();
+
+const bearerFetch = httpTool('bearer_fetch', 'https://api.example.com')
+  .auth({ bearer: 'YOUR_TOKEN' })
+  .build();
+
+const imageGen = appTool('generate_image', 'infsh/flux-schnell@abc123')
+  .param('prompt', string('Image description'))
+  .requireApproval()
+  .build();
+
+const mcpSearch = mcpTool('notion_search', 'your-mcp-integration-id', 'search')
+  .describe('Search Notion pages')
+  .param('query', string('Search query'))
+  .build();
+
+const agent = client.agents.create({
+  core_app: { ref: 'infsh/claude-sonnet-4@latest' },
+  system_prompt: 'You are helpful.',
+  tools: [clientTool, gmailSend, imageGen, mcpSearch],
+  internal_tools: internalTools().memory().build(),
+});
+```
+
+`callTool` is an alias for `httpTool`. Run `npx tsx examples/tool-builder.ts` for more schema examples (no API key required).
+
 ### File attachments
 
 Pass files in `sendMessage` options. `Blob` values are uploaded first; objects with a `uri` (already uploaded via `client.files.upload`) are attached as-is:

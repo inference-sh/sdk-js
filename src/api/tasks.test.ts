@@ -236,6 +236,32 @@ describe('TasksAPI.run (streaming mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
+  it('should reject when partial stream reports failure', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        data: { status: TaskStatusFailed, id: 'task-1', error: 'partial fail' },
+        fields: ['status'],
+      })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('partial fail');
+  });
+
+  it('should reject when partial stream reports cancellation', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        data: { status: TaskStatusCancelled, id: 'task-1' },
+        fields: ['status'],
+      })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('task cancelled');
+  });
+
   it('should handle partial updates via onPartialUpdate', async () => {
     setupStreamMocks([
       `${JSON.stringify({

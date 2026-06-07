@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- README tool builder section: `httpTool`/`callTool` auth, `mcpTool`, and builder comparison table
+- `examples/tool-builder.ts` demonstrates HTTP and MCP tool schemas
+
 - Typed SDK constants for integrations: `IntegrationProvider*`, `IntegrationAuthType*`, `IntegrationStatus*`
 - `IntegrationDTO` fields (`provider`, `type`, `auth`, `status`) now use those typed aliases
 - Additional `InstanceStatus*` constants (`creating`, `pending_provider`, `error`, `deleting`)

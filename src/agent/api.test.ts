@@ -6,6 +6,11 @@ import {
   sendTemplateMessage,
   sendMessage,
   submitToolResult,
+  approveTool,
+  rejectTool,
+  alwaysAllowTool,
+  fetchChat,
+  stopChat,
   getChatStreamConfig,
 } from './api';
 import { ToolTypeClient } from '../types';
@@ -44,6 +49,14 @@ describe('agent/api', () => {
   });
 
   describe('sendAdHocMessage', () => {
+    it('should return null when the API response omits messages', async () => {
+      mockJsonResponse({ success: true, data: {} });
+
+      const result = await sendAdHocMessage(makeClient(), adHocConfig, null, 'hello');
+
+      expect(result).toBeNull();
+    });
+
     it('should strip client tool handlers from the agents/run request body', async () => {
       mockJsonResponse({ success: true, data: runResponse });
 
@@ -80,6 +93,22 @@ describe('agent/api', () => {
   });
 
   describe('sendTemplateMessage', () => {
+    it('should return null when assistant_message is missing', async () => {
+      mockJsonResponse({
+        success: true,
+        data: { user_message: { id: 'u1', chat_id: 'chat-1', role: 'user' } },
+      });
+
+      const result = await sendTemplateMessage(
+        makeClient(),
+        { agent: 'agent-1' },
+        null,
+        'hello'
+      );
+
+      expect(result).toBeNull();
+    });
+
     it('should omit empty agent field for existing chats', async () => {
       mockJsonResponse({ success: true, data: runResponse });
 
@@ -108,6 +137,22 @@ describe('agent/api', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(String(init.body));
       expect(body.input.attachments).toEqual([fileRef]);
+    });
+
+    it('should omit attachments when every file upload fails', async () => {
+      const client = makeClient();
+      const uploadSpy = jest
+        .spyOn(client.files, 'upload')
+        .mockRejectedValue(new Error('upload failed'));
+      mockJsonResponse({ success: true, data: runResponse });
+
+      const file = new File(['data'], 'doc.txt', { type: 'text/plain' });
+      await sendMessage(client, adHocConfig, null, 'with file', [file]);
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.input.attachments).toBeUndefined();
+      uploadSpy.mockRestore();
     });
 
     it('should upload File inputs before sending', async () => {
@@ -153,6 +198,81 @@ describe('agent/api', () => {
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual(payload);
+    });
+  });
+
+  describe('fetchChat', () => {
+    it('should return chat data on success', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      mockJsonResponse({ success: true, data: chat });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual(chat);
+    });
+
+    it('should return null and not throw when the request fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('stopChat', () => {
+    it('should POST to /chats/{id}/stop', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await stopChat(makeClient(), 'chat-1');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/stop');
+      expect(init.method).toBe('POST');
+    });
+
+    it('should swallow errors without throwing', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('stop failed'));
+
+      await expect(stopChat(makeClient(), 'chat-1')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('HIL tool approval', () => {
+    it('approveTool should POST to /tools/{id}/invoke', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await approveTool(makeClient(), 'inv-approve');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/tools/inv-approve/invoke');
+      expect(init.method).toBe('POST');
+    });
+
+    it('rejectTool should POST reason to /tools/{id}/reject', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await rejectTool(makeClient(), 'inv-reject', 'not safe');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/tools/inv-reject/reject');
+      expect(JSON.parse(String(init.body))).toEqual({ reason: 'not safe' });
+    });
+
+    it('alwaysAllowTool should POST tool_name to the chat tools endpoint', async () => {
+      mockJsonResponse({ success: true, data: null });
+
+      await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'browser_tool');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
+      expect(JSON.parse(String(init.body))).toEqual({ tool_name: 'browser_tool' });
+    });
+
+    it('should rethrow when approveTool request fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('approve failed'));
+
+      await expect(approveTool(makeClient(), 'inv-1')).rejects.toThrow('approve failed');
     });
   });
 

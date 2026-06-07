@@ -25,7 +25,7 @@ These examples demonstrate how to use the `@inferencesh/sdk` package.
 | `basic.js` | `node examples/basic.js` | Run a task and print the result |
 | `agent-template.ts` | `npx tsx examples/agent-template.ts` | Chat with a workspace agent template (`AGENT=namespace/name@shortid`) |
 | `agent-chat.ts` | `npx tsx examples/agent-chat.ts` | Ad-hoc agent with client tools and multi-turn chat |
-| `tool-builder.ts` | `npx tsx examples/tool-builder.ts` | Tool schema builder and manual `ToolParamType*` schemas (no API key) |
+| `tool-builder.ts` | `npx tsx examples/tool-builder.ts` | Tool builders (`tool`, `httpTool`, `mcpTool`, …) and `ToolParamType*` schemas (no API key) |
 
 ## SDK constants
 
