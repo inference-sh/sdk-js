@@ -22,6 +22,7 @@ export const ToolTypeApp: ToolType = "app"; // App tools - creates a Task
 export const ToolTypeAgent: ToolType = "agent"; // Sub-agent tools - creates a sub-Chat
 export const ToolTypeHook: ToolType = "hook"; // Webhook tools - HTTP POST to external URL (legacy)
 export const ToolTypeHTTP: ToolType = "http"; // HTTP tools - authenticated HTTP request/response
+export const ToolTypeCall: ToolType = "call"; // Call tools - alias for HTTP (preferred name)
 export const ToolTypeMCP: ToolType = "mcp"; // MCP tools - calls remote MCP server
 export const ToolTypeClient: ToolType = "client"; // Client tools - executed by frontend
 export const ToolTypeInternal: ToolType = "internal"; // Internal/built-in tools (plan, memory, widget, finish)
