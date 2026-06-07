@@ -62,6 +62,7 @@ function toJsonSchema(params: Record<string, ParamSchema>): Record<string, unkno
     if (schema.properties) {
       const nested = toJsonSchema(schema.properties as Record<string, ParamSchema>);
       prop.properties = nested.properties;
+      if ((nested.required as string[]).length > 0) prop.required = nested.required;
     }
     if (schema.items) {
       const itemSchema = toJsonSchema({ _item: schema.items as ParamSchema });
