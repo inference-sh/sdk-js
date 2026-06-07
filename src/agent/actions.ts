@@ -106,10 +106,18 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     dispatch({ type: 'SET_STATUS', payload: 'connecting' });
     callbacks.onStatusChange?.('connecting');
 
-    // Fetch initial chat
-    const chat = await api.fetchChat(client, id);
-    if (chat) {
-      setChat(chat);
+    try {
+      // Fetch initial chat
+      const chat = await api.fetchChat(client, id);
+      if (chat) {
+        setChat(chat);
+      }
+    } catch (error) {
+      console.error('[AgentSDK] Failed to fetch chat:', error);
+      dispatch({ type: 'SET_STATUS', payload: 'idle' });
+      dispatch({ type: 'SET_IS_GENERATING', payload: false });
+      callbacks.onStatusChange?.('idle');
+      return;
     }
 
     // Single unified stream with TypedEvents (both Chat and ChatMessage events)
@@ -125,6 +133,17 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       onStart: () => {
         dispatch({ type: 'SET_STATUS', payload: 'streaming' });
         callbacks.onStatusChange?.('streaming');
+      },
+      onStop: () => {
+        // Only reset if this is an unexpected stop (stream died, max reconnects exhausted).
+        // If stopStream() was called intentionally, it clears the manager ref first,
+        // so getStreamManager() will be undefined and we skip the duplicate dispatch.
+        if (getStreamManager()) {
+          setStreamManager(undefined);
+          dispatch({ type: 'SET_STATUS', payload: 'idle' });
+          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          callbacks.onStatusChange?.('idle');
+        }
       },
     });
 
@@ -144,10 +163,11 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
   const stopStream = () => {
     const manager = getStreamManager();
+    // Clear ref first so onStop callback (from manager.stop) is a no-op
+    setStreamManager(undefined);
     if (manager) {
       manager.stop();
     }
-    setStreamManager(undefined);
     dispatch({ type: 'SET_STATUS', payload: 'idle' });
     dispatch({ type: 'SET_IS_GENERATING', payload: false });
     callbacks.onStatusChange?.('idle');
@@ -190,6 +210,11 @@ export function createActions(ctx: ActionsContext): ActionsResult {
             }
             streamChat(newChatId);
           }
+        } else {
+          // API returned no result — reset status so we don't get stuck
+          dispatch({ type: 'SET_STATUS', payload: 'idle' });
+          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          callbacks.onStatusChange?.('idle');
         }
       } catch (error) {
         console.error('[AgentSDK] Failed to send message:', error);
