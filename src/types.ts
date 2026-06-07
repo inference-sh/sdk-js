@@ -1400,9 +1400,11 @@ export interface InstanceTypeDTO extends BaseModelDTO, PermissionModelDTO {
 }
 export interface InstanceTypeConfiguration {
   gpu_type: string;
+  gpu_manufacturer: string;
   interconnect: string;
   memory_in_gb: number /* int */;
   num_gpus: number /* int */;
+  nvlink: boolean;
   os_options: string[];
   storage_in_gb: number /* int */;
   vcpus: number /* int */;
