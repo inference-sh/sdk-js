@@ -812,6 +812,12 @@ export interface IntegrationConnectResponse {
    * For service accounts - instructions
    */
   instructions?: string;
+  /**
+   * RequiresConfirmation — the connect was paused, user must acknowledge and retry with a flag.
+   */
+  requires_confirmation?: boolean;
+  confirmation_type?: string; // e.g. "cross_domain_auth"
+  message?: string;
 }
 export interface ProjectCreateRequest {
   name: string;
@@ -1100,6 +1106,27 @@ export interface AppSession extends BaseModel, PermissionModel {
    */
   worker?: WorkerState;
   task?: Task;
+}
+
+//////////
+// source: app_store.go
+
+/**
+ * PublicAppStoreDTO is a lean DTO for public app store display.
+ */
+export interface PublicAppStoreDTO {
+  id: string;
+  category: string;
+  subcategory?: string;
+  tags?: string[];
+  namespace: string;
+  name: string;
+  description: string;
+  images: AppImages;
+  is_featured: boolean;
+  rank: number /* int */;
+  has_approved_version: boolean;
+  page_id?: string;
 }
 
 //////////
@@ -1840,6 +1867,81 @@ export interface KnowledgeFile {
   content?: string; // input only — backend uploads to R2, then clears
 }
 export type SkillFile = KnowledgeFile;
+
+//////////
+// source: knowledge_store.go
+
+export interface PublicSkillStoreDTO {
+  id: string;
+  category: string;
+  tags?: string[];
+  namespace: string;
+  name: string;
+  description: string;
+  is_featured: boolean;
+  rank: number /* int */;
+  has_approved_version: boolean;
+}
+
+//////////
+// source: page.go
+
+export type PageStatus = number /* int */;
+export const PageStatusUnknown: PageStatus = 0; // 0
+export const PageStatusDraft: PageStatus = 1; // 1
+export const PageStatusPublished: PageStatus = 2; // 2
+export const PageStatusArchived: PageStatus = 3; // 3
+export interface PageMetadata {
+  title: string;
+  description: string;
+  image: string;
+  tags: string[];
+  /**
+   * Docs-specific fields
+   */
+  order?: number /* int */;
+  type?: string; // "doc", "post", "landing"
+  icon?: string;
+  hide_from_nav?: boolean;
+}
+/**
+ * PageType represents the type of page content
+ */
+export type PageType = string;
+export const PageTypeDoc: PageType = "doc"; // Documentation page
+export const PageTypeBlog: PageType = "blog"; // Blog post
+export const PageTypePage: PageType = "page"; // Generic page/landing
+export interface PageDTO extends BaseModel, PermissionModelDTO {
+  is_featured: boolean;
+  title: string;
+  content: string;
+  excerpt: string;
+  status: PageStatus;
+  type: PageType;
+  metadata: PageMetadata;
+  slug: string;
+}
+/**
+ * MenuItem represents an item in a menu (can be nested)
+ */
+export interface MenuItem {
+  id: string; // Unique identifier
+  label: string; // Display text
+  slug?: string; // URL slug (for links)
+  page_id?: string; // Link to a Page
+  url?: string; // External URL
+  icon?: string; // Icon name
+  order: number /* int */; // Sort order
+  is_group?: boolean; // Is this a group/folder?
+  expanded?: boolean; // Default expanded state
+  children?: MenuItem[]; // Nested items
+}
+export interface MenuDTO extends BaseModel, PermissionModelDTO {
+  name: string;
+  slug: string;
+  description: string;
+  items: MenuItem[];
+}
 
 //////////
 // source: project.go
