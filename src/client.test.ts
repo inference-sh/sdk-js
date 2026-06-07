@@ -6,7 +6,7 @@ global.fetch = mockFetch;
 
 describe('Inference', () => {
   beforeEach(() => {
-    mockFetch.mockClear();
+    jest.clearAllMocks();
   });
 
   describe('constructor', () => {
@@ -22,7 +22,6 @@ describe('Inference', () => {
 
     it('should use default baseUrl when not provided', () => {
       const client = new Inference({ apiKey: 'test-api-key' });
-      // We can verify this through a request
       expect(client).toBeDefined();
     });
 
@@ -39,24 +38,21 @@ describe('Inference', () => {
     it('should make a POST request to /run', async () => {
       const mockTask = {
         id: 'task-123',
-        status: 'completed',
+        status: 9, // TaskStatusCompleted
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        input: { prompt: 'test' },
+        input: { message: 'hello world' },
         output: { result: 'success' },
       };
 
-      mockFetch
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: true, data: mockTask }),
-        })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: true, data: mockTask }),
-        });
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTask }),
+      });
 
       const client = new Inference({ apiKey: 'test-api-key' });
+      // Use input that won't trigger base64 detection (contains spaces/special chars)
       const result = await client.run(
-        { app: 'test-app', input: { prompt: 'test' } },
+        { app: 'test-app', input: { message: 'hello world!' } },
         { wait: false }
       );
 
@@ -80,7 +76,7 @@ describe('Inference', () => {
 
       const client = new Inference({ apiKey: 'test-api-key' });
       await expect(
-        client.run({ app: 'invalid-app', input: {} }, { wait: false })
+        client.run({ app: 'invalid-app', input: { message: 'test!' } }, { wait: false })
       ).rejects.toThrow('Invalid app');
     });
   });
@@ -115,7 +111,7 @@ describe('Inference', () => {
 
 describe('uploadFile', () => {
   beforeEach(() => {
-    mockFetch.mockClear();
+    jest.clearAllMocks();
   });
 
   it('should upload a base64 string', async () => {
@@ -132,12 +128,30 @@ describe('uploadFile', () => {
       .mockResolvedValueOnce({ ok: true });
 
     const client = new Inference({ apiKey: 'test-api-key' });
-    const result = await client.uploadFile('SGVsbG8gV29ybGQ=', {
+    // Use valid base64 that won't be mistaken for regular text
+    const result = await client.uploadFile('SGVsbG8gV29ybGQh', {
       filename: 'test.txt',
       contentType: 'text/plain',
     });
 
     expect(result.uri).toBe('https://example.com/file.png');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw error when no upload URL provided', async () => {
+    const mockFile = {
+      id: 'file-123',
+      uri: 'https://example.com/file.png',
+      // Missing upload_url
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      json: () => Promise.resolve({ success: true, data: [mockFile] }),
+    });
+
+    const client = new Inference({ apiKey: 'test-api-key' });
+    await expect(
+      client.uploadFile('SGVsbG8gV29ybGQh', { filename: 'test.txt' })
+    ).rejects.toThrow('No upload URL provided by the server');
   });
 });
-
