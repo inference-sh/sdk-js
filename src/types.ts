@@ -384,6 +384,24 @@ export interface ApiAppRunRequest {
    * Task stays queued until this time. Past timestamps run immediately.
    */
   run_at?: string;
+  /**
+   * Optional metadata (e.g., action to trigger on completion)
+   */
+  metadata?: TaskMetadata;
+}
+/**
+ * TaskMetadata holds optional metadata attached to a task.
+ */
+export interface TaskMetadata {
+  action?: TaskAction;
+}
+/**
+ * TaskAction defines an action to execute when a task reaches a specific status.
+ */
+export interface TaskAction {
+  key: string;
+  on: string;
+  params?: any;
 }
 /**
  * ApiAgentRunRequest is the request body for /agents/run endpoint.
