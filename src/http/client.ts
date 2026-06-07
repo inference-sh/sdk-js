@@ -247,7 +247,35 @@ export class HttpClient {
   }
 
   /**
+   * Get URL and headers for NDJSON streaming.
+   * Returns the full URL and auth headers needed for streamable requests.
+   */
+  getStreamableConfig(endpoint: string): { url: string; headers: Record<string, string> } {
+    const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
+    const isProxyMode = !!this.proxyUrl;
+
+    let url: string;
+    const headers: Record<string, string> = { ...this.resolveHeaders() };
+
+    if (isProxyMode) {
+      const proxyUrlWithQuery = new URL(this.proxyUrl!, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      proxyUrlWithQuery.searchParams.set('__inf_target', targetUrl.toString());
+      url = proxyUrlWithQuery.toString();
+      headers['x-inf-target-url'] = targetUrl.toString();
+    } else {
+      url = targetUrl.toString();
+      const token = this.getAuthToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    return { url, headers };
+  }
+
+  /**
    * Create an EventSource for SSE streaming
+   * @deprecated Use getStreamableConfig() with StreamableManager instead
    */
   createEventSource(endpoint: string): Promise<EventSource | null> {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);

@@ -61,6 +61,7 @@ export function createHandler(options?: ExpressProxyOptions): RequestHandler {
                 const contentType = response.headers.get("content-type");
                 if (
                     contentType?.includes("text/event-stream") ||
+                    contentType?.includes("application/x-ndjson") ||
                     contentType?.includes("application/octet-stream")
                 ) {
                     if (response.body) {
