@@ -66,6 +66,13 @@ export class FlowRunsAPI {
   stream(flowRunId: string) {
     return this.http.createEventSource(`/flow-runs/${flowRunId}/stream`);
   }
+
+  /**
+   * Update flow run visibility
+   */
+  async updateVisibility(flowRunId: string, visibility: string): Promise<FlowRun> {
+    return this.http.request<FlowRun>('put', `/flow-runs/${flowRunId}/visibility`, { data: { visibility } });
+  }
 }
 
 export function createFlowRunsAPI(http: HttpClient): FlowRunsAPI {

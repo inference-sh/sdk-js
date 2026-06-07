@@ -168,6 +168,20 @@ export class TasksAPI {
       streamManager.connect();
     });
   }
+
+  /**
+   * Update task visibility
+   */
+  async updateVisibility(taskId: string, visibility: string): Promise<Task> {
+    return this.http.request<Task>('put', `/tasks/${taskId}/visibility`, { data: { visibility } });
+  }
+
+  /**
+   * Feature/unfeature a task
+   */
+  async feature(taskId: string, featured: boolean): Promise<Task> {
+    return this.http.request<Task>('put', `/tasks/${taskId}/feature`, { data: { featured } });
+  }
 }
 
 export function createTasksAPI(http: HttpClient): TasksAPI {

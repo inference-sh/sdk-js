@@ -179,7 +179,7 @@ export class HttpClient {
   /**
    * Create an EventSource for SSE streaming
    */
-  createEventSource(endpoint: string): EventSource {
+  createEventSource(endpoint: string): Promise<EventSource | null> {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     const isProxyMode = !!this.proxyUrl;
 
@@ -196,7 +196,7 @@ export class HttpClient {
 
     const resolvedHeaders = this.resolveHeaders();
 
-    return new EventSource(fetchUrl, {
+    return Promise.resolve(new EventSource(fetchUrl, {
       fetch: (input, init) => {
         const headers: Record<string, string> = {
           ...(init?.headers as Record<string, string>),
@@ -220,7 +220,7 @@ export class HttpClient {
           credentials: this.credentials,
         });
       },
-    });
+    }));
   }
 }
 
