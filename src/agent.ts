@@ -135,11 +135,20 @@ export class Agent {
     await this.request<void>('post', `/chats/${this.chatId}/stop`);
   }
 
-  /** Submit a tool result */
-  async submitToolResult(toolInvocationId: string, result: string): Promise<void> {
-    await this.request<void>('post', `/tools/${toolInvocationId}`, {
-      data: { result },
-    });
+  /** 
+   * Submit a tool result
+   * @param toolInvocationId - The tool invocation ID
+   * @param resultOrAction - Either a raw result string, or an object with action and optional form_data (will be JSON-serialized)
+   */
+  async submitToolResult(
+    toolInvocationId: string, 
+    resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
+  ): Promise<void> {
+    // Serialize widget actions to JSON string
+    const result = typeof resultOrAction === 'string' 
+      ? resultOrAction
+      : JSON.stringify(resultOrAction);
+    await this.request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
   }
 
   /** Stop streaming and cleanup */

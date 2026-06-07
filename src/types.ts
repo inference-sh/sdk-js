@@ -379,15 +379,15 @@ export interface CreateChatMessageResponse {
 }
 /**
  * WidgetActionRequest represents a user's response to a widget
- * Uses WidgetAction and WidgetFormData from chat.go
+ * @deprecated Use ToolResultRequest with action field instead
  */
 export interface WidgetActionRequest {
   action: WidgetAction;
   form_data?: WidgetFormData;
 }
 /**
- * ToolResultRequest represents a generic tool result callback
- * Used by hooks and other tools that expect an async callback
+ * ToolResultRequest represents a tool result submission
+ * For widget actions, clients should JSON-serialize { action, form_data } as the result string
  */
 export interface ToolResultRequest {
   result: string;
@@ -798,6 +798,14 @@ export const ChatMessageRoleSystem: ChatMessageRole = "system";
 export const ChatMessageRoleUser: ChatMessageRole = "user";
 export const ChatMessageRoleAssistant: ChatMessageRole = "assistant";
 export const ChatMessageRoleTool: ChatMessageRole = "tool";
+/**
+ * ChatMessageStatus represents the lifecycle status of a chat message
+ */
+export type ChatMessageStatus = string;
+export const ChatMessageStatusPending: ChatMessageStatus = "pending"; // Message is being generated
+export const ChatMessageStatusReady: ChatMessageStatus = "ready"; // Message complete, tools ready for execution
+export const ChatMessageStatusFailed: ChatMessageStatus = "failed"; // Message generation failed
+export const ChatMessageStatusCancelled: ChatMessageStatus = "cancelled"; // Message was cancelled
 export type ChatMessageContentType = string;
 export const ChatMessageContentTypeText: ChatMessageContentType = "text";
 export const ChatMessageContentTypeReasoning: ChatMessageContentType = "reasoning";
@@ -878,8 +886,8 @@ export interface ChatMessageDTO extends BaseModel, PermissionModelDTO {
   chat_id: string;
   chat?: ChatDTO;
   order: number /* int */;
+  status: ChatMessageStatus;
   task_id?: string;
-  task_status?: TaskStatus;
   role: ChatMessageRole;
   content: ChatMessageContent[];
   tools?: Tool[];

@@ -218,7 +218,7 @@ await agent.sendMessage('What is the weather in Paris?', {
 | `sendMessage(text, options?)` | Send a message to the agent |
 | `getChat(chatId?)` | Get chat history |
 | `stopChat(chatId?)` | Stop current generation |
-| `submitToolResult(toolId, result)` | Submit result for a client tool |
+| `submitToolResult(toolId, resultOrAction)` | Submit result for a client tool (string or {action, form_data}) |
 | `streamMessages(chatId?, options?)` | Stream message updates |
 | `streamChat(chatId?, options?)` | Stream chat updates |
 | `disconnect()` | Clean up streams |
