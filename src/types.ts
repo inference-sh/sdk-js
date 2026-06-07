@@ -197,9 +197,7 @@ export interface AgentImages {
   thumbnail: string;
   banner: string;
 }
-export interface Agent {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface Agent extends BaseModel, PermissionModel {
   ProjectModel: ProjectModel;
   /**
    * Basic info
@@ -266,14 +264,8 @@ export interface AgentConfig {
    */
   output_schema?: any;
 }
-export interface AgentVersion {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface AgentVersion extends BaseModel, PermissionModel {
   agent_id: string;
-  /**
-   * Short ID for human-readable version references (e.g., "abc123")
-   */
-  short_id: string;
   /**
    * ConfigHash for deduplication - SHA256 of config content
    */
@@ -727,9 +719,7 @@ export interface AppImages {
   thumbnail: string;
   banner: string;
 }
-export interface App {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface App extends BaseModel, PermissionModel {
   /**
    * Namespace is copied from team.username at creation time and is IMMUTABLE.
    * This ensures stable references like "namespace/name" even if team username changes.
@@ -782,13 +772,7 @@ export interface AppFunction {
   input_schema: any;
   output_schema: any;
 }
-export interface AppVersion {
-  BaseModel: BaseModel;
-  /**
-   * ShortID is a human-friendly version identifier (e.g., "abc123")
-   * Unique within the app, used in references like "namespace/app@abc123"
-   */
-  short_id: string;
+export interface AppVersion extends BaseModel {
   app_id: string;
   metadata: { [key: string]: any};
   repository: string;
@@ -818,6 +802,11 @@ export interface AppVersion {
    */
   checksum?: string;
 }
+export interface LicenseRecord extends BaseModel {
+  user_id: string;
+  app_id: string;
+  license: string;
+}
 export interface AppDTO extends BaseModel, PermissionModelDTO {
   namespace: string;
   name: string;
@@ -829,7 +818,6 @@ export interface AppDTO extends BaseModel, PermissionModelDTO {
   version?: AppVersionDTO;
 }
 export interface AppVersionDTO extends BaseModel {
-  short_id: string;
   metadata: { [key: string]: any};
   repository: string;
   flow_version_id?: string;
@@ -861,9 +849,7 @@ export type AppSessionStatus = string;
 export const AppSessionStatusActive: AppSessionStatus = "active";
 export const AppSessionStatusEnded: AppSessionStatus = "ended";
 export const AppSessionStatusExpired: AppSessionStatus = "expired";
-export interface AppSession {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface AppSession extends BaseModel, PermissionModel {
   /**
    * Affinity binding
    */
@@ -901,6 +887,7 @@ export interface AppSession {
 
 export interface BaseModel {
   id: string;
+  short_id: string;
   created_at: string /* RFC3339 */;
   updated_at: string /* RFC3339 */;
   deleted_at?: string /* RFC3339 */;
@@ -1179,9 +1166,7 @@ export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
-export interface EngineState {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface EngineState extends BaseModel, PermissionModel {
   instance?: Instance;
   transaction_id: string;
   config: EngineConfig;
@@ -1211,9 +1196,7 @@ export interface EngineStateSummary extends BaseModel, PermissionModelDTO {
  * Worker-related types
  */
 export type WorkerStatus = string;
-export interface WorkerState {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface WorkerState extends BaseModel, PermissionModel {
   index: number /* int */;
   status: WorkerStatus;
   status_updated_at?: string /* RFC3339 */;
@@ -1295,9 +1278,7 @@ export interface WorkerStateSummary {
 //////////
 // source: file.go
 
-export interface File {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface File extends BaseModel, PermissionModel {
   path: string;
   remote_path: string;
   upload_url: string;
@@ -1321,8 +1302,7 @@ export interface FileDTO extends BaseModel, PermissionModelDTO {
 //////////
 // source: flow.go
 
-export interface FlowVersion {
-  BaseModel: BaseModel;
+export interface FlowVersion extends BaseModel {
   /**
    * Permission fields - nullable for migration from existing data
    * After migration these will be populated from parent Flow
@@ -1332,10 +1312,6 @@ export interface FlowVersion {
   team_id: string;
   team?: Team;
   flow_id: string;
-  /**
-   * Short ID for human-readable version references (e.g., "abc123")
-   */
-  short_id: string;
   /**
    * ConfigHash for deduplication - SHA256 of config content
    */
@@ -1428,7 +1404,6 @@ export interface FlowDTO extends BaseModel, PermissionModelDTO {
   viewport?: FlowViewport;
 }
 export interface FlowVersionDTO extends BaseModel {
-  short_id: string;
   input_schema: any;
   input: FlowRunInputs;
   output_schema: any;
@@ -1601,9 +1576,7 @@ export interface ProjectModelDTO {
 /**
  * Project represents a container for organizing related resources
  */
-export interface Project {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface Project extends BaseModel, PermissionModel {
   name: string;
   description: string;
   type: ProjectType;
@@ -1726,9 +1699,7 @@ export type InstanceStatus = string;
 export const InstanceStatusPending: InstanceStatus = "pending";
 export const InstanceStatusActive: InstanceStatus = "active";
 export const InstanceStatusDeleted: InstanceStatus = "deleted";
-export interface Instance {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface Instance extends BaseModel, PermissionModel {
   cloud: InstanceCloudProvider;
   name: string;
   region: string;
@@ -1952,9 +1923,7 @@ export type Infra = string;
 export const InfraPrivate: Infra = "private";
 export const InfraCloud: Infra = "cloud";
 export const InfraPrivateFirst: Infra = "private_first";
-export interface Task {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface Task extends BaseModel, PermissionModel {
   is_featured: boolean;
   status: TaskStatus;
   /**
@@ -2099,8 +2068,7 @@ export type TeamType = string;
 export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
 export const TeamTypeSystem: TeamType = "system";
-export interface Team {
-  BaseModel: BaseModel;
+export interface Team extends BaseModel {
   type: TeamType;
   username: string;
   email: string;
@@ -2213,8 +2181,7 @@ export const TransactionTypeDebit: TransactionType = "debit"; // Removing credit
 /**
  * Transaction represents a single credit transaction
  */
-export interface Transaction {
-  BaseModel: BaseModel;
+export interface Transaction extends BaseModel {
   PermissionModel: PermissionModel; // Includes UserID
   type: TransactionType;
   amount: number /* int64 */; // Can be negative for debits
@@ -2242,9 +2209,7 @@ export const PaymentRecordTypeAutoRecharge: PaymentRecordType = "auto_recharge";
 /**
  * PaymentRecord stores Stripe payment details for both checkout sessions and direct charges
  */
-export interface PaymentRecord {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface PaymentRecord extends BaseModel, PermissionModel {
   type: PaymentRecordType;
   status: PaymentRecordStatus;
   amount: number /* int64 */; // Amount in cents
@@ -2324,9 +2289,7 @@ export interface OutputMeta {
   inputs: MetaItem[];
   outputs: MetaItem[];
 }
-export interface UsageEvent {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface UsageEvent extends BaseModel, PermissionModel {
   usage_billing_record_id: string;
   reference_id: string;
   resource_id: string;
@@ -2339,9 +2302,7 @@ export interface UsageEvent {
   quantity: number /* int64 */;
   unit: string;
 }
-export interface UsageBillingRecord {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface UsageBillingRecord extends BaseModel, PermissionModel {
   /**
    * Fee breakdown (all in microcents)
    */
@@ -2373,9 +2334,7 @@ export interface UsageBillingRecord {
   partner_credit_transaction_id: string;
   partner_credit_transaction?: Transaction;
 }
-export interface UsageBillingRefund {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
+export interface UsageBillingRefund extends BaseModel, PermissionModel {
   usage_billing_record_id: string;
   usage_billing_record?: UsageBillingRecord;
   /**

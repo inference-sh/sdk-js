@@ -4,18 +4,8 @@ import {
   AppVersionDTO,
   CursorListRequest,
   CursorListResponse,
+  LicenseRecord
 } from '../types';
-
-// Local type definition (not in generated types)
-interface LicenseRecord {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-  user_id: string;
-  app_id: string;
-  license: string;
-}
 
 /**
  * Apps API
