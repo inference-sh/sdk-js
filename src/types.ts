@@ -191,6 +191,12 @@ export interface AgentVersion {
    * Output schema for custom finish tool (sub-agents only)
    */
   output_schema?: any;
+  /**
+   * Display images
+   */
+  card_image: string;
+  banner_image: string;
+  thumbnail_image: string;
 }
 export interface CoreAppConfigDTO {
   id: string;
@@ -215,6 +221,12 @@ export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
    * Output schema for custom finish tool (sub-agents only)
    */
   output_schema?: any;
+  /**
+   * Display images
+   */
+  card_image: string;
+  banner_image: string;
+  thumbnail_image: string;
 }
 /**
  * AgentRuntimeConfig is a self-contained, flattened config for chat execution.
@@ -676,8 +688,8 @@ export interface AppVersion {
   app_id: string;
   metadata: { [key: string]: any};
   repository: string;
-  flow_id?: string;
-  flow?: Flow;
+  flow_version_id?: string;
+  flow_version?: FlowVersion; // Snapshot for execution
   setup_schema: any;
   input_schema: any;
   output_schema: any;
@@ -712,7 +724,8 @@ export interface AppVersionDTO extends BaseModel {
   short_id: string;
   metadata: { [key: string]: any};
   repository: string;
-  flow?: FlowDTO;
+  flow_version_id?: string;
+  flow_version?: FlowVersionDTO;
   setup_schema: any;
   input_schema: any;
   output_schema: any;
@@ -1005,14 +1018,16 @@ export interface FileDTO extends BaseModel, PermissionModelDTO {
 //////////
 // source: flow.go
 
-export interface Flow {
+export interface FlowVersion {
   BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
-  name: string;
-  description: string;
-  card_image: string;
-  thumbnail: string;
-  banner_image: string;
+  flow_id: string;
+  /**
+   * Short ID for human-readable version references (e.g., "abc123")
+   */
+  short_id: string;
+  /**
+   * Flow graph configuration
+   */
   input_schema: any;
   input: FlowRunInputs;
   output_schema: any;
@@ -1071,12 +1086,8 @@ export interface OutputFieldMapping {
  * OutputMappings is a map of output field name to OutputFieldMapping.
  */
 export type OutputMappings = { [key: string]: OutputFieldMapping};
-export interface FlowDTO extends BaseModel, PermissionModelDTO {
-  name: string;
-  description: string;
-  card_image: string;
-  thumbnail: string;
-  banner_image: string;
+export interface FlowVersionDTO extends BaseModel {
+  short_id: string;
   input_schema: any;
   input: FlowRunInputs;
   output_schema: any;
@@ -1458,10 +1469,9 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   function: string; // Function called on multi-function apps
   infra: Infra;
   workers: string[];
-  flow_id?: string;
   flow_run_id?: string;
-  sub_flow_run_id?: string;
   chat_id?: string;
+  sub_flow_run_id?: string;
   agent_id?: string;
   agent_version_id?: string;
   agent?: AgentDTO;
