@@ -16,7 +16,7 @@ export class ChatsAPI {
    * List chats with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Chat>> {
-    return this.http.request<CursorListResponse<Chat>>('get', '/chats', { params: params });
+    return this.http.request<CursorListResponse<Chat>>('post', '/chats/list', { data: params });
   }
 
   /**

@@ -15,7 +15,7 @@ export class FlowRunsAPI {
    * List flow runs with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowRun>> {
-    return this.http.request<CursorListResponse<FlowRun>>('get', '/flow-runs', { params: params });
+    return this.http.request<CursorListResponse<FlowRun>>('post', '/flow-runs/list', { data: params });
   }
 
   /**
