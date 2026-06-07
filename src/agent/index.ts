@@ -76,12 +76,6 @@ export type {
   // Client tools
   ClientTool,
   ClientToolHandlerFn,
-  // Re-exported from main types
-  ChatMessageDTO,
-  ChatDTO,
-  ToolInvocationDTO,
-  ChatMessageContent,
-  ChatMessageRole,
 } from './types';
 
 // Type guards and helpers

@@ -6,7 +6,8 @@
 
 import { useContext } from 'react';
 import { AgentChatContext } from './context';
-import type { AgentChatState, AgentChatActions, ChatMessageDTO, AgentClient } from './types';
+import type { AgentChatState, AgentChatActions, AgentClient } from './types';
+import type { ChatMessageDTO } from '../types';
 
 /**
  * Hook to access chat state

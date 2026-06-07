@@ -11,6 +11,7 @@ export interface InternalToolsConfig {
   memory?: boolean; // Memory tools (Set, Get, GetAll) - default: true
   widget?: boolean; // Widget tools (UI, HTML) - default: true, top-level only
   finish?: boolean; // Finish tool - default: true (sub-agents only)
+  skills?: boolean; // Skills tool (skill_get) - default: true when skills defined
 }
 /**
  * ToolType represents the type of tool (used in both AgentTool definition and ToolInvocation)
@@ -226,6 +227,16 @@ export interface AgentDTO extends BaseModel, PermissionModelDTO, ProjectModelDTO
   version?: AgentVersionDTO;
 }
 /**
+ * SkillConfig defines a skill available to the agent.
+ * Skills are loaded on-demand via the skill_get internal tool.
+ */
+export interface SkillConfig {
+  name: string; // Unique identifier for the skill
+  description: string; // Short description shown in tool listing
+  url?: string; // URL to fetch skill content
+  content?: string; // Inline skill content
+}
+/**
  * AgentConfig contains the shared configuration fields for agent execution.
  * This is embedded by both AgentVersion (DB model) and API request structs.
  * Using Go embedding flattens these fields in JSON serialization.
@@ -243,7 +254,11 @@ export interface AgentConfig {
    */
   tools?: (AgentTool | undefined)[];
   /**
-   * Internal tools configuration (plan, memory, widget, finish)
+   * Skills available to this agent (loaded on-demand via skill_get tool)
+   */
+  skills?: SkillConfig[];
+  /**
+   * Internal tools configuration (plan, memory, widget, finish, skills)
    */
   internal_tools?: InternalToolsConfig;
   /**
@@ -288,7 +303,11 @@ export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
    */
   tools: (AgentToolDTO | undefined)[];
   /**
-   * Internal tools configuration (plan, memory, widget, finish)
+   * Skills available to this agent (loaded on-demand via skill_get tool)
+   */
+  skills: SkillConfig[];
+  /**
+   * Internal tools configuration (plan, memory, widget, finish, skills)
    */
   internal_tools?: InternalToolsConfig;
   /**
