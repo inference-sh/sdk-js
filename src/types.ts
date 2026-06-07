@@ -20,7 +20,9 @@ export interface InternalToolsConfig {
 export type ToolType = string;
 export const ToolTypeApp: ToolType = "app"; // App tools - creates a Task
 export const ToolTypeAgent: ToolType = "agent"; // Sub-agent tools - creates a sub-Chat
-export const ToolTypeHook: ToolType = "hook"; // Webhook tools - HTTP POST to external URL
+export const ToolTypeHook: ToolType = "hook"; // Webhook tools - HTTP POST to external URL (legacy)
+export const ToolTypeHTTP: ToolType = "http"; // HTTP tools - authenticated HTTP request/response
+export const ToolTypeMCP: ToolType = "mcp"; // MCP tools - calls remote MCP server
 export const ToolTypeClient: ToolType = "client"; // Client tools - executed by frontend
 export const ToolTypeInternal: ToolType = "internal"; // Internal/built-in tools (plan, memory, widget, finish)
 /**
@@ -92,6 +94,34 @@ export interface ClientToolConfig {
   output_schema?: any;
 }
 /**
+ * ToolAuthConfig declares how a tool authenticates. Resolved at runtime.
+ */
+export interface ToolAuthConfig {
+  type: 'integration' | 'api_key' | 'bearer' | 'none';
+  provider?: string;
+  integration_id?: string;
+  secret?: string;
+  header?: string;
+}
+/**
+ * HTTPToolConfig contains configuration for an authenticated HTTP tool
+ */
+export interface HTTPToolConfig {
+  url: string;
+  method?: string;
+  auth?: ToolAuthConfig;
+  headers?: Record<string, string>;
+  input_schema?: any;
+  output_schema?: any;
+}
+/**
+ * MCPToolConfig contains configuration for a remote MCP server tool
+ */
+export interface MCPToolConfig {
+  integration_id: string;
+  tool_name: string;
+}
+/**
  * AgentTool represents a unified tool that can be used by an agent
  */
 export interface AgentTool {
@@ -109,6 +139,8 @@ export interface AgentTool {
   app?: AppToolConfig;
   agent?: AgentToolConfig;
   hook?: HookToolConfig;
+  http?: HTTPToolConfig;
+  mcp?: MCPToolConfig;
   client?: ClientToolConfig;
   internal?: InternalToolConfig;
 }
@@ -134,6 +166,8 @@ export interface AgentToolDTO {
   app?: AppToolConfigDTO;
   agent?: AgentToolConfigDTO;
   hook?: HookToolConfigDTO;
+  http?: HTTPToolConfigDTO;
+  mcp?: MCPToolConfigDTO;
   client?: ClientToolConfigDTO;
 }
 export interface AppToolConfigDTO {
@@ -170,6 +204,18 @@ export interface HookToolConfigDTO {
 export interface ClientToolConfigDTO {
   input_schema?: any;
   output_schema?: any;
+}
+export interface HTTPToolConfigDTO {
+  url: string;
+  method?: string;
+  auth?: ToolAuthConfig;
+  headers?: Record<string, string>;
+  input_schema?: any;
+  output_schema?: any;
+}
+export interface MCPToolConfigDTO {
+  integration_id: string;
+  tool_name: string;
 }
 /**
  * CoreAppConfig references an app used as the agent's core

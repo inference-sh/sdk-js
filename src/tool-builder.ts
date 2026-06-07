@@ -2,7 +2,7 @@
  * Tool Builder - Fluent API for defining agent tools
  */
 
-import { AgentTool, InternalToolsConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook } from './types';
+import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP } from './types';
 
 // =============================================================================
 // Client Tool Types
@@ -239,6 +239,56 @@ class WebhookToolBuilder extends ToolBuilder {
   }
 }
 
+class HTTPToolBuilder extends ToolBuilder {
+  private url: string;
+  private httpMethod: string = 'POST';
+  private authConfig?: ToolAuthConfig;
+  private headerMap: Record<string, string> = {};
+
+  constructor(name: string, url: string) {
+    super(name);
+    this.url = url;
+  }
+
+  method(m: string): this {
+    this.httpMethod = m;
+    return this;
+  }
+
+  auth(config: { integration?: string; integrationId?: string; apiKey?: string; bearer?: string; header?: string }): this {
+    if (config.integration) {
+      this.authConfig = { type: 'integration', provider: config.integration, integration_id: config.integrationId };
+    } else if (config.apiKey) {
+      this.authConfig = { type: 'api_key', secret: config.apiKey, header: config.header || 'X-API-Key' };
+    } else if (config.bearer) {
+      this.authConfig = { type: 'bearer', secret: config.bearer };
+    }
+    return this;
+  }
+
+  header(name: string, value: string): this {
+    this.headerMap[name] = value;
+    return this;
+  }
+
+  build(): AgentTool {
+    return {
+      name: this.name,
+      display_name: this.displayNameValue || this.name,
+      description: this.desc,
+      type: ToolTypeHTTP,
+      require_approval: this.approval || undefined,
+      http: {
+        url: this.url,
+        method: this.httpMethod !== 'POST' ? this.httpMethod : undefined,
+        auth: this.authConfig,
+        headers: Object.keys(this.headerMap).length ? this.headerMap : undefined,
+        input_schema: toJsonSchema(this.params),
+      },
+    };
+  }
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -254,6 +304,9 @@ export const agentTool = (name: string, agentRef: string) => new AgentToolBuilde
 
 /** Create a webhook tool (calls external URL) */
 export const webhookTool = (name: string, url: string) => new WebhookToolBuilder(name, url);
+
+/** Create an HTTP tool with credential injection (replaces webhookTool for new code) */
+export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
 
 // =============================================================================
 // Internal Tools Builder

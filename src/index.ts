@@ -34,6 +34,7 @@ export {
   appTool,
   agentTool,
   webhookTool,
+  httpTool,
   internalTools,
   string,
   number,
