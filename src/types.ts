@@ -400,6 +400,7 @@ export interface APIError {
   code: string;
   message: string;
   suggestions?: string[];
+  meta?: { [key: string]: any};
 }
 /**
  * ApiAppRunRequest is the request body for /apps/run endpoint.
@@ -2219,12 +2220,6 @@ export interface SystemInfo {
   hf_cache: HFCacheInfo;
   gpus: GPU[];
 }
-export interface TelemetrySystemInfo {
-  cpus: CPU[];
-  ram: RAM;
-  gpus: GPU[];
-  volumes: Volume[];
-}
 export interface Docker {
   binary_path: string;
   installed: boolean;
@@ -2408,7 +2403,6 @@ export interface Task extends BaseModel, PermissionModel {
    */
   events: TaskEvent[];
   logs: TaskLog[];
-  telemetry: TimescaleTask[];
   usage_events: (UsageEvent | undefined)[];
   /**
    * Secret refs for billing (tracks ownership to determine partner fee)
@@ -2483,22 +2477,9 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   rating: ContentRating;
   events: TaskEvent[];
   logs: TaskLog[];
-  telemetry: TimescaleTask[];
   usage_events: (UsageEvent | undefined)[];
   session_id?: string;
   session_timeout?: number /* int */;
-}
-export interface TimescaleTask {
-  id: string;
-  timestamp: string /* RFC3339 */;
-  task_id?: string;
-  task_seq: number /* int */;
-  app_id: string;
-  app_version_id: string;
-  engine_id: string;
-  engine_resources: TelemetrySystemInfo;
-  worker_id: string;
-  system_info: TelemetrySystemInfo;
 }
 
 //////////
@@ -2508,6 +2489,10 @@ export type TeamType = string;
 export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
 export const TeamTypeSystem: TeamType = "system";
+export type TeamStatus = string;
+export const TeamStatusActive: TeamStatus = "active";
+export const TeamStatusSuspended: TeamStatus = "suspended";
+export const TeamStatusTerminated: TeamStatus = "terminated";
 export interface Team extends BaseModel {
   type: TeamType;
   username: string;
@@ -2523,6 +2508,7 @@ export interface Team extends BaseModel {
    * MaxConcurrency limits total active tasks for this team (0 = use default)
    */
   max_concurrency: number /* int */;
+  status: TeamStatus;
 }
 export interface TeamDTO extends BaseModel {
   type: TeamType;
@@ -2532,6 +2518,7 @@ export interface TeamDTO extends BaseModel {
   email: string;
   setup_completed: boolean;
   max_concurrency: number /* int */;
+  status: TeamStatus;
 }
 export type TeamRole = string;
 export const TeamRoleOwner: TeamRole = "owner";
