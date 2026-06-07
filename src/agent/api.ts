@@ -53,6 +53,7 @@ export async function sendAdHocMessage(
       system_prompt: config.system_prompt ?? '',
       tools: toolSchemas as (AgentTool | undefined)[]
     },
+    agent_name: config.name,
     input: {
       text,
       images: imageUris,

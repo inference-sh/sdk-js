@@ -240,6 +240,11 @@ export interface SkillConfig {
  * Using Go embedding flattens these fields in JSON serialization.
  */
 export interface AgentConfig {
+  /**
+   * Optional name for the agent (used for adhoc agent deduplication — reuses existing agent by name).
+   * Not persisted as a DB column; only used in API requests.
+   */
+  name?: string;
   description?: string;
   system_prompt?: string;
   example_prompts?: string[];
