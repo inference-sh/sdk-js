@@ -1,12 +1,21 @@
 // HTTP utilities
 export { HttpClient, HttpClientConfig, ErrorHandler, createHttpClient } from './http/client';
 export { StreamManager, StreamManagerOptions, PartialDataWrapper } from './http/stream';
-export { InferenceError, RequirementsNotMetException } from './http/errors';
+export {
+  InferenceError,
+  RequirementsNotMetException,
+  SessionError,
+  SessionNotFoundError,
+  SessionExpiredError,
+  SessionEndedError,
+  WorkerLostError,
+} from './http/errors';
 
 // API modules
 export { TasksAPI, RunOptions } from './api/tasks';
 export { FilesAPI, UploadFileOptions } from './api/files';
 export { AgentsAPI, Agent, AgentOptions, SendMessageOptions } from './api/agents';
+export { SessionsAPI } from './api/sessions';
 export { AppsAPI } from './api/apps';
 export { ChatsAPI } from './api/chats';
 export { FlowsAPI } from './api/flows';
@@ -45,6 +54,7 @@ import { HttpClient, HttpClientConfig } from './http/client';
 import { TasksAPI, RunOptions } from './api/tasks';
 import { FilesAPI, UploadFileOptions } from './api/files';
 import { AgentsAPI, Agent, AgentOptions } from './api/agents';
+import { SessionsAPI } from './api/sessions';
 import { AppsAPI } from './api/apps';
 import { ChatsAPI } from './api/chats';
 import { FlowsAPI } from './api/flows';
@@ -78,6 +88,7 @@ export class Inference {
   readonly tasks: TasksAPI;
   readonly files: FilesAPI;
   readonly agents: AgentsAPI;
+  readonly sessions: SessionsAPI;
   readonly apps: AppsAPI;
   readonly chats: ChatsAPI;
   readonly flows: FlowsAPI;
@@ -98,6 +109,7 @@ export class Inference {
     this.files = new FilesAPI(this.http);
     this.tasks = new TasksAPI(this.http);
     this.agents = new AgentsAPI(this.http, this.files);
+    this.sessions = new SessionsAPI(this.http);
     this.apps = new AppsAPI(this.http);
     this.chats = new ChatsAPI(this.http);
     this.flows = new FlowsAPI(this.http);

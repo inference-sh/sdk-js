@@ -25,6 +25,7 @@ export interface RunOptions {
   reconnectDelayMs?: number;
 }
 
+//TODO: This is ugly...
 function stripTask(task: Task): Task {
   return {
     ...task,
@@ -35,6 +36,7 @@ function stripTask(task: Task): Task {
     output: task.output,
     logs: task.logs,
     status: task.status,
+    session_id: task.session_id,
   };
 }
 
