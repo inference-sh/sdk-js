@@ -360,22 +360,22 @@ export interface CreateAppRequest {
 export interface SkillPublishRequest {
   namespace?: string;
   name: string;
-  description: string;
-  category: string;
-  repo_url: string;
-  license: string;
-  allowed_tools: string;
-  compatibility: string;
-  instructions: string;
+  description?: string;
+  category?: string;
+  repo_url?: string;
+  license?: string;
+  allowed_tools?: string;
+  compatibility?: string;
+  instructions?: string;
   files: KnowledgeFile[];
   metadata?: { [key: string]: string};
   parent_skill_id?: string;
   parent_version_id?: string;
   source_url?: string;
   version_notes?: string;
-  disable_model_invocation: boolean;
+  disable_model_invocation?: boolean;
   user_invocable?: boolean;
-  context: string;
+  context?: string;
 }
 export interface CheckoutCreateRequest {
   amount: number /* int64 */;
@@ -1469,10 +1469,10 @@ export interface SecretFieldConfig {
  * KnowledgeFile represents a file in a knowledge entry
  */
 export interface KnowledgeFile {
-  path: string;
+  path?: string;
   uri?: string;
-  size: number /* int64 */;
-  hash: string;
+  size?: number /* int64 */;
+  hash?: string;
   content?: string;
 }
 /**
