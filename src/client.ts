@@ -523,20 +523,20 @@ export class Inference {
    * ```typescript
    * // Template agent
    * const agent = client.agent('okaris/assistant@abc123')
-   * 
+   *
    * // Ad-hoc agent
    * const agent = client.agent({
-   *   core_app_ref: 'infsh/claude-sonnet-4@xyz789',
+   *   core_app: { ref: 'infsh/claude-sonnet-4@xyz789' },
    *   system_prompt: 'You are a helpful assistant',
    *   tools: [...]
    * })
-   * 
+   *
    * // Ad-hoc agent with name for grouping
    * const agent = client.agent(
-   *   { core_app_ref: 'infsh/claude-sonnet-4@xyz789' },
+   *   { core_app: { ref: 'infsh/claude-sonnet-4@xyz789' } },
    *   { name: 'My Assistant' }
    * )
-   * 
+   *
    * // Send messages
    * const response = await agent.sendMessage('Hello!')
    * ```

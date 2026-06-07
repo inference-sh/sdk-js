@@ -156,8 +156,12 @@ export interface ClientToolConfigDTO {
  * CoreAppConfig references an app used as the agent's core
  */
 export interface CoreAppConfig {
-  id: string;
-  version_id: string;
+  id?: string;
+  version?: string;
+  /**
+   * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs, resolved at creation
+   */
+  ref?: string;
   /**
    * Setup values for the core app (one-time configuration)
    */
@@ -215,9 +219,7 @@ export interface AgentConfig {
   example_prompts?: string[];
   /**
    * Core LLM configuration
-   * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs, resolved at creation
    */
-  core_app_ref?: string;
   core_app?: CoreAppConfig;
   /**
    * Tools (apps, agents, hooks, client tools)
@@ -246,8 +248,9 @@ export interface AgentVersion {
   config_hash: string;
 }
 export interface CoreAppConfigDTO {
-  id: string;
-  version_id: string;
+  id?: string;
+  version?: string;
+  ref?: string;
   app?: AppDTO;
   /**
    * Setup values for the core app (one-time configuration)
@@ -336,8 +339,8 @@ export interface ApiAgentRunRequest {
   agent?: string;
   /**
    * Ad-hoc agent configuration
-   * For ad-hoc agents, set core_app_ref to the LLM app reference
-   * Example: { "core_app_ref": "infsh/claude-sonnet-4@abc123", "system_prompt": "..." }
+   * For ad-hoc agents, set core_app.ref to the LLM app reference
+   * Example: { "core_app": { "ref": "infsh/claude-sonnet-4@abc123" }, "system_prompt": "..." }
    */
   agent_config?: AgentConfig;
   /**
