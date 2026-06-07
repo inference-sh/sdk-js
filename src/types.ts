@@ -972,6 +972,41 @@ export interface App extends BaseModel, PermissionModel {
   version_id: string;
   version?: AppVersion;
 }
+/**
+ * AppPricing configures all pricing using CEL expressions
+ * Empty expressions use defaults. All values in nanocents (1 cent = 1,000,000,000)
+ */
+export interface AppPricing {
+  prices: { [key: string]: number /* int64 */}; // custom price variables for use in expressions
+  upstream_pricing?: string; // raw upstream pricing info
+  /**
+   * Resource fee expression (compute cost)
+   * Available variables: resources (list of {name, price_per_second}), usage_seconds, prices
+   * Default: sum(resources.map(r, r.price_per_second)) * usage_seconds
+   */
+  resource_expression: string;
+  /**
+   * CEL expressions for each fee type (result in nanocents)
+   * Available variables: inputs, outputs, prices, resource_fee, usage_seconds
+   */
+  inference_expression: string; // inference.sh platform fee
+  royalty_expression: string; // app creator royalty
+  partner_expression: string; // partner/API fee
+  /**
+   * Total expression combines all fees (can apply weights/discounts)
+   * Available variables: inputs, outputs, prices, resource_fee, usage_seconds, inference_fee, royalty_fee, partner_fee
+   * Default: resource_fee + inference_fee + royalty_fee + partner_fee
+   */
+  total_expression: string;
+  description: string; // CEL expression returning a human-readable pricing string
+  /**
+   * DescriptionRendered is the result of evaluating Description against the
+   * static prices map at save time. Frontends should display this rather than
+   * the raw CEL source. Empty string means the description failed to render
+   * (e.g. references variables outside `prices`).
+   */
+  description_rendered?: string;
+}
 export interface AppGPUResource {
   count: number /* int */;
   vram: number /* int64 */;
