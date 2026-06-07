@@ -72,7 +72,7 @@ import { ChatsAPI } from './api/chats';
 import { FlowsAPI } from './api/flows';
 import { FlowRunsAPI } from './api/flow-runs';
 import { EnginesAPI } from './api/engines';
-import { ApiAppRunRequest, TaskDTO as Task, AgentConfig, File } from './types';
+import { ApiAppRunRequest, TaskDTO as Task, AgentConfig, FileDTO as File } from './types';
 
 export interface InferenceConfig {
   /** Your inference.sh API key (required unless using proxyUrl) */

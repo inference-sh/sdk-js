@@ -3,7 +3,7 @@
  */
 
 import { HttpClient } from '../http/client';
-import { AppSession } from '../types';
+import { AppSessionDTO } from '../types';
 
 /**
  * Sessions API for managing stateful worker leases.
@@ -36,8 +36,8 @@ export class SessionsAPI {
    * @returns Session information
    * @throws SessionNotFoundError if session doesn't exist
    */
-  async get(sessionId: string): Promise<AppSession> {
-    return this.http.request<AppSession>('get', `/sessions/${sessionId}`);
+  async get(sessionId: string): Promise<AppSessionDTO> {
+    return this.http.request<AppSessionDTO>('get', `/sessions/${sessionId}`);
   }
 
   /**
@@ -45,8 +45,8 @@ export class SessionsAPI {
    *
    * @returns List of session information
    */
-  async list(): Promise<AppSession[]> {
-    const data = await this.http.request<AppSession[]>('get', '/sessions');
+  async list(): Promise<AppSessionDTO[]> {
+    const data = await this.http.request<AppSessionDTO[]>('get', '/sessions');
     return data || [];
   }
 
@@ -61,8 +61,8 @@ export class SessionsAPI {
    * @throws SessionExpiredError if session has expired
    * @throws SessionEndedError if session was ended
    */
-  async keepalive(sessionId: string): Promise<AppSession> {
-    return this.http.request<AppSession>('post', `/sessions/${sessionId}/keepalive`);
+  async keepalive(sessionId: string): Promise<AppSessionDTO> {
+    return this.http.request<AppSessionDTO>('post', `/sessions/${sessionId}/keepalive`);
   }
 
   /**

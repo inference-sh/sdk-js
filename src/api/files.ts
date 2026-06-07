@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { PartialFile, File, CursorListRequest, CursorListResponse } from '../types';
+import { PartialFile, FileDTO as File, CursorListRequest, CursorListResponse } from '../types';
 
 /**
  * Parse a data URI and return the media type and decoded data.

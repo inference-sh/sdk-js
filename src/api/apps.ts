@@ -4,7 +4,7 @@ import {
   AppVersionDTO,
   CursorListRequest,
   CursorListResponse,
-  LicenseRecord
+  LicenseRecordDTO
 } from '../types';
 
 /**
@@ -93,15 +93,15 @@ export class AppsAPI {
   /**
    * Get app license record
    */
-  async getLicense(appId: string): Promise<LicenseRecord> {
-    return this.http.request<LicenseRecord>('get', `/apps/${appId}/license`);
+  async getLicense(appId: string): Promise<LicenseRecordDTO> {
+    return this.http.request<LicenseRecordDTO>('get', `/apps/${appId}/license`);
   }
 
   /**
    * Save app license
    */
-  async saveLicense(appId: string, license: string): Promise<LicenseRecord> {
-    return this.http.request<LicenseRecord>('post', `/apps/${appId}/license`, { data: { license } });
+  async saveLicense(appId: string, license: string): Promise<LicenseRecordDTO> {
+    return this.http.request<LicenseRecordDTO>('post', `/apps/${appId}/license`, { data: { license } });
   }
 
   /**
