@@ -151,6 +151,53 @@ const task = await client.tasks.run(
 await client.tasks.cancel(task.id);
 ```
 
+### Sessions (Stateful Execution)
+
+Sessions allow you to maintain state across multiple task invocations. The worker stays warm between calls, preserving loaded models and in-memory state.
+
+```typescript
+// Start a new session
+const result = await client.tasks.run({
+  app: 'my-stateful-app',
+  input: { prompt: 'hello' },
+  session: 'new'
+});
+
+const sessionId = result.session_id;
+console.log('Session ID:', sessionId);
+
+// Continue the session with another call
+const result2 = await client.tasks.run({
+  app: 'my-stateful-app',
+  input: { prompt: 'remember what I said?' },
+  session: sessionId
+});
+```
+
+#### Custom Session Timeout
+
+By default, sessions expire after 60 seconds of inactivity. You can customize this with `session_timeout` (1-3600 seconds):
+
+```typescript
+// Create a session with 5-minute idle timeout
+const result = await client.tasks.run({
+  app: 'my-stateful-app',
+  input: { prompt: 'hello' },
+  session: 'new',
+  session_timeout: 300  // 5 minutes
+});
+
+// Session stays alive for 5 minutes after each call
+```
+
+**Notes:**
+- `session_timeout` is only valid when `session: 'new'`
+- Minimum timeout: 1 second
+- Maximum timeout: 3600 seconds (1 hour)
+- Each successful call resets the idle timer
+
+For complete session documentation including error handling, best practices, and advanced patterns, see the [Sessions Developer Guide](https://inference.sh/docs/extend/sessions).
+
 ## Agent Chat
 
 Chat with AI agents using `client.agents.create()`.
@@ -254,6 +301,8 @@ Runs a task on inference.sh.
 | `params.setup` | `object` | No | Setup parameters (affects worker warmth/scheduling) |
 | `params.infra` | `string` | No | Infrastructure: `'cloud'` or `'private'` |
 | `params.variant` | `string` | No | App variant to use |
+| `params.session` | `string` | No | Session ID or `'new'` to start a new session |
+| `params.session_timeout` | `number` | No | Session timeout in seconds (1-3600, only with `session: 'new'`) |
 
 **Options:**
 
