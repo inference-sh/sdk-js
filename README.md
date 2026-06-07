@@ -500,12 +500,103 @@ if (task.status === TaskStatusCompleted) {
 }
 ```
 
+## Integration Constants
+
+`IntegrationDTO` fields (`provider`, `type`, `auth`, `status`) use typed string unions exported as constants:
+
+```typescript
+import type { IntegrationDTO } from '@inferencesh/sdk';
+import {
+  IntegrationProviderGoogle,
+  IntegrationAuthTypeOAuth,
+  IntegrationStatusConnected,
+  IntegrationStatusDisconnected,
+  IntegrationStatusExpired,
+  IntegrationStatusError,
+  isRequirementsNotMetException,
+} from '@inferencesh/sdk';
+
+function isGoogleConnected(integration: IntegrationDTO): boolean {
+  return (
+    integration.provider === IntegrationProviderGoogle &&
+    integration.status === IntegrationStatusConnected
+  );
+}
+
+// HTTP 412 when an app requires a missing secret, integration, or scope
+try {
+  await client.run({ app: 'my-app', input: {} });
+} catch (error) {
+  if (isRequirementsNotMetException(error)) {
+    for (const req of error.errors) {
+      if (req.type === 'integration' && req.action?.provider === IntegrationProviderGoogle) {
+        // User must connect Google — see https://inference.sh/docs/extend/integrations
+      }
+    }
+  }
+}
+```
+
+| Constant group | Values |
+|----------------|--------|
+| `IntegrationProvider*` | `google`, `slack`, `notion`, `github`, `x`, `microsoft`, `salesforce`, `discord`, `gcp`, `mcp`, `reddit` |
+| `IntegrationAuthType*` | `service_account`, `oauth`, `api_key`, `wif`, `mcp` |
+| `IntegrationStatus*` | `connected`, `disconnected`, `expired`, `error` |
+
+## Instance Status Constants
+
+Use when working with engine instance APIs (`InstanceDTO.status`):
+
+```typescript
+import {
+  InstanceStatusCreating,
+  InstanceStatusPendingProvider,
+  InstanceStatusPending,
+  InstanceStatusActive,
+  InstanceStatusError,
+  InstanceStatusDeleting,
+  InstanceStatusDeleted,
+} from '@inferencesh/sdk';
+```
+
+## Tool Parameter Types
+
+When building `AgentTool` schemas manually (outside the tool builder), use `ToolParamType*` for JSON Schema `type` fields:
+
+```typescript
+import {
+  ToolParamTypeObject,
+  ToolParamTypeString,
+  ToolParamTypeInteger,
+  ToolParamTypeNumber,
+  ToolParamTypeBoolean,
+  ToolParamTypeArray,
+  ToolParamTypeNull,
+} from '@inferencesh/sdk';
+
+const schema = {
+  type: ToolParamTypeObject,
+  properties: {
+    city: { type: ToolParamTypeString, description: 'City name' },
+  },
+  required: ['city'],
+};
+```
+
+The fluent tool builder (`string()`, `number()`, `object()`, …) infers these types automatically.
+
 ## TypeScript Support
 
 This SDK is written in TypeScript and includes full type definitions. All types are exported:
 
 ```typescript
-import type { Task, ApiTaskRequest, RunOptions } from '@inferencesh/sdk';
+import type {
+  Task,
+  ApiAppRunRequest,
+  RunOptions,
+  IntegrationDTO,
+  AgentTool,
+} from '@inferencesh/sdk';
 ```
 
 ## Requirements
