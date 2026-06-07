@@ -1,6 +1,47 @@
 import { HttpClient } from '../http/client';
 import { PartialFile, File, CursorListRequest, CursorListResponse } from '../types';
 
+/**
+ * Parse a data URI and return the media type and decoded data.
+ *
+ * Supports formats:
+ * - data:image/jpeg;base64,/9j/4AAQ...
+ * - data:text/plain,Hello%20World
+ * - data:;base64,SGVsbG8= (defaults to text/plain)
+ */
+function parseDataUri(uri: string): { mediaType: string; data: Uint8Array } {
+  // Match: data:[<mediatype>][;base64],<data>
+  const match = uri.match(/^data:([^;,]*)?(?:;(base64))?,(.*)$/s);
+  if (!match) {
+    throw new Error('Invalid data URI format');
+  }
+
+  const mediaType = match[1] || 'text/plain';
+  const isBase64 = match[2] === 'base64';
+  let dataStr = match[3];
+
+  if (isBase64) {
+    // Handle URL-safe base64 (- and _ instead of + and /)
+    dataStr = dataStr.replace(/-/g, '+').replace(/_/g, '/');
+    // Add padding if needed
+    const padding = 4 - (dataStr.length % 4);
+    if (padding !== 4) {
+      dataStr += '='.repeat(padding);
+    }
+    const binaryStr = atob(dataStr);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return { mediaType, data: bytes };
+  } else {
+    // URL-encoded data
+    const decoded = decodeURIComponent(dataStr);
+    const encoder = new TextEncoder();
+    return { mediaType, data: encoder.encode(decoded) };
+  }
+}
+
 export interface UploadFileOptions {
   filename?: string;
   contentType?: string;
@@ -39,11 +80,25 @@ export class FilesAPI {
    * Upload a file (Blob or base64 string)
    */
   async upload(data: string | Blob, options: UploadFileOptions = {}): Promise<File> {
+    // Determine content type
+    let contentType = options.contentType;
+    if (!contentType) {
+      if (data instanceof Blob) {
+        contentType = data.type;
+      } else if (typeof data === 'string' && data.startsWith('data:')) {
+        // Extract media type from data URI
+        const match = data.match(/^data:([^;,]*)?/);
+        contentType = match?.[1] || 'application/octet-stream';
+      } else {
+        contentType = 'application/octet-stream';
+      }
+    }
+
     // Step 1: Create the file record
     const fileRequest: PartialFile = {
       uri: '', // Empty URI as it will be set by the server
       filename: options.filename,
-      content_type: options.contentType || (data instanceof Blob ? data.type : 'application/octet-stream'),
+      content_type: contentType,
       path: options.path,
       size: data instanceof Blob ? data.size : undefined,
     };
@@ -65,16 +120,8 @@ export class FilesAPI {
     } else {
       // If it's a base64 string, convert it to a Blob
       if (data.startsWith('data:')) {
-        const matches = data.match(/^data:([^;]+);base64,(.+)$/);
-        if (!matches) {
-          throw new Error('Invalid base64 data URI format');
-        }
-        const binaryStr = atob(matches[2]);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
-        contentToUpload = new Blob([bytes], { type: matches[1] });
+        const parsed = parseDataUri(data);
+        contentToUpload = new Blob([parsed.data.buffer as ArrayBuffer], { type: parsed.mediaType });
       } else {
         // Assume it's a clean base64 string
         const binaryStr = atob(data);
@@ -82,7 +129,7 @@ export class FilesAPI {
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        contentToUpload = new Blob([bytes], { type: options.contentType || 'application/octet-stream' });
+        contentToUpload = new Blob([bytes.buffer as ArrayBuffer], { type: options.contentType || 'application/octet-stream' });
       }
     }
 
