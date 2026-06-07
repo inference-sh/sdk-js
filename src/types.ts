@@ -515,6 +515,24 @@ export interface CreateAgentRequest {
  */
 export interface SDKTypes {
 }
+export interface SkillPublishRequest {
+  name: string;
+  description: string;
+  category: string;
+  repo_url: string;
+  license: string;
+  allowed_tools: string;
+  compatibility: string;
+  instructions: string;
+  files: SkillFile[];
+  metadata?: { [key: string]: string};
+  /**
+   * Spec fields for roundtrip fidelity
+   */
+  disable_model_invocation: boolean;
+  user_invocable?: boolean;
+  context: string;
+}
 export interface CheckoutCreateRequest {
   amount: number /* int64 */;
   success_url: string;
@@ -1789,6 +1807,20 @@ export interface InstanceVolumeMountConfig {
 export interface InstanceEnvVar {
   name: string;
   value: string;
+}
+
+//////////
+// source: skill.go
+
+/**
+ * SkillFile represents a file in the skill directory (stored as JSONB in skill_versions)
+ */
+export interface SkillFile {
+  path: string; // "SKILL.md", "references/foo.md", "scripts/bar.py"
+  uri?: string; // public CDN URL from file service
+  size: number /* int64 */; // bytes
+  hash: string; // SHA256 of individual file
+  content?: string; // input only — backend uploads to R2, then clears
 }
 
 //////////
