@@ -14,6 +14,15 @@ import {
   CursorListResponse,
 } from '../types';
 
+/** Internal tool definition returned by getInternalTools */
+export interface InternalToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  tools: string[];
+  scope: string;
+}
+
 /** Options for creating an agent */
 export interface AgentOptions {
   /** Optional name for the adhoc agent (used for deduplication and display) */
@@ -292,6 +301,27 @@ export class AgentsAPI {
    */
   async transferOwnership(agentId: string, newTeamId: string): Promise<AgentDTO> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}/transfer`, { data: { team_id: newTeamId } });
+  }
+
+  /**
+   * Update agent visibility
+   */
+  async updateVisibility(agentId: string, visibility: string): Promise<AgentDTO> {
+    return this.http.request<AgentDTO>('put', `/agents/${agentId}/visibility`, { data: { visibility } });
+  }
+
+  /**
+   * Get a specific agent version
+   */
+  async getVersion(agentId: string, versionId: string): Promise<AgentVersionDTO> {
+    return this.http.request<AgentVersionDTO>('get', `/agents/${agentId}/versions/${versionId}`);
+  }
+
+  /**
+   * Get internal tools for the agent
+   */
+  async getInternalTools(): Promise<InternalToolDefinition[]> {
+    return this.http.request<InternalToolDefinition[]>('get', '/agents/internal-tools');
   }
 
   // ==========================================================================
