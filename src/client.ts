@@ -11,7 +11,7 @@ import {
   ChatDTO,
   ChatMessageDTO,
   AgentTool,
-  AgentRuntimeConfig,
+  AgentConfig,
   InternalToolsConfig,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
@@ -25,10 +25,10 @@ import { InferenceError, RequirementsNotMetException } from './errors';
 // =============================================================================
 
 /**
- * Ad-hoc agent configuration - extends AgentRuntimeConfig with core_app_ref required
- * Uses Partial to make name/system_prompt optional for ad-hoc usage
+ * Ad-hoc agent configuration - extends AgentConfig with core_app_ref required
+ * Uses Partial to make fields optional for ad-hoc usage
  */
-export type AdHocAgentConfig = Partial<AgentRuntimeConfig> & {
+export type AdHocAgentConfig = Partial<AgentConfig> & {
   /** Core LLM app ref: namespace/name@shortid (required for ad-hoc agents) */
   core_app_ref: string;
 };

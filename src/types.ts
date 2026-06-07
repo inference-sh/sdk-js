@@ -149,6 +149,14 @@ export interface CoreAppConfig {
   id: string;
   version_id: string;
 }
+/**
+ * AgentImages contains display images for an agent (like AppImages)
+ */
+export interface AgentImages {
+  card: string;
+  thumbnail: string;
+  banner: string;
+}
 export interface Agent {
   BaseModel: BaseModel;
   PermissionModel: PermissionModel;
@@ -158,6 +166,10 @@ export interface Agent {
    */
   namespace: string;
   name: string;
+  /**
+   * Display images (like App)
+   */
+  images: AgentImages;
   version_id: string;
   version?: AgentVersion;
 }
@@ -167,22 +179,33 @@ export interface Agent {
 export interface AgentDTO extends BaseModel, PermissionModelDTO, ProjectModelDTO {
   namespace: string;
   name: string;
+  /**
+   * Display images (like AppDTO)
+   */
+  images: AgentImages;
   version_id: string;
   version?: AgentVersionDTO;
 }
-export interface AgentVersion {
-  BaseModel: BaseModel;
-  PermissionModel: PermissionModel;
-  agent_id: string;
-  description: string;
-  system_prompt: string;
-  example_prompts: string[];
+/**
+ * AgentConfig contains the shared configuration fields for agent execution.
+ * This is embedded by both AgentVersion (DB model) and API request structs.
+ * Using Go embedding flattens these fields in JSON serialization.
+ */
+export interface AgentConfig {
+  description?: string;
+  system_prompt?: string;
+  example_prompts?: string[];
+  /**
+   * Core LLM configuration
+   * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs, resolved at creation
+   */
+  core_app_ref?: string;
   core_app?: CoreAppConfig;
   core_app_input?: any;
   /**
-   * Unified tools array (apps, agents, hooks)
+   * Tools (apps, agents, hooks, client tools)
    */
-  tools: (AgentTool | undefined)[];
+  tools?: (AgentTool | undefined)[];
   /**
    * Internal tools configuration (plan, memory, widget, finish)
    */
@@ -191,12 +214,19 @@ export interface AgentVersion {
    * Output schema for custom finish tool (sub-agents only)
    */
   output_schema?: any;
+}
+export interface AgentVersion {
+  BaseModel: BaseModel;
+  PermissionModel: PermissionModel;
+  agent_id: string;
   /**
-   * Display images
+   * Short ID for human-readable version references (e.g., "abc123")
    */
-  card_image: string;
-  banner_image: string;
-  thumbnail_image: string;
+  short_id: string;
+  /**
+   * ConfigHash for deduplication - SHA256 of config content
+   */
+  config_hash: string;
 }
 export interface CoreAppConfigDTO {
   id: string;
@@ -220,73 +250,6 @@ export interface AgentVersionDTO extends BaseModel, PermissionModelDTO {
   /**
    * Output schema for custom finish tool (sub-agents only)
    */
-  output_schema?: any;
-  /**
-   * Display images
-   */
-  card_image: string;
-  banner_image: string;
-  thumbnail_image: string;
-}
-/**
- * AgentRuntimeConfig is a self-contained, flattened config for chat execution.
- * This is either snapshotted from an Agent template or provided ad-hoc.
- * It's portable and can be serialized to JSON or YAML.
- */
-export interface AgentRuntimeConfig {
-  /**
-   * Origin tracking (optional, for lineage when snapshotted from template)
-   */
-  agent_id?: string;
-  agent_version_id?: string;
-  /**
-   * Identity
-   */
-  name: string;
-  namespace?: string;
-  description?: string;
-  /**
-   * Prompts
-   */
-  system_prompt: string;
-  example_prompts?: string[];
-  /**
-   * Core LLM
-   * CoreAppRef is the user-facing ref (namespace/name@shortid) - used in ad-hoc configs
-   * CoreApp is the resolved config - populated by backend after resolving CoreAppRef
-   */
-  core_app_ref?: string;
-  core_app?: CoreAppConfig;
-  core_app_input?: any;
-  /**
-   * Tools (apps, agents, hooks, client tools)
-   */
-  tools?: (AgentTool | undefined)[];
-  /**
-   * Internal tools configuration (plan, memory, widget, finish)
-   */
-  internal_tools?: InternalToolsConfig;
-  /**
-   * Output schema for custom finish tool (sub-agents only)
-   */
-  output_schema?: any;
-}
-/**
- * AgentRuntimeConfigDTO for API responses
- */
-export interface AgentRuntimeConfigDTO {
-  agent_id?: string;
-  agent_version_id?: string;
-  name: string;
-  namespace?: string;
-  description?: string;
-  system_prompt: string;
-  example_prompts?: string[];
-  core_app_ref?: string;
-  core_app?: CoreAppConfigDTO;
-  core_app_input?: any;
-  tools?: (AgentToolDTO | undefined)[];
-  internal_tools?: InternalToolsConfig;
   output_schema?: any;
 }
 
@@ -352,7 +315,11 @@ export interface ApiAgentRunRequest {
    * For ad-hoc agents, set core_app_ref to the LLM app reference
    * Example: { "core_app_ref": "infsh/claude-sonnet-4@abc123", "system_prompt": "..." }
    */
-  agent_config?: AgentRuntimeConfig;
+  agent_config?: AgentConfig;
+  /**
+   * Optional name for the adhoc agent (used for deduplication and display)
+   */
+  agent_name?: string;
   /**
    * The message to send
    */
@@ -374,7 +341,11 @@ export interface CreateAgentMessageRequest {
    * Ad-hoc agent config - use this instead of Agent for embedded configs
    * If provided, creates a chat with this config directly (no agent reference)
    */
-  agent_config?: AgentRuntimeConfig;
+  agent_config?: AgentConfig;
+  /**
+   * Optional name for the adhoc agent (used for deduplication and display)
+   */
+  agent_name?: string;
 }
 export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
@@ -894,7 +865,13 @@ export interface ChatDTO extends BaseModel, PermissionModelDTO {
   parent?: ChatDTO;
   children: (ChatDTO | undefined)[];
   status: ChatStatus;
-  agent_config?: AgentRuntimeConfigDTO;
+  /**
+   * Agent version reference
+   */
+  agent_id?: string;
+  agent?: AgentDTO;
+  agent_version_id?: string;
+  agent_version?: AgentVersionDTO;
   name: string;
   description: string;
   chat_messages: ChatMessageDTO[];
@@ -1025,6 +1002,10 @@ export interface FlowVersion {
    * Short ID for human-readable version references (e.g., "abc123")
    */
   short_id: string;
+  /**
+   * ConfigHash for deduplication - SHA256 of config content
+   */
+  config_hash: string;
   /**
    * Flow graph configuration
    */
