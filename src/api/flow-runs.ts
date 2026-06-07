@@ -9,7 +9,7 @@ import {
  * Flow Runs API
  */
 export class FlowRunsAPI {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   /**
    * List flow runs with cursor-based pagination
@@ -29,7 +29,7 @@ export class FlowRunsAPI {
    * Create a new flow run
    */
   async create(flowId: string, input?: unknown): Promise<FlowRun> {
-    return this.http.request<FlowRun>('post', '/flowruns', { data: { flow_id: flowId, input } });
+    return this.http.request<FlowRun>('post', '/flowruns', { data: { flow: flowId, input } });
   }
 
   /**
