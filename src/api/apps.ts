@@ -108,7 +108,7 @@ export class AppsAPI {
    * Set the current (active) version of an app
    */
   async setCurrentVersion(appId: string, versionId: string): Promise<App> {
-    return this.http.request<App>('post', `/apps/${appId}/current-version`, { data: { version_id: versionId } });
+    return this.http.request<App>('put', `/apps/${appId}/versions/${versionId}/current`);
   }
 }
 
