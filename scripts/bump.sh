@@ -1,34 +1,33 @@
 #!/bin/sh
-
 set -e
 
-# Try to get version from git tag, fall back to package.json
-if git describe --tags --abbrev=0 > /dev/null 2>&1; then
-  version=$(git describe --tags --abbrev=0 | sed 's/^v//')
+# Get new version via svu or manual bump
+if command -v svu >/dev/null 2>&1; then
+  new_tag=$(svu "$1")
 else
-  version=$(node -p "require('./package.json').version")
+  if git describe --tags --abbrev=0 > /dev/null 2>&1; then
+    version=$(git describe --tags --abbrev=0 | sed 's/^v//')
+  else
+    version=$(node -p "require('./package.json').version")
+  fi
+  major=$(echo "$version" | cut -d. -f1)
+  minor=$(echo "$version" | cut -d. -f2)
+  patch=$(echo "$version" | cut -d. -f3)
+  case "$1" in
+    major) major=$((major + 1)); minor=0; patch=0 ;;
+    minor) minor=$((minor + 1)); patch=0 ;;
+    patch) patch=$((patch + 1)) ;;
+    *) echo "Usage: $0 {major|minor|patch}"; exit 1 ;;
+  esac
+  new_tag="v$major.$minor.$patch"
 fi
 
-IFS='.' read -r major minor patch <<EOF
-$version
-EOF
+new_version="${new_tag#v}"
 
-case "$1" in
-  major) major=$((major + 1)); minor=0; patch=0 ;;
-  minor) minor=$((minor + 1)); patch=0 ;;
-  patch) patch=$((patch + 1)) ;;
-  *) echo "Usage: $0 {major|minor|patch}"; exit 1 ;;
-esac
+# Update package.json
+node -e "var p=require('./package.json');p.version='$new_version';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
-new_version="$major.$minor.$patch"
-new_tag="v$new_version"
-
-# Update version in package.json
-sed -i "s/\"version\": \".*\"/\"version\": \"${new_version}\"/" package.json
-
-# Commit both version bump and package.json change
 git add package.json
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
-git push origin HEAD "$new_tag"
-echo "Bumped to $new_tag"
+echo "Tagged $new_tag (run make release to publish)"
