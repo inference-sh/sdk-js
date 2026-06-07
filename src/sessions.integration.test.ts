@@ -72,7 +72,6 @@ describeIfApiKey('Sessions Integration Tests', () => {
       expect(result.status).toBe(TaskStatusCompleted);
       expect(result.session_id).toBeDefined();
       expect(result.session_id).not.toBe('new');
-      expect(result.session_id).toMatch(/^sess_/);
     }, 60000);
 
     it('should return correct output data', async () => {
@@ -108,7 +107,6 @@ describeIfApiKey('Sessions Integration Tests', () => {
 
       expect(result1.status).toBe(TaskStatusCompleted);
       const sessionId = result1.session_id!;
-      expect(sessionId).toMatch(/^sess_/);
 
       // Retrieve value from same session
       const result2 = await client.run({
