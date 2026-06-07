@@ -12,6 +12,7 @@ export interface InternalToolsConfig {
   widget?: boolean; // Widget tools (UI, HTML) - default: true, top-level only
   finish?: boolean; // Finish tool - default: true (sub-agents only)
   skills?: boolean; // Skills tool (skill_get) - default: true when skills defined
+  host_context?: boolean; // Host context tool (client-side, embed) - default: false
 }
 /**
  * ToolType represents the type of tool (used in both AgentTool definition and ToolInvocation)
@@ -2195,6 +2196,7 @@ export interface ToolInvocationDTO extends BaseModel, PermissionModelDTO {
   chat_message_id: string;
   tool_invocation_id: string;
   type: ToolType;
+  display_name?: string;
   execution_id?: string;
   function: ToolInvocationFunction;
   status: ToolInvocationStatus;
