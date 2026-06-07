@@ -1879,6 +1879,7 @@ export interface IntegrationDTO extends BaseModel, PermissionModelDTO {
   auth: string;
   status: string;
   display_name: string;
+  icon_url?: string;
   scopes: StringSlice;
   expires_at?: string /* RFC3339 */;
   service_account_email?: string;
