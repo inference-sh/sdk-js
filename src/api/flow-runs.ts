@@ -15,7 +15,7 @@ export class FlowRunsAPI {
    * List flow runs with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowRun>> {
-    return this.http.request<CursorListResponse<FlowRun>>('get', '/flow-runs', { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<FlowRun>>('get', '/flow-runs', { params: params });
   }
 
   /**
@@ -40,10 +40,31 @@ export class FlowRunsAPI {
   }
 
   /**
+   * Update a flow run
+   */
+  async update(flowRunId: string, data: Partial<FlowRun>): Promise<FlowRun> {
+    return this.http.request<FlowRun>('put', `/flow-runs/${flowRunId}`, { data });
+  }
+
+  /**
+   * Cancel a flow run
+   */
+  async cancel(flowRunId: string): Promise<void> {
+    return this.http.request<void>('post', `/flow-runs/${flowRunId}/cancel`);
+  }
+
+  /**
    * Delete a flow run
    */
   async delete(flowRunId: string): Promise<void> {
     return this.http.request<void>('delete', `/flow-runs/${flowRunId}`);
+  }
+
+  /**
+   * Stream flow run updates
+   */
+  stream(flowRunId: string) {
+    return this.http.createEventSource(`/flow-runs/${flowRunId}/stream`);
   }
 }
 

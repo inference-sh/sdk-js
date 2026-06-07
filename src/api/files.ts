@@ -18,7 +18,7 @@ export class FilesAPI {
    * List files with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<File>> {
-    return this.http.request<CursorListResponse<File>>('get', '/files', { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<File>>('get', '/files', { params: params });
   }
 
   /**

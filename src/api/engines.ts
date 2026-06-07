@@ -15,7 +15,7 @@ export class EnginesAPI {
    * List engines with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Engine>> {
-    return this.http.request<CursorListResponse<Engine>>('get', '/engines', { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<Engine>>('get', '/engines', { params: params });
   }
 
   /**

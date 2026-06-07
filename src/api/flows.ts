@@ -17,7 +17,7 @@ export class FlowsAPI {
    * List flows with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Flow>> {
-    return this.http.request<CursorListResponse<Flow>>('get', '/flows', { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<Flow>>('get', '/flows', { params: params });
   }
 
   /**
@@ -59,7 +59,7 @@ export class FlowsAPI {
    * List flow versions
    */
   async listVersions(flowId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowVersionDTO>> {
-    return this.http.request<CursorListResponse<FlowVersionDTO>>('get', `/flows/${flowId}/versions`, { params: params as Record<string, unknown> });
+    return this.http.request<CursorListResponse<FlowVersionDTO>>('get', `/flows/${flowId}/versions`, { params: params });
   }
 
   /**

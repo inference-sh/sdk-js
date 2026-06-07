@@ -439,30 +439,12 @@ export interface CreateFlowRunRequest {
   input: any;
 }
 /**
- * Flow API response types (enables type tracing for SDK)
+ * SDKTypes is a phantom struct that references types needed by the SDK.
+ * This ensures the typegen traces these types without creating aliases.
+ * Frontend uses generics like CursorListResponse<FlowDTO> directly.
  */
-export type FlowResponse = FlowDTO;
-export type FlowRunResponse = FlowRunDTO;
-export type FlowListResponse = CursorListResponse<FlowDTO>;
-export type FlowRunListResponse = CursorListResponse<FlowRunDTO>;
-/**
- * Engine API response types (enables type tracing for SDK)
- */
-export type EngineResponse = EngineStateDTO;
-export type EngineListResponse = CursorListResponse<EngineStateDTO>;
-/**
- * CursorPaginationRequest is the standard request type for cursor-paginated list endpoints
- * This alias ensures CursorListRequest is traced into SDK types
- */
-export type CursorPaginationRequest = CursorListRequest;
-/**
- * Generic list responses for SDK CRUD operations
- */
-export type AppListResponse = CursorListResponse<AppDTO>;
-export type TaskListResponse = CursorListResponse<TaskDTO>;
-export type FileListResponse = CursorListResponse<FileDTO>;
-export type ChatListResponse = CursorListResponse<ChatDTO>;
-export type AgentListResponse = CursorListResponse<AgentDTO>;
+export interface SDKTypes {
+}
 export interface CheckoutCreateRequest {
   amount: number /* int64 */;
   success_url: string;

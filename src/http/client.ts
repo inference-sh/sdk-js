@@ -80,11 +80,11 @@ export class HttpClient {
   /**
    * Make an HTTP request to the API
    */
-  async request<T>(
+  async request<T, P extends object = Record<string, unknown>>(
     method: 'get' | 'post' | 'put' | 'delete',
     endpoint: string,
     options: {
-      params?: Record<string, unknown>;
+      params?: P;
       data?: unknown;
     } = {}
   ): Promise<T> {
