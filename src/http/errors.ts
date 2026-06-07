@@ -5,7 +5,7 @@
  * the API response data shapes. These classes are throwable Error subclasses for SDK use.
  */
 
-import type { RequirementError } from './types';
+import type { RequirementError } from '../types';
 
 /**
  * General HTTP/API error thrown by the SDK.
