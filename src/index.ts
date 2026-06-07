@@ -1,5 +1,5 @@
 // HTTP utilities
-export { HttpClient, HttpClientConfig, createHttpClient } from './http/client';
+export { HttpClient, HttpClientConfig, ErrorHandler, createHttpClient } from './http/client';
 export { StreamManager, StreamManagerOptions, PartialDataWrapper } from './http/stream';
 export { InferenceError, RequirementsNotMetException } from './http/errors';
 
@@ -93,6 +93,7 @@ export class Inference {
       getToken: 'getToken' in config ? config.getToken : undefined,
       headers: 'headers' in config ? config.headers : undefined,
       credentials: 'credentials' in config ? config.credentials : undefined,
+      onError: 'onError' in config ? config.onError : undefined,
     });
     this.files = new FilesAPI(this.http);
     this.tasks = new TasksAPI(this.http);

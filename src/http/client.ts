@@ -2,6 +2,15 @@ import { APIResponse, RequirementError } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource } from 'eventsource';
 
+/**
+ * Error handler that can intercept errors and optionally retry the request.
+ * Return a promise to retry with a new result, or throw/rethrow to propagate the error.
+ */
+export type ErrorHandler = (
+  error: unknown,
+  retry: () => Promise<unknown>
+) => Promise<unknown>;
+
 export interface HttpClientConfig {
   /** Your inference.sh API key (required unless using proxyUrl) */
   apiKey?: string;
@@ -18,6 +27,11 @@ export interface HttpClientConfig {
   headers?: Record<string, string | (() => string | undefined)>;
   /** Request credentials mode */
   credentials?: RequestCredentials;
+  /**
+   * Error handler for intercepting and handling request errors.
+   * Can be used for retry logic, auth refresh, OTP handling, etc.
+   */
+  onError?: ErrorHandler;
 }
 
 /**
@@ -33,6 +47,7 @@ export class HttpClient {
   private readonly getToken: (() => string | null | undefined) | undefined;
   private readonly customHeaders: Record<string, string | (() => string | undefined)>;
   private readonly credentials: RequestCredentials;
+  private readonly onError: ErrorHandler | undefined;
 
   constructor(config: HttpClientConfig) {
     // Either apiKey, getToken, or proxyUrl must be provided
@@ -45,6 +60,7 @@ export class HttpClient {
     this.getToken = config.getToken;
     this.customHeaders = config.headers || {};
     this.credentials = config.credentials || 'include';
+    this.onError = config.onError;
   }
 
   /** Get the base URL */
@@ -81,6 +97,29 @@ export class HttpClient {
    * Make an HTTP request to the API
    */
   async request<T, P extends object = Record<string, unknown>>(
+    method: 'get' | 'post' | 'put' | 'delete',
+    endpoint: string,
+    options: {
+      params?: P;
+      data?: unknown;
+    } = {}
+  ): Promise<T> {
+    const doRequest = () => this.executeRequest<T, P>(method, endpoint, options);
+
+    try {
+      return await doRequest();
+    } catch (error) {
+      if (this.onError) {
+        return await this.onError(error, doRequest) as T;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Execute the actual HTTP request (internal)
+   */
+  private async executeRequest<T, P extends object = Record<string, unknown>>(
     method: 'get' | 'post' | 'put' | 'delete',
     endpoint: string,
     options: {
