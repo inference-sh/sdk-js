@@ -10,7 +10,7 @@
  */
 
 import {
-  Agent,
+  inference,
   tool,
   appTool,
   internalTools,
@@ -104,23 +104,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Create agent with ad-hoc config
-  const agent = new Agent(
-    { apiKey },
-    {
-      coreApp: 'infsh/claude-sonnet-4@latest', // Replace with actual app reference
-      name: 'Tool Assistant',
-      systemPrompt: `You are a helpful assistant with access to tools.
+  // Create client and ad-hoc agent
+  const client = inference({ apiKey });
+  const agent = client.agent({
+    coreApp: 'infsh/claude-sonnet-4@latest', // Replace with actual app reference
+    name: 'Tool Assistant',
+    systemPrompt: `You are a helpful assistant with access to tools.
 Available tools:
 - calculator: Performs math operations
 - get_weather: Gets weather for a location
 - search_files: Searches files (requires approval)
 
 Use tools when appropriate to help the user.`,
-      tools: [calculatorTool, weatherTool, searchTool],
-      internalTools: internalTools().memory().build(),
-    }
-  );
+    tools: [calculatorTool, weatherTool, searchTool],
+    internalTools: internalTools().memory().build(),
+  });
 
   console.log('Agent ready. Sending message...\n');
 

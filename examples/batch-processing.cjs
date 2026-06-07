@@ -3,9 +3,9 @@
  *
  * Run with: node examples/batch-processing.cjs
  */
-const { Inference, TaskStatusCompleted, TaskStatusFailed } = require('@inferencesh/sdk');
+const { inference, TaskStatusCompleted, TaskStatusFailed } = require('@inferencesh/sdk');
 
-const client = new Inference({
+const client = inference({
   apiKey: process.env.INFERENCE_API_KEY || 'your-api-key',
 });
 

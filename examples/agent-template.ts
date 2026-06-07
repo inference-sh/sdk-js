@@ -12,34 +12,29 @@
  *   AGENT_VERSION_ID - Optional version ID for pinning
  */
 
-import { Agent } from '../src';
+import { inference } from '../src';
 
 async function main() {
   const apiKey = process.env.INFERENCE_API_KEY;
-  const agentId = process.env.AGENT_ID;
+  const agentRef = process.env.AGENT; // namespace/name@shortid format
   
   if (!apiKey) {
     console.error('Set INFERENCE_API_KEY environment variable');
     process.exit(1);
   }
   
-  if (!agentId) {
-    console.error('Set AGENT_ID environment variable (e.g., agent_abc123)');
+  if (!agentRef) {
+    console.error('Set AGENT environment variable');
+    console.error('Format: namespace/name@shortid (e.g., "infsh/code-assistant@abc123")');
     console.error('Get this from your agent in the workspace: https://app.inference.sh/agents');
     process.exit(1);
   }
 
-  // Create agent from template (existing agent in workspace)
-  const agent = new Agent(
-    { apiKey },
-    {
-      agentId: agentId,
-      // Optional: pin to specific version for production stability
-      versionId: process.env.AGENT_VERSION_ID,
-    }
-  );
+  // Create client and agent from template
+  const client = inference({ apiKey });
+  const agent = client.agent(agentRef);
 
-  console.log(`Using template agent: ${agentId}`);
+  console.log(`Using template agent: ${agentRef}`);
   console.log('Sending message...\n');
 
   // Send a message with streaming

@@ -8,10 +8,47 @@ import {
   TaskStatusFailed,
   TaskStatusCancelled,
   RequirementError,
+  ChatDTO,
+  ChatMessageDTO,
+  AgentTool,
+  InternalToolsConfig,
+  ToolTypeClient,
+  ToolInvocationStatusAwaitingInput,
 } from './types';
 import { StreamManager } from './stream';
 import { EventSource } from 'eventsource';
 import { InferenceError, RequirementsNotMetException } from './errors';
+
+// =============================================================================
+// Agent Types
+// =============================================================================
+
+/** Ad-hoc agent configuration (no saved template) */
+export interface AdHocAgentConfig {
+  /** Core LLM app: namespace/name@shortid */
+  coreApp: string;
+  /** LLM parameters */
+  coreAppInput?: Record<string, unknown>;
+  /** Agent name */
+  name?: string;
+  /** System prompt */
+  systemPrompt?: string;
+  /** Tools */
+  tools?: AgentTool[];
+  /** Internal tools config */
+  internalTools?: InternalToolsConfig;
+}
+
+export interface SendMessageOptions {
+  /** File attachments (Blob or base64 data URI) */
+  files?: (Blob | string)[];
+  /** Callback for message updates */
+  onMessage?: (message: ChatMessageDTO) => void;
+  /** Callback for chat updates */
+  onChat?: (chat: ChatDTO) => void;
+  /** Callback when a client tool needs execution */
+  onToolCall?: (invocation: { id: string; name: string; args: Record<string, unknown> }) => void;
+}
 
 export interface UploadFileOptions {
   filename?: string;
@@ -63,7 +100,8 @@ export class Inference {
     this.baseUrl = config.baseUrl || "https://api.inference.sh";
   }
 
-  private async request<T>(
+  /** @internal */
+  async _request<T>(
     method: "get" | "post" | "put" | "delete",
     endpoint: string,
     options: {
@@ -143,7 +181,8 @@ export class Inference {
     return apiResponse.data as T;
   }
 
-  private createEventSource(endpoint: string): EventSource {
+  /** @internal */
+  _createEventSource(endpoint: string): EventSource {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     return new EventSource(url.toString(), {
       fetch: (input, init) => fetch(input, {
@@ -258,7 +297,7 @@ export class Inference {
 
     // Process input data and upload any files
     const processedInput = await this.processInputData(params.input);
-    const task = await this.request<Task>("post", "/apps/run", {
+    const task = await this._request<Task>("post", "/apps/run", {
       data: {
         ...params,
         input: processedInput
@@ -273,7 +312,7 @@ export class Inference {
     // Wait for completion with optional updates
     return new Promise<Task>((resolve, reject) => {
       const streamManager = new StreamManager<Task>({
-        createEventSource: async () => this.createEventSource(`/tasks/${task.id}/stream`),
+        createEventSource: async () => this._createEventSource(`/tasks/${task.id}/stream`),
         autoReconnect,
         maxReconnects,
         reconnectDelayMs,
@@ -323,7 +362,7 @@ export class Inference {
       size: data instanceof Blob ? data.size : undefined,
     };
 
-    const response = await this.request<File[]>("post", "/files", {
+    const response = await this._request<File[]>("post", "/files", {
       data: {
         files: [fileRequest]
       }
@@ -385,11 +424,185 @@ export class Inference {
    * @param taskId - The ID of the task to cancel
    */
   async cancel(taskId: string): Promise<void> {
-    return this.request<void>("post", `/tasks/${taskId}/cancel`);
+    return this._request<void>("post", `/tasks/${taskId}/cancel`);
+  }
+
+  /**
+   * Create an agent for chat interactions
+   * 
+   * @param config - Either a template reference string (namespace/name@version) or ad-hoc config
+   * @returns An Agent instance for chat operations
+   * 
+   * @example
+   * ```typescript
+   * // Template agent
+   * const agent = client.agent('okaris/assistant@abc123')
+   * 
+   * // Ad-hoc agent
+   * const agent = client.agent({
+   *   coreApp: 'infsh/claude-sonnet-4@xyz789',
+   *   systemPrompt: 'You are a helpful assistant',
+   *   tools: [...]
+   * })
+   * 
+   * // Send messages
+   * const response = await agent.sendMessage('Hello!')
+   * ```
+   */
+  agent(config: string | AdHocAgentConfig): Agent {
+    return new Agent(this, config);
   }
 }
 
+// =============================================================================
+// Agent Class
+// =============================================================================
+
 /**
- * @deprecated Use `Inference` instead. Will be removed in v1.0.0
+ * Agent for chat interactions
+ * 
+ * Created via `client.agent()` - do not instantiate directly.
  */
-export const inference = Inference; 
+export class Agent {
+  private readonly client: Inference;
+  private readonly config: string | AdHocAgentConfig;
+  private chatId: string | null = null;
+  private stream: StreamManager<unknown> | null = null;
+
+  /** @internal */
+  constructor(client: Inference, config: string | AdHocAgentConfig) {
+    this.client = client;
+    this.config = config;
+  }
+
+  /** Get current chat ID */
+  get currentChatId(): string | null {
+    return this.chatId;
+  }
+
+  /** Send a message to the agent */
+  async sendMessage(text: string, options: SendMessageOptions = {}): Promise<ChatMessageDTO> {
+    const isTemplate = typeof this.config === 'string';
+    
+    // Upload files if provided
+    let imageUri: string | undefined;
+    let fileUris: string[] | undefined;
+    
+    if (options.files && options.files.length > 0) {
+      const uploadedFiles = await Promise.all(
+        options.files.map(f => this.client.uploadFile(f))
+      );
+      
+      const images = uploadedFiles.filter(f => f.content_type?.startsWith('image/'));
+      const others = uploadedFiles.filter(f => !f.content_type?.startsWith('image/'));
+      
+      if (images.length > 0) imageUri = images[0].uri;
+      if (others.length > 0) fileUris = others.map(f => f.uri);
+    }
+    
+    const body = isTemplate 
+      ? {
+          chat_id: this.chatId,
+          agent: this.config,
+          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+        }
+      : {
+          chat_id: this.chatId,
+          core_app: (this.config as AdHocAgentConfig).coreApp,
+          core_app_input: (this.config as AdHocAgentConfig).coreAppInput,
+          name: (this.config as AdHocAgentConfig).name,
+          system_prompt: (this.config as AdHocAgentConfig).systemPrompt,
+          tools: (this.config as AdHocAgentConfig).tools,
+          internal_tools: (this.config as AdHocAgentConfig).internalTools,
+          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+        };
+
+    const response = await this.client._request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
+      'post',
+      '/agents/run',
+      { data: body }
+    );
+
+    if (!this.chatId && response.assistant_message.chat_id) {
+      this.chatId = response.assistant_message.chat_id;
+      this.startStreaming(options);
+    }
+
+    return response.assistant_message;
+  }
+
+  /** Get chat by ID */
+  async getChat(chatId?: string): Promise<ChatDTO | null> {
+    const id = chatId || this.chatId;
+    if (!id) return null;
+    return this.client._request<ChatDTO>('get', `/chats/${id}`);
+  }
+
+  /** Stop the current chat generation */
+  async stopChat(): Promise<void> {
+    if (!this.chatId) return;
+    await this.client._request<void>('post', `/chats/${this.chatId}/stop`);
+  }
+
+  /** Submit a tool result */
+  async submitToolResult(toolInvocationId: string, result: string): Promise<void> {
+    if (!this.chatId) throw new Error('No active chat');
+    await this.client._request<void>('post', `/chats/${this.chatId}/tool-result`, {
+      data: { tool_invocation_id: toolInvocationId, result },
+    });
+  }
+
+  /** Stop streaming and cleanup */
+  disconnect(): void {
+    this.stream?.stop();
+    this.stream = null;
+  }
+
+  /** Reset the agent (start fresh chat) */
+  reset(): void {
+    this.disconnect();
+    this.chatId = null;
+  }
+
+  private startStreaming(options: SendMessageOptions): void {
+    if (!this.chatId) return;
+
+    this.stream = new StreamManager<unknown>({
+      createEventSource: async () => this.client._createEventSource(`/chats/${this.chatId}/stream`),
+      autoReconnect: true,
+    });
+
+    this.stream.addEventListener<ChatDTO>('chats', (chat) => {
+      options.onChat?.(chat);
+    });
+
+    this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
+      options.onMessage?.(message);
+      
+      if (message.tool_invocations && options.onToolCall) {
+        for (const inv of message.tool_invocations) {
+          if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+            options.onToolCall({
+              id: inv.id,
+              name: inv.function?.name || '',
+              args: inv.function?.arguments || {},
+            });
+          }
+        }
+      }
+    });
+
+    this.stream.connect();
+  }
+}
+
+/** 
+ * Factory function for creating an Inference client (lowercase for branding)
+ * @example
+ * ```typescript
+ * const client = inference({ apiKey: 'your-api-key' });
+ * ```
+ */
+export function inference(config: InferenceConfig): Inference {
+  return new Inference(config);
+} 

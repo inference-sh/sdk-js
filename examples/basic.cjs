@@ -3,10 +3,10 @@
  *
  * Run with: node examples/basic.cjs
  */
-const { Inference, TaskStatusCompleted, TaskStatusFailed } = require('@inferencesh/sdk');
+const { inference, TaskStatusCompleted, TaskStatusFailed } = require('@inferencesh/sdk');
 
 // Initialize client
-const client = new Inference({
+const client = inference({
   apiKey: process.env.INFERENCE_API_KEY || 'your-api-key',
 });
 

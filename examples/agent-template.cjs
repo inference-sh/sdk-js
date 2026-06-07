@@ -11,7 +11,7 @@
  *   AGENT - Agent reference: namespace/name@shortid (e.g., "infsh/code-assistant@abc123")
  */
 
-const { Agent } = require('@inferencesh/sdk');
+const { inference } = require('@inferencesh/sdk');
 
 async function main() {
   const apiKey = process.env.INFERENCE_API_KEY;
@@ -29,11 +29,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Create agent from template using namespace/name@shortid format
-  const agent = new Agent(
-    { apiKey },
-    { agent: agentRef }
-  );
+  // Create client and agent from template using namespace/name@shortid format
+  const client = inference({ apiKey });
+  const agent = client.agent(agentRef);
 
   console.log(`Using template agent: ${agentRef}`);
   console.log('Sending message...\n');

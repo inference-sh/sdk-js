@@ -1,8 +1,22 @@
-// Main client export
-export { Inference, inference, InferenceConfig, RunOptions, UploadFileOptions } from './client';
+// Main client export (includes Agent)
+export { 
+  Inference, 
+  inference, 
+  InferenceConfig, 
+  RunOptions, 
+  UploadFileOptions,
+  Agent,
+  AdHocAgentConfig,
+  SendMessageOptions,
+} from './client';
 
-// Agent SDK (headless)
-export { Agent, AgentConfig, AgentOptions, AdHocAgentOptions, TemplateAgentOptions, SendMessageOptions } from './agent';
+// Legacy Agent exports (deprecated - use client.agent() instead)
+export { 
+  AgentConfig, 
+  AdHocAgentOptions, 
+  TemplateAgentOptions,
+  AgentOptions, 
+} from './agent';
 
 // Tool Builder (fluent API)
 export { tool, appTool, agentTool, webhookTool, internalTools, string, number, integer, boolean, enumOf, object, array, optional } from './tool-builder';
