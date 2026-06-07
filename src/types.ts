@@ -267,10 +267,10 @@ export interface APIError {
   message: string;
 }
 /**
- * ApiTaskRequest is the request body for running an app task.
+ * ApiAppRunRequest is the request body for /apps/run endpoint.
  * Version pinning is required for stability.
  */
-export interface ApiTaskRequest {
+export interface ApiAppRunRequest {
   /**
    * App reference in format: namespace/name@shortid (version required)
    * Example: "okaris/flux@abc1"
@@ -286,34 +286,49 @@ export interface ApiTaskRequest {
   webhook?: string;
   setup?: any;
   input: any;
+  /**
+   * If true, returns SSE stream instead of JSON response
+   */
+  stream?: boolean;
 }
 /**
- * ApiAgentMessageRequest is the request body for sending a message to an ad-hoc agent.
- * Uses namespace/name@shortid format for the core LLM app (same as ApiTaskRequest).
+ * ApiTaskRequest is an alias for ApiAppRunRequest (deprecated name)
  */
-export interface ApiAgentMessageRequest {
+export type ApiTaskRequest = ApiAppRunRequest;
+/**
+ * ApiAgentRunRequest is the request body for /agents/run endpoint.
+ * Supports both template agents and ad-hoc agents.
+ */
+export interface ApiAgentRunRequest {
   /**
    * Existing chat ID to continue a conversation (optional)
    */
   chat_id?: string;
   /**
-   * Core LLM app reference in format: namespace/name@shortid
-   * Example: "infsh/claude-opus-45@1195p4sq"
+   * Template agent reference in format: namespace/name@shortid
+   * Example: "my-org/assistant@abc123"
+   * Use this OR core_app, not both
    */
-  core_app: string;
+  agent?: string;
   /**
-   * LLM parameters (temperature, top_p, context_size, etc.)
+   * Core LLM app reference for ad-hoc agents in format: namespace/name@shortid
+   * Example: "infsh/claude-sonnet-4@1195p4sq"
+   * Use this for ad-hoc agents (without a saved template)
+   */
+  core_app?: string;
+  /**
+   * LLM parameters for ad-hoc agents (temperature, top_p, context_size, etc.)
    */
   core_app_input?: any;
   /**
-   * Agent configuration
+   * Agent configuration for ad-hoc agents
    */
   name?: string;
   description?: string;
   system_prompt?: string;
   example_prompts?: string[];
   /**
-   * Tools configuration
+   * Tools configuration for ad-hoc agents
    */
   tools?: (AgentTool | undefined)[];
   internal_tools?: InternalToolsConfig;
@@ -321,7 +336,15 @@ export interface ApiAgentMessageRequest {
    * The message to send
    */
   input: ChatTaskInput;
+  /**
+   * If true, returns SSE stream instead of JSON response
+   */
+  stream?: boolean;
 }
+/**
+ * ApiAgentMessageRequest is an alias for ApiAgentRunRequest (deprecated name)
+ */
+export type ApiAgentMessageRequest = ApiAgentRunRequest;
 export interface CreateAgentMessageRequest {
   chat_id?: string;
   agent_id?: string; // Deprecated: use Agent instead

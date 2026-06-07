@@ -71,8 +71,8 @@ export class Agent {
   private readonly options: AgentOptions;
   
   private chatId: string | null = null;
-  private messageStream: StreamManager<ChatMessageDTO> | null = null;
-  private chatStream: StreamManager<ChatDTO> | null = null;
+  // Unified stream for both Chat and ChatMessage events (uses TypedEvents)
+  private stream: StreamManager<unknown> | null = null;
 
   constructor(config: AgentConfig, options: AgentOptions) {
     this.apiKey = config.apiKey;
@@ -106,7 +106,7 @@ export class Agent {
       if (others.length > 0) fileUris = others.map(f => f.uri);
     }
     
-    const endpoint = isAdHoc ? '/agents/message' : '/agents/message';
+    // Both template and ad-hoc use /agents/run
     const body = isAdHoc 
       ? {
           chat_id: this.chatId,
@@ -126,7 +126,7 @@ export class Agent {
 
     const response = await this.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
       'post',
-      endpoint,
+      '/agents/run',
       { data: body }
     );
 
@@ -163,10 +163,8 @@ export class Agent {
 
   /** Stop streaming and cleanup */
   disconnect(): void {
-    this.messageStream?.stop();
-    this.chatStream?.stop();
-    this.messageStream = null;
-    this.chatStream = null;
+    this.stream?.stop();
+    this.stream = null;
   }
 
   /** Reset the agent (start fresh chat) */
@@ -228,37 +226,36 @@ export class Agent {
   private startStreaming(options: SendMessageOptions): void {
     if (!this.chatId) return;
 
-    // Message stream
-    this.messageStream = new StreamManager<ChatMessageDTO>({
-      createEventSource: async () => this.createEventSource(`/chats/${this.chatId}/messages/stream`),
-      autoReconnect: true,
-      onData: (message) => {
-        options.onMessage?.(message);
-        
-        // Check for client tool invocations
-        if (message.tool_invocations && options.onToolCall) {
-          for (const inv of message.tool_invocations) {
-            if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
-              options.onToolCall({
-                id: inv.id,
-                name: inv.function?.name || '',
-                args: inv.function?.arguments || {},
-              });
-            }
-          }
-        }
-      },
-    });
-
-    // Chat stream
-    this.chatStream = new StreamManager<ChatDTO>({
+    // Unified stream with TypedEvents (single SSE connection for both Chat and ChatMessage)
+    this.stream = new StreamManager<unknown>({
       createEventSource: async () => this.createEventSource(`/chats/${this.chatId}/stream`),
       autoReconnect: true,
-      onData: (chat) => options.onChat?.(chat),
     });
 
-    this.messageStream.connect();
-    this.chatStream.connect();
+    // Listen for Chat object updates (status changes)
+    this.stream.addEventListener<ChatDTO>('chats', (chat) => {
+      options.onChat?.(chat);
+    });
+
+    // Listen for ChatMessage updates
+    this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
+      options.onMessage?.(message);
+      
+      // Check for client tool invocations
+      if (message.tool_invocations && options.onToolCall) {
+        for (const inv of message.tool_invocations) {
+          if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+            options.onToolCall({
+              id: inv.id,
+              name: inv.function?.name || '',
+              args: inv.function?.arguments || {},
+            });
+          }
+        }
+      }
+    });
+
+    this.stream.connect();
   }
 
   private createEventSource(endpoint: string): EventSource {

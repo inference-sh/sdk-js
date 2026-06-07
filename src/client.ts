@@ -1,5 +1,5 @@
 import {
-  ApiTaskRequest,
+  ApiAppRunRequest,
   TaskDTO as Task,
   APIResponse,
   PartialFile,
@@ -246,7 +246,7 @@ export class Inference {
    * );
    * ```
    */
-  async run(params: ApiTaskRequest, options: RunOptions = {}): Promise<Task> {
+  async run(params: ApiAppRunRequest, options: RunOptions = {}): Promise<Task> {
     const {
       onUpdate,
       onPartialUpdate,
@@ -258,7 +258,7 @@ export class Inference {
 
     // Process input data and upload any files
     const processedInput = await this.processInputData(params.input);
-    const task = await this.request<Task>("post", "/run", {
+    const task = await this.request<Task>("post", "/apps/run", {
       data: {
         ...params,
         input: processedInput
