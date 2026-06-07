@@ -661,6 +661,16 @@ export interface AppVariant {
   env: { [key: string]: string};
   python: string;
 }
+/**
+ * AppFunction represents a callable entry point within an app version.
+ * Each function has its own input/output schema while sharing the app's setup.
+ */
+export interface AppFunction {
+  name: string;
+  description?: string;
+  input_schema: any;
+  output_schema: any;
+}
 export interface AppVersion {
   BaseModel: BaseModel;
   /**
@@ -676,6 +686,13 @@ export interface AppVersion {
   setup_schema: any;
   input_schema: any;
   output_schema: any;
+  /**
+   * Functions contains the callable entry points for this app version.
+   * Each function has its own input/output schema. If nil/empty, the app uses legacy single-function mode
+   * with InputSchema/OutputSchema at the version level.
+   */
+  functions?: { [key: string]: AppFunction};
+  default_function?: string;
   variants: { [key: string]: AppVariant};
   env: { [key: string]: string};
   kernel: string;
@@ -704,6 +721,8 @@ export interface AppVersionDTO extends BaseModel {
   setup_schema: any;
   input_schema: any;
   output_schema: any;
+  functions?: { [key: string]: AppFunction};
+  default_function?: string;
   variants: { [key: string]: AppVariant};
   env: { [key: string]: string};
   kernel: string;
@@ -1026,6 +1045,7 @@ export interface FlowNodeData {
   app?: AppDTO;
   app_id: string;
   app_version_id: string;
+  function?: string; // Function to call on multi-function apps (defaults to version's default)
   infra: Infra;
   workers: string[];
   setup?: any;
@@ -1426,6 +1446,7 @@ export interface TaskDTO extends BaseModel, PermissionModelDTO {
   app_version_id: string;
   app_version?: AppVersionDTO;
   app_variant: string;
+  function: string; // Function called on multi-function apps
   infra: Infra;
   workers: string[];
   flow_id?: string;
