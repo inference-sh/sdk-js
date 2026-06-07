@@ -165,6 +165,72 @@ describe('HttpClient', () => {
         message: expect.stringContaining('service unavailable'),
       });
     });
+
+    it('should send X-API-Version 2 and X-Client-Source on every request', async () => {
+      mockJsonResponse({ id: 'task-1' });
+
+      await client().request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-API-Version']).toBe('2');
+      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+    });
+
+    it('should prefer RFC 9457 detail over title in error responses', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              type: 'about:blank',
+              title: 'Validation failed',
+              detail: 'app field is required',
+            })
+          ),
+      });
+
+      await expect(client().request('post', '/apps')).rejects.toMatchObject({
+        name: 'InferenceError',
+        message: expect.stringContaining('app field is required'),
+      });
+    });
+
+    it('should fall back to RFC 9457 title when detail is absent', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () =>
+          Promise.resolve(JSON.stringify({ type: 'about:blank', title: 'Forbidden' })),
+      });
+
+      await expect(client().request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        message: expect.stringContaining('Forbidden'),
+      });
+    });
+
+    it('should use raw response text when error body is not JSON', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve('Bad Gateway from upstream'),
+      });
+
+      await expect(client().request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        message: expect.stringContaining('Bad Gateway from upstream'),
+      });
+    });
+
+    it('should not unwrap legacy v1 APIResponse envelopes', async () => {
+      const v1Envelope = { success: true, data: { id: 'task-legacy' } };
+      mockJsonResponse(v1Envelope);
+
+      const result = await client().request<typeof v1Envelope>('get', '/tasks/legacy');
+      expect(result).toEqual(v1Envelope);
+    });
   });
 
   describe('getStreamableConfig', () => {

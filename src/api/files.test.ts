@@ -57,6 +57,24 @@ describe('FilesAPI', () => {
       await expect(api().upload('data:invalid')).rejects.toThrow('Invalid data URI format');
     });
 
+    it('should decode URL-encoded (non-base64) data URIs', async () => {
+      const fileRecord = {
+        id: 'file-3',
+        uri: 'inf://files/url-encoded',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'text/plain',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const result = await api().upload('data:text/plain,Hello%20World');
+
+      expect(result.uri).toBe('inf://files/url-encoded');
+      const putCall = mockFetch.mock.calls[1];
+      expect(putCall[1]?.headers).toMatchObject({ 'Content-Type': 'text/plain' });
+    });
+
     it('should decode URL-safe base64 in data URIs', async () => {
       const fileRecord = {
         id: 'file-2',
