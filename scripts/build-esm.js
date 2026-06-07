@@ -206,7 +206,42 @@ export * from './${cjsFile}';
   }
 }
 
+// Create ESM wrappers for agent module
+function createAgentWrappers() {
+  const agentDir = path.join(distDir, 'agent');
+  if (!fs.existsSync(agentDir)) {
+    console.log('No agent dir found, skipping');
+    return;
+  }
+
+  const jsFiles = fs.readdirSync(agentDir).filter(f => f.endsWith('.js') && !f.endsWith('.cjs'));
+
+  for (const jsFile of jsFiles) {
+    const name = path.basename(jsFile, '.js');
+    const cjsFile = `${name}.cjs`;
+    const mjsFile = `${name}.mjs`;
+
+    // Rename .js to .cjs
+    const jsPath = path.join(agentDir, jsFile);
+    const cjsPath = path.join(agentDir, cjsFile);
+    fs.renameSync(jsPath, cjsPath);
+
+    // Create .mjs wrapper
+    const wrapper = `// ESM wrapper - re-export all from CommonJS
+export * from './${cjsFile}';
+`;
+
+    fs.writeFileSync(path.join(agentDir, mjsFile), wrapper);
+
+    // Copy back for backwards compatibility
+    fs.copyFileSync(cjsPath, jsPath);
+
+    console.log(`Created dist/agent/${mjsFile}`);
+  }
+}
+
 // Run
 createMainWrapper();
 createProxyWrappers();
+createAgentWrappers();
 console.log('ESM build complete');
