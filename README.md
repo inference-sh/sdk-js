@@ -1,11 +1,13 @@
-# @inferencesh/sdk
+# @inferencesh/sdk — ai inference api for javascript & typescript
 
 [![npm version](https://img.shields.io/npm/v/@inferencesh/sdk.svg)](https://www.npmjs.com/package/@inferencesh/sdk)
 [![npm downloads](https://img.shields.io/npm/dm/@inferencesh/sdk.svg)](https://www.npmjs.com/package/@inferencesh/sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-Official JavaScript/TypeScript SDK for [inference.sh](https://inference.sh) — Run AI models with a simple API.
+official javascript/typescript sdk for [inference.sh](https://inference.sh) — the ai agent runtime for serverless ai inference.
+
+run ai models, build ai agents, and deploy generative ai applications with a simple api. access 150+ models including flux, stable diffusion, llms (claude, gpt, gemini), video generation (veo, seedance), and more.
 
 ## Installation
 
@@ -331,6 +333,14 @@ import type { Task, ApiTaskRequest, RunOptions } from '@inferencesh/sdk';
 - Node.js 18.0.0 or higher
 - Modern browsers with `fetch` support
 
-## License
+## resources
+
+- [documentation](https://inference.sh/docs) — getting started guides and api reference
+- [blog](https://inference.sh/blog) — tutorials on ai agents, image generation, and more
+- [app store](https://app.inference.sh) — browse 150+ ai models
+- [discord](https://discord.gg/RM77SWSbyT) — community support
+- [github](https://github.com/inference-sh) — open source projects
+
+## license
 
 MIT © [inference.sh](https://inference.sh)
