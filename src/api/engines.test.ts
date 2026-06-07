@@ -146,4 +146,34 @@ describe('EnginesAPI', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-7' });
   });
+
+  it('should POST /engines/{id}/extend for extend()', async () => {
+    mockJsonResponse(null);
+
+    await api().extend('eng-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/eng-1/extend');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should POST /engines/{id}/drain for drain()', async () => {
+    mockJsonResponse(null);
+
+    await api().drain('eng-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/eng-1/drain');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should POST /engines/{id}/update for updateBinary()', async () => {
+    mockJsonResponse(null);
+
+    await api().updateBinary('eng-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/eng-1/update');
+    expect(init.method).toBe('POST');
+  });
 });
