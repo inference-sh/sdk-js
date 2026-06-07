@@ -18,7 +18,7 @@ import type {
   ActionsContext,
   ActionsResult,
   InternalActions,
-  UploadedFile,
+  FileRef,
 } from './types';
 import { isAdHocConfig, extractClientToolHandlers } from './types';
 import * as api from './api';
@@ -105,7 +105,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     }
 
     setStreamManager(undefined);
-    dispatch({ type: 'SET_STATUS', payload: 'connecting' });
+    dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connecting' });
     callbacks.onStatusChange?.('connecting');
 
     try {
@@ -116,8 +116,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     } catch (error) {
       console.error('[AgentSDK] Failed to fetch chat:', error);
-      dispatch({ type: 'SET_STATUS', payload: 'idle' });
-      dispatch({ type: 'SET_IS_GENERATING', payload: false });
+      dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
       callbacks.onStatusChange?.('idle');
       return;
     }
@@ -138,7 +137,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         callbacks.onError?.(error);
       },
       onStart: () => {
-        dispatch({ type: 'SET_STATUS', payload: 'streaming' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
         callbacks.onStatusChange?.('streaming');
       },
       onEnd: () => {
@@ -147,8 +146,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         // so getStreamManager() will be undefined and we skip the duplicate dispatch.
         if (getStreamManager()) {
           setStreamManager(undefined);
-          dispatch({ type: 'SET_STATUS', payload: 'idle' });
-          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
           callbacks.onStatusChange?.('idle');
         }
       },
@@ -196,14 +194,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         }
       },
       onStart: () => {
-        dispatch({ type: 'SET_STATUS', payload: 'streaming' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
         callbacks.onStatusChange?.('streaming');
       },
       onStop: () => {
         if (getStreamManager()) {
           setStreamManager(undefined);
-          dispatch({ type: 'SET_STATUS', payload: 'idle' });
-          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
           callbacks.onStatusChange?.('idle');
         }
       },
@@ -224,8 +221,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     if (manager) {
       manager.stop();
     }
-    dispatch({ type: 'SET_STATUS', payload: 'idle' });
-    dispatch({ type: 'SET_IS_GENERATING', payload: false });
+    dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
     callbacks.onStatusChange?.('idle');
   };
 
@@ -234,7 +230,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   // =========================================================================
 
   const publicActions: AgentChatActions = {
-    sendMessage: async (text: string, files?: UploadedFile[]) => {
+    sendMessage: async (text: string, files?: FileRef[]) => {
       const agentConfig = getConfig();
       const chatId = getChatId();
 
@@ -247,7 +243,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       if (!trimmedText) return;
 
       // Update status
-      dispatch({ type: 'SET_STATUS', payload: 'streaming' });
+      dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
       dispatch({ type: 'SET_ERROR', payload: undefined });
 
       try {
@@ -268,14 +264,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
           }
         } else {
           // API returned no result — reset status so we don't get stuck
-          dispatch({ type: 'SET_STATUS', payload: 'idle' });
-          dispatch({ type: 'SET_IS_GENERATING', payload: false });
+          dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
           callbacks.onStatusChange?.('idle');
         }
       } catch (error) {
         console.error('[AgentSDK] Failed to send message:', error);
         const err = error instanceof Error ? error : new Error('Failed to send message');
-        dispatch({ type: 'SET_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
       }
@@ -301,7 +296,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     clearError: () => {
       dispatch({ type: 'SET_ERROR', payload: undefined });
-      dispatch({ type: 'SET_STATUS', payload: 'idle' });
+      dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
     },
 
     submitToolResult: async (toolInvocationId: string, result: string) => {
@@ -310,7 +305,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       } catch (error) {
         console.error('[AgentSDK] Failed to submit tool result:', error);
         const err = error instanceof Error ? error : new Error('Failed to submit tool result');
-        dispatch({ type: 'SET_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;
@@ -323,7 +318,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       } catch (error) {
         console.error('[AgentSDK] Failed to approve tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to approve tool');
-        dispatch({ type: 'SET_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;
@@ -336,7 +331,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       } catch (error) {
         console.error('[AgentSDK] Failed to reject tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to reject tool');
-        dispatch({ type: 'SET_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;
@@ -356,7 +351,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       } catch (error) {
         console.error('[AgentSDK] Failed to always-allow tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to always-allow tool');
-        dispatch({ type: 'SET_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;

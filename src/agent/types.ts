@@ -15,22 +15,18 @@ import type {
   AgentTool,
   AgentConfig as GeneratedAgentConfig,
   CoreAppConfig,
+  FileRef,
 } from '../types';
 import type { HttpClient } from '../http/client';
 import type { StreamableManager } from '../http/streamable';
 import type { PollManager } from '../http/poll';
 
+// Re-export FileRef for convenience
+export type { FileRef } from '../types';
+
 // =============================================================================
 // Client Interface
 // =============================================================================
-
-/**
- * Minimal file interface returned by upload (just needs uri and content_type)
- */
-export interface UploadedFile {
-  uri: string;
-  content_type?: string;
-}
 
 /**
  * Minimal client interface required by the agent module.
@@ -41,7 +37,7 @@ export interface AgentClient {
   http: Pick<HttpClient, 'request' | 'getStreamableConfig' | 'getStreamDefault' | 'getPollIntervalMs'>;
   /** Files API for uploads */
   files: {
-    upload: (data: string | Blob | globalThis.File) => Promise<UploadedFile>;
+    upload: (data: string | Blob | globalThis.File) => Promise<FileRef>;
   };
 }
 
@@ -128,11 +124,9 @@ export interface AgentChatState {
   chatId: string | null;
   /** Chat messages */
   messages: ChatMessageDTO[];
-  /** Chat status */
-  status: ChatStatus;
-  /** Whether the agent is currently generating a response */
-  isGenerating: boolean;
-  /** Error message if status is 'error' */
+  /** Connection status (stream/poll state, not chat.status) */
+  connectionStatus: ChatStatus;
+  /** Error message if connectionStatus is 'error' */
   error?: string;
   /** The full chat object (if loaded) */
   chat: ChatDTO | null;
@@ -143,9 +137,9 @@ export interface AgentChatState {
  */
 export interface AgentChatActions {
   /** Send a message to the agent */
-  sendMessage: (text: string, files?: UploadedFile[]) => Promise<void>;
+  sendMessage: (text: string, files?: FileRef[]) => Promise<void>;
   /** Upload a file and return the uploaded file reference */
-  uploadFile: (file: File) => Promise<UploadedFile>;
+  uploadFile: (file: File) => Promise<FileRef>;
   /** Stop the current generation */
   stopGeneration: () => void;
   /** Reset the chat (start fresh) */
@@ -253,8 +247,7 @@ export type ChatAction =
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
   | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO }
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }
-  | { type: 'SET_STATUS'; payload: ChatStatus }
-  | { type: 'SET_IS_GENERATING'; payload: boolean }
+  | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
   | { type: 'RESET' };
 

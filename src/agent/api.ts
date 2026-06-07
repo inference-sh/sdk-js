@@ -11,7 +11,7 @@ import type {
   ApiAgentRunRequest,
   AgentTool,
 } from '../types';
-import type { AdHocAgentConfig, TemplateAgentConfig, AgentOptions, AgentClient, UploadedFile } from './types';
+import type { AdHocAgentConfig, TemplateAgentConfig, AgentOptions, AgentClient, FileRef } from './types';
 import { isAdHocConfig, extractToolSchemas } from './types';
 
 // Local type definition for agent run response
@@ -23,13 +23,13 @@ interface ApiAgentRunResponse {
 /**
  * File input that can be either a File to upload or an already-uploaded file
  */
-export type FileInput = globalThis.File | UploadedFile;
+export type FileInput = globalThis.File | FileRef;
 
 /**
  * Check if input is an already-uploaded file
  */
-function isUploadedFile(input: FileInput): input is UploadedFile {
-  return 'uri' in input && typeof (input as UploadedFile).uri === 'string';
+function isFileRef(input: FileInput): input is FileRef {
+  return 'uri' in input && typeof (input as FileRef).uri === 'string';
 }
 
 /**
@@ -40,8 +40,7 @@ export async function sendAdHocMessage(
   config: AdHocAgentConfig,
   chatId: string | null,
   text: string,
-  imageUris?: string[],
-  fileUris?: string[]
+  attachments?: FileRef[]
 ): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
   // Extract just the schemas from tools (handlers are stripped out)
   const toolSchemas = config.tools ? extractToolSchemas(config.tools) : undefined;
@@ -56,8 +55,7 @@ export async function sendAdHocMessage(
     agent_name: config.name,
     input: {
       text,
-      images: imageUris,
-      files: fileUris,
+      attachments,
       context_size: 0,
       system_prompt: '',
       context: [],
@@ -89,8 +87,7 @@ export async function sendTemplateMessage(
   config: TemplateAgentConfig,
   chatId: string | null,
   text: string,
-  imageUris?: string[],
-  fileUris?: string[]
+  attachments?: FileRef[]
 ): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
   const request: ApiAgentRunRequest = {
     chat_id: chatId ?? undefined,
@@ -98,8 +95,7 @@ export async function sendTemplateMessage(
     agent: config.agent || undefined,
     input: {
       text,
-      images: imageUris,
-      files: fileUris,
+      attachments,
       context_size: 0,
       system_prompt: '',
       context: [],
@@ -133,17 +129,16 @@ export async function sendMessage(
   text: string,
   files?: FileInput[]
 ): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
-  // Process files - upload if needed, or use existing URIs
-  let imageUris: string[] | undefined;
-  let fileUris: string[] | undefined;
+  // Process files - upload if needed, collect as FileRef attachments
+  let attachments: FileRef[] | undefined;
 
   if (files && files.length > 0) {
-    const uploadedFiles: UploadedFile[] = [];
+    attachments = [];
 
     for (const file of files) {
-      // Check if already uploaded
-      if (isUploadedFile(file)) {
-        uploadedFiles.push(file);
+      // Check if already uploaded (FileRef)
+      if (isFileRef(file)) {
+        attachments.push(file);
         continue;
       }
 
@@ -151,29 +146,22 @@ export async function sendMessage(
       try {
         const result = await client.files.upload(file);
         if (result) {
-          uploadedFiles.push(result);
+          attachments.push(result);
         }
       } catch (error) {
         console.error('[AgentSDK] Failed to upload file:', error);
       }
     }
 
-    // Separate images from other files
-    const images = uploadedFiles.filter(f => f.content_type?.startsWith('image/'));
-    const otherFiles = uploadedFiles.filter(f => !f.content_type?.startsWith('image/'));
-
-    if (images.length > 0) {
-      imageUris = images.map(f => f.uri);
-    }
-    if (otherFiles.length > 0) {
-      fileUris = otherFiles.map(f => f.uri);
+    if (attachments.length === 0) {
+      attachments = undefined;
     }
   }
 
   if (isAdHocConfig(config)) {
-    return sendAdHocMessage(client, config, chatId, text, imageUris, fileUris);
+    return sendAdHocMessage(client, config, chatId, text, attachments);
   } else {
-    return sendTemplateMessage(client, config, chatId, text, imageUris, fileUris);
+    return sendTemplateMessage(client, config, chatId, text, attachments);
   }
 }
 
@@ -263,7 +251,7 @@ export async function alwaysAllowTool(
 /**
  * Upload a file and return the uploaded file reference
  */
-export async function uploadFile(client: AgentClient, file: globalThis.File): Promise<UploadedFile> {
+export async function uploadFile(client: AgentClient, file: globalThis.File): Promise<FileRef> {
   const result = await client.files.upload(file);
   return result;
 }

@@ -12,13 +12,14 @@ import type { ChatMessageDTO } from '../types';
 /**
  * Hook to access chat state
  *
- * @returns Chat state (messages, status, isGenerating, etc.)
+ * @returns Chat state (chat, messages, connectionStatus, error)
  * @throws Error if used outside AgentChatProvider
  *
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { messages, isGenerating, status } = useAgentChat();
+ *   const { chat, messages } = useAgentChat();
+ *   const isBusy = chat?.status === 'busy';
  *   return <div>{messages.length} messages</div>;
  * }
  * ```
@@ -46,11 +47,12 @@ export function useAgentChat(): AgentChatState {
  * ```tsx
  * function SendButton() {
  *   const { sendMessage, stopGeneration } = useAgentActions();
- *   const { isGenerating } = useAgentChat();
+ *   const { chat } = useAgentChat();
+ *   const isBusy = chat?.status === 'busy';
  *
  *   return (
- *     <button onClick={() => isGenerating ? stopGeneration() : sendMessage('Hello!')}>
- *       {isGenerating ? 'Stop' : 'Send'}
+ *     <button onClick={() => isBusy ? stopGeneration() : sendMessage('Hello!')}>
+ *       {isBusy ? 'Stop' : 'Send'}
  *     </button>
  *   );
  * }
@@ -99,11 +101,12 @@ export function useMessage(messageId: string): ChatMessageDTO | undefined {
  * function ChatInput() {
  *   const { state, actions } = useAgentChatContext();
  *   const [input, setInput] = useState('');
+ *   const isBusy = state.chat?.status === 'busy';
  *
  *   return (
  *     <form onSubmit={() => actions.sendMessage(input)}>
  *       <input value={input} onChange={e => setInput(e.target.value)} />
- *       <button disabled={state.isGenerating}>Send</button>
+ *       <button disabled={isBusy}>Send</button>
  *     </form>
  *   );
  * }
