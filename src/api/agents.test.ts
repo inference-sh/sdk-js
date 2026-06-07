@@ -2,6 +2,7 @@ import { HttpClient } from '../http/client';
 import {
   ChatStatusBusy,
   ChatStatusIdle,
+  FileDTO,
   ToolInvocationStatusAwaitingInput,
   ToolTypeClient,
 } from '../types';
@@ -315,6 +316,68 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(streamIndex).toBeGreaterThanOrEqual(0);
     expect(runIndex).toBeGreaterThanOrEqual(0);
     expect(streamIndex).toBeLessThan(runIndex);
+  });
+});
+
+describe('Agent.sendMessage (file attachments)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const agent = () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+  };
+
+  it('should route image and non-image URIs into images vs files on the run request', async () => {
+    const imageFile: FileDTO = {
+      id: 'file-img',
+      uri: 'inf://files/img',
+      filename: 'photo.png',
+      content_type: 'image/png',
+    } as FileDTO;
+    const docFile: FileDTO = {
+      id: 'file-doc',
+      uri: 'inf://files/doc',
+      filename: 'notes.pdf',
+      content_type: 'application/pdf',
+    } as FileDTO;
+
+    mockJsonResponse({
+      success: true,
+      data: {
+        user_message: makeMessage({ id: 'user-1', role: 'user' }),
+        assistant_message: makeMessage(),
+      },
+    });
+    mockJsonResponse({ success: true, data: { status: ChatStatusBusy } });
+    mockJsonResponse({
+      success: true,
+      data: { id: 'chat-1', status: ChatStatusBusy, chat_messages: [] },
+    });
+    mockJsonResponse({ success: true, data: { status: ChatStatusIdle } });
+    mockJsonResponse({
+      success: true,
+      data: { id: 'chat-1', status: ChatStatusIdle, chat_messages: [] },
+    });
+
+    await agent().sendMessage('see attachments', {
+      stream: false,
+      files: [imageFile, docFile],
+    });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.input.images).toEqual(['inf://files/img']);
+    expect(body.input.files).toEqual(['inf://files/doc']);
+    expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/files')).length).toBe(0);
   });
 });
 

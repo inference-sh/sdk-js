@@ -160,6 +160,81 @@ describe('createActions', () => {
       });
     });
 
+    it('should run the handler and submit its result when a client tool is available', async () => {
+      const handler = jest.fn().mockResolvedValue('tool ok');
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-inv-ok',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusAwaitingInput,
+              function: { name: 'my_tool', arguments: { x: 1 } },
+            },
+          ],
+        })
+      );
+
+      await Promise.resolve();
+
+      expect(handler).toHaveBeenCalledWith({ x: 1 });
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-ok',
+        'tool ok'
+      );
+    });
+
+    it('should submit a JSON error when a client tool handler throws', async () => {
+      const handler = jest.fn().mockRejectedValue(new Error('handler boom'));
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-inv-err',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusAwaitingInput,
+              function: { name: 'my_tool', arguments: {} },
+            },
+          ],
+        })
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-err',
+        expect.stringContaining('handler boom')
+      );
+    });
+
     it('should submit not_available when a client tool has no handler', async () => {
       const { ctx } = createTestContext({
         getClientToolHandlers: () =>
@@ -269,6 +344,34 @@ describe('createActions', () => {
         payload: 'idle',
       });
       expect(onStatusChange).toHaveBeenCalledWith('idle');
+    });
+
+    it('should dispatch error state when sendMessage throws', async () => {
+      mockAgentApi.sendMessage.mockRejectedValueOnce(new Error('send failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'send failed',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'send failed' }));
+    });
+
+    it('should ignore whitespace-only messages', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('   ');
+
+      expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
     });
   });
 });
