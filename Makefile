@@ -38,9 +38,14 @@ unit-test:
 test: check-key build
 	INFERENCE_API_KEY=$(API_KEY) INFERENCE_BASE_URL=$(BASE_URL) npm run test:integration
 
-# Integration tests against dev API
-test-dev: check-key build
-	INFERENCE_API_KEY=$(API_KEY) INFERENCE_BASE_URL=https://api-dev.inference.sh npm run test:integration
+# Integration tests against dev API (uses dev seed key by default)
+DEV_API_KEY ?= 1nfsh-dev-0000000000000000000
+test-dev: build
+	INFERENCE_API_KEY=$(DEV_API_KEY) INFERENCE_BASE_URL=https://api-dev.inference.sh npm run test:integration
+
+# Integration tests against local dev API
+test-local: build
+	INFERENCE_API_KEY=$(DEV_API_KEY) INFERENCE_BASE_URL=http://localhost:3021 npm run test:integration
 
 # =============================================================================
 # Examples (for manual testing/demos)
