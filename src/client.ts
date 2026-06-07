@@ -468,6 +468,7 @@ export class Agent {
   private readonly config: string | AdHocAgentConfig;
   private chatId: string | null = null;
   private stream: StreamManager<unknown> | null = null;
+  private dispatchedToolCalls: Set<string> = new Set();
 
   /** @internal */
   constructor(client: Inference, config: string | AdHocAgentConfig) {
@@ -523,9 +524,15 @@ export class Agent {
       { data: body }
     );
 
-    if (!this.chatId && response.assistant_message.chat_id) {
+    // Start streaming for new chats or continue existing stream
+    const isNewChat = !this.chatId && response.assistant_message.chat_id;
+    if (isNewChat) {
       this.chatId = response.assistant_message.chat_id;
-      this.startStreaming(options);
+    }
+
+    // Wait for streaming to complete if callbacks are provided
+    if (options.onMessage || options.onChat || options.onToolCall) {
+      await this.streamUntilIdle(options);
     }
 
     return response.assistant_message;
@@ -561,37 +568,52 @@ export class Agent {
   reset(): void {
     this.disconnect();
     this.chatId = null;
+    this.dispatchedToolCalls.clear();
   }
 
-  private startStreaming(options: SendMessageOptions): void {
-    if (!this.chatId) return;
+  /** Stream events until chat becomes idle */
+  private streamUntilIdle(options: SendMessageOptions): Promise<void> {
+    if (!this.chatId) return Promise.resolve();
 
-    this.stream = new StreamManager<unknown>({
-      createEventSource: async () => this.client._createEventSource(`/chats/${this.chatId}/stream`),
-      autoReconnect: true,
-    });
+    return new Promise((resolve) => {
+      // Stop any existing stream
+      this.stream?.stop();
 
-    this.stream.addEventListener<ChatDTO>('chats', (chat) => {
-      options.onChat?.(chat);
-    });
+      this.stream = new StreamManager<unknown>({
+        createEventSource: async () => this.client._createEventSource(`/chats/${this.chatId}/stream`),
+        autoReconnect: true,
+      });
 
-    this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
-      options.onMessage?.(message);
-      
-      if (message.tool_invocations && options.onToolCall) {
-        for (const inv of message.tool_invocations) {
-          if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
-            options.onToolCall({
-              id: inv.id,
-              name: inv.function?.name || '',
-              args: inv.function?.arguments || {},
-            });
+      this.stream.addEventListener<ChatDTO>('chats', (chat) => {
+        options.onChat?.(chat);
+        // Resolve when chat becomes idle (generation complete)
+        if (chat.status === 'idle') {
+          resolve();
+        }
+      });
+
+      this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
+        options.onMessage?.(message);
+        
+        if (message.tool_invocations && options.onToolCall) {
+          for (const inv of message.tool_invocations) {
+            // Skip if already dispatched
+            if (this.dispatchedToolCalls.has(inv.id)) continue;
+            
+            if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+              this.dispatchedToolCalls.add(inv.id);
+              options.onToolCall({
+                id: inv.id,
+                name: inv.function?.name || '',
+                args: inv.function?.arguments || {},
+              });
+            }
           }
         }
-      }
-    });
+      });
 
-    this.stream.connect();
+      this.stream.connect();
+    });
   }
 }
 
