@@ -129,7 +129,7 @@ export class Inference {
 
     const response = await fetch(url.toString(), fetchOptions);
     const responseText = await response.text();
-    
+
     // Try to parse as JSON
     let data: APIResponse<T> | { errors?: RequirementError[] } | null = null;
     try {
@@ -253,10 +253,10 @@ export class Inference {
    * @param options - Run options for waiting, updates, and reconnection
    * @returns The completed task result
    *
-   * App reference format: `namespace/name@shortid` (version is required)
+   * App reference format: `namespace/name@shortid` or `namespace/name@shortid:function`
    * 
-   * The short ID ensures your code always runs the same version,
-   * protecting against breaking changes from app updates.
+   * The short ID ensures your code always runs the same version.
+   * You can optionally specify a function name to run a specific entry point.
    *
    * @example
    * ```typescript
@@ -412,11 +412,11 @@ export class Inference {
     return file;
   }
 
-/**
-   * Cancel a running task
-   *
-   * @param taskId - The ID of the task to cancel
-   */
+  /**
+     * Cancel a running task
+     *
+     * @param taskId - The ID of the task to cancel
+     */
   async cancel(taskId: string): Promise<void> {
     return this._request<void>("post", `/tasks/${taskId}/cancel`);
   }
@@ -478,34 +478,34 @@ export class Agent {
   /** Send a message to the agent */
   async sendMessage(text: string, options: SendMessageOptions = {}): Promise<ChatMessageDTO> {
     const isTemplate = typeof this.config === 'string';
-    
+
     // Upload files if provided
     let imageUri: string | undefined;
     let fileUris: string[] | undefined;
-    
+
     if (options.files && options.files.length > 0) {
       const uploadedFiles = await Promise.all(
         options.files.map(f => this.client.uploadFile(f))
       );
-      
+
       const images = uploadedFiles.filter(f => f.content_type?.startsWith('image/'));
       const others = uploadedFiles.filter(f => !f.content_type?.startsWith('image/'));
-      
+
       if (images.length > 0) imageUri = images[0].uri;
       if (others.length > 0) fileUris = others.map(f => f.uri);
     }
-    
-    const body = isTemplate 
+
+    const body = isTemplate
       ? {
-          chat_id: this.chatId,
-          agent_ref: this.config as string,
-          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        }
+        chat_id: this.chatId,
+        agent_ref: this.config as string,
+        input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+      }
       : {
-          chat_id: this.chatId,
-          agent_config: this.config as AdHocAgentConfig,
-          input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-        };
+        chat_id: this.chatId,
+        agent_config: this.config as AdHocAgentConfig,
+        input: { text, image: imageUri, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
+      };
 
     const response = await this.client._request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
       'post',
@@ -546,11 +546,11 @@ export class Agent {
    * @param resultOrAction - Either a raw result string, or an object with action and optional form_data (will be JSON-serialized)
    */
   async submitToolResult(
-    toolInvocationId: string, 
+    toolInvocationId: string,
     resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
   ): Promise<void> {
     // Serialize widget actions to JSON string
-    const result = typeof resultOrAction === 'string' 
+    const result = typeof resultOrAction === 'string'
       ? resultOrAction
       : JSON.stringify(resultOrAction);
     await this.client._request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
@@ -592,12 +592,12 @@ export class Agent {
 
       this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
         options.onMessage?.(message);
-        
+
         if (message.tool_invocations && options.onToolCall) {
           for (const inv of message.tool_invocations) {
             // Skip if already dispatched
             if (this.dispatchedToolCalls.has(inv.id)) continue;
-            
+
             if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
               this.dispatchedToolCalls.add(inv.id);
               options.onToolCall({
