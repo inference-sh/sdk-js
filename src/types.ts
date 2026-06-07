@@ -568,6 +568,13 @@ export interface SkillPublishRequest {
   files: SkillFile[];
   metadata?: { [key: string]: string};
   /**
+   * Lineage — backend infers MutationType from context
+   */
+  parent_skill_id?: string;
+  parent_version_id?: string;
+  source_url?: string;
+  version_notes?: string;
+  /**
    * Spec fields for roundtrip fidelity
    */
   disable_model_invocation: boolean;
@@ -1653,6 +1660,8 @@ export const GraphEdgeTypeDependency: GraphEdgeType = "dependency"; // Blocking 
 export const GraphEdgeTypeFlow: GraphEdgeType = "flow"; // Non-blocking flow
 export const GraphEdgeTypeConditional: GraphEdgeType = "conditional"; // Conditional flow
 export const GraphEdgeTypeExecution: GraphEdgeType = "execution"; // Node → Resource execution link
+export const GraphEdgeTypeParent: GraphEdgeType = "parent"; // Parent resource → child resource (e.g. skill fork)
+export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor"; // Specific version → child resource (fork point)
 /**
  * GraphNodeDTO is the API representation of a graph node
  */
@@ -2420,6 +2429,7 @@ export interface UserMetadata {
   use_case: string;
   use_case_reason: string;
   use_case_privacy: string;
+  signup_source: string; // e.g. "cli", "web"
 }
 
 //////////
