@@ -287,6 +287,12 @@ export interface ApiAgentRunRequest {
   stream?: boolean;
 }
 /**
+ * ToolResultRequest represents a tool result submission
+ */
+export interface ToolResultRequest {
+  result: string;
+}
+/**
  * PartialFile is the clean DTO version (no gorm tags).
  */
 export interface PartialFile {
@@ -1137,7 +1143,7 @@ export interface CachedRepoInfo {
   size_on_disk_str: string;
   nb_files: number /* int */;
   refs: string[];
-  Revisions: CachedRevisionInfo[];
+  revisions: CachedRevisionInfo[];
 }
 /**
  * HFCacheInfo represents information about the Huggingface cache
