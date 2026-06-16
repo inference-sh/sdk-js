@@ -1,6 +1,6 @@
 import { RequirementError } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
-import { EventSource } from 'eventsource';
+import { EventSource, type FetchLike } from 'eventsource';
 
 /**
  * Error handler that can intercept errors and optionally retry the request.
@@ -211,7 +211,7 @@ export class HttpClient {
 
       let errorDetail: string | undefined;
       if (data && typeof data === 'object') {
-        errorDetail = data.detail || data.title || data.message || JSON.stringify(data);
+        errorDetail = this.extractErrorDetail(data) ?? JSON.stringify(data);
       } else if (responseText) {
         errorDetail = responseText.slice(0, 500);
       }
@@ -254,10 +254,20 @@ export class HttpClient {
   }
 
   /**
+   * Pull a human-readable detail string from a parsed problem+json / API error
+   * body (RFC 9457 `detail`/`title`, or a plain `message`).
+   */
+  private extractErrorDetail(data: unknown): string | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const d = data as Record<string, unknown>;
+    return (d.detail || d.title || d.message) as string | undefined;
+  }
+
+  /**
    * Create an EventSource for SSE streaming
    * @deprecated Use getStreamableConfig() with StreamableManager instead
    */
-  async createEventSource(endpoint: string): Promise<EventSource | null> {
+  createEventSource(endpoint: string): Promise<EventSource | null> {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     const isProxyMode = !!this.proxyUrl;
 
@@ -274,77 +284,40 @@ export class HttpClient {
 
     const resolvedHeaders = this.resolveHeaders();
 
-    // Connect, resolving once the stream opens and rejecting with a structured
-    // InferenceError if the initial response fails. This lets SSE share the
-    // same onError handling (auth refresh, OTP, etc.) as request().
-    const doConnect = () => new Promise<EventSource>((resolve, reject) => {
-      let settled = false;
-      // Captured from the fetch wrapper so the rejection carries the real
-      // status + body (the EventSource error event alone omits the body).
-      let connectError: InferenceError | undefined;
+    // The EventSource error event omits the response body, so a failed initial
+    // connection (e.g. 403 otp_required) is handled here in the fetch wrapper:
+    // route it through onError like request() does, and hand the retried
+    // response (e.g. after OTP verification) back so the stream connects.
+    const doFetch: FetchLike = async (input, init) => {
+      const headers: Record<string, string> = {
+        ...(init?.headers as Record<string, string>),
+        ...resolvedHeaders,
+      };
 
-      const es = new EventSource(fetchUrl, {
-        fetch: async (input, init) => {
-          const headers: Record<string, string> = {
-            ...(init?.headers as Record<string, string>),
-            ...resolvedHeaders,
-          };
-
-          if (isProxyMode) {
-            // Proxy mode: also send target URL as header (for non-browser clients)
-            headers['x-inf-target-url'] = targetUrl.toString();
-          } else {
-            // Direct mode: include authorization header
-            const token = this.getAuthToken();
-            if (token) {
-              headers['Authorization'] = `Bearer ${token}`;
-            }
-          }
-
-          const response = await fetch(input, {
-            ...init,
-            headers,
-            credentials: this.credentials,
-          });
-
-          if (!response.ok) {
-            const body = await response.clone().text().catch(() => '');
-            let detail = 'Request failed';
-            try {
-              const parsed = JSON.parse(body);
-              detail = parsed.detail || parsed.title || parsed.message || detail;
-            } catch { /* non-JSON body */ }
-            connectError = new InferenceError(response.status, detail, body);
-          }
-
-          return response;
-        },
-      });
-
-      es.addEventListener('open', () => {
-        if (settled) return;
-        settled = true;
-        resolve(es);
-      });
-
-      es.addEventListener('error', (event: unknown) => {
-        // Once open, transient errors are the consumer's concern (reconnect UI).
-        if (settled) return;
-        settled = true;
-        es.close();
-        const status = (event as { code?: number })?.code ?? 0;
-        reject(connectError ?? new InferenceError(status, 'EventSource connection failed'));
-      });
-    });
-
-    try {
-      return await doConnect();
-    } catch (error) {
-      if (this.onError) {
-        return await this.onError(error, doConnect as () => Promise<unknown>) as EventSource;
+      if (isProxyMode) {
+        headers['x-inf-target-url'] = targetUrl.toString();
+      } else {
+        const token = this.getAuthToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
       }
-      throw error;
-    }
+
+      const response = await fetch(input, { ...init, headers, credentials: this.credentials });
+
+      if (!response.ok && this.onError) {
+        const body = await response.clone().text().catch(() => '');
+        let data: unknown;
+        try { data = JSON.parse(body); } catch { /* non-JSON body */ }
+        const error = new InferenceError(response.status, this.extractErrorDetail(data) ?? 'Request failed', body);
+        const handled = await this.onError(error, () => doFetch(input, init));
+        return (handled as Response) ?? response;
+      }
+
+      return response;
+    };
+
+    return Promise.resolve(new EventSource(fetchUrl, { fetch: doFetch }));
   }
 }
 
