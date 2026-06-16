@@ -257,7 +257,7 @@ export class HttpClient {
    * Create an EventSource for SSE streaming
    * @deprecated Use getStreamableConfig() with StreamableManager instead
    */
-  createEventSource(endpoint: string): Promise<EventSource | null> {
+  async createEventSource(endpoint: string): Promise<EventSource | null> {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     const isProxyMode = !!this.proxyUrl;
 
@@ -274,31 +274,77 @@ export class HttpClient {
 
     const resolvedHeaders = this.resolveHeaders();
 
-    return Promise.resolve(new EventSource(fetchUrl, {
-      fetch: (input, init) => {
-        const headers: Record<string, string> = {
-          ...(init?.headers as Record<string, string>),
-          ...resolvedHeaders,
-        };
+    // Connect, resolving once the stream opens and rejecting with a structured
+    // InferenceError if the initial response fails. This lets SSE share the
+    // same onError handling (auth refresh, OTP, etc.) as request().
+    const doConnect = () => new Promise<EventSource>((resolve, reject) => {
+      let settled = false;
+      // Captured from the fetch wrapper so the rejection carries the real
+      // status + body (the EventSource error event alone omits the body).
+      let connectError: InferenceError | undefined;
 
-        if (isProxyMode) {
-          // Proxy mode: also send target URL as header (for non-browser clients)
-          headers['x-inf-target-url'] = targetUrl.toString();
-        } else {
-          // Direct mode: include authorization header
-          const token = this.getAuthToken();
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+      const es = new EventSource(fetchUrl, {
+        fetch: async (input, init) => {
+          const headers: Record<string, string> = {
+            ...(init?.headers as Record<string, string>),
+            ...resolvedHeaders,
+          };
+
+          if (isProxyMode) {
+            // Proxy mode: also send target URL as header (for non-browser clients)
+            headers['x-inf-target-url'] = targetUrl.toString();
+          } else {
+            // Direct mode: include authorization header
+            const token = this.getAuthToken();
+            if (token) {
+              headers['Authorization'] = `Bearer ${token}`;
+            }
           }
-        }
 
-        return fetch(input, {
-          ...init,
-          headers,
-          credentials: this.credentials,
-        });
-      },
-    }));
+          const response = await fetch(input, {
+            ...init,
+            headers,
+            credentials: this.credentials,
+          });
+
+          if (!response.ok) {
+            const body = await response.clone().text().catch(() => '');
+            let detail = 'Request failed';
+            try {
+              const parsed = JSON.parse(body);
+              detail = parsed.detail || parsed.title || parsed.message || detail;
+            } catch { /* non-JSON body */ }
+            connectError = new InferenceError(response.status, detail, body);
+          }
+
+          return response;
+        },
+      });
+
+      es.addEventListener('open', () => {
+        if (settled) return;
+        settled = true;
+        resolve(es);
+      });
+
+      es.addEventListener('error', (event: unknown) => {
+        // Once open, transient errors are the consumer's concern (reconnect UI).
+        if (settled) return;
+        settled = true;
+        es.close();
+        const status = (event as { code?: number })?.code ?? 0;
+        reject(connectError ?? new InferenceError(status, 'EventSource connection failed'));
+      });
+    });
+
+    try {
+      return await doConnect();
+    } catch (error) {
+      if (this.onError) {
+        return await this.onError(error, doConnect as () => Promise<unknown>) as EventSource;
+      }
+      throw error;
+    }
   }
 }
 
