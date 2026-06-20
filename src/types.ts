@@ -1424,6 +1424,7 @@ export interface InstanceTypeBootTime {
  * IntegrationDTO for API responses (never exposes tokens)
  */
 export interface IntegrationDTO extends BaseModelDTO, PermissionModelDTO {
+  scope: IntegrationScope;
   provider: IntegrationProvider;
   type: IntegrationAuthType;
   auth: IntegrationAuthType;
@@ -1731,6 +1732,8 @@ export interface MenuDTO extends BaseModelDTO, PermissionModelDTO {
  */
 export interface PlanLimit {
   type: EntitlementType;
+  label?: string;
+  unit?: string;
   enabled?: boolean;
   unlimited?: boolean;
   limit?: number /* int */;
@@ -2951,18 +2954,32 @@ export const DeviceAuthStatusValid: DeviceAuthStatus = "valid";
 export const DeviceAuthStatusInvalid: DeviceAuthStatus = "invalid";
 export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
 export type EntitlementResource = string;
+/**
+ * Capacity limits — scale with tier
+ */
 export const ResourceAPIKeys: EntitlementResource = "api_keys";
 export const ResourceConnectors: EntitlementResource = "connectors";
 export const ResourceKnowledgeBases: EntitlementResource = "knowledge_bases";
-export const ResourcePrivateApps: EntitlementResource = "private_apps";
 export const ResourceStorageMB: EntitlementResource = "storage_mb";
 export const ResourceConcurrency: EntitlementResource = "concurrency";
 export const ResourceRatePerMin: EntitlementResource = "rate_per_min";
 export const ResourceSeats: EntitlementResource = "seats";
+export const ResourceTriggers: EntitlementResource = "triggers";
+export const ResourceRetentionDays: EntitlementResource = "retention_days";
+/**
+ * Legacy — kept for DB compatibility, no longer in plan seeds
+ */
+export const ResourcePrivateApps: EntitlementResource = "private_apps";
 export const ResourceTaskExecutions: EntitlementResource = "task_executions";
+/**
+ * Feature gates — only what has real cost/complexity
+ */
+export const ResourceFeatureBYOK: EntitlementResource = "feature:byok";
+/**
+ * Legacy feature gates — kept for DB compatibility, no longer gated
+ */
 export const ResourceFeatureScopes: EntitlementResource = "feature:scopes";
 export const ResourceFeatureWebhooks: EntitlementResource = "feature:webhooks";
-export const ResourceFeatureBYOK: EntitlementResource = "feature:byok";
 export const ResourceFeatureTeamBilling: EntitlementResource = "feature:team_billing";
 export const ResourceFeatureAutoRecharge: EntitlementResource = "feature:auto_recharge";
 export const ResourceFeatureInvoices: EntitlementResource = "feature:invoices";
@@ -3007,6 +3024,18 @@ export const IntegrationStatusConnected: IntegrationStatus = "connected";
 export const IntegrationStatusDisconnected: IntegrationStatus = "disconnected";
 export const IntegrationStatusExpired: IntegrationStatus = "expired";
 export const IntegrationStatusError: IntegrationStatus = "error";
+/**
+ * IntegrationScope distinguishes platform-provided vs team-owned integrations.
+ */
+export type IntegrationScope = string;
+/**
+ * IntegrationScopeTeam is owned by a user/team (BYOK credentials, user connections)
+ */
+export const IntegrationScopeTeam: IntegrationScope = "team";
+/**
+ * IntegrationScopePlatform is owned by the platform (managed credentials, admin-configured)
+ */
+export const IntegrationScopePlatform: IntegrationScope = "platform";
 export type WidgetNodeType = string;
 export const WidgetNodeTypeText: WidgetNodeType = "text";
 export const WidgetNodeTypeMarkdown: WidgetNodeType = "markdown";
@@ -3064,6 +3093,10 @@ export const NotificationTypePaymentFailed: NotificationType = "payment_failed";
 export const NotificationTypeUsageSummary: NotificationType = "usage_summary";
 export const NotificationTypeSpendingLimit: NotificationType = "spending_limit";
 export const NotificationTypeInvoice: NotificationType = "invoice";
+export const NotificationTypeSubscriptionCreated: NotificationType = "subscription_created";
+export const NotificationTypeSubscriptionCredit: NotificationType = "subscription_credit";
+export const NotificationTypeSubscriptionCanceled: NotificationType = "subscription_canceled";
+export const NotificationTypeSubscriptionTrialEnding: NotificationType = "subscription_trial_ending";
 /**
  * Account notifications
  */
