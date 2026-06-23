@@ -839,12 +839,17 @@ export interface SecretRequirement {
   optional?: boolean;
 }
 /**
- * IntegrationRequirement defines an integration capability that an app requires.
+ * IntegrationRequirement defines an integration that an app requires.
+ * Key is the provider slug (e.g. "bytedance", "google").
+ * Secrets lists the specific env var names to inject from this integration.
+ * Scopes lists OAuth scopes needed (for OAuth integrations).
  */
 export interface IntegrationRequirement {
   key: string;
   description?: string;
   optional?: boolean;
+  secrets?: string[];
+  scopes?: string[];
 }
 /**
  * AppDTO is the API response for a full app.
@@ -2727,6 +2732,7 @@ export const GraphNodeTypeResource: GraphNodeType = "resource";
 export const GraphNodeTypeApproval: GraphNodeType = "approval";
 export const GraphNodeTypeConditional: GraphNodeType = "conditional";
 export const GraphNodeTypeFlowNode: GraphNodeType = "flow_node";
+export const GraphNodeTypeTrigger: GraphNodeType = "trigger";
 /**
  * GraphNodeStatus represents the status of a node
  */
