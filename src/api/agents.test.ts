@@ -503,4 +503,95 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(url).toContain('/agents/inference/my-agent');
     expect(init.method).toBe('GET');
   });
+
+  it('should POST /agents/list for list()', async () => {
+    const page = { items: [{ id: 'agent-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().list({ limit: 10 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/list');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should GET /agents/{id} for get()', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot' };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result).toEqual(agent);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST /agents/{id} for update()', async () => {
+    const agent = { id: 'agent-1', name: 'updated' };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', { name: 'updated' } as never);
+
+    expect(result).toEqual(agent);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+  });
+
+  it('should DELETE /agents/{id} for delete()', async () => {
+    mockJsonResponse(null);
+
+    await api().delete('agent-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should POST /agents/{id}/duplicate for duplicate()', async () => {
+    const agent = { id: 'agent-copy' };
+    mockJsonResponse(agent);
+
+    const result = await api().duplicate('agent-1');
+
+    expect(result).toEqual(agent);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1/duplicate');
+    expect(init.method).toBe('POST');
+  });
+
+  it('should POST /agents/{id}/versions/list for listVersions()', async () => {
+    const page = { items: [{ id: 'ver-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().listVersions('agent-1', { limit: 5 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1/versions/list');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 5 });
+  });
+
+  it('should GET /agents/{id}/versions/{versionId} for getVersion()', async () => {
+    const version = { id: 'ver-1', agent_id: 'agent-1' };
+    mockJsonResponse(version);
+
+    const result = await api().getVersion('agent-1', 'ver-1');
+
+    expect(result).toEqual(version);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1/versions/ver-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should POST visibility for updateVisibility()', async () => {
+    const agent = { id: 'agent-1', visibility: 'team' };
+    mockJsonResponse(agent);
+
+    await api().updateVisibility('agent-1', 'team');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
+  });
 });
