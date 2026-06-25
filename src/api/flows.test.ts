@@ -89,6 +89,18 @@ describe('FlowsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
 
+  it('should POST visibility for updateVisibility()', async () => {
+    const flow = { id: 'flow-1', visibility: 'public' };
+    mockJsonResponse(flow);
+
+    const result = await api().updateVisibility('flow-1', 'public');
+
+    expect(result).toEqual(flow);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flows/flow-1/visibility');
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+  });
+
   it('should DELETE /flows/{id} for delete()', async () => {
     mockJsonResponse(null);
 
