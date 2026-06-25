@@ -130,4 +130,17 @@ describe('FlowsAPI', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ team_id: 'team-42' });
   });
+
+  it('should POST /flows/{id}/visibility for updateVisibility()', async () => {
+    const flow = { id: 'flow-1', visibility: 'public' };
+    mockJsonResponse(flow);
+
+    const result = await api().updateVisibility('flow-1', 'public');
+
+    expect(result).toEqual(flow);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/flows/flow-1/visibility');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+  });
 });
