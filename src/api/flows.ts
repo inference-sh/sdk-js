@@ -42,6 +42,13 @@ export class FlowsAPI {
   }
 
   /**
+   * Update flow visibility
+   */
+  async updateVisibility(flowId: string, visibility: string): Promise<Flow> {
+    return this.http.request<Flow>('post', `/flows/${flowId}/visibility`, { data: { visibility } });
+  }
+
+  /**
    * Delete a flow
    */
   async delete(flowId: string): Promise<void> {
