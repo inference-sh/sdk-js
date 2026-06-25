@@ -7,8 +7,6 @@ import {
   TeamCreateRequest,
   TeamMemberAddRequest,
   TeamInviteCreateRequest,
-  CursorListRequest,
-  CursorListResponse,
 } from '../types';
 
 export interface MeResponse {
