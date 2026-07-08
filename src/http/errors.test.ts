@@ -9,6 +9,11 @@ import {
   isRequirementsNotMetException,
   isSessionError,
 } from './errors';
+import {
+  RequirementTypeIntegration,
+  RequirementTypeScope,
+  RequirementTypeSecret,
+} from '../types';
 
 describe('error type guards', () => {
   it('isRequirementsNotMetException should match instances and plain objects', () => {
@@ -62,6 +67,20 @@ describe('error classes', () => {
     expect(err.errors).toEqual([]);
     expect(err.statusCode).toBe(412);
     expect(err.message).toBe('requirements not met');
+  });
+
+  it('RequirementsNotMetException should preserve typed RequirementType values', () => {
+    const errors = [
+      { type: RequirementTypeSecret, key: 'API_KEY', message: 'Missing secret' },
+      { type: RequirementTypeIntegration, key: 'google', message: 'Not connected' },
+      { type: RequirementTypeScope, key: 'calendar.readonly', message: 'Missing scope' },
+    ];
+    const err = new RequirementsNotMetException(errors);
+
+    expect(err.errors[0].type).toBe('secret');
+    expect(err.errors[1].type).toBe('integration');
+    expect(err.errors[2].type).toBe('scope');
+    expect(isRequirementsNotMetException(err)).toBe(true);
   });
 
   it('session error subclasses should expose sessionId and statusCode', () => {

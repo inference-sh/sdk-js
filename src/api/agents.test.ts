@@ -350,6 +350,52 @@ describe('Agent.sendMessage (file attachments)', () => {
   });
 });
 
+describe('Agent.sendMessage (ad-hoc config)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const adHocAgent = () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    return new AgentsAPI(http, new FilesAPI(http)).create({
+      core_app: { ref: 'openrouter/claude@latest' },
+      system_prompt: 'You are helpful',
+      name: 'adhoc-bot',
+    });
+  };
+
+  it('should POST agent_config and agent_name instead of agent template ref', async () => {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    await adHocAgent().sendMessage('hello', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.agent).toBeUndefined();
+    expect(body.agent_config).toEqual({
+      core_app: { ref: 'openrouter/claude@latest' },
+      system_prompt: 'You are helpful',
+      name: 'adhoc-bot',
+    });
+    expect(body.agent_name).toBe('adhoc-bot');
+    expect(body.input.text).toBe('hello');
+  });
+});
+
 describe('Agent lifecycle', () => {
   beforeEach(() => {
     jest.clearAllMocks();
