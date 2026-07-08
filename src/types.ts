@@ -389,6 +389,14 @@ export interface AuthResponse {
   redirect_to?: string;
   provider?: string;
 }
+/**
+ * DeviceAuthInitRequest is the optional body for initiating device auth.
+ * TokenKind selects the credential minted on approval; empty means
+ * DeviceTokenKindAPIKey (legacy CLIs send no body).
+ */
+export interface DeviceAuthInitRequest {
+  token_kind?: DeviceTokenKind;
+}
 export interface DeviceAuthResponse {
   user_code: string;
   device_code: string;
@@ -399,7 +407,15 @@ export interface DeviceAuthResponse {
 }
 export interface DeviceAuthPollResponse {
   status: DeviceAuthStatus;
+  /**
+   * ApiKey is set for legacy device-auth API key logins.
+   * TODO: remove once CLIs older than the session-token release are retired.
+   */
   api_key?: string;
+  /**
+   * SessionToken is set when the flow was initiated with token_kind=session.
+   */
+  session_token?: string;
   team_id?: string;
 }
 export interface TeamCreateRequest {
@@ -2976,6 +2992,20 @@ export const DeviceAuthStatusDenied: DeviceAuthStatus = "denied";
 export const DeviceAuthStatusValid: DeviceAuthStatus = "valid";
 export const DeviceAuthStatusInvalid: DeviceAuthStatus = "invalid";
 export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
+/**
+ * DeviceTokenKind selects the credential minted when a device auth flow is approved.
+ */
+export type DeviceTokenKind = string;
+/**
+ * DeviceTokenKindSession mints a revocable CLI session (acts as the user,
+ * supports team switching via X-Team-ID).
+ */
+export const DeviceTokenKindSession: DeviceTokenKind = "session";
+/**
+ * DeviceTokenKindAPIKey mints a device-scoped API key.
+ * TODO: retire once CLIs older than the session-token release are gone.
+ */
+export const DeviceTokenKindAPIKey: DeviceTokenKind = "api_key";
 export type EntitlementResource = string;
 /**
  * Capacity limits — scale with tier
