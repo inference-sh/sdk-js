@@ -8,6 +8,7 @@
 import type { ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusInProgress,
   ToolTypeClient,
   ChatStatusBusy,
 } from '../types';
@@ -56,13 +57,15 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     dispatch({ type: 'UPDATE_MESSAGE', payload: message });
 
-    // Check for client tool invocations that need execution
+    // Check for client tool invocations that need execution.
+    // Client tools are set to in_progress by the backend (they're automated browser-side execution).
+    // Also check awaiting_input for backwards compatibility with older backends.
     const clientToolHandlers = getClientToolHandlers();
     if (message.tool_invocations && chatId && clientToolHandlers.size > 0) {
       for (const invocation of message.tool_invocations) {
         if (
           invocation.type === ToolTypeClient &&
-          invocation.status === ToolInvocationStatusAwaitingInput
+          (invocation.status === ToolInvocationStatusInProgress || invocation.status === ToolInvocationStatusAwaitingInput)
         ) {
           // Skip if already dispatched
           if (dispatchedToolInvocations.has(invocation.id)) {

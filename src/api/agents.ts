@@ -13,6 +13,7 @@ import {
   FileDTO as File,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusInProgress,
   ChatStatusBusy,
   CursorListRequest,
   CursorListResponse,
@@ -260,7 +261,7 @@ export class Agent {
           for (const inv of message.tool_invocations) {
             if (this.dispatchedToolCalls.has(inv.id)) continue;
 
-            if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+            if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
               this.dispatchedToolCalls.add(inv.id);
               options.onToolCall({
                 id: inv.id,
@@ -320,7 +321,7 @@ export class Agent {
               if (message.tool_invocations && options.onToolCall) {
                 for (const inv of message.tool_invocations) {
                   if (this.dispatchedToolCalls.has(inv.id)) continue;
-                  if (inv.type === ToolTypeClient && inv.status === ToolInvocationStatusAwaitingInput) {
+                  if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
                     this.dispatchedToolCalls.add(inv.id);
                     options.onToolCall({
                       id: inv.id,
