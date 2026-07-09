@@ -153,6 +153,41 @@ describe('HttpClient', () => {
       expect(decodeURIComponent(calledUrl)).toContain('["a","b"]');
     });
 
+    it('should serialize object query params as JSON', async () => {
+      mockJsonResponse([]);
+
+      await client().request('get', '/tasks', {
+        params: { filter: { status: 'active', team_id: 'team-1' } },
+      });
+
+      const calledUrl = mockFetch.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('filter=');
+      expect(decodeURIComponent(calledUrl)).toContain('"status":"active"');
+      expect(decodeURIComponent(calledUrl)).toContain('"team_id":"team-1"');
+    });
+
+    it('should omit Authorization when getToken returns null', async () => {
+      mockJsonResponse({ id: 'task-1' });
+
+      const tokenClient = new HttpClient({ getToken: () => null });
+      await tokenClient.request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBeUndefined();
+    });
+
+    it('should omit Authorization when getToken returns undefined', async () => {
+      mockJsonResponse({ id: 'task-1' });
+
+      const tokenClient = new HttpClient({ getToken: () => undefined });
+      await tokenClient.request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBeUndefined();
+    });
+
     it('should use top-level message field in HTTP error responses', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -433,6 +468,25 @@ describe('HttpClient', () => {
           }),
         })
       );
+    });
+
+    it('should omit Authorization on SSE fetch when getToken returns null', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const client = new HttpClient({ getToken: () => null });
+      await client.createEventSource('/tasks/task-1/stream');
+
+      await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', { headers: {} });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBeUndefined();
     });
 
     it('should return EventSource without awaiting the initial fetch', async () => {

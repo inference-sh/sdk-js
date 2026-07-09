@@ -209,6 +209,93 @@ describe('FilesAPI', () => {
       );
     });
 
+    it('should upload Blob content with inferred content type and size', async () => {
+      const fileRecord = {
+        id: 'file-blob',
+        uri: 'inf://files/blob-direct',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/jpeg',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const blob = new Blob(['jpeg-bytes'], { type: 'image/jpeg' });
+      const result = await api().upload(blob, { filename: 'photo.jpg' });
+
+      expect(result.uri).toBe('inf://files/blob-direct');
+
+      const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const createBody = JSON.parse(createInit.body as string);
+      expect(createBody.files[0]).toMatchObject({
+        filename: 'photo.jpg',
+        content_type: 'image/jpeg',
+        size: blob.size,
+      });
+
+      const [, putInit] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(putInit.method).toBe('PUT');
+      expect(putInit.body).toBe(blob);
+      expect(putInit.headers).toMatchObject({ 'Content-Type': 'image/jpeg' });
+    });
+
+    it('should extract filename from File objects when options.filename is omitted', async () => {
+      const fileRecord = {
+        id: 'file-named',
+        uri: 'inf://files/named',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'application/pdf',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const file = new File(['pdf-bytes'], 'report.pdf', { type: 'application/pdf' });
+      await api().upload(file);
+
+      const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const createBody = JSON.parse(createInit.body as string);
+      expect(createBody.files[0].filename).toBe('report.pdf');
+      expect(createBody.files[0].content_type).toBe('application/pdf');
+    });
+
+    it('should use explicit contentType when Blob type is empty', async () => {
+      const fileRecord = {
+        id: 'file-octet',
+        uri: 'inf://files/octet',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'application/octet-stream',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const blob = new Blob(['raw']);
+      await api().upload(blob, { contentType: 'application/octet-stream' });
+
+      const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const createBody = JSON.parse(createInit.body as string);
+      expect(createBody.files[0].content_type).toBe('application/octet-stream');
+    });
+
+    it('should upload clean base64 strings without a data URI prefix', async () => {
+      const fileRecord = {
+        id: 'file-b64-direct',
+        uri: 'inf://files/b64-direct',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'text/plain',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const result = await api().upload('SGVsbG8=', { contentType: 'text/plain' });
+
+      expect(result.uri).toBe('inf://files/b64-direct');
+      const [, putInit] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(putInit.headers).toMatchObject({ 'Content-Type': 'text/plain' });
+    });
+
     it('should decode URL-safe base64 in data URIs', async () => {
       const fileRecord = {
         id: 'file-2',
