@@ -57,9 +57,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     dispatch({ type: 'UPDATE_MESSAGE', payload: message });
 
-    // Check for client tool invocations that need execution.
-    // Client tools are set to in_progress by the backend (they're automated browser-side execution).
-    // Also check awaiting_input for backwards compatibility with older backends.
+    // Dispatch client tool handlers when ready (in_progress or awaiting_input for backwards compat)
     const clientToolHandlers = getClientToolHandlers();
     if (message.tool_invocations && chatId && clientToolHandlers.size > 0) {
       for (const invocation of message.tool_invocations) {
