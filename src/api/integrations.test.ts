@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import { IntegrationsAPI } from './integrations';
+import { IntegrationProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -77,5 +78,36 @@ describe('IntegrationsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/slack');
     expect(init.method).toBe('DELETE');
+  });
+
+  it('should POST typed integration requirements with secrets and scopes for checkRequirements()', async () => {
+    const payload = {
+      integrations: [
+        {
+          key: IntegrationProviderGoogleSA,
+          secrets: ['GOOGLE_SA_JSON'],
+          scopes: ['https://www.googleapis.com/auth/calendar'],
+        },
+      ],
+    };
+    const response = {
+      satisfied: false,
+      errors: [
+        {
+          type: 'scope',
+          message: 'Missing calendar scope',
+          action: { type: 'add_scopes', provider: IntegrationProviderGoogleSA, scopes: ['https://www.googleapis.com/auth/calendar'] },
+        },
+      ],
+    };
+    mockJsonResponse(response);
+
+    const result = await api().checkRequirements(payload);
+
+    expect(result).toEqual(response);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/integrations/check');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 });

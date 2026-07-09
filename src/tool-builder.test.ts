@@ -24,6 +24,7 @@ import {
   ToolTypeHTTP,
   ToolTypeMCP,
   IntegrationProviderGoogle,
+  IntegrationProviderGoogleSA,
 } from './types';
 
 describe('Schema Helpers', () => {
@@ -349,6 +350,18 @@ describe('HTTPToolBuilder (httpTool)', () => {
       type: 'integration',
       provider: IntegrationProviderGoogle,
       integration_id: 'int-123',
+    });
+  });
+
+  it('should attach integration auth for google-sa service account provider', () => {
+    const t = httpTool('calendar_read', 'https://api.example.com/calendar')
+      .auth({ integration: IntegrationProviderGoogleSA, integrationId: 'sa-int-1' })
+      .build();
+
+    expect(t.http?.auth).toEqual({
+      type: 'integration',
+      provider: IntegrationProviderGoogleSA,
+      integration_id: 'sa-int-1',
     });
   });
 

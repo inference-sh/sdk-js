@@ -19,6 +19,41 @@ describe('FilesAPI', () => {
 
   const api = () => new FilesAPI(new HttpClient({ apiKey: 'test-key' }));
 
+  it('should POST /files/list for list()', async () => {
+    const page = { items: [{ id: 'file-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().list({ limit: 10 });
+
+    expect(result).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/files/list');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 10 });
+  });
+
+  it('should GET /files/{id} for get()', async () => {
+    const file = { id: 'file-1', uri: 'inf://files/abc' };
+    mockJsonResponse(file);
+
+    const result = await api().get('file-1');
+
+    expect(result).toEqual(file);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/files/file-1');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should DELETE /files/{id} for delete()', async () => {
+    mockJsonResponse(null);
+
+    await api().delete('file-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/files/file-1');
+    expect(init.method).toBe('DELETE');
+  });
+
   describe('processInput', () => {
     it('should not treat short plain strings as base64 file uploads', async () => {
       const result = await api().processInput({ key: 'key1', note: 'hello' });
@@ -46,6 +81,60 @@ describe('FilesAPI', () => {
 
       expect(result.prompt).toBe('draw');
       expect(result.image).toBe('inf://files/abc');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should upload top-level Blob values', async () => {
+      const fileRecord = {
+        id: 'file-blob',
+        uri: 'inf://files/blob',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/png',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const blob = new Blob(['png-bytes'], { type: 'image/png' });
+      const result = await api().processInput(blob);
+
+      expect(result).toBe('inf://files/blob');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should process arrays recursively', async () => {
+      const fileRecord = {
+        id: 'file-arr',
+        uri: 'inf://files/arr',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/png',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const input = ['plain', 'data:image/png;base64,iVBORw0KGgo='];
+      const result = (await api().processInput(input)) as string[];
+
+      expect(result[0]).toBe('plain');
+      expect(result[1]).toBe('inf://files/arr');
+    });
+
+    it('should upload long raw base64 strings', async () => {
+      const fileRecord = {
+        id: 'file-b64',
+        uri: 'inf://files/b64',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'application/octet-stream',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const rawBase64 = 'A'.repeat(64);
+      const result = await api().processInput(rawBase64);
+
+      expect(result).toBe('inf://files/b64');
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });

@@ -468,6 +468,35 @@ describe('Agent lifecycle', () => {
   });
 });
 
+describe('Agent.getChat', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const agent = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+  };
+
+  it('should return null without a chat id and no active chat', async () => {
+    const result = await agent().getChat();
+    expect(result).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should GET /chats/{id} when chatId is provided', async () => {
+    const chat = { id: 'chat-42', status: 'idle', chat_messages: [] };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+
+    expect(result).toEqual(chat);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-42');
+    expect(init.method).toBe('GET');
+  });
+});
+
 describe('Agent.submitToolResult', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -488,6 +517,28 @@ describe('Agent.submitToolResult', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(String(init.body));
     expect(body.result).toBe(JSON.stringify(payload));
+  });
+});
+
+describe('AgentsAPI.submitToolResult', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should POST plain string results to /tools/{invocationId}', async () => {
+    mockJsonResponse(null);
+
+    await api().submitToolResult('inv-plain', 'done');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-plain');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'done' });
   });
 });
 
