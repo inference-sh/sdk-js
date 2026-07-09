@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { StreamableManager } from '../http/streamable';
 import {
   ChatStatusBusy,
   ChatStatusIdle,
@@ -439,6 +440,87 @@ describe('Agent lifecycle', () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/chats/chat-1/stop'),
+      expect.anything()
+    );
+  });
+
+  it('disconnect should stop active stream managers', async () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: true,
+      pollIntervalMs: 20,
+    });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+    const stopSpy = jest.spyOn(StreamableManager.prototype, 'stop');
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: makeMessage({ id: 'user-1', role: 'user' }),
+                assistant_message: makeMessage(),
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+        ])
+      );
+    });
+
+    await agentInstance.sendMessage('hello', { onChat: jest.fn() });
+    agentInstance.disconnect();
+
+    expect(stopSpy).toHaveBeenCalled();
+    stopSpy.mockRestore();
+  });
+
+  it('startStreaming should no-op when there is no active chat', () => {
+    const agentInstance = agent();
+    agentInstance.startStreaming();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('startStreaming should open the chat stream when chatId exists', async () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: true,
+      pollIntervalMs: 20,
+    });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
+    });
+
+    await agentInstance.sendMessage('hello', { stream: false });
+    jest.clearAllMocks();
+
+    mockFetch.mockResolvedValue(
+      mockNdjsonStream([
+        `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+      ])
+    );
+
+    agentInstance.startStreaming({ onChat: jest.fn() });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/chats/chat-1/stream'),
       expect.anything()
     );
   });
