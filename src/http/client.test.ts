@@ -177,6 +177,48 @@ describe('HttpClient', () => {
       expect(headers.Authorization).toBe('Bearer dynamic-key');
     });
 
+    it('should resolve function-valued headers on each request', async () => {
+      mockJsonResponse({ id: 'task-1' });
+      mockJsonResponse({ id: 'task-2' });
+
+      let teamId = 'team-a';
+      const client = new HttpClient({
+        apiKey: 'test-key',
+        headers: {
+          'X-Team-ID': () => teamId,
+          'X-Request-Id': () => 'req-1',
+        },
+      });
+
+      await client.request('get', '/tasks/task-1');
+      teamId = 'team-b';
+      await client.request('get', '/tasks/task-2');
+
+      const firstHeaders = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+      const secondHeaders = mockFetch.mock.calls[1][1]?.headers as Record<string, string>;
+      expect(firstHeaders['X-Team-ID']).toBe('team-a');
+      expect(secondHeaders['X-Team-ID']).toBe('team-b');
+      expect(firstHeaders['X-Request-Id']).toBe('req-1');
+    });
+
+    it('should omit headers when a resolver returns undefined', async () => {
+      mockJsonResponse({ id: 'task-1' });
+
+      const client = new HttpClient({
+        apiKey: 'test-key',
+        headers: {
+          'X-Team-ID': () => undefined,
+          'X-Custom': 'static',
+        },
+      });
+
+      await client.request('get', '/tasks/task-1');
+
+      const headers = mockFetch.mock.calls[0][1]?.headers as Record<string, string>;
+      expect(headers['X-Team-ID']).toBeUndefined();
+      expect(headers['X-Custom']).toBe('static');
+    });
+
     it('should send X-API-Version 2 and X-Client-Source on every request', async () => {
       mockJsonResponse({ id: 'task-1' });
 
@@ -273,6 +315,16 @@ describe('HttpClient', () => {
 
       expect(config.headers.Authorization).toBe('Bearer dynamic-token');
     });
+
+    it('should include resolved dynamic headers for streaming requests', () => {
+      const config = new HttpClient({
+        apiKey: 'secret-key',
+        headers: { 'X-Team-ID': () => 'team-stream' },
+      }).getStreamableConfig('/tasks/task-1/stream');
+
+      expect(config.headers['X-Team-ID']).toBe('team-stream');
+      expect(config.headers.Authorization).toBe('Bearer secret-key');
+    });
   });
 
   describe('createEventSource', () => {
@@ -326,6 +378,34 @@ describe('HttpClient', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             'x-inf-target-url': 'https://api.inference.sh/tasks/task-1/stream',
+          }),
+        })
+      );
+    });
+
+    it('should attach resolved dynamic headers on SSE custom fetch', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const client = new HttpClient({
+        apiKey: 'sse-key',
+        headers: { 'X-Team-ID': () => 'team-sse' },
+      });
+      await client.createEventSource('/tasks/task-1/stream');
+
+      await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', { headers: {} });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.inference.sh/tasks/task-1/stream',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Team-ID': 'team-sse',
+            Authorization: 'Bearer sse-key',
           }),
         })
       );
