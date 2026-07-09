@@ -537,6 +537,15 @@ describe('createActions', () => {
       expect(mockAgentApi.stopChat).toHaveBeenCalledWith(ctx.client, 'chat-short');
     });
 
+    it('stopGeneration should no-op when there is no chatId', () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      publicActions.stopGeneration();
+
+      expect(mockAgentApi.stopChat).not.toHaveBeenCalled();
+    });
+
     it('submitToolResult should set error state when API fails', async () => {
       mockAgentApi.submitToolResult.mockRejectedValueOnce(new Error('submit failed'));
       const onError = jest.fn();

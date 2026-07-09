@@ -80,6 +80,30 @@ describe('IntegrationsAPI', () => {
     expect(init.method).toBe('DELETE');
   });
 
+  it('should GET /integrations/configs for getConfigs()', async () => {
+    const configs = [{ provider: 'github', scopes: ['repo'] }];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result).toEqual(configs);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/integrations/configs');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /integrations/capabilities for getCapabilities()', async () => {
+    const capabilities = { slack: ['post_message'] };
+    mockJsonResponse(capabilities);
+
+    const result = await api().getCapabilities();
+
+    expect(result).toEqual(capabilities);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/integrations/capabilities');
+    expect(init.method).toBe('GET');
+  });
+
   it('should POST typed integration requirements with secrets and scopes for checkRequirements()', async () => {
     const payload = {
       integrations: [
