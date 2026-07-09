@@ -376,9 +376,59 @@ describe('createActions', () => {
 
       expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
     });
+
+    it('should no-op when agent config is missing', async () => {
+      const { ctx } = createTestContext({ getConfig: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+
+      expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should delegate uploadFile to the API layer', async () => {
+      const uploaded = { id: 'file-1', url: 'https://cdn.example.com/file.txt' };
+      mockAgentApi.uploadFile.mockResolvedValueOnce(uploaded as never);
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+      const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
+
+      const result = await publicActions.uploadFile(file);
+
+      expect(mockAgentApi.uploadFile).toHaveBeenCalledWith(ctx.client, file);
+      expect(result).toEqual(uploaded);
+    });
   });
 
   describe('streamChat error handling', () => {
+    it('should stop an existing stream manager before reconnecting', async () => {
+      const { ctx } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+      const firstManager = streamInstances[0];
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(firstManager.stop).toHaveBeenCalled();
+      expect(StreamableManager).toHaveBeenCalledTimes(2);
+    });
+
+    it('should forward stream errors through onError', async () => {
+      const onError = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onError } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      streamInstances[0].options.onError?.(new Error('stream died'));
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'stream died' }));
+    });
+
     it('should reset to idle when initial fetchChat fails', async () => {
       mockAgentApi.fetchChat.mockRejectedValueOnce(new Error('fetch failed'));
       const onStatusChange = jest.fn();

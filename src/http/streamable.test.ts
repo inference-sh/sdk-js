@@ -498,4 +498,121 @@ describe('StreamableManager', () => {
     // Should have stopped before reading all 10
     expect(readCount).toBeLessThan(10);
   });
+
+  it('should route typed events to addEventListener callbacks', async () => {
+    global.fetch = mockFetch([
+      '{"event":"chats","data":{"id":"chat-1"}}\n',
+    ]) as any;
+
+    const onChat = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData: jest.fn(),
+    });
+
+    manager.addEventListener('chats', onChat);
+    await manager.start();
+
+    expect(onChat).toHaveBeenCalledWith({ id: 'chat-1' });
+  });
+
+  it('should stop delivering typed events after unsubscribe', async () => {
+    global.fetch = mockFetch([
+      '{"event":"chats","data":{"id":"chat-1"}}\n',
+      '{"event":"chats","data":{"id":"chat-2"}}\n',
+    ]) as any;
+
+    const onChat = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+    });
+
+    const unsubscribe = manager.addEventListener('chats', onChat);
+    unsubscribe();
+    await manager.start();
+
+    expect(onChat).not.toHaveBeenCalled();
+  });
+
+  it('should unwrap data-only wrappers when fields are absent', async () => {
+    global.fetch = mockFetch([
+      '{"data":{"id":1,"status":"open"}}\n',
+    ]) as any;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 1, status: 'open' });
+  });
+
+  it('should fall back to onData for partial updates when onPartialData is omitted', async () => {
+    global.fetch = mockFetch([
+      '{"data":{"id":1},"fields":["id"]}\n',
+    ]) as any;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 1 });
+  });
+
+  it('should call onError for upstream failures', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      body: null,
+    }) as any;
+
+    const onError = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onError,
+    });
+
+    await manager.start();
+
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('should not call onError when stop() aborts the stream', async () => {
+    let readCount = 0;
+    const mockReader = {
+      read: jest.fn().mockImplementation(async () => {
+        readCount++;
+        if (readCount > 5) {
+          return { done: true, value: undefined };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return { done: false, value: new TextEncoder().encode('{"id":1}\n') };
+      }),
+      releaseLock: jest.fn(),
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => mockReader },
+    }) as any;
+
+    const onError = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onError,
+    });
+
+    const startPromise = manager.start();
+    setTimeout(() => manager.stop(), 10);
+    await startPromise;
+
+    expect(onError).not.toHaveBeenCalled();
+  });
 });
