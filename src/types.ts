@@ -2671,6 +2671,7 @@ export type EngineStatus = string;
 export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusDraining: EngineStatus = "draining";
+export const EngineStatusDisconnected: EngineStatus = "disconnected";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
 /**
