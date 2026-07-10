@@ -7,7 +7,7 @@
 
 official javascript/typescript sdk for [inference.sh](https://inference.sh) — the ai agent runtime for serverless ai inference.
 
-run ai models, build ai agents, and deploy generative ai applications with a simple api. access 250+ models including flux, stable diffusion, llms (claude, gpt, gemini), video generation (veo, seedance), and more.
+run ai models, build ai agents, and deploy generative ai applications with a simple api. access models including flux, stable diffusion, llms (claude, gpt, gemini), video generation (veo, seedance), and more.
 
 ## Installation
 

@@ -2767,6 +2767,7 @@ export const GraphNodeTypeApproval: GraphNodeType = "approval";
 export const GraphNodeTypeConditional: GraphNodeType = "conditional";
 export const GraphNodeTypeFlowNode: GraphNodeType = "flow_node";
 export const GraphNodeTypeTrigger: GraphNodeType = "trigger";
+export const GraphNodeTypeIntegrationRequirement: GraphNodeType = "integration_requirement";
 /**
  * GraphNodeStatus represents the status of a node
  */
@@ -3075,6 +3076,7 @@ export const IntegrationAuthTypeMCP: IntegrationAuthType = "mcp";
  * IntegrationStatus represents the status of an integration connection.
  */
 export type IntegrationStatus = string;
+export const IntegrationStatusPending: IntegrationStatus = "pending";
 export const IntegrationStatusConnected: IntegrationStatus = "connected";
 export const IntegrationStatusDisconnected: IntegrationStatus = "disconnected";
 export const IntegrationStatusExpired: IntegrationStatus = "expired";
