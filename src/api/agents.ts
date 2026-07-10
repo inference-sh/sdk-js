@@ -447,6 +447,15 @@ export class AgentsAPI {
     return this.http.request<InternalToolDefinition[]>('get', '/agents/internal-tools');
   }
 
+  /**
+   * Get A2A protocol agent card for an agent.
+   * Returns raw JSON (not wrapped in {data:...}) for direct upload to GCP Producer Portal.
+   * Spec: https://a2a-protocol.org/latest/specification/
+   */
+  async getA2ACard(agentId: string): Promise<Record<string, unknown>> {
+    return this.http.request<Record<string, unknown>>('get', `/agents/${agentId}/card`);
+  }
+
   // ==========================================================================
   // Agent Runtime (chat interactions)
   // ==========================================================================
