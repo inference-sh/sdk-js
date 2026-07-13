@@ -31,6 +31,21 @@ describe('SessionsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should GET /sessions and return session list', async () => {
+    const sessions = [
+      { id: 'sess_1', status: 'active' },
+      { id: 'sess_2', status: 'active' },
+    ];
+    mockJsonResponse(sessions);
+
+    const result = await api().list();
+
+    expect(result).toEqual(sessions);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/sessions');
+    expect(init.method).toBe('GET');
+  });
+
   it('should return an empty array when list() response is null', async () => {
     mockJsonResponse(null);
 

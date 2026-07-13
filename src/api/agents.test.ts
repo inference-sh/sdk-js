@@ -349,6 +349,105 @@ describe('Agent.sendMessage (file attachments)', () => {
     expect(body.input.files).toEqual(['inf://files/doc']);
     expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/files')).length).toBe(0);
   });
+
+  it('should upload Blob attachments before POST /agents/run', async () => {
+    const fileRecord = {
+      id: 'file-blob',
+      uri: 'inf://files/blob-direct',
+      upload_url: 'https://upload.example.com/put',
+      content_type: 'image/png',
+    };
+
+    mockJsonResponse([fileRecord]);
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    const blob = new Blob(['png-bytes'], { type: 'image/png' });
+    await agent().sendMessage('see image', { stream: false, files: [blob] });
+
+    const fileCreateCall = mockFetch.mock.calls.find(
+      ([url]) => String(url).includes('/files') && !String(url).includes('upload.example.com')
+    );
+    expect(fileCreateCall).toBeDefined();
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.input.images).toEqual(['inf://files/blob-direct']);
+    expect(body.input.files).toBeUndefined();
+  });
+});
+
+describe('Agent.sendMessage (template ref)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const templateAgent = (context?: Record<string, string>) => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    return new AgentsAPI(http, new FilesAPI(http)).create('inference/my-agent', { context });
+  };
+
+  function mockRunAndPoll() {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+  }
+
+  it('should POST agent ref and context to /agents/run', async () => {
+    mockRunAndPoll();
+
+    await templateAgent({ tenant: 'acme' }).sendMessage('hello', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.agent).toBe('inference/my-agent');
+    expect(body.agent_config).toBeUndefined();
+    expect(body.context).toEqual({ tenant: 'acme' });
+    expect(body.chat_id).toBeNull();
+    expect(body.input.text).toBe('hello');
+  });
+
+  it('should include chat_id on follow-up messages', async () => {
+    const agentInstance = templateAgent();
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('first', { stream: false });
+    jest.clearAllMocks();
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('second', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.agent).toBe('inference/my-agent');
+    expect(body.chat_id).toBe('chat-1');
+    expect(body.input.text).toBe('second');
+  });
 });
 
 describe('Agent.sendMessage (ad-hoc config)', () => {

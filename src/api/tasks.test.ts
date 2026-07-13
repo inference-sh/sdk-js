@@ -306,6 +306,35 @@ describe('TasksAPI.run (streaming mode)', () => {
   });
 });
 
+describe('TasksAPI.run (HTTP contract)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key' }));
+
+  it('should POST /apps/run with merged params and processedInput', async () => {
+    const task = makeTask();
+    mockJsonResponse(task);
+
+    const result = await api().run(
+      { app: 'image-gen', version_id: 'ver-2', input: {} },
+      { prompt: 'sunset', width: 512 },
+      { wait: false }
+    );
+
+    expect(result).toEqual(task);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/run');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'image-gen',
+      version_id: 'ver-2',
+      input: { prompt: 'sunset', width: 512 },
+    });
+  });
+});
+
 describe('TasksAPI.create', () => {
   beforeEach(() => {
     jest.clearAllMocks();
