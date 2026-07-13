@@ -5,6 +5,7 @@ import {
   ChatStatusIdle,
   FileDTO,
   ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
 import { FilesAPI } from './files';
@@ -124,6 +125,44 @@ describe('Agent.sendMessage (polling mode)', () => {
       id: 'tool-inv-1',
       name: 'my_tool',
       args: { x: 1 },
+    });
+  });
+
+  it('should dispatch onToolCall when client tool status is in_progress (polling)', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-progress',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusInProgress,
+      function: { name: 'my_tool', arguments: { z: 3 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+        assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+        status: ChatStatusBusy,
+        chat_messages: [messageWithTool],
+    });
+    // Same status again — stub poll should not re-dispatch tool
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [messageWithTool],
+    });
+
+    const onMessage = jest.fn();
+    const onToolCall = jest.fn();
+    await agent().sendMessage('run tool', { stream: false, onMessage, onToolCall });
+
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-progress',
+      name: 'my_tool',
+      args: { z: 3 },
     });
   });
 
@@ -251,6 +290,48 @@ describe('Agent.sendMessage (streaming mode)', () => {
       id: 'tool-inv-1',
       name: 'my_tool',
       args: { x: 1 },
+    });
+  });
+
+  it('should dispatch onToolCall when client tool status is in_progress (streaming)', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-progress',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusInProgress,
+      function: { name: 'my_tool', arguments: { z: 3 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: makeMessage({ id: 'user-1', role: 'user' }),
+                assistant_message: makeMessage(),
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'chat_messages', data: messageWithTool })}\n`,
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+        ])
+      );
+    });
+
+    const onToolCall = jest.fn();
+    await streamingAgent().sendMessage('run tool', { onToolCall });
+
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-progress',
+      name: 'my_tool',
+      args: { z: 3 },
     });
   });
 
@@ -691,6 +772,7 @@ describe('Agent lifecycle', () => {
     const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
 
     const agentInstance = agent();
+    const onMessage = jest.fn();
     const onToolCall = jest.fn();
 
     mockJsonResponse({
@@ -711,7 +793,7 @@ describe('Agent lifecycle', () => {
       chat_messages: [messageWithTool],
     });
 
-    await agentInstance.sendMessage('run tool', { stream: false, onToolCall });
+    await agentInstance.sendMessage('run tool', { stream: false, onMessage, onToolCall });
     expect(onToolCall).toHaveBeenCalledTimes(1);
 
     agentInstance.reset();
@@ -736,7 +818,7 @@ describe('Agent lifecycle', () => {
       chat_messages: [messageWithTool],
     });
 
-    await agentInstance.sendMessage('run tool again', { stream: false, onToolCall });
+    await agentInstance.sendMessage('run tool again', { stream: false, onMessage, onToolCall });
     expect(onToolCall).toHaveBeenCalledTimes(1);
     expect(onToolCall).toHaveBeenCalledWith({
       id: 'tool-inv-reset',
@@ -982,5 +1064,21 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
+  });
+
+  it('should GET /agents/{id}/card for getA2ACard()', async () => {
+    const card = {
+      name: 'my-agent',
+      description: 'An A2A agent',
+      url: 'https://api.example.com/agents/my-agent',
+    };
+    mockJsonResponse(card);
+
+    const result = await api().getA2ACard('agent-1');
+
+    expect(result).toEqual(card);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1/card');
+    expect(init.method).toBe('GET');
   });
 });
