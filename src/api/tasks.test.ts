@@ -325,6 +325,43 @@ describe('TasksAPI.run (streaming mode)', () => {
       ['status']
     );
   });
+
+  it('should preserve session_id across partial stream updates that omit it', async () => {
+    setupStreamMocks(
+      [
+        `${JSON.stringify({
+          data: { status: TaskStatusRunning, id: 'task-1' },
+          fields: ['status'],
+        })}\n`,
+        `${JSON.stringify({
+          data: { status: TaskStatusCompleted, id: 'task-1', output: { ok: true } },
+          fields: ['status', 'output'],
+        })}\n`,
+      ],
+      makeTask({ session_id: 'sess-persist' })
+    );
+
+    const onPartialUpdate = jest.fn();
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      {},
+      { wait: true, onPartialUpdate }
+    );
+
+    expect(result.session_id).toBe('sess-persist');
+    expect(onPartialUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ session_id: 'sess-persist', status: TaskStatusRunning }),
+      ['status']
+    );
+    expect(onPartialUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        session_id: 'sess-persist',
+        status: TaskStatusCompleted,
+        output: { ok: true },
+      }),
+      ['status', 'output']
+    );
+  });
 });
 
 describe('TasksAPI.run (HTTP contract)', () => {

@@ -154,6 +154,29 @@ describe('processProxyRequest', () => {
     );
   });
 
+  it('should prefer client Authorization header over env API key', async () => {
+    const target = 'https://api.inference.sh/v1/tasks/1';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => {
+          if (name === INF_TARGET_HEADER) return target;
+          if (name === 'authorization') return 'Bearer client-session-token';
+          return undefined;
+        },
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer client-session-token',
+        }),
+      })
+    );
+  });
+
   it('should use query param fallback when header is missing (SSE clients)', async () => {
     const target = 'https://api.inference.sh/v1/stream';
     const encoded = encodeURIComponent(target);

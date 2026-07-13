@@ -266,6 +266,37 @@ describe('Agent.sendMessage (polling mode)', () => {
 
     expect(output).toBeNull();
   });
+
+  it('should warn on repeated poll errors without resolving sendMessage', async () => {
+    jest.useFakeTimers();
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockFetch.mockRejectedValue(new Error('status endpoint down'));
+
+    const sendPromise = agent().sendMessage('hello', { stream: false });
+
+    for (let i = 0; i < 6; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    expect(warnSpy).toHaveBeenCalledWith('[Agent] Poll error:', expect.any(Error));
+
+    let settled = false;
+    sendPromise.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    warnSpy.mockRestore();
+    jest.useRealTimers();
+  });
 });
 
 describe('Agent.sendMessage (streaming mode)', () => {

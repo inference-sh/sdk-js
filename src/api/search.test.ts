@@ -33,6 +33,20 @@ describe('SearchAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward conversation context in suggest() body', async () => {
+    const payload = {
+      query: 'flux',
+      context: 'previous conversation about image generation',
+      limit: 5,
+    };
+    mockJsonResponse({ results: [] });
+
+    await api().suggest(payload);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should POST /search for search()', async () => {
     const payload = { q: 'claude', type: 'apps', limit: 5 };
     const response = { hits: [{ id: 'app-1' }] };
