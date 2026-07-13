@@ -6,7 +6,7 @@ import {
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO } from '../types';
-import { createActions } from './actions';
+import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
 import { StreamableManager } from '../http/streamable';
@@ -336,6 +336,43 @@ describe('createActions', () => {
       expect(pollInstances[0].options.pollFunction).toBeDefined();
       expect(pollInstances[0].start).toHaveBeenCalled();
     });
+
+    it('should stop an existing stream manager before starting a new connection', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const firstManager = streamInstances[0];
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(firstManager.stop).toHaveBeenCalled();
+      expect(streamInstances).toHaveLength(2);
+      expect(streamInstances[1].start).toHaveBeenCalled();
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'connecting',
+      });
+    });
+
+    it('should dispatch streaming status when the stream manager starts', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      streamInstances[0].options.onStart?.();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'streaming',
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
   });
 
   describe('stopStream', () => {
@@ -538,6 +575,26 @@ describe('createActions', () => {
   });
 
   describe('pollChat', () => {
+    it('should dispatch streaming status when the poll manager starts', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onStatusChange },
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      pollInstances[0].options.onStart?.();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'streaming',
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
+
     it('should fetch full chat when poll status changes', async () => {
       const { ctx: baseCtx } = createTestContext({ getStreamEnabled: () => false });
       const { ctx } = createTestContext({
@@ -978,5 +1035,41 @@ describe('createActions', () => {
       });
       expect(StreamableManager).toHaveBeenCalled();
     });
+  });
+});
+
+describe('getClientToolHandlers', () => {
+  it('returns an empty map when config is null', () => {
+    expect(getClientToolHandlers(null)).toEqual(new Map());
+  });
+
+  it('returns an empty map for template agent refs', () => {
+    expect(getClientToolHandlers({ agent: 'inference/my-agent' })).toEqual(new Map());
+  });
+
+  it('returns an empty map when ad-hoc config has no tools', () => {
+    expect(
+      getClientToolHandlers({
+        core_app: { ref: 'openrouter/claude@abc' },
+        system_prompt: 'test',
+      })
+    ).toEqual(new Map());
+  });
+
+  it('extracts client tool handlers from ad-hoc config tools', () => {
+    const handler = jest.fn();
+    const map = getClientToolHandlers({
+      core_app: { ref: 'openrouter/claude@abc' },
+      system_prompt: 'test',
+      tools: [
+        {
+          schema: { name: 'browser', type: ToolTypeClient, description: 'browse' },
+          handler,
+        },
+      ],
+    });
+
+    expect(map.size).toBe(1);
+    expect(map.get('browser')).toBe(handler);
   });
 });
