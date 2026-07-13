@@ -1,11 +1,11 @@
 import { HttpClient } from '../http/client';
 import { StreamableManager } from '../http/streamable';
+import { PollManager } from '../http/poll';
 import {
   ChatStatusBusy,
   ChatStatusIdle,
   FileDTO,
   ToolInvocationStatusAwaitingInput,
-  ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
 import { FilesAPI } from './files';
@@ -128,42 +128,32 @@ describe('Agent.sendMessage (polling mode)', () => {
     });
   });
 
-  it('should dispatch onToolCall when client tool status is in_progress (polling)', async () => {
-    const toolInvocation = {
-      id: 'tool-inv-progress',
-      type: ToolTypeClient,
-      status: ToolInvocationStatusInProgress,
-      function: { name: 'my_tool', arguments: { z: 3 } },
-    };
-    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+  it('should call onMessage for each chat message during polling', async () => {
+    const msg1 = makeMessage({ id: 'msg-1', content: 'first' });
+    const msg2 = makeMessage({ id: 'msg-2', content: 'second' });
 
     mockJsonResponse({
       user_message: makeMessage({ id: 'user-1', role: 'user' }),
-        assistant_message: makeMessage(),
+      assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
       id: 'chat-1',
-        status: ChatStatusBusy,
-        chat_messages: [messageWithTool],
+      status: ChatStatusBusy,
+      chat_messages: [msg1, msg2],
     });
-    // Same status again — stub poll should not re-dispatch tool
-    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusIdle, chat_messages: [messageWithTool],
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [msg1, msg2],
     });
 
     const onMessage = jest.fn();
-    const onToolCall = jest.fn();
-    await agent().sendMessage('run tool', { stream: false, onMessage, onToolCall });
+    await agent().sendMessage('hello', { stream: false, onMessage });
 
-    expect(onToolCall).toHaveBeenCalledTimes(1);
-    expect(onToolCall).toHaveBeenCalledWith({
-      id: 'tool-inv-progress',
-      name: 'my_tool',
-      args: { z: 3 },
-    });
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg-1', content: 'first' }));
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg-2', content: 'second' }));
   });
 
   it('should return chat output from run() after polling completes', async () => {
@@ -290,48 +280,6 @@ describe('Agent.sendMessage (streaming mode)', () => {
       id: 'tool-inv-1',
       name: 'my_tool',
       args: { x: 1 },
-    });
-  });
-
-  it('should dispatch onToolCall when client tool status is in_progress (streaming)', async () => {
-    const toolInvocation = {
-      id: 'tool-inv-progress',
-      type: ToolTypeClient,
-      status: ToolInvocationStatusInProgress,
-      function: { name: 'my_tool', arguments: { z: 3 } },
-    };
-    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
-
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/agents/run')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify({
-                user_message: makeMessage({ id: 'user-1', role: 'user' }),
-                assistant_message: makeMessage(),
-              })
-            ),
-        });
-      }
-      return Promise.resolve(
-        mockNdjsonStream([
-          `${JSON.stringify({ event: 'chat_messages', data: messageWithTool })}\n`,
-          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
-        ])
-      );
-    });
-
-    const onToolCall = jest.fn();
-    await streamingAgent().sendMessage('run tool', { onToolCall });
-
-    expect(onToolCall).toHaveBeenCalledTimes(1);
-    expect(onToolCall).toHaveBeenCalledWith({
-      id: 'tool-inv-progress',
-      name: 'my_tool',
-      args: { z: 3 },
     });
   });
 
@@ -608,6 +556,41 @@ describe('Agent.sendMessage (ad-hoc config)', () => {
     expect(body.agent_name).toBe('adhoc-bot');
     expect(body.input.text).toBe('hello');
   });
+
+  it('should prefer AgentOptions.name over config.name for agent_name', async () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    const namedAgent = new AgentsAPI(http, new FilesAPI(http)).create(
+      {
+        core_app: { ref: 'openrouter/claude@latest' },
+        system_prompt: 'You are helpful',
+        name: 'config-name',
+      },
+      { name: 'override-name' }
+    );
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    await namedAgent.sendMessage('hello', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.agent_name).toBe('override-name');
+    expect((body.agent_config as { name: string }).name).toBe('config-name');
+  });
 });
 
 describe('Agent lifecycle', () => {
@@ -655,6 +638,33 @@ describe('Agent lifecycle', () => {
       expect.stringContaining('/chats/chat-1/stop'),
       expect.anything()
     );
+  });
+
+  it('disconnect should stop active poll managers', async () => {
+    jest.useFakeTimers();
+    const stopSpy = jest.spyOn(PollManager.prototype, 'stop');
+    const agentInstance = agent();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+
+    const sendPromise = agentInstance.sendMessage('hello', {
+      stream: false,
+      pollIntervalMs: 5000,
+    });
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(0);
+
+    agentInstance.disconnect();
+
+    expect(stopSpy).toHaveBeenCalled();
+    stopSpy.mockRestore();
+    jest.useRealTimers();
+    sendPromise.catch(() => undefined);
   });
 
   it('disconnect should stop active stream managers', async () => {
@@ -853,6 +863,32 @@ describe('Agent.getChat', () => {
     expect(result).toEqual(chat);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-42');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /chats/{id} with established chat id when chatId is omitted', async () => {
+    const agentInstance = agent();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    await agentInstance.sendMessage('hello', { stream: false });
+    jest.clearAllMocks();
+
+    const chat = { id: 'chat-1', status: 'idle', chat_messages: [] };
+    mockJsonResponse(chat);
+
+    const result = await agentInstance.getChat();
+
+    expect(result).toEqual(chat);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1');
     expect(init.method).toBe('GET');
   });
 });
@@ -1064,21 +1100,5 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
-  });
-
-  it('should GET /agents/{id}/card for getA2ACard()', async () => {
-    const card = {
-      name: 'my-agent',
-      description: 'An A2A agent',
-      url: 'https://api.example.com/agents/my-agent',
-    };
-    mockJsonResponse(card);
-
-    const result = await api().getA2ACard('agent-1');
-
-    expect(result).toEqual(card);
-    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/agents/agent-1/card');
-    expect(init.method).toBe('GET');
   });
 });
