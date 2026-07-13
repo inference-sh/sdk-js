@@ -254,6 +254,23 @@ describe('Agent.sendMessage (streaming mode)', () => {
     });
   });
 
+  it('should return immediately without waiting when stream is true and no callbacks', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage,
+      assistant_message: assistantMessage,
+    });
+
+    const result = await streamingAgent().sendMessage('hello');
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(result.assistantMessage).toEqual(assistantMessage);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toContain('/agents/run');
+  });
+
   it('should open the stream before POST when continuing an existing chat', async () => {
     const http = new HttpClient({
       apiKey: 'test-key',

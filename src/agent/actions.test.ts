@@ -1,6 +1,7 @@
 import {
   ChatStatusBusy,
   ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
@@ -382,6 +383,22 @@ describe('createActions', () => {
 
       expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
     });
+
+    it('should no-op when agent config is missing', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { ctx, dispatch } = createTestContext({ getConfig: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+
+      expect(mockAgentApi.sendMessage).not.toHaveBeenCalled();
+      expect(dispatch).not.toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'streaming',
+      });
+      expect(consoleError).toHaveBeenCalledWith('[AgentSDK] No agent config provided');
+      consoleError.mockRestore();
+    });
   });
 
   describe('streamChat error handling', () => {
@@ -484,6 +501,63 @@ describe('createActions', () => {
       await Promise.resolve();
 
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'poll fetch failed' }));
+    });
+
+    it('should dispatch client tools from poll path when status changes', async () => {
+      const handler = jest.fn().mockResolvedValue('poll ok');
+      const toolMessage = makeMessage({
+        chat_id: 'chat-short',
+        tool_invocations: [
+          {
+            id: 'tool-inv-poll',
+            type: ToolTypeClient,
+            status: ToolInvocationStatusInProgress,
+            function: { name: 'my_tool', arguments: { y: 2 } },
+          },
+        ],
+      });
+
+      const { ctx: baseCtx } = createTestContext({
+        getStreamEnabled: () => false,
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+        client: {
+          ...baseCtx.client,
+          http: {
+            ...baseCtx.client.http,
+            request: jest.fn().mockResolvedValue({ status: ChatStatusBusy }),
+          },
+        },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as ChatDTO)
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [toolMessage],
+        } as unknown as ChatDTO);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      await pollInstances[0].options.onData?.({ status: 'idle' });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handler).toHaveBeenCalledWith({ y: 2 });
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-poll',
+        'poll ok'
+      );
     });
   });
 

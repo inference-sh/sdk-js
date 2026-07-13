@@ -160,6 +160,54 @@ describe('Inference', () => {
         expect(exception.errors[0].action?.scopes).toEqual(['calendar.readonly', 'calendar.events']);
       }
     });
+
+    it('should process Blob inputs via processInput before calling /apps/run', async () => {
+      const fileRecord = {
+        id: 'file-blob',
+        uri: 'inf://files/blob',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/png',
+      };
+      const mockTask = {
+        id: 'task-456',
+        status: 9,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        input: {},
+        output: { result: 'done' },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify([fileRecord])),
+          json: () => Promise.resolve([fileRecord]),
+        })
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(mockTask)),
+          json: () => Promise.resolve(mockTask),
+        });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const blob = new Blob(['png-bytes'], { type: 'image/png' });
+      const result = await client.run(
+        { app: 'test-app', input: { image: blob } },
+        { wait: false }
+      );
+
+      expect(result.id).toBe('task-456');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      const runCall = mockFetch.mock.calls.find((call) =>
+        String(call[0]).includes('/apps/run')
+      );
+      expect(runCall).toBeDefined();
+      const runBody = JSON.parse(runCall![1].body as string);
+      expect(runBody.input.image).toBe('inf://files/blob');
+    });
   });
 
   describe('cancel', () => {
