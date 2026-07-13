@@ -12,6 +12,7 @@ import {
   fetchChat,
   stopChat,
   getChatStreamConfig,
+  uploadFile,
 } from './api';
 import { ToolTypeClient } from '../types';
 
@@ -284,6 +285,26 @@ describe('agent/api', () => {
       expect(config.headers).toEqual(
         expect.objectContaining({ Authorization: expect.stringContaining('Bearer') })
       );
+    });
+  });
+
+  describe('uploadFile', () => {
+    it('should delegate to client.files.upload and return the uploaded file ref', async () => {
+      const client = makeClient();
+      const fileRecord = {
+        id: 'file-1',
+        uri: 'inf://files/uploaded',
+        filename: 'notes.txt',
+        content_type: 'text/plain',
+      };
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue(fileRecord);
+      const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+
+      const result = await uploadFile(client, file);
+
+      expect(uploadSpy).toHaveBeenCalledWith(file);
+      expect(result).toEqual(fileRecord);
+      uploadSpy.mockRestore();
     });
   });
 });

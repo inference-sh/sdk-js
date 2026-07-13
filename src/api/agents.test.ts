@@ -150,6 +150,22 @@ describe('Agent.sendMessage (polling mode)', () => {
 
     expect(output).toEqual({ answer: 42 });
   });
+
+  it('should return null from run() when the chat has no finish output', async () => {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, output: null });
+
+    const output = await agent().run('no finish tool');
+
+    expect(output).toBeNull();
+  });
 });
 
 describe('Agent.sendMessage (streaming mode)', () => {
@@ -548,6 +564,70 @@ describe('Agent lifecycle', () => {
     await agentInstance.stopChat();
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it('reset should allow onToolCall to fire again for the same invocation id', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-reset',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'my_tool', arguments: { x: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    const agentInstance = agent();
+    const onToolCall = jest.fn();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool', { stream: false, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+
+    agentInstance.reset();
+    jest.clearAllMocks();
+    onToolCall.mockClear();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-2', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool again', { stream: false, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-reset',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
+  });
 });
 
 describe('Agent.getChat', () => {
@@ -582,6 +662,20 @@ describe('Agent.getChat', () => {
 describe('Agent.submitToolResult', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('should POST plain string results to /tools/{invocationId}', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockJsonResponse(null);
+
+    await agentInstance.submitToolResult('inv-plain', 'done');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-plain');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'done' });
   });
 
   it('should JSON-stringify structured action results', async () => {
