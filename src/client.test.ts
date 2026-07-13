@@ -1,5 +1,7 @@
-import { Inference, inference, InferenceConfig } from './index';
+import { Inference, inference, InferenceConfig, createClient } from './index';
 import { RequirementsNotMetException } from './http/errors';
+import { HttpClient } from './http/client';
+import { ChatStatusBusy, ChatStatusIdle } from './types';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -227,6 +229,92 @@ describe('Inference', () => {
         expect.stringContaining('/tasks/task-123/cancel'),
         expect.objectContaining({ method: 'POST' })
       );
+    });
+  });
+
+  describe('legacy task helpers', () => {
+    it('should delegate getTask() to tasks.get', async () => {
+      const mockTask = { id: 'task-legacy', status: 9 };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(mockTask)),
+        json: () => Promise.resolve(mockTask),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.getTask('task-legacy');
+
+      expect(result.id).toBe('task-legacy');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-legacy'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should delegate streamTask() to tasks.stream', async () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const createEventSource = jest
+        .spyOn(HttpClient.prototype, 'createEventSource')
+        .mockResolvedValue(null);
+
+      await client.streamTask('task-stream');
+
+      expect(createEventSource).toHaveBeenCalledWith('/tasks/task-stream/stream');
+      createEventSource.mockRestore();
+    });
+  });
+
+  describe('agent()', () => {
+    it('should return an Agent whose sendMessage hits POST /agents/run', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: { id: 'user-1', chat_id: 'chat-1', role: 'user', content: 'hi' },
+                assistant_message: { id: 'asst-1', chat_id: 'chat-1', role: 'assistant', content: 'hello' },
+              })
+            ),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusIdle })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] })),
+        });
+
+      const client = new Inference({ apiKey: 'test-api-key', stream: false, pollIntervalMs: 20 });
+      const agentInstance = client.agent('my-agent');
+      await agentInstance.sendMessage('hi', { stream: false });
+
+      const runCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/agents/run'));
+      expect(runCall).toBeDefined();
+      const body = JSON.parse(runCall![1].body as string);
+      expect(body.agent).toBe('my-agent');
+    });
+  });
+
+  describe('createClient', () => {
+    it('should create an Inference instance with extended HttpClient config', () => {
+      const client = createClient({ apiKey: 'extended-key', baseUrl: 'https://api.example.com' });
+      expect(client).toBeInstanceOf(Inference);
     });
   });
 

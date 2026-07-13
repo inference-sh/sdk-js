@@ -503,6 +503,36 @@ describe('createActions', () => {
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'poll fetch failed' }));
     });
 
+    it('should not refetch chat when poll status is unchanged', async () => {
+      const { ctx: baseCtx } = createTestContext({ getStreamEnabled: () => false });
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        client: {
+          ...baseCtx.client,
+          http: { ...baseCtx.client.http, request: jest.fn().mockResolvedValue({ status: ChatStatusBusy }) },
+        },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat.mockResolvedValue({
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        chat_messages: [],
+      } as unknown as ChatDTO);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      await pollInstances[0].options.onData?.({ status: ChatStatusBusy });
+      await Promise.resolve();
+      const fetchCountAfterFirst = mockAgentApi.fetchChat.mock.calls.length;
+
+      await pollInstances[0].options.onData?.({ status: ChatStatusBusy });
+      await Promise.resolve();
+
+      expect(mockAgentApi.fetchChat).toHaveBeenCalledTimes(fetchCountAfterFirst);
+    });
+
     it('should dispatch client tools from poll path when status changes', async () => {
       const handler = jest.fn().mockResolvedValue('poll ok');
       const toolMessage = makeMessage({
