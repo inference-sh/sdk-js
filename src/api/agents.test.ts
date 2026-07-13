@@ -90,6 +90,38 @@ describe('Agent.sendMessage (polling mode)', () => {
     );
   });
 
+  it('should skip full GET /chats when poll status is unchanged', async () => {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [],
+    });
+    // Same status again — pollUntilIdle should return a stub without fetching full chat
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    await agent().sendMessage('hello', { stream: false });
+
+    const fullChatGets = mockFetch.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/chats/chat-1') &&
+        !String(url).includes('/status') &&
+        !String(url).includes('/stop') &&
+        (init as RequestInit).method === 'GET'
+    );
+    expect(fullChatGets).toHaveLength(2);
+  });
+
   it('should dispatch onToolCall once per client tool invocation', async () => {
     const toolInvocation = {
       id: 'tool-inv-1',

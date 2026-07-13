@@ -360,6 +360,65 @@ describe('createActions', () => {
       // Only the explicit stopStream dispatch, not a second from onEnd
       expect(idleDispatches).toHaveLength(1);
     });
+
+    it('should clear the manager ref before poll stop so onStop does not double-dispatch idle', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch, setStreamManager } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onStatusChange },
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const manager = pollInstances[0];
+      internalActions.stopStream();
+
+      expect(setStreamManager).toHaveBeenCalledWith(undefined);
+      expect(manager.stop).toHaveBeenCalled();
+
+      manager.options.onStop?.();
+      const idleDispatches = dispatch.mock.calls.filter(
+        ([action]) =>
+          action.type === 'SET_CONNECTION_STATUS' && action.payload === 'idle'
+      );
+      expect(idleDispatches).toHaveLength(1);
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+    });
+  });
+
+  describe('stream and poll error callbacks', () => {
+    it('should forward stream errors to onError callback', async () => {
+      const onError = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onError } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const streamError = new Error('stream connection lost');
+      streamInstances[0].options.onError?.(streamError);
+
+      expect(onError).toHaveBeenCalledWith(streamError);
+    });
+
+    it('should forward poll manager errors to onError callback', async () => {
+      const onError = jest.fn();
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onError },
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const pollError = new Error('poll transport failed');
+      pollInstances[0].options.onError?.(pollError);
+
+      expect(onError).toHaveBeenCalledWith(pollError);
+    });
   });
 
   describe('publicActions.sendMessage', () => {
@@ -844,6 +903,41 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'approve failed' }));
+    });
+
+    it('rejectTool should set error state when API fails', async () => {
+      mockAgentApi.rejectTool.mockRejectedValueOnce(new Error('reject failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.rejectTool('inv-1', 'unsafe')).rejects.toThrow('reject failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'reject failed' }));
+    });
+
+    it('alwaysAllowTool should set error state when API fails', async () => {
+      mockAgentApi.alwaysAllowTool.mockRejectedValueOnce(new Error('allow failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(
+        publicActions.alwaysAllowTool('inv-1', 'my_tool')
+      ).rejects.toThrow('allow failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'allow failed' }));
     });
   });
 
