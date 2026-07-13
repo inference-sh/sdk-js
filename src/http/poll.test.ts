@@ -107,4 +107,84 @@ describe('PollManager', () => {
 
     expect(onData.mock.calls.length).toBe(callsBefore);
   });
+
+  it('should not run overlapping polls when pollFunction is still in flight', async () => {
+    let resolvePoll: (value: unknown) => void = () => {};
+    const pollFunction = jest.fn().mockImplementation(
+      () => new Promise((resolve) => {
+        resolvePoll = resolve;
+      })
+    );
+
+    const manager = new PollManager({
+      pollFunction,
+      intervalMs: 100,
+    });
+
+    manager.start();
+    await Promise.resolve();
+    expect(pollFunction).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    expect(pollFunction).toHaveBeenCalledTimes(1);
+
+    resolvePoll({ status: 'ok' });
+    await Promise.resolve();
+
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    expect(pollFunction).toHaveBeenCalledTimes(2);
+
+    manager.stop();
+  });
+
+  it('should ignore start() when polling is already active', async () => {
+    const onStart = jest.fn();
+    const pollFunction = jest.fn().mockResolvedValue({});
+
+    const manager = new PollManager({ pollFunction, onStart });
+    manager.start();
+    manager.start();
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    manager.stop();
+  });
+
+  it('should reset consecutive error count after a successful poll', async () => {
+    const onError = jest.fn();
+    const onStop = jest.fn();
+    const pollFunction = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('fail 1'))
+      .mockResolvedValueOnce({ status: 'ok' })
+      .mockRejectedValueOnce(new Error('fail 2'))
+      .mockRejectedValueOnce(new Error('fail 3'));
+
+    const manager = new PollManager({
+      pollFunction,
+      intervalMs: 100,
+      maxRetries: 2,
+      onError,
+      onStop,
+    });
+
+    manager.start();
+    await Promise.resolve();
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+
+    expect(onStop).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+
+    expect(onStop).toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(3);
+
+    manager.stop();
+  });
 });

@@ -274,6 +274,20 @@ describe('agent/api', () => {
 
       await expect(approveTool(makeClient(), 'inv-1')).rejects.toThrow('approve failed');
     });
+
+    it('should rethrow when rejectTool request fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('reject failed'));
+
+      await expect(rejectTool(makeClient(), 'inv-1', 'unsafe')).rejects.toThrow('reject failed');
+    });
+
+    it('should rethrow when alwaysAllowTool request fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('allow failed'));
+
+      await expect(
+        alwaysAllowTool(makeClient(), 'chat-1', 'inv-1', 'browser_tool')
+      ).rejects.toThrow('allow failed');
+    });
   });
 
   describe('getChatStreamConfig', () => {
