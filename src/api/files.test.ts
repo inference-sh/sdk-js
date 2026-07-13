@@ -55,6 +55,15 @@ describe('FilesAPI', () => {
   });
 
   describe('processInput', () => {
+    it('should return falsy inputs unchanged without uploading', async () => {
+      await expect(api().processInput(null)).resolves.toBeNull();
+      await expect(api().processInput(undefined)).resolves.toBeUndefined();
+      await expect(api().processInput(0)).resolves.toBe(0);
+      await expect(api().processInput(false)).resolves.toBe(false);
+      await expect(api().processInput('')).resolves.toBe('');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it('should not treat short plain strings as base64 file uploads', async () => {
       const result = await api().processInput({ key: 'key1', note: 'hello' });
       expect(result).toEqual({ key: 'key1', note: 'hello' });

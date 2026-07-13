@@ -398,6 +398,23 @@ describe('createActions', () => {
       expect(idleDispatches).toHaveLength(1);
     });
 
+    it('should reset to idle when the stream ends unexpectedly with manager still set', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      streamInstances[0].options.onEnd?.();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'idle',
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+    });
+
     it('should clear the manager ref before poll stop so onStop does not double-dispatch idle', async () => {
       const onStatusChange = jest.fn();
       const { ctx, dispatch, setStreamManager } = createTestContext({
@@ -421,6 +438,26 @@ describe('createActions', () => {
           action.type === 'SET_CONNECTION_STATUS' && action.payload === 'idle'
       );
       expect(idleDispatches).toHaveLength(1);
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+    });
+
+    it('should reset to idle when poll transport stops unexpectedly with manager still set', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onStatusChange },
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      pollInstances[0].options.onStop?.();
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'idle',
+      });
       expect(onStatusChange).toHaveBeenCalledWith('idle');
     });
   });

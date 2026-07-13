@@ -47,6 +47,17 @@ describe('StreamManager', () => {
       expect(onStart).toHaveBeenCalled();
     });
 
+    it('should not call onStart when createEventSource returns null', async () => {
+      const onStart = jest.fn();
+      const manager = new StreamManager({
+        createEventSource: async () => null,
+        onStart,
+      });
+
+      await manager.connect();
+      expect(onStart).not.toHaveBeenCalled();
+    });
+
     it('should parse JSON messages and call onData', async () => {
       const onData = jest.fn();
       const manager = new StreamManager({
