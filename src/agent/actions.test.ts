@@ -1,6 +1,7 @@
 import {
   ChatStatusBusy,
   ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
@@ -198,6 +199,44 @@ describe('createActions', () => {
         ctx.client,
         'tool-inv-ok',
         'tool ok'
+      );
+    });
+
+    it('should dispatch client tool handlers when status is in_progress', async () => {
+      const handler = jest.fn().mockResolvedValue('in progress ok');
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-inv-progress',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusInProgress,
+              function: { name: 'my_tool', arguments: { y: 2 } },
+            },
+          ],
+        })
+      );
+
+      await Promise.resolve();
+
+      expect(handler).toHaveBeenCalledWith({ y: 2 });
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-progress',
+        'in progress ok'
       );
     });
 
