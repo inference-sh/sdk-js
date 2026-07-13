@@ -139,21 +139,24 @@ describe('Agent.sendMessage (polling mode)', () => {
 
     mockJsonResponse({
       user_message: makeMessage({ id: 'user-1', role: 'user' }),
-      assistant_message: makeMessage(),
+        assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
       id: 'chat-1',
-      status: ChatStatusBusy,
-      chat_messages: [messageWithTool],
+        status: ChatStatusBusy,
+        chat_messages: [messageWithTool],
     });
+    // Same status again — stub poll should not re-dispatch tool
+    mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
       id: 'chat-1', status: ChatStatusIdle, chat_messages: [messageWithTool],
     });
 
+    const onMessage = jest.fn();
     const onToolCall = jest.fn();
-    await agent().sendMessage('run tool', { stream: false, onToolCall });
+    await agent().sendMessage('run tool', { stream: false, onMessage, onToolCall });
 
     expect(onToolCall).toHaveBeenCalledTimes(1);
     expect(onToolCall).toHaveBeenCalledWith({
