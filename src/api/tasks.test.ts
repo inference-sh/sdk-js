@@ -283,6 +283,27 @@ describe('TasksAPI.run (streaming mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
+  it('should reject when the NDJSON stream connection fails', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/apps/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(makeTask())),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve('service unavailable'),
+      });
+    });
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('HTTP 503');
+  });
+
   it('should handle partial updates via onPartialUpdate', async () => {
     setupStreamMocks([
       `${JSON.stringify({
