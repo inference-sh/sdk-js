@@ -125,6 +125,12 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.uploadFile.mockResolvedValue({
+      id: 'file-1',
+      uri: 'inf://files/uploaded',
+      filename: 'notes.txt',
+      content_type: 'text/plain',
+    });
   });
 
   describe('updateMessage (via stream listeners)', () => {
@@ -518,6 +524,19 @@ describe('createActions', () => {
   });
 
   describe('publicActions lifecycle', () => {
+    it('uploadFile should delegate to the API layer', async () => {
+      const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.uploadFile(file);
+
+      expect(mockAgentApi.uploadFile).toHaveBeenCalledWith(ctx.client, file);
+      expect(result).toEqual(
+        expect.objectContaining({ uri: 'inf://files/uploaded', filename: 'notes.txt' })
+      );
+    });
+
     it('reset should stop stream and dispatch RESET', async () => {
       const { ctx, dispatch } = createTestContext();
       const { publicActions } = createActions(ctx);
@@ -577,6 +596,50 @@ describe('createActions', () => {
         type: 'SET_CONNECTION_STATUS',
         payload: 'idle',
       });
+    });
+    it('reset should allow the same client tool invocation to dispatch again', async () => {
+      const handler = jest.fn().mockResolvedValue('ok');
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { publicActions, internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const toolMessage = makeMessage({
+        chat_id: 'chat-short',
+        tool_invocations: [
+          {
+            id: 'tool-inv-reset',
+            type: ToolTypeClient,
+            status: ToolInvocationStatusAwaitingInput,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      });
+
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      publicActions.reset();
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessageAfterReset = streamInstances[1].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessageAfterReset(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
     });
   });
 
