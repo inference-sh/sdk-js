@@ -1938,6 +1938,7 @@ export interface UpdateIntegrationScopesRequest {
  */
 export interface SuggestRequest {
   query: string;
+  context?: string; // conversation context for embedding enrichment
   limit?: number /* int */;
   category?: string;
   agent?: boolean;
