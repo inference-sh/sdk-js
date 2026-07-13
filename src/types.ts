@@ -976,6 +976,7 @@ export interface AuthSessionDTO {
   browser: string;
   browser_version: string;
   auth_method: string;
+  scopes?: Scope[];
   current: boolean;
 }
 /**
@@ -1983,12 +1984,21 @@ export interface RequirementError {
   action?: SetupAction;
 }
 /**
+ * SetupActionType identifies the kind of action needed to resolve a requirement.
+ */
+export type SetupActionType = string;
+export const SetupActionAddSecret: SetupActionType = "add_secret";
+export const SetupActionConnect: SetupActionType = "connect";
+export const SetupActionAddScopes: SetupActionType = "add_scopes";
+/**
  * SetupAction provides actionable info for resolving a missing requirement
  */
 export interface SetupAction {
-  type: string; // "add_secret" | "connect" | "add_scopes"
-  provider?: string; // For integration actions
+  type: SetupActionType; // add_secret | connect | add_scopes
+  provider?: string; // Provider key (e.g. "google")
+  provider_name?: string; // Display name (e.g. "Google Account")
   scopes?: string[]; // Scopes to request
+  scope_descriptions?: { [key: string]: string}; // Scope key → friendly description
 }
 /**
  * CheckRequirementsRequest is the request body for checking requirements
