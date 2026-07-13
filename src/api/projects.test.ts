@@ -65,4 +65,16 @@ describe('ProjectsAPI', () => {
     expect(url).toContain('/projects/proj-1');
     expect(init.method).toBe('DELETE');
   });
+
+  it('should POST /projects/{id} for update()', async () => {
+    const project = { id: 'proj-1', name: 'Renamed' };
+    mockJsonResponse(project);
+
+    const result = await api().update('proj-1', { name: 'Renamed' });
+
+    expect(result).toEqual(project);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/projects/proj-1');
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
+  });
 });
