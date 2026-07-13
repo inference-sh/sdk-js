@@ -941,6 +941,7 @@ export interface AppStoreListingDTO {
   allows_cloud_workers: boolean;
   max_concurrency: number /* int */;
   max_concurrency_per_team: number /* int */;
+  min_concurrency: number /* int */;
   tags?: string[];
 }
 /**
@@ -2417,6 +2418,8 @@ export interface UserMetadataDTO {
   use_case_reason: string;
   use_case_privacy: string;
   signup_source: string;
+  terms_accepted_at?: string /* RFC3339 */;
+  terms_version: string;
 }
 /**
  * WidgetAction represents an action triggered by a widget button
