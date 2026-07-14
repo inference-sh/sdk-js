@@ -175,6 +175,18 @@ describe('agent/api', () => {
       const body = JSON.parse(String(runInit.body));
       expect(body.input.attachments).toEqual([fileRecord]);
     });
+
+    it('should route template agent configs to /agents/run without agent_config', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendMessage(makeClient(), { agent: 'agent-template-1' }, 'chat-existing', 'hi');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.agent).toBe('agent-template-1');
+      expect(body.chat_id).toBe('chat-existing');
+      expect(body).not.toHaveProperty('agent_config');
+    });
   });
 
   describe('submitToolResult', () => {
@@ -198,6 +210,14 @@ describe('agent/api', () => {
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual(payload);
+    });
+
+    it('should rethrow when the request fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('submit failed'));
+
+      await expect(submitToolResult(makeClient(), 'inv-3', 'done')).rejects.toThrow(
+        'submit failed'
+      );
     });
   });
 

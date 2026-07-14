@@ -185,6 +185,20 @@ describe('streamable', () => {
     }).rejects.toThrow('HTTP 401: Unauthorized');
   });
 
+  it('should throw when the response has no body', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: null,
+    }) as typeof fetch;
+
+    await expect(async () => {
+      for await (const _ of streamable('http://test.com/stream')) {
+        // consume
+      }
+    }).rejects.toThrow('No response body');
+  });
+
   // Edge cases for chunking/buffering
   describe('chunking edge cases', () => {
     it('should handle message split across many chunks', async () => {
@@ -574,5 +588,39 @@ describe('StreamableManager', () => {
 
     // Should have stopped before reading all 10
     expect(readCount).toBeLessThan(10);
+  });
+
+  it('should call onError when the stream request fails', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => 'Service unavailable',
+    }) as typeof fetch;
+
+    const onError = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onError,
+    });
+
+    await manager.start();
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'HTTP 503: Service unavailable' }));
+  });
+
+  it('should route partial updates to onData when onPartialData is not provided', async () => {
+    global.fetch = mockFetch([
+      '{"data":{"id":1,"status":"busy"},"fields":["status"]}\n',
+    ]) as typeof fetch;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 1, status: 'busy' });
   });
 });
