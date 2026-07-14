@@ -126,11 +126,11 @@ describe('HttpClient', () => {
     });
 
     it('should propagate when onError handler rethrows', async () => {
-      let capturedError: unknown;
+      const capturedErrors: unknown[] = [];
       const httpClient = new HttpClient({
         apiKey: 'key',
         onError: async (error) => {
-          capturedError = error;
+          capturedErrors.push(error);
           throw error;
         },
       });
@@ -141,8 +141,12 @@ describe('HttpClient', () => {
         text: () => Promise.resolve(JSON.stringify({ detail: 'session expired' })),
       });
 
-      await expect(httpClient.request('get', '/tasks/1')).rejects.toBe(capturedError);
-      expect((capturedError as InferenceError).statusCode).toBe(401);
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 401,
+        message: expect.stringContaining('session expired'),
+      });
+      expect(capturedErrors).toHaveLength(1);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -628,9 +632,9 @@ describe('HttpClient', () => {
         return { close: jest.fn(), onmessage: null, onerror: null };
       });
 
-      let capturedError: unknown;
+      const capturedErrors: unknown[] = [];
       const onError = jest.fn(async (error) => {
-        capturedError = error;
+        capturedErrors.push(error);
         throw error;
       });
       const client = new HttpClient({ apiKey: 'sse-key', onError });
@@ -642,8 +646,12 @@ describe('HttpClient', () => {
 
       await expect(
         capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {})
-      ).rejects.toBe(capturedError);
-      expect((capturedError as InferenceError).statusCode).toBe(403);
+      ).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+        message: expect.stringContaining('otp_required'),
+      });
+      expect(capturedErrors).toHaveLength(1);
       expect(onError).toHaveBeenCalledTimes(1);
     });
   });
