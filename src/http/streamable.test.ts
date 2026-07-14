@@ -608,6 +608,21 @@ describe('StreamableManager', () => {
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'HTTP 503: Service unavailable' }));
   });
 
+  it('should coerce non-Error stream failures into Error for onError', async () => {
+    global.fetch = jest.fn().mockRejectedValue('connection dropped') as typeof fetch;
+
+    const onError = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onError,
+    });
+
+    await manager.start();
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'connection dropped' }));
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+  });
+
   it('should route partial updates to onData when onPartialData is not provided', async () => {
     global.fetch = mockFetch([
       '{"data":{"id":1,"status":"busy"},"fields":["status"]}\n',

@@ -58,6 +58,16 @@ describe('agent/api', () => {
       expect(result).toBeNull();
     });
 
+    it('should return null when user_message is missing', async () => {
+      mockJsonResponse({
+        assistant_message: { id: 'a1', chat_id: 'chat-1', role: 'assistant' },
+      });
+
+      const result = await sendAdHocMessage(makeClient(), adHocConfig, null, 'hello');
+
+      expect(result).toBeNull();
+    });
+
     it('should strip client tool handlers from the agents/run request body', async () => {
       mockJsonResponse(runResponse);
 

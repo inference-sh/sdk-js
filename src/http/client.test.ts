@@ -125,6 +125,49 @@ describe('HttpClient', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
+    it('should propagate when onError handler rethrows', async () => {
+      let capturedError: unknown;
+      const httpClient = new HttpClient({
+        apiKey: 'key',
+        onError: async (error) => {
+          capturedError = error;
+          throw error;
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve(JSON.stringify({ detail: 'session expired' })),
+      });
+
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toBe(capturedError);
+      expect((capturedError as InferenceError).statusCode).toBe(401);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate when onError handler rejects without retrying', async () => {
+      const httpClient = new HttpClient({
+        apiKey: 'key',
+        onError: async () => {
+          throw new InferenceError(403, 'otp_required');
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve(JSON.stringify({ detail: 'otp_required' })),
+      });
+
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+        message: expect.stringContaining('otp_required'),
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should route through proxy with x-inf-target-url header', async () => {
       const proxyClient = new HttpClient({ proxyUrl: 'https://proxy.example.com' });
       mockJsonResponse({ id: '1' });
@@ -576,6 +619,32 @@ describe('HttpClient', () => {
 
       expect(response).toBe(failed);
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate when onError rethrows on failed SSE handshake', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      let capturedError: unknown;
+      const onError = jest.fn(async (error) => {
+        capturedError = error;
+        throw error;
+      });
+      const client = new HttpClient({ apiKey: 'sse-key', onError });
+
+      mockFetch.mockResolvedValueOnce(
+        mockFailedResponse(403, JSON.stringify({ detail: 'otp_required' }))
+      );
+      await client.createEventSource('/tasks/task-1/stream');
+
+      await expect(
+        capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {})
+      ).rejects.toBe(capturedError);
+      expect((capturedError as InferenceError).statusCode).toBe(403);
+      expect(onError).toHaveBeenCalledTimes(1);
     });
   });
 });

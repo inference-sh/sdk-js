@@ -318,6 +318,37 @@ describe('Inference', () => {
     });
   });
 
+  describe('legacy facade methods', () => {
+    it('should delegate _request to HttpClient.request', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ legacy: true })),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client._request<{ legacy: boolean }>('get', '/legacy/path');
+
+      expect(result).toEqual({ legacy: true });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/legacy/path'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should delegate _createEventSource to HttpClient.createEventSource', async () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const createEventSource = jest
+        .spyOn(client.http, 'createEventSource')
+        .mockResolvedValue(null);
+
+      await client._createEventSource('/tasks/task-1/stream');
+
+      expect(createEventSource).toHaveBeenCalledWith('/tasks/task-1/stream');
+      createEventSource.mockRestore();
+    });
+  });
+
   describe('lowercase factory', () => {
     it('should export lowercase inference factory', () => {
       expect(typeof inference).toBe('function');
