@@ -1139,6 +1139,7 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   api_url: string;
   status: EngineStatus;
+  engine_version: string;
   system_info?: SystemInfo;
   workers: (WorkerDTO | undefined)[];
 }
