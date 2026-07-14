@@ -479,6 +479,22 @@ describe('StreamableManager', () => {
     expect(events).toEqual(['start', 'data', 'end']);
   });
 
+  it('should route typed events without subscribers to onData', async () => {
+    global.fetch = mockFetch([
+      '{"event":"unknown_event","data":{"id":"evt-1"}}\n',
+    ]) as typeof fetch;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 'evt-1' });
+  });
+
   it('should dispatch typed events to addEventListener subscribers', async () => {
     global.fetch = mockFetch([
       '{"event":"chats","data":{"id":"chat-1","status":"busy"}}\n',
@@ -588,6 +604,46 @@ describe('StreamableManager', () => {
 
     // Should have stopped before reading all 10
     expect(readCount).toBeLessThan(10);
+  });
+
+  it('should not call onError when stop() aborts the stream', async () => {
+    let abortSignal: AbortSignal | undefined;
+    const mockReader = {
+      read: jest.fn().mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (abortSignal?.aborted) {
+          const err = new Error('The operation was aborted');
+          err.name = 'AbortError';
+          throw err;
+        }
+        return { done: false, value: new TextEncoder().encode('{"id":1}\n') };
+      }),
+      releaseLock: jest.fn(),
+    };
+
+    global.fetch = jest.fn().mockImplementation((_url, init) => {
+      abortSignal = init?.signal ?? undefined;
+      return Promise.resolve({
+        ok: true,
+        body: { getReader: () => mockReader },
+      });
+    }) as typeof fetch;
+
+    const onError = jest.fn();
+    const onEnd = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData: () => {},
+      onError,
+      onEnd,
+    });
+
+    const startPromise = manager.start();
+    setTimeout(() => manager.stop(), 10);
+    await startPromise;
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalled();
   });
 
   it('should call onError when the stream request fails', async () => {

@@ -154,6 +154,29 @@ describe('processProxyRequest', () => {
     );
   });
 
+  it('should resolve API key from adapter.apiKey when env key is missing', async () => {
+    delete process.env.INFERENCE_API_KEY;
+    const target = 'https://api.inference.sh/v1/tasks/1';
+    const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
+
+    await processProxyRequest(
+      createTestAdapter({
+        apiKey: adapterApiKey,
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(adapterApiKey).toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer tenant-dynamic-key',
+        }),
+      })
+    );
+  });
+
   it('should prefer client Authorization header over env API key', async () => {
     const target = 'https://api.inference.sh/v1/tasks/1';
 
@@ -229,6 +252,35 @@ describe('processProxyRequest', () => {
         }),
       })
     );
+  });
+
+  it('should strip content-encoding and content-length from proxied responses', async () => {
+    const target = 'https://api.inference.sh/v1/tasks/1';
+    const setHeader = jest.fn();
+
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-encoding': 'gzip',
+          'content-length': '42',
+          'x-request-id': 'req-1',
+        },
+      })
+    ) as typeof fetch;
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+        setHeader,
+      })
+    );
+
+    expect(setHeader).toHaveBeenCalledWith('content-type', 'application/json');
+    expect(setHeader).toHaveBeenCalledWith('x-request-id', 'req-1');
+    expect(setHeader).not.toHaveBeenCalledWith('content-encoding', expect.anything());
+    expect(setHeader).not.toHaveBeenCalledWith('content-length', expect.anything());
   });
 
   it('should omit body for GET requests', async () => {

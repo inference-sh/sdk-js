@@ -570,6 +570,20 @@ describe('createActions', () => {
       expect(consoleError).toHaveBeenCalledWith('[AgentSDK] No agent config provided');
       consoleError.mockRestore();
     });
+
+    it('should not restart streaming when a stream manager already exists', async () => {
+      const existingManager = { stop: jest.fn(), start: jest.fn() };
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        getStreamManager: () => existingManager as unknown as UpdateManager,
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('follow-up');
+
+      expect(mockAgentApi.sendMessage).toHaveBeenCalled();
+      expect(StreamableManager).not.toHaveBeenCalled();
+    });
   });
 
   describe('streamChat error handling', () => {
@@ -783,6 +797,54 @@ describe('createActions', () => {
   });
 
   describe('client tool deduplication', () => {
+    it('should share deduplication across separate createActions instances', async () => {
+      const handlerA = jest.fn().mockResolvedValue('from-a');
+      const handlerB = jest.fn().mockResolvedValue('from-b');
+
+      const ctxA = createTestContext({
+        getChatId: () => 'chat-a',
+        getClientToolHandlers: () => new Map([['my_tool', handlerA]]),
+      });
+      const ctxB = createTestContext({
+        getChatId: () => 'chat-b',
+        getClientToolHandlers: () => new Map([['my_tool', handlerB]]),
+      });
+
+      const { internalActions: actionsA } = createActions(ctxA.ctx);
+      const { internalActions: actionsB } = createActions(ctxB.ctx);
+
+      actionsA.streamChat('chat-a-full');
+      actionsB.streamChat('chat-b-full');
+      await Promise.resolve();
+
+      const onMessageA = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+      const onMessageB = streamInstances[1].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const sharedInvocationId = 'tool-inv-shared';
+      const toolPayload = {
+        tool_invocations: [
+          {
+            id: sharedInvocationId,
+            type: ToolTypeClient,
+            status: ToolInvocationStatusInProgress,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      };
+
+      onMessageA(makeMessage({ chat_id: 'chat-a', ...toolPayload }));
+      onMessageB(makeMessage({ chat_id: 'chat-b', ...toolPayload }));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handlerA).toHaveBeenCalledTimes(1);
+      expect(handlerB).not.toHaveBeenCalled();
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+    });
+
     it('should not submit the same client tool invocation twice', async () => {
       const handler = jest.fn().mockResolvedValue('ok');
       const { ctx } = createTestContext({
