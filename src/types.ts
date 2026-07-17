@@ -2814,6 +2814,7 @@ export const GraphEdgeTypeParent: GraphEdgeType = "parent";
 export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor";
 export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate";
 export const GraphEdgeTypeReferences: GraphEdgeType = "references";
+export const GraphEdgeTypeSupersedes: GraphEdgeType = "supersedes";
 /**
  * SecretScope defines the visibility/purpose of a secret
  */
@@ -3185,6 +3186,10 @@ export const NotificationTypeSecurityAlert: NotificationType = "security_alert";
  */
 export const NotificationTypeTaskComplete: NotificationType = "task_complete";
 export const NotificationTypeTaskFailed: NotificationType = "task_failed";
+/**
+ * Data export
+ */
+export const NotificationTypeDataExport: NotificationType = "data_export";
 /**
  * System notifications
  */
