@@ -1,4 +1,10 @@
 import { HttpClient } from '../http/client';
+import {
+  GraphEdgeTypeReferences,
+  GraphEdgeTypeSupersedes,
+  GraphNodeStatusCompleted,
+  GraphNodeTypeResource,
+} from '../types';
 import { ChatsAPI } from './chats';
 
 const mockFetch = jest.fn();
@@ -20,7 +26,15 @@ describe('ChatsAPI', () => {
   const api = () => new ChatsAPI(new HttpClient({ apiKey: 'test-key' }));
 
   it('should GET /chats/{id}/trace for getTrace()', async () => {
-    const trace = { chat_id: 'chat-1', spans: [] };
+    const trace = {
+      graph_id: 'graph-1',
+      nodes: [],
+      edges: [],
+      total_steps: 0,
+      completed_steps: 0,
+      running_steps: 0,
+      failed_steps: 0,
+    };
     mockJsonResponse(trace);
 
     const result = await api().getTrace('chat-1');
@@ -29,6 +43,58 @@ describe('ChatsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1/trace');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve supersedes graph edges in getTrace() responses', async () => {
+    const baseNode = {
+      graph_id: 'graph-1',
+      type: GraphNodeTypeResource,
+      label: 'agent',
+      resource_id: 'agent-1',
+      resource_type: 'agent',
+      status: GraphNodeStatusCompleted,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    const trace = {
+      graph_id: 'graph-1',
+      nodes: [
+        { ...baseNode, id: 'node-v1', short_id: 'nv1', label: 'v1.0.0' },
+        { ...baseNode, id: 'node-v2', short_id: 'nv2', label: 'v2.0.0' },
+      ],
+      edges: [
+        {
+          id: 'edge-supersedes',
+          short_id: 'es1',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          type: GraphEdgeTypeSupersedes,
+          from_node: 'node-v1',
+          to_node: 'node-v2',
+        },
+        {
+          id: 'edge-ref',
+          short_id: 'er1',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          type: GraphEdgeTypeReferences,
+          from_node: 'node-v2',
+          to_node: 'node-v1',
+        },
+      ],
+      total_steps: 2,
+      completed_steps: 2,
+      running_steps: 0,
+      failed_steps: 0,
+    };
+    mockJsonResponse(trace);
+
+    const result = await api().getTrace('chat-1');
+
+    expect(result.edges[0]?.type).toBe(GraphEdgeTypeSupersedes);
+    expect(result.edges[0]?.from_node).toBe('node-v1');
+    expect(result.edges[0]?.to_node).toBe('node-v2');
+    expect(result.edges[1]?.type).toBe(GraphEdgeTypeReferences);
   });
 
   it('should DELETE /chats/{id} for delete()', async () => {

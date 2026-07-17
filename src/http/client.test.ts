@@ -43,6 +43,14 @@ describe('HttpClient', () => {
       expect(client.getPollIntervalMs()).toBe(5000);
     });
 
+    it('should return the configured baseUrl from getBaseUrl()', () => {
+      const client = new HttpClient({
+        apiKey: 'key',
+        baseUrl: 'https://custom.example.com',
+      });
+      expect(client.getBaseUrl()).toBe('https://custom.example.com');
+    });
+
     it('createHttpClient should return an HttpClient instance', () => {
       const client = createHttpClient({ apiKey: 'key' });
       expect(client).toBeInstanceOf(HttpClient);

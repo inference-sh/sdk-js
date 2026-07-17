@@ -1,4 +1,11 @@
-import { Inference, inference, InferenceConfig, createClient } from './index';
+import {
+  GraphEdgeTypeSupersedes,
+  Inference,
+  inference,
+  InferenceConfig,
+  NotificationTypeDataExport,
+  createClient,
+} from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle } from './types';
@@ -6,6 +13,16 @@ import { ChatStatusBusy, ChatStatusIdle } from './types';
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('package type exports', () => {
+  it('exports GraphEdgeTypeSupersedes for version lineage graph edges', () => {
+    expect(GraphEdgeTypeSupersedes).toBe('supersedes');
+  });
+
+  it('exports NotificationTypeDataExport for data export notifications', () => {
+    expect(NotificationTypeDataExport).toBe('data_export');
+  });
+});
 
 describe('Inference', () => {
   beforeEach(() => {
