@@ -47,6 +47,36 @@ describe('SearchAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should preserve result tag in suggest() responses', async () => {
+    const response = {
+      query: 'billing',
+      results: [
+        {
+          type: 'skill',
+          tag: 'subscription_stats',
+          name: 'Usage summary',
+          description: 'Show subscription usage stats',
+          command: '/usage',
+          score: 0.92,
+        },
+        {
+          type: 'app',
+          name: 'Stripe',
+          description: 'Payment integration',
+          command: 'stripe',
+          score: 0.71,
+        },
+      ],
+    };
+    mockJsonResponse(response);
+
+    const result = await api().suggest({ query: 'billing' });
+
+    expect(result).toEqual(response);
+    expect(result.results[0]?.tag).toBe('subscription_stats');
+    expect(result.results[1]?.tag).toBeUndefined();
+  });
+
   it('should POST /search for search()', async () => {
     const payload = { q: 'claude', type: 'apps', limit: 5 };
     const response = { hits: [{ id: 'app-1' }] };
