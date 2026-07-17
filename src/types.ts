@@ -1956,6 +1956,7 @@ export interface SuggestResponse {
  */
 export interface SuggestResult {
   type: string;
+  tag?: string;
   name: string;
   description: string;
   command: string;
