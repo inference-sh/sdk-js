@@ -174,6 +174,8 @@ export interface AgentChatProviderProps {
   onStatusChange?: (status: ChatStatus) => void;
   /** Callback when an error occurs */
   onError?: (error: Error) => void;
+  /** Callback when the agent's turn ends (chat transitions from busy to idle/completed) */
+  onTurnEnd?: (chat: ChatDTO) => void;
   /** Use SSE streaming (true, default) or polling (false) for real-time updates */
   stream?: boolean;
   /** Polling interval in ms when stream is false (default: 2000) */
@@ -268,6 +270,7 @@ export interface ActionsContext {
     onChatCreated?: (chatId: string) => void;
     onStatusChange?: (status: ChatStatus) => void;
     onError?: (error: Error) => void;
+    onTurnEnd?: (chat: ChatDTO) => void;
   };
 }
 

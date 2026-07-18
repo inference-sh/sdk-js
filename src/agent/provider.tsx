@@ -10,6 +10,7 @@ import type { UpdateManager } from './types';
 import { AgentChatContext, type AgentChatContextValue } from './context';
 import { chatReducer, initialState } from './reducer';
 import { createActions, getClientToolHandlers } from './actions';
+import type { ChatDTO } from '../types';
 import type {
   AgentChatProviderProps,
   AgentOptions,
@@ -59,6 +60,7 @@ export function AgentChatProvider({
   onChatCreated,
   onStatusChange,
   onError,
+  onTurnEnd,
   stream,
   pollIntervalMs,
   children,
@@ -79,7 +81,8 @@ export function AgentChatProvider({
     onChatCreated?: (chatId: string) => void;
     onStatusChange?: (status: ChatStatus) => void;
     onError?: (error: Error) => void;
-  }>({ onChatCreated, onStatusChange, onError });
+    onTurnEnd?: (chat: ChatDTO) => void;
+  }>({ onChatCreated, onStatusChange, onError, onTurnEnd });
 
   // Keep refs in sync with props
   useEffect(() => {
@@ -88,8 +91,8 @@ export function AgentChatProvider({
   }, [agentConfig, extraHandlers]);
 
   useEffect(() => {
-    callbacksRef.current = { onChatCreated, onStatusChange, onError };
-  }, [onChatCreated, onStatusChange, onError]);
+    callbacksRef.current = { onChatCreated, onStatusChange, onError, onTurnEnd };
+  }, [onChatCreated, onStatusChange, onError, onTurnEnd]);
 
   useEffect(() => {
     streamRef.current = stream;
@@ -118,7 +121,7 @@ export function AgentChatProvider({
   // Re-bind callbacks when they change
   useEffect(() => {
     actionsContext.callbacks = callbacksRef.current;
-  }, [actionsContext, onChatCreated, onStatusChange, onError]);
+  }, [actionsContext, onChatCreated, onStatusChange, onError, onTurnEnd]);
 
   const actionsResultRef = useRef<ActionsResult | null>(null);
   if (!actionsResultRef.current) {

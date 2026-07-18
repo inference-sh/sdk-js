@@ -37,6 +37,16 @@ const dispatchedToolInvocations = new Set<string>();
 export function createActions(ctx: ActionsContext): ActionsResult {
   const { client, dispatch, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
 
+  let prevChatWasBusy = false;
+
+  const checkTurnEnd = (chat: ChatDTO) => {
+    const isBusy = chat.status === ChatStatusBusy;
+    if (prevChatWasBusy && !isBusy) {
+      callbacks.onTurnEnd?.(chat);
+    }
+    prevChatWasBusy = isBusy;
+  };
+
   // =========================================================================
   // Internal helpers
   // =========================================================================
@@ -46,6 +56,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     if (chat) {
       const status = chat.status === ChatStatusBusy ? 'streaming' : 'idle';
       callbacks.onStatusChange?.(status);
+      checkTurnEnd(chat);
     }
   };
 
@@ -161,6 +172,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       if (chatData) {
         const status = chatData.status === ChatStatusBusy ? 'streaming' : 'idle';
         callbacks.onStatusChange?.(status);
+        checkTurnEnd(chatData);
       }
     });
 
