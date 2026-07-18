@@ -2040,7 +2040,6 @@ export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
  */
 export interface SubscriptionDTO extends BaseModelDTO {
   team_id: string;
-  stripe_subscription_id?: string;
   plan_id: string;
   plan?: PlanDTO;
   interval: SubscriptionInterval;
