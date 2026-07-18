@@ -463,6 +463,22 @@ describe('StreamableManager', () => {
     expect(partials[0]).toEqual({ data: { id: 1 }, fields: ['id'] });
   });
 
+  it('should unwrap data wrapper without fields via onData', async () => {
+    global.fetch = mockFetch([
+      '{"data":{"id":"task-1","status":"running"}}\n',
+    ]) as typeof fetch;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 'task-1', status: 'running' });
+  });
+
   it('should call lifecycle callbacks', async () => {
     global.fetch = mockFetch(['{"ok":true}\n']) as any;
 
