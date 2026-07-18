@@ -942,6 +942,7 @@ export interface AppStoreListingDTO {
   max_concurrency: number /* int */;
   max_concurrency_per_team: number /* int */;
   min_concurrency: number /* int */;
+  required_feature?: string;
   tags?: string[];
 }
 /**
