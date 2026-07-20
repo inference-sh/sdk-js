@@ -1,4 +1,12 @@
-import { Inference, inference, InferenceConfig, createClient } from './index';
+import {
+  EntitlementSourceAddon,
+  Inference,
+  inference,
+  InferenceConfig,
+  PlanTypeAddon,
+  PlanTypeBase,
+  createClient,
+} from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle } from './types';
@@ -6,6 +14,17 @@ import { ChatStatusBusy, ChatStatusIdle } from './types';
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('package type exports', () => {
+  it('exports PlanType constants for base and add-on plans', () => {
+    expect(PlanTypeBase).toBe('base');
+    expect(PlanTypeAddon).toBe('addon');
+  });
+
+  it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
+    expect(EntitlementSourceAddon).toBe('addon');
+  });
+});
 
 describe('Inference', () => {
   beforeEach(() => {
