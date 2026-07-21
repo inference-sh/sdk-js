@@ -1,4 +1,12 @@
-import { Inference, inference, InferenceConfig, createClient } from './index';
+import {
+  Inference,
+  RefRouteModeRedirect,
+  RefRouteModeRewrite,
+  ResourceFeatureSeedance,
+  createClient,
+  inference,
+  InferenceConfig,
+} from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle } from './types';
@@ -6,6 +14,17 @@ import { ChatStatusBusy, ChatStatusIdle } from './types';
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('package type exports', () => {
+  it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
+    expect(ResourceFeatureSeedance).toBe('feature:seedance');
+  });
+
+  it('exports RefRouteMode constants for rewrite and redirect routing', () => {
+    expect(RefRouteModeRewrite).toBe('rewrite');
+    expect(RefRouteModeRedirect).toBe('redirect');
+  });
+});
 
 describe('Inference', () => {
   beforeEach(() => {
