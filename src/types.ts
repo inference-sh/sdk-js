@@ -1816,6 +1816,7 @@ export interface RefRouteDTO extends BaseModelDTO {
   alias_ref: string;
   target_ref: string;
   primary: boolean;
+  mode: RefRouteMode;
   description: string;
   enabled: boolean;
 }
@@ -2980,6 +2981,9 @@ export type RefRouteType = string;
 export const RefRouteTypeApp: RefRouteType = "app";
 export const RefRouteTypeAgent: RefRouteType = "agent";
 export const RefRouteTypeSkill: RefRouteType = "skill";
+export type RefRouteMode = string;
+export const RefRouteModeRewrite: RefRouteMode = "rewrite";
+export const RefRouteModeRedirect: RefRouteMode = "redirect";
 export type KnowledgeType = string;
 export const KnowledgeTypeConcept: KnowledgeType = "concept";
 export const KnowledgeTypeSkill: KnowledgeType = "skill";
@@ -3053,6 +3057,7 @@ export const ResourceTaskExecutions: EntitlementResource = "task_executions";
  * Feature gates — only what has real cost/complexity
  */
 export const ResourceFeatureBYOK: EntitlementResource = "feature:byok";
+export const ResourceFeatureSeedance: EntitlementResource = "feature:seedance";
 /**
  * Legacy feature gates — kept for DB compatibility, no longer gated
  */
