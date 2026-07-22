@@ -490,6 +490,40 @@ export interface CreateApiKeyRequest {
   scopes?: string[];
 }
 /**
+ * EstimateCostRequest is the request for POST /store/apps/{appId}/estimate.
+ */
+export interface EstimateCostRequest {
+  input: { [key: string]: any};
+  function?: string;
+}
+/**
+ * EstimateCostResponse is the response from the cost estimation endpoint.
+ */
+export interface EstimateCostResponse {
+  /**
+   * Confidence: "exact" (all fees input-based), "range" (estimate expression),
+   * or "unknown" (output-dependent, no estimate expression).
+   */
+  confidence: string;
+  /**
+   * Microcents is set when confidence is "exact".
+   */
+  microcents?: number /* int64 */;
+  /**
+   * Min/Max are set when confidence is "range".
+   */
+  min?: number /* int64 */;
+  max?: number /* int64 */;
+  /**
+   * DependsOn lists post-execution variables the pricing needs (when not exact).
+   */
+  depends_on?: string[];
+  /**
+   * PricingDescription is the rendered human-readable pricing string.
+   */
+  pricing_description?: string;
+}
+/**
  * Scope represents an API key permission scope string.
  */
 export type Scope = string;
@@ -803,6 +837,19 @@ export interface AppPricing {
   royalty_expression: string;
   partner_expression: string;
   total_expression: string;
+  /**
+   * Estimate is a single CEL expression for pre-execution cost estimation.
+   * Returns either an int (exact total in microcents) or a {"min": int, "max": int} map.
+   * Only has access to pre-execution variables: task_inputs, prices, fees, task_function.
+   * Used by the /estimate endpoint when the real expressions depend on post-execution data.
+   * Not needed when all fee expressions are already input-based (the system evaluates those directly).
+   */
+  estimate?: string;
+  /**
+   * Estimable is computed at save time. True when all fee expressions can be
+   * evaluated from pre-execution data alone (task_inputs, prices, fees, task_function).
+   */
+  estimable?: boolean;
   description: string;
   description_rendered?: string;
 }
