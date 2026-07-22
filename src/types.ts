@@ -519,6 +519,10 @@ export interface EstimateCostResponse {
    */
   depends_on?: string[];
   /**
+   * EstimateError is set when an estimate expression exists but failed to evaluate.
+   */
+  estimate_error?: string;
+  /**
    * PricingDescription is the rendered human-readable pricing string.
    */
   pricing_description?: string;
@@ -1850,6 +1854,7 @@ export interface PlanDTO extends BaseModelDTO {
   provider_price_id_yearly?: string;
   required_plan_ids?: string[];
   required_plan_names?: string[];
+  stackable: boolean;
   limits: PlanLimits;
 }
 /**
