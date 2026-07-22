@@ -1238,6 +1238,19 @@ export interface EntitlementDTO extends BaseModelDTO {
   team_plan_id?: string;
 }
 /**
+ * EntitlementErrorMeta is the structured metadata returned in entitlement error responses.
+ */
+export interface EntitlementErrorMeta {
+  resource: EntitlementResource;
+  resource_label?: string;
+  limit?: number /* int */;
+  current?: number /* int */;
+  upgrade_available: boolean;
+  addon_plan_id?: string;
+  addon_plan_name?: string;
+  addon_plan_price?: number /* int */;
+}
+/**
  * FileMetadata holds probed media metadata cached on File records.
  */
 export interface FileMetadata {
@@ -1787,6 +1800,7 @@ export interface PlanDTO extends BaseModelDTO {
   provider_price_id_monthly?: string;
   provider_price_id_yearly?: string;
   required_plan_ids?: string[];
+  required_plan_names?: string[];
   limits: PlanLimits;
 }
 /**
