@@ -1786,6 +1786,7 @@ export interface PlanDTO extends BaseModelDTO {
   credits_monthly: number /* int64 */;
   provider_price_id_monthly?: string;
   provider_price_id_yearly?: string;
+  required_plan_ids?: string[];
   limits: PlanLimits;
 }
 /**
