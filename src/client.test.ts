@@ -1,4 +1,11 @@
-import { Inference, inference, InferenceConfig, createClient } from './index';
+import {
+  GraphEdgeTypeInput,
+  GraphEdgeTypeOutput,
+  Inference,
+  inference,
+  InferenceConfig,
+  createClient,
+} from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle } from './types';
@@ -6,6 +13,13 @@ import { ChatStatusBusy, ChatStatusIdle } from './types';
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('package type exports', () => {
+  it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
+    expect(GraphEdgeTypeInput).toBe('input');
+    expect(GraphEdgeTypeOutput).toBe('output');
+  });
+});
 
 describe('Inference', () => {
   beforeEach(() => {
