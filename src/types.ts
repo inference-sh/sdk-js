@@ -666,7 +666,7 @@ export const ScopeBillingRead: Scope = "billing:read";
  */
 export const ScopeBillingWrite: Scope = "billing:write";
 /**
- * Action-level scopes for Secrets (sensitive - not in read/run presets)
+ * Action-level scopes for Secrets (sensitive - excluded from read-only preset)
  */
 export const ScopeSecretsRead: Scope = "secrets:read";
 /**
@@ -777,6 +777,8 @@ export interface ScopePreset {
   label: string;
   description: string;
   scopes: Scope[];
+  summary?: string[];
+  hidden?: boolean;
 }
 /**
  * ApiKeyDTO for API responses
