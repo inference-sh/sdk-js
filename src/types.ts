@@ -2837,6 +2837,8 @@ export const GraphEdgeTypeAncestor: GraphEdgeType = "ancestor";
 export const GraphEdgeTypeDuplicate: GraphEdgeType = "duplicate";
 export const GraphEdgeTypeReferences: GraphEdgeType = "references";
 export const GraphEdgeTypeSupersedes: GraphEdgeType = "supersedes";
+export const GraphEdgeTypeInput: GraphEdgeType = "input";
+export const GraphEdgeTypeOutput: GraphEdgeType = "output";
 /**
  * SecretScope defines the visibility/purpose of a secret
  */
