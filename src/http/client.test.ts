@@ -312,6 +312,49 @@ describe('HttpClient', () => {
       });
     });
 
+    it('should preserve entitlement error meta in responseBody for client-side parsing', async () => {
+      const entitlementBody = {
+        type: 'about:blank',
+        title: 'Entitlement limit exceeded',
+        detail: 'Seat limit reached',
+        meta: {
+          resource: 'seats',
+          resource_label: 'Team seats',
+          limit: 5,
+          current: 5,
+          upgrade_available: true,
+          addon_plan_id: 'plan-addon-seats',
+          addon_plan_name: 'Extra Seats',
+          addon_plan_price: 1000,
+        },
+      };
+      const responseText = JSON.stringify(entitlementBody);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve(responseText),
+      });
+
+      try {
+        await client().request('post', '/teams/team-1/members');
+        fail('Expected InferenceError');
+      } catch (error) {
+        expect(error).toMatchObject({
+          name: 'InferenceError',
+          statusCode: 403,
+          message: expect.stringContaining('Seat limit reached'),
+          responseBody: responseText,
+        });
+
+        const parsed = JSON.parse((error as InferenceError).responseBody!) as {
+          meta: { resource: string; upgrade_available: boolean; addon_plan_name?: string };
+        };
+        expect(parsed.meta.resource).toBe('seats');
+        expect(parsed.meta.upgrade_available).toBe(true);
+        expect(parsed.meta.addon_plan_name).toBe('Extra Seats');
+      }
+    });
+
     it('should not unwrap legacy v1 APIResponse envelopes', async () => {
       const v1Envelope = { success: true, data: { id: 'task-legacy' } };
       mockJsonResponse(v1Envelope);
