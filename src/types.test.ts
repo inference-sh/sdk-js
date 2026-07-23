@@ -1,6 +1,12 @@
 import {
   APIError,
+  AppCategoryOther,
+  AppDTO,
   AppPricing,
+  AppStatusActive,
+  AppStatusDeprecated,
+  AppStatusMaintenance,
+  AppStatusRetired,
   AppStoreListingDTO,
   EnforcementBlock,
   EntitlementDTO,
@@ -81,6 +87,27 @@ function makeEntitlement(overrides: Partial<EntitlementDTO> = {}): EntitlementDT
   };
 }
 
+function makeApp(overrides: Partial<AppDTO> = {}): AppDTO {
+  return {
+    id: 'app-1',
+    short_id: 'a1',
+    created_at: '2026-07-23T00:00:00Z',
+    updated_at: '2026-07-23T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: 'private',
+    namespace: 'acme',
+    name: 'demo-app',
+    description: 'Demo app',
+    agent_description: 'Runs demo tasks',
+    category: AppCategoryOther,
+    images: { card: '', thumbnail: '', banner: '' },
+    version_id: 'ver-1',
+    status: AppStatusActive,
+    ...overrides,
+  };
+}
+
 function makeStoreListing(overrides: Partial<AppStoreListingDTO> = {}): AppStoreListingDTO {
   return {
     id: 'listing-1',
@@ -106,6 +133,41 @@ describe('regenerated type constants and DTO shapes', () => {
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {
     expect(RefRouteModeRewrite).toBe('rewrite');
     expect(RefRouteModeRedirect).toBe('redirect');
+  });
+
+  it('exports AppStatus constants for app lifecycle states', () => {
+    expect(AppStatusActive).toBe('active');
+    expect(AppStatusMaintenance).toBe('maintenance');
+    expect(AppStatusDeprecated).toBe('deprecated');
+    expect(AppStatusRetired).toBe('retired');
+  });
+
+  it('preserves AppDTO status, status_message, and status_changed_at through JSON round-trip', () => {
+    const app = makeApp({
+      status: AppStatusMaintenance,
+      status_message: 'Scheduled downtime',
+      status_changed_at: '2026-07-23T12:00:00Z',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(app)) as AppDTO;
+
+    expect(parsed.status).toBe('maintenance');
+    expect(parsed.status_message).toBe('Scheduled downtime');
+    expect(parsed.status_changed_at).toBe('2026-07-23T12:00:00Z');
+  });
+
+  it('accepts all AppStatus values on AppDTO responses', () => {
+    const statuses = [
+      AppStatusActive,
+      AppStatusMaintenance,
+      AppStatusDeprecated,
+      AppStatusRetired,
+    ] as const;
+
+    for (const status of statuses) {
+      const app = makeApp({ status });
+      expect(app.status).toBe(status);
+    }
   });
 
   it('accepts rewrite and redirect modes on RefRouteDTO responses', () => {

@@ -1,4 +1,8 @@
 import {
+  AppStatusActive,
+  AppStatusDeprecated,
+  AppStatusMaintenance,
+  AppStatusRetired,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -52,6 +56,13 @@ describe('package type exports', () => {
   it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
     expect(GraphEdgeTypeInput).toBe('input');
     expect(GraphEdgeTypeOutput).toBe('output');
+  });
+
+  it('exports AppStatus constants for app lifecycle states', () => {
+    expect(AppStatusActive).toBe('active');
+    expect(AppStatusMaintenance).toBe('maintenance');
+    expect(AppStatusDeprecated).toBe('deprecated');
+    expect(AppStatusRetired).toBe('retired');
   });
 });
 

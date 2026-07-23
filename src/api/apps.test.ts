@@ -168,6 +168,37 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'private' });
   });
 
+  it('should POST status for updateStatus()', async () => {
+    const app = { id: 'app-1', status: 'maintenance' };
+    mockJsonResponse(app);
+
+    const result = await api().updateStatus('app-1', 'maintenance');
+
+    expect(result).toEqual(app);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/app-1/status');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ status: 'maintenance' });
+  });
+
+  it('should POST status with message for updateStatus()', async () => {
+    const app = {
+      id: 'app-1',
+      status: 'deprecated',
+      status_message: 'Use v2 instead',
+    };
+    mockJsonResponse(app);
+
+    const result = await api().updateStatus('app-1', 'deprecated', 'Use v2 instead');
+
+    expect(result).toEqual(app);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      status: 'deprecated',
+      message: 'Use v2 instead',
+    });
+  });
+
   it('should GET /apps/{id}/license for getLicense()', async () => {
     const license = { app_id: 'app-1', license: 'MIT' };
     mockJsonResponse(license);
