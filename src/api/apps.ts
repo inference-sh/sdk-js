@@ -84,6 +84,13 @@ export class AppsAPI {
   }
 
   /**
+   * Update app lifecycle status
+   */
+  async updateStatus(appId: string, status: string, message?: string): Promise<App> {
+    return this.http.request<App>('post', `/apps/${appId}/status`, { data: { status, message } });
+  }
+
+  /**
    * Get an app by namespace and name (e.g., "inference/claude-haiku")
    */
   async getByName(name: string): Promise<App> {

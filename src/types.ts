@@ -932,6 +932,9 @@ export interface AppDTO extends BaseModelDTO, PermissionModelDTO {
   images: AppImages;
   version_id: string;
   version?: AppVersionDTO;
+  status: AppStatus;
+  status_message?: string;
+  status_changed_at?: string /* RFC3339 */;
 }
 /**
  * AppVersionDTO is the API response for an app version.
@@ -2628,6 +2631,11 @@ export const AppCategoryChat: AppCategory = "chat";
 export const AppCategory3D: AppCategory = "3d";
 export const AppCategoryOther: AppCategory = "other";
 export const AppCategoryFlow: AppCategory = "flow";
+export type AppStatus = string;
+export const AppStatusActive: AppStatus = "active";
+export const AppStatusMaintenance: AppStatus = "maintenance";
+export const AppStatusDeprecated: AppStatus = "deprecated";
+export const AppStatusRetired: AppStatus = "retired";
 export type GPUType = string;
 export const GPUTypeAny: GPUType = "any";
 export const GPUTypeNone: GPUType = "none";
