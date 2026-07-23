@@ -1,4 +1,19 @@
-import { Inference, inference, InferenceConfig, createClient } from './index';
+import {
+  EntitlementSourceAddon,
+  GraphEdgeTypeInput,
+  GraphEdgeTypeOutput,
+  GraphEdgeTypeSupersedes,
+  Inference,
+  inference,
+  InferenceConfig,
+  NotificationTypeDataExport,
+  PlanTypeAddon,
+  PlanTypeBase,
+  RefRouteModeRedirect,
+  RefRouteModeRewrite,
+  ResourceFeatureSeedance,
+  createClient,
+} from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle } from './types';
@@ -6,6 +21,39 @@ import { ChatStatusBusy, ChatStatusIdle } from './types';
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+describe('package type exports', () => {
+  it('exports GraphEdgeTypeSupersedes for version lineage graph edges', () => {
+    expect(GraphEdgeTypeSupersedes).toBe('supersedes');
+  });
+
+  it('exports NotificationTypeDataExport for data export notifications', () => {
+    expect(NotificationTypeDataExport).toBe('data_export');
+  });
+
+  it('exports PlanType constants for base and add-on plans', () => {
+    expect(PlanTypeBase).toBe('base');
+    expect(PlanTypeAddon).toBe('addon');
+  });
+
+  it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
+    expect(EntitlementSourceAddon).toBe('addon');
+  });
+
+  it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
+    expect(ResourceFeatureSeedance).toBe('feature:seedance');
+  });
+
+  it('exports RefRouteMode constants for rewrite and redirect routing', () => {
+    expect(RefRouteModeRewrite).toBe('rewrite');
+    expect(RefRouteModeRedirect).toBe('redirect');
+  });
+
+  it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
+    expect(GraphEdgeTypeInput).toBe('input');
+    expect(GraphEdgeTypeOutput).toBe('output');
+  });
+});
 
 describe('Inference', () => {
   beforeEach(() => {
@@ -315,6 +363,37 @@ describe('Inference', () => {
     it('should create an Inference instance with extended HttpClient config', () => {
       const client = createClient({ apiKey: 'extended-key', baseUrl: 'https://api.example.com' });
       expect(client).toBeInstanceOf(Inference);
+    });
+  });
+
+  describe('legacy facade methods', () => {
+    it('should delegate _request to HttpClient.request', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ legacy: true })),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client._request<{ legacy: boolean }>('get', '/legacy/path');
+
+      expect(result).toEqual({ legacy: true });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/legacy/path'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should delegate _createEventSource to HttpClient.createEventSource', async () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const createEventSource = jest
+        .spyOn(client.http, 'createEventSource')
+        .mockResolvedValue(null);
+
+      await client._createEventSource('/tasks/task-1/stream');
+
+      expect(createEventSource).toHaveBeenCalledWith('/tasks/task-1/stream');
+      createEventSource.mockRestore();
     });
   });
 

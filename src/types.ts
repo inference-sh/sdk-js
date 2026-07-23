@@ -1847,15 +1847,19 @@ export interface PlanDTO extends BaseModelDTO {
   active: boolean;
   self_serve?: boolean;
   plan_type: PlanType;
-  price_monthly?: number /* int */;
-  price_yearly?: number /* int */;
   credits_monthly: number /* int64 */;
-  provider_price_id_monthly?: string;
-  provider_price_id_yearly?: string;
+  prices?: PlanPriceDTO[];
   required_plan_ids?: string[];
   required_plan_names?: string[];
   stackable: boolean;
   limits: PlanLimits;
+}
+export interface PlanPriceDTO extends BaseModelDTO {
+  plan_id: string;
+  amount: number /* int */; // cents
+  interval: SubscriptionInterval;
+  provider_price_id: string;
+  active: boolean;
 }
 /**
  * ProjectModelDTO provides optional project association for DTOs

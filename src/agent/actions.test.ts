@@ -1,5 +1,7 @@
 import {
   ChatStatusBusy,
+  ChatStatusCompleted,
+  ChatStatusIdle,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -570,6 +572,20 @@ describe('createActions', () => {
       expect(consoleError).toHaveBeenCalledWith('[AgentSDK] No agent config provided');
       consoleError.mockRestore();
     });
+
+    it('should not restart streaming when a stream manager already exists', async () => {
+      const existingManager = { stop: jest.fn(), start: jest.fn() };
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        getStreamManager: () => existingManager as unknown as UpdateManager,
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('follow-up');
+
+      expect(mockAgentApi.sendMessage).toHaveBeenCalled();
+      expect(StreamableManager).not.toHaveBeenCalled();
+    });
   });
 
   describe('streamChat error handling', () => {
@@ -783,6 +799,54 @@ describe('createActions', () => {
   });
 
   describe('client tool deduplication', () => {
+    it('should share deduplication across separate createActions instances', async () => {
+      const handlerA = jest.fn().mockResolvedValue('from-a');
+      const handlerB = jest.fn().mockResolvedValue('from-b');
+
+      const ctxA = createTestContext({
+        getChatId: () => 'chat-a',
+        getClientToolHandlers: () => new Map([['my_tool', handlerA]]),
+      });
+      const ctxB = createTestContext({
+        getChatId: () => 'chat-b',
+        getClientToolHandlers: () => new Map([['my_tool', handlerB]]),
+      });
+
+      const { internalActions: actionsA } = createActions(ctxA.ctx);
+      const { internalActions: actionsB } = createActions(ctxB.ctx);
+
+      actionsA.streamChat('chat-a-full');
+      actionsB.streamChat('chat-b-full');
+      await Promise.resolve();
+
+      const onMessageA = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+      const onMessageB = streamInstances[1].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const sharedInvocationId = 'tool-inv-shared';
+      const toolPayload = {
+        tool_invocations: [
+          {
+            id: sharedInvocationId,
+            type: ToolTypeClient,
+            status: ToolInvocationStatusInProgress,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      };
+
+      onMessageA(makeMessage({ chat_id: 'chat-a', ...toolPayload }));
+      onMessageB(makeMessage({ chat_id: 'chat-b', ...toolPayload }));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handlerA).toHaveBeenCalledTimes(1);
+      expect(handlerB).not.toHaveBeenCalled();
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+    });
+
     it('should not submit the same client tool invocation twice', async () => {
       const handler = jest.fn().mockResolvedValue('ok');
       const { ctx } = createTestContext({
@@ -1032,6 +1096,171 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'allow failed' }));
+    });
+  });
+
+  describe('onTurnEnd lifecycle hook', () => {
+    it('should call onTurnEnd when stream chat transitions from busy to idle', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      expect(onTurnEnd).not.toHaveBeenCalled();
+
+      const idleChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusIdle,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      onChat(idleChat);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(idleChat);
+    });
+
+    it('should call onTurnEnd when stream chat transitions from busy to completed', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+
+      const completedChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusCompleted,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      onChat(completedChat);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(completedChat);
+    });
+
+    it('should not call onTurnEnd when chat goes from idle to busy or stays busy', async () => {
+      const onTurnEnd = jest.fn();
+      mockAgentApi.fetchChat.mockResolvedValueOnce({
+        id: 'chat-full-id-123',
+        status: ChatStatusIdle,
+        chat_messages: [],
+      } as unknown as ChatDTO);
+
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusIdle } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('should not call onTurnEnd on initial fetch when chat is already idle', async () => {
+      const onTurnEnd = jest.fn();
+      mockAgentApi.fetchChat.mockResolvedValueOnce({
+        id: 'chat-full-id-123',
+        status: ChatStatusIdle,
+        chat_messages: [],
+      } as unknown as ChatDTO);
+
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      await internalActions.streamChat('chat-full-id-123');
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('should call onTurnEnd again on subsequent busy-to-idle transitions', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      const busyChat = { id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO;
+      const idleChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusIdle,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+
+      onChat(busyChat);
+      onChat(idleChat);
+      onChat(busyChat);
+      onChat(idleChat);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(2);
+      expect(onTurnEnd).toHaveBeenNthCalledWith(1, idleChat);
+      expect(onTurnEnd).toHaveBeenNthCalledWith(2, idleChat);
+    });
+
+    it('should call onTurnEnd on poll path when chat transitions from busy to idle', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx: baseCtx } = createTestContext({ getStreamEnabled: () => false });
+      const { ctx } = createTestContext({
+        getStreamEnabled: () => false,
+        callbacks: { onTurnEnd },
+        client: {
+          ...baseCtx.client,
+          http: {
+            ...baseCtx.client.http,
+            request: jest.fn().mockResolvedValue({ status: ChatStatusBusy }),
+          },
+        },
+      });
+      const { internalActions } = createActions(ctx);
+
+      mockAgentApi.fetchChat
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as ChatDTO)
+        .mockResolvedValueOnce({
+          id: 'chat-full-id-123',
+          status: ChatStatusIdle,
+          chat_messages: [],
+        } as unknown as ChatDTO);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
+
+      await pollInstances[0].options.onData?.({ status: ChatStatusIdle });
+      await Promise.resolve();
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'chat-full-id-123', status: ChatStatusIdle })
+      );
     });
   });
 

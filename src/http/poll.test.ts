@@ -151,6 +151,67 @@ describe('PollManager', () => {
     manager.stop();
   });
 
+  it('should wrap non-Error rejections as Error for onError', async () => {
+    const onError = jest.fn();
+    const pollFunction = jest.fn().mockRejectedValue('network string failure');
+
+    const manager = new PollManager({
+      pollFunction,
+      maxRetries: 5,
+      onError,
+    });
+
+    manager.start();
+    await Promise.resolve();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    const [error] = onError.mock.calls[0];
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('network string failure');
+
+    manager.stop();
+  });
+
+  it('should call onStop only once when stop is invoked repeatedly', async () => {
+    const onStop = jest.fn();
+    const pollFunction = jest.fn().mockResolvedValue({});
+
+    const manager = new PollManager({ pollFunction, onStop });
+    manager.start();
+    await Promise.resolve();
+
+    manager.stop();
+    manager.stop();
+
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not invoke onError after stop during an in-flight poll', async () => {
+    let rejectPoll: (reason: unknown) => void = () => {};
+    const onError = jest.fn();
+    const pollFunction = jest.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectPoll = reject;
+        })
+    );
+
+    const manager = new PollManager({
+      pollFunction,
+      maxRetries: 5,
+      onError,
+    });
+
+    manager.start();
+    await Promise.resolve();
+
+    manager.stop();
+    rejectPoll(new Error('late failure'));
+    await Promise.resolve();
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('should reset consecutive error count after a successful poll', async () => {
     const onError = jest.fn();
     const onStop = jest.fn();

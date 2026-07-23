@@ -391,6 +391,50 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.type).toBe(ToolTypeHTTP);
     expect(t.http?.method).toBe('GET');
   });
+
+  it('should generate input_schema from parameters', () => {
+    const t = httpTool('create_item', 'https://api.example.com/items')
+      .param('title', string('Item title'))
+      .param('quantity', optional(integer('Stock count')))
+      .build();
+
+    expect(t.http?.input_schema).toEqual({
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Item title' },
+        quantity: { type: 'integer', description: 'Stock count' },
+      },
+      required: ['title'],
+    });
+  });
+
+  it('should generate input_schema for callTool parameters', () => {
+    const t = callTool('lookup', 'https://api.example.com/lookup')
+      .param('query', string('Search query'))
+      .param('limit', optional(integer('Max results')))
+      .build();
+
+    expect(t.http?.input_schema).toEqual({
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        limit: { type: 'integer', description: 'Max results' },
+      },
+      required: ['query'],
+    });
+  });
+
+  it('should attach api key auth with custom header name', () => {
+    const t = httpTool('fetch', 'https://api.example.com')
+      .auth({ apiKey: 'KEY', header: 'Authorization' })
+      .build();
+
+    expect(t.http?.auth).toEqual({
+      type: 'api_key',
+      secret: 'KEY',
+      header: 'Authorization',
+    });
+  });
 });
 
 describe('MCPToolBuilder (mcpTool)', () => {

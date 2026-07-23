@@ -43,6 +43,14 @@ describe('HttpClient', () => {
       expect(client.getPollIntervalMs()).toBe(5000);
     });
 
+    it('should return the configured baseUrl from getBaseUrl()', () => {
+      const client = new HttpClient({
+        apiKey: 'key',
+        baseUrl: 'https://custom.example.com',
+      });
+      expect(client.getBaseUrl()).toBe('https://custom.example.com');
+    });
+
     it('createHttpClient should return an HttpClient instance', () => {
       const client = createHttpClient({ apiKey: 'key' });
       expect(client).toBeInstanceOf(HttpClient);
@@ -123,6 +131,53 @@ describe('HttpClient', () => {
       const result = await httpClient.request<{ ok: boolean }>('get', '/tasks/1');
       expect(result).toEqual({ ok: true });
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should propagate when onError handler rethrows', async () => {
+      const capturedErrors: unknown[] = [];
+      const httpClient = new HttpClient({
+        apiKey: 'key',
+        onError: async (error) => {
+          capturedErrors.push(error);
+          throw error;
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve(JSON.stringify({ detail: 'session expired' })),
+      });
+
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 401,
+        message: expect.stringContaining('session expired'),
+      });
+      expect(capturedErrors).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate when onError handler rejects without retrying', async () => {
+      const httpClient = new HttpClient({
+        apiKey: 'key',
+        onError: async () => {
+          throw new InferenceError(403, 'otp_required');
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve(JSON.stringify({ detail: 'otp_required' })),
+      });
+
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+        message: expect.stringContaining('otp_required'),
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should route through proxy with x-inf-target-url header', async () => {
@@ -310,6 +365,49 @@ describe('HttpClient', () => {
         name: 'InferenceError',
         message: expect.stringContaining('Bad Gateway from upstream'),
       });
+    });
+
+    it('should preserve entitlement error meta in responseBody for client-side parsing', async () => {
+      const entitlementBody = {
+        type: 'about:blank',
+        title: 'Entitlement limit exceeded',
+        detail: 'Seat limit reached',
+        meta: {
+          resource: 'seats',
+          resource_label: 'Team seats',
+          limit: 5,
+          current: 5,
+          upgrade_available: true,
+          addon_plan_id: 'plan-addon-seats',
+          addon_plan_name: 'Extra Seats',
+          addon_plan_price: 1000,
+        },
+      };
+      const responseText = JSON.stringify(entitlementBody);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve(responseText),
+      });
+
+      try {
+        await client().request('post', '/teams/team-1/members');
+        fail('Expected InferenceError');
+      } catch (error) {
+        expect(error).toMatchObject({
+          name: 'InferenceError',
+          statusCode: 403,
+          message: expect.stringContaining('Seat limit reached'),
+          responseBody: responseText,
+        });
+
+        const parsed = JSON.parse((error as InferenceError).responseBody!) as {
+          meta: { resource: string; upgrade_available: boolean; addon_plan_name?: string };
+        };
+        expect(parsed.meta.resource).toBe('seats');
+        expect(parsed.meta.upgrade_available).toBe(true);
+        expect(parsed.meta.addon_plan_name).toBe('Extra Seats');
+      }
     });
 
     it('should not unwrap legacy v1 APIResponse envelopes', async () => {
@@ -576,6 +674,36 @@ describe('HttpClient', () => {
 
       expect(response).toBe(failed);
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should propagate when onError rethrows on failed SSE handshake', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      const capturedErrors: unknown[] = [];
+      const onError = jest.fn(async (error) => {
+        capturedErrors.push(error);
+        throw error;
+      });
+      const client = new HttpClient({ apiKey: 'sse-key', onError });
+
+      mockFetch.mockResolvedValueOnce(
+        mockFailedResponse(403, JSON.stringify({ detail: 'otp_required' }))
+      );
+      await client.createEventSource('/tasks/task-1/stream');
+
+      await expect(
+        capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {})
+      ).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+        message: expect.stringContaining('otp_required'),
+      });
+      expect(capturedErrors).toHaveLength(1);
+      expect(onError).toHaveBeenCalledTimes(1);
     });
   });
 });

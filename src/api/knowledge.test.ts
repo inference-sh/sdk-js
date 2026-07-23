@@ -56,6 +56,23 @@ describe('KnowledgeAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should forward version scope signals in create() body', async () => {
+    const payload = {
+      name: 'docs',
+      version: {
+        description: 'Initial version',
+        scope: ['git:inference-sh/sdk-js', 'env:production'],
+      },
+    };
+    const entry = { id: 'know-new', name: 'docs' };
+    mockJsonResponse(entry);
+
+    await api().create(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should POST team_id for transferOwnership()', async () => {
     const entry = { id: 'know-1' };
     mockJsonResponse(entry);
@@ -122,6 +139,22 @@ describe('KnowledgeAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/know-1/versions/ver-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve scope on knowledge version responses from getVersion()', async () => {
+    const version = {
+      id: 'ver-1',
+      knowledge_id: 'know-1',
+      content_hash: 'abc123',
+      description: 'Scoped version',
+      tags: ['sdk'],
+      scope: ['git:inference-sh/sdk-js', 'lang:typescript'],
+    };
+    mockJsonResponse(version);
+
+    const result = await api().getVersion('know-1', 'ver-1');
+
+    expect(result.scope).toEqual(['git:inference-sh/sdk-js', 'lang:typescript']);
   });
 
   it('should POST visibility for updateVisibility()', async () => {
