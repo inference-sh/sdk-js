@@ -13,6 +13,7 @@ import {
   EstimateCostResponse,
   PlanDTO,
   PlanLimits,
+  PlanPriceDTO,
   PlanTypeAddon,
   PlanTypeBase,
   RefRouteDTO,
@@ -29,6 +30,7 @@ import {
   ScopesResponse,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
+  SubscriptionIntervalYearly,
   SubscriptionStatusActive,
 } from './types';
 
@@ -46,6 +48,21 @@ function makePlan(overrides: Partial<PlanDTO> = {}): PlanDTO {
     credits_monthly: 1000,
     stackable: false,
     limits: {},
+    ...overrides,
+  };
+}
+
+function makePlanPrice(overrides: Partial<PlanPriceDTO> = {}): PlanPriceDTO {
+  return {
+    id: 'price-1',
+    short_id: 'pp1',
+    created_at: '2026-07-23T00:00:00Z',
+    updated_at: '2026-07-23T00:00:00Z',
+    plan_id: 'plan-1',
+    amount: 2900,
+    interval: SubscriptionIntervalMonthly,
+    provider_price_id: 'price_stripe_monthly',
+    active: true,
     ...overrides,
   };
 }
@@ -707,5 +724,109 @@ describe('PlanDTO stackable', () => {
 
     expect(parsed.plan?.stackable).toBe(true);
     expect(parsed.plan?.plan_type).toBe('addon');
+  });
+});
+
+describe('PlanPriceDTO and PlanDTO prices', () => {
+  it('models monthly and yearly price rows with cents amount and provider IDs', () => {
+    const monthly = makePlanPrice({
+      id: 'price-monthly',
+      interval: SubscriptionIntervalMonthly,
+      amount: 2900,
+      provider_price_id: 'price_stripe_monthly',
+    });
+    const yearly = makePlanPrice({
+      id: 'price-yearly',
+      interval: SubscriptionIntervalYearly,
+      amount: 29000,
+      provider_price_id: 'price_stripe_yearly',
+    });
+
+    expect(monthly.interval).toBe('monthly');
+    expect(monthly.amount).toBe(2900);
+    expect(yearly.interval).toBe('yearly');
+    expect(yearly.amount).toBe(29000);
+    expect(yearly.provider_price_id).toBe('price_stripe_yearly');
+  });
+
+  it('allows plans to expose multiple active price intervals via prices array', () => {
+    const plan = makePlan({
+      prices: [
+        makePlanPrice({
+          id: 'price-monthly',
+          interval: SubscriptionIntervalMonthly,
+          amount: 2900,
+        }),
+        makePlanPrice({
+          id: 'price-yearly',
+          interval: SubscriptionIntervalYearly,
+          amount: 29000,
+        }),
+      ],
+    });
+
+    expect(plan.prices).toHaveLength(2);
+    expect(plan.prices?.[0]?.interval).toBe('monthly');
+    expect(plan.prices?.[1]?.interval).toBe('yearly');
+  });
+
+  it('allows plans without prices when pricing is not yet configured', () => {
+    const plan = makePlan();
+
+    expect(plan.prices).toBeUndefined();
+  });
+
+  it('preserves nested plan prices on SubscriptionDTO responses after JSON round-trip', () => {
+    const subscription: SubscriptionDTO = {
+      id: 'sub-1',
+      short_id: 's1',
+      created_at: '2026-07-23T00:00:00Z',
+      updated_at: '2026-07-23T00:00:00Z',
+      team_id: 'team-1',
+      plan_id: 'plan-pro',
+      plan: makePlan({
+        id: 'plan-pro',
+        prices: [
+          makePlanPrice({
+            id: 'price-monthly',
+            plan_id: 'plan-pro',
+            interval: SubscriptionIntervalMonthly,
+            amount: 4900,
+            provider_price_id: 'price_stripe_pro_monthly',
+          }),
+        ],
+      }),
+      interval: SubscriptionIntervalMonthly,
+      status: SubscriptionStatusActive,
+      current_period_start: '2026-07-01T00:00:00Z',
+      current_period_end: '2026-08-01T00:00:00Z',
+      cancel_at_period_end: false,
+      credits_per_period: 1000,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(subscription)) as SubscriptionDTO;
+
+    expect(parsed.plan?.prices).toHaveLength(1);
+    expect(parsed.plan?.prices?.[0]?.amount).toBe(4900);
+    expect(parsed.plan?.prices?.[0]?.interval).toBe('monthly');
+    expect(parsed.plan?.prices?.[0]?.provider_price_id).toBe('price_stripe_pro_monthly');
+  });
+
+  it('allows inactive price rows alongside active ones for plan catalog responses', () => {
+    const plan = makePlan({
+      prices: [
+        makePlanPrice({ active: true, amount: 2900 }),
+        makePlanPrice({
+          id: 'price-legacy',
+          active: false,
+          amount: 1900,
+          provider_price_id: 'price_stripe_legacy',
+        }),
+      ],
+    });
+
+    expect(plan.prices?.[0]?.active).toBe(true);
+    expect(plan.prices?.[1]?.active).toBe(false);
+    expect(plan.prices?.[1]?.amount).toBe(1900);
   });
 });
