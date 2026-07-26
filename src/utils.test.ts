@@ -1,9 +1,17 @@
 import {
   TaskStatusCancelled,
+  TaskStatusCancelling,
   TaskStatusCompleted,
+  TaskStatusDispatched,
   TaskStatusFailed,
+  TaskStatusPreparing,
+  TaskStatusQueued,
+  TaskStatusReceived,
   TaskStatusRunning,
+  TaskStatusServing,
+  TaskStatusSettingUp,
   TaskStatusUnknown,
+  TaskStatusUploading,
 } from './types';
 import { isTerminalStatus, parseStatus } from './utils';
 
@@ -23,6 +31,18 @@ describe('parseStatus', () => {
     expect(parseStatus('completed')).toBe(TaskStatusCompleted);
     expect(parseStatus('failed')).toBe(TaskStatusFailed);
     expect(parseStatus('cancelled')).toBe(TaskStatusCancelled);
+  });
+
+  it('should map all intermediate pipeline string statuses to TaskStatus', () => {
+    expect(parseStatus('unknown')).toBe(TaskStatusUnknown);
+    expect(parseStatus('received')).toBe(TaskStatusReceived);
+    expect(parseStatus('queued')).toBe(TaskStatusQueued);
+    expect(parseStatus('dispatched')).toBe(TaskStatusDispatched);
+    expect(parseStatus('preparing')).toBe(TaskStatusPreparing);
+    expect(parseStatus('serving')).toBe(TaskStatusServing);
+    expect(parseStatus('setting_up')).toBe(TaskStatusSettingUp);
+    expect(parseStatus('cancelling')).toBe(TaskStatusCancelling);
+    expect(parseStatus('uploading')).toBe(TaskStatusUploading);
   });
 
   it('should be case-insensitive for string statuses', () => {
@@ -52,6 +72,9 @@ describe('isTerminalStatus', () => {
   it('should be false for non-terminal statuses', () => {
     expect(isTerminalStatus(TaskStatusRunning)).toBe(false);
     expect(isTerminalStatus('running')).toBe(false);
+    expect(isTerminalStatus(TaskStatusQueued)).toBe(false);
+    expect(isTerminalStatus('preparing')).toBe(false);
+    expect(isTerminalStatus('uploading')).toBe(false);
     expect(isTerminalStatus(null)).toBe(false);
   });
 });

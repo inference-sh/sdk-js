@@ -48,6 +48,13 @@ import {
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
+  ToolInvocationStatusAwaitingApproval,
+  ToolInvocationStatusAwaitingInput,
+  ToolInvocationStatusCancelled,
+  ToolInvocationStatusCompleted,
+  ToolInvocationStatusFailed,
+  ToolInvocationStatusInProgress,
+  ToolInvocationStatusPending,
   SubscriptionStatusActive,
   VisibilityPrivate,
 } from './types';
@@ -970,6 +977,18 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
+  });
+});
+
+describe('ToolInvocationStatus constants', () => {
+  it('exports all lifecycle statuses including awaiting_approval for HIL flows', () => {
+    expect(ToolInvocationStatusPending).toBe('pending');
+    expect(ToolInvocationStatusInProgress).toBe('in_progress');
+    expect(ToolInvocationStatusAwaitingInput).toBe('awaiting_input');
+    expect(ToolInvocationStatusAwaitingApproval).toBe('awaiting_approval');
+    expect(ToolInvocationStatusCompleted).toBe('completed');
+    expect(ToolInvocationStatusFailed).toBe('failed');
+    expect(ToolInvocationStatusCancelled).toBe('cancelled');
   });
 });
 
