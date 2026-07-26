@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "inference-src": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./proxy": {
@@ -36,6 +37,7 @@
     },
     "./agent": {
       "types": "./dist/agent/index.d.ts",
+      "inference-src": "./src/agent/index.ts",
       "default": "./dist/agent/index.js"
     }
   },
@@ -131,6 +133,7 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.test.*",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

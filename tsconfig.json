@@ -10,6 +10,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
+    // Required: consumers (js/app dev server) transpile this package's source
+    // per-file, so type-only re-exports must be marked `export type`.
+    "isolatedModules": true,
     "types": ["node", "jest"],
     "jsx": "react-jsx"
   },

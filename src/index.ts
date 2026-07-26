@@ -1,8 +1,8 @@
 // HTTP utilities
-export { HttpClient, HttpClientConfig, ErrorHandler, createHttpClient } from './http/client';
-export { StreamManager, StreamManagerOptions, PartialDataWrapper } from './http/stream';
-export { StreamableManager, StreamableManagerOptions, StreamableMessage, streamable, streamableRaw } from './http/streamable';
-export { PollManager, PollManagerOptions } from './http/poll';
+export { HttpClient, type HttpClientConfig, type ErrorHandler, createHttpClient } from './http/client';
+export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream';
+export { StreamableManager, type StreamableManagerOptions, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
+export { PollManager, type PollManagerOptions } from './http/poll';
 export {
   InferenceError,
   RequirementsNotMetException,
@@ -18,9 +18,9 @@ export {
 } from './http/errors';
 
 // API modules
-export { TasksAPI, RunOptions } from './api/tasks';
-export { FilesAPI, UploadFileOptions } from './api/files';
-export { AgentsAPI, Agent, AgentOptions, SendMessageOptions, AgentRunOptions } from './api/agents';
+export { TasksAPI, type RunOptions } from './api/tasks';
+export { FilesAPI, type UploadFileOptions } from './api/files';
+export { AgentsAPI, Agent, type AgentOptions, type SendMessageOptions, type AgentRunOptions } from './api/agents';
 export { SessionsAPI } from './api/sessions';
 export { AppsAPI } from './api/apps';
 export { ChatsAPI } from './api/chats';
@@ -28,7 +28,7 @@ export { FlowsAPI } from './api/flows';
 export { FlowRunsAPI } from './api/flow-runs';
 export { EnginesAPI } from './api/engines';
 export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
-export { TeamsAPI, MeResponse } from './api/teams';
+export { TeamsAPI, type MeResponse } from './api/teams';
 export { SecretsAPI } from './api/secrets';
 export { ApiKeysAPI } from './api/api-keys';
 export { IntegrationsAPI } from './api/integrations';
@@ -70,7 +70,7 @@ export type { TaskDTO as Task } from './types';
 // Main Client
 // =============================================================================
 
-import { HttpClient, HttpClientConfig } from './http/client';
+import { HttpClient, type HttpClientConfig } from './http/client';
 import { TasksAPI, RunOptions } from './api/tasks';
 import { FilesAPI, UploadFileOptions } from './api/files';
 import { AgentsAPI, Agent, AgentOptions } from './api/agents';
