@@ -1,4 +1,10 @@
 import {
+  AppStatusActive,
+  AppStatusDeprecated,
+  AppStatusMaintenance,
+  AppStatusRetired,
+  DeviceAuthStatusApproved,
+  DeviceTokenKindSession,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -52,6 +58,18 @@ describe('package type exports', () => {
   it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
     expect(GraphEdgeTypeInput).toBe('input');
     expect(GraphEdgeTypeOutput).toBe('output');
+  });
+
+  it('exports AppStatus constants for app lifecycle states', () => {
+    expect(AppStatusActive).toBe('active');
+    expect(AppStatusMaintenance).toBe('maintenance');
+    expect(AppStatusDeprecated).toBe('deprecated');
+    expect(AppStatusRetired).toBe('retired');
+  });
+
+  it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
+    expect(DeviceAuthStatusApproved).toBe('approved');
+    expect(DeviceTokenKindSession).toBe('session');
   });
 });
 

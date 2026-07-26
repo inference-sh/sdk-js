@@ -1,7 +1,21 @@
 import {
   APIError,
+  AppCategoryOther,
+  AppDTO,
   AppPricing,
+  AppStatusActive,
+  AppStatusDeprecated,
+  AppStatusMaintenance,
+  AppStatusRetired,
   AppStoreListingDTO,
+  DeviceAuthInitRequest,
+  DeviceAuthPollResponse,
+  DeviceAuthStatusApproved,
+  DeviceAuthStatusDenied,
+  DeviceAuthStatusExpired,
+  DeviceAuthStatusPending,
+  DeviceTokenKindAPIKey,
+  DeviceTokenKindSession,
   EnforcementBlock,
   EntitlementDTO,
   EntitlementErrorMeta,
@@ -11,10 +25,14 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  KnowledgeDTO,
+  KnowledgeLifecyclePermanent,
+  KnowledgeTypeSkill,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
   PlanTypeBase,
+  PlanVersionDTO,
   RefRouteDTO,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
@@ -27,10 +45,29 @@ import {
   ScopeGroupApps,
   ScopePreset,
   ScopesResponse,
+  SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  VisibilityPrivate,
 } from './types';
+
+function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
+  return {
+    id: 'plan-ver-1',
+    short_id: 'pv1',
+    created_at: '2026-07-25T00:00:00Z',
+    updated_at: '2026-07-25T00:00:00Z',
+    plan_id: 'plan-pro',
+    amount_monthly: 2900,
+    amount_yearly: 29000,
+    provider_price_id_monthly: 'price_stripe_monthly',
+    provider_price_id_yearly: 'price_stripe_yearly',
+    credits_monthly: 1_000_000,
+    active: true,
+    ...overrides,
+  };
+}
 
 function makePlan(overrides: Partial<PlanDTO> = {}): PlanDTO {
   return {
@@ -81,6 +118,27 @@ function makeEntitlement(overrides: Partial<EntitlementDTO> = {}): EntitlementDT
   };
 }
 
+function makeApp(overrides: Partial<AppDTO> = {}): AppDTO {
+  return {
+    id: 'app-1',
+    short_id: 'a1',
+    created_at: '2026-07-23T00:00:00Z',
+    updated_at: '2026-07-23T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: 'private',
+    namespace: 'acme',
+    name: 'demo-app',
+    description: 'Demo app',
+    agent_description: 'Runs demo tasks',
+    category: AppCategoryOther,
+    images: { card: '', thumbnail: '', banner: '' },
+    version_id: 'ver-1',
+    status: AppStatusActive,
+    ...overrides,
+  };
+}
+
 function makeStoreListing(overrides: Partial<AppStoreListingDTO> = {}): AppStoreListingDTO {
   return {
     id: 'listing-1',
@@ -106,6 +164,41 @@ describe('regenerated type constants and DTO shapes', () => {
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {
     expect(RefRouteModeRewrite).toBe('rewrite');
     expect(RefRouteModeRedirect).toBe('redirect');
+  });
+
+  it('exports AppStatus constants for app lifecycle states', () => {
+    expect(AppStatusActive).toBe('active');
+    expect(AppStatusMaintenance).toBe('maintenance');
+    expect(AppStatusDeprecated).toBe('deprecated');
+    expect(AppStatusRetired).toBe('retired');
+  });
+
+  it('preserves AppDTO status, status_message, and status_changed_at through JSON round-trip', () => {
+    const app = makeApp({
+      status: AppStatusMaintenance,
+      status_message: 'Scheduled downtime',
+      status_changed_at: '2026-07-23T12:00:00Z',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(app)) as AppDTO;
+
+    expect(parsed.status).toBe('maintenance');
+    expect(parsed.status_message).toBe('Scheduled downtime');
+    expect(parsed.status_changed_at).toBe('2026-07-23T12:00:00Z');
+  });
+
+  it('accepts all AppStatus values on AppDTO responses', () => {
+    const statuses = [
+      AppStatusActive,
+      AppStatusMaintenance,
+      AppStatusDeprecated,
+      AppStatusRetired,
+    ] as const;
+
+    for (const status of statuses) {
+      const app = makeApp({ status });
+      expect(app.status).toBe(status);
+    }
   });
 
   it('accepts rewrite and redirect modes on RefRouteDTO responses', () => {
@@ -707,5 +800,244 @@ describe('PlanDTO stackable', () => {
 
     expect(parsed.plan?.stackable).toBe(true);
     expect(parsed.plan?.plan_type).toBe('addon');
+  });
+});
+
+describe('PlanVersionDTO and PlanDTO active_version', () => {
+  it('models monthly and yearly amounts in cents with provider price IDs', () => {
+    const version = makePlanVersion({
+      amount_monthly: 4900,
+      amount_yearly: 49000,
+      provider_price_id_monthly: 'price_stripe_pro_monthly',
+      provider_price_id_yearly: 'price_stripe_pro_yearly',
+    });
+
+    expect(version.amount_monthly).toBe(4900);
+    expect(version.amount_yearly).toBe(49000);
+    expect(version.provider_price_id_monthly).toBe('price_stripe_pro_monthly');
+    expect(version.provider_price_id_yearly).toBe('price_stripe_pro_yearly');
+  });
+
+  it('allows plans to expose the active pricing version instead of a prices array', () => {
+    const plan = makePlan({
+      active_version: makePlanVersion({
+        amount_monthly: 2900,
+        amount_yearly: 29000,
+      }),
+    });
+
+    expect(plan.active_version?.amount_monthly).toBe(2900);
+    expect(plan.active_version?.amount_yearly).toBe(29000);
+    expect(plan.active_version?.active).toBe(true);
+  });
+
+  it('allows plans without active_version when pricing is not yet configured', () => {
+    const plan = makePlan();
+
+    expect(plan.active_version).toBeUndefined();
+  });
+
+  it('preserves nested plan active_version on SubscriptionDTO responses after JSON round-trip', () => {
+    const subscription: SubscriptionDTO = {
+      id: 'sub-1',
+      short_id: 's1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      team_id: 'team-1',
+      plan_id: 'plan-pro',
+      plan: makePlan({
+        id: 'plan-pro',
+        active_version: makePlanVersion({
+          plan_id: 'plan-pro',
+          amount_monthly: 4900,
+          amount_yearly: 49000,
+          provider_price_id_monthly: 'price_stripe_pro_monthly',
+        }),
+      }),
+      interval: SubscriptionIntervalMonthly,
+      status: SubscriptionStatusActive,
+      current_period_start: '2026-07-01T00:00:00Z',
+      current_period_end: '2026-08-01T00:00:00Z',
+      cancel_at_period_end: false,
+      credits_per_period: 1000,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(subscription)) as SubscriptionDTO;
+
+    expect(parsed.plan?.active_version?.amount_monthly).toBe(4900);
+    expect(parsed.plan?.active_version?.amount_yearly).toBe(49000);
+    expect(parsed.plan?.active_version?.provider_price_id_monthly).toBe('price_stripe_pro_monthly');
+  });
+
+  it('allows version-specific limits and credits alongside plan-level defaults', () => {
+    const limits: PlanLimits = {
+      seats: {
+        type: EntitlementTypeBoolean,
+        enabled: true,
+      },
+    };
+
+    const plan = makePlan({
+      credits_monthly: 500,
+      active_version: makePlanVersion({
+        credits_monthly: 2_000_000,
+        limits,
+      }),
+    });
+
+    expect(plan.credits_monthly).toBe(500);
+    expect(plan.active_version?.credits_monthly).toBe(2_000_000);
+    expect(plan.active_version?.limits?.seats?.enabled).toBe(true);
+  });
+
+  it('allows inactive plan versions for catalog history responses', () => {
+    const version = makePlanVersion({
+      active: false,
+      amount_monthly: 1900,
+      provider_price_id_monthly: 'price_stripe_legacy',
+    });
+
+    expect(version.active).toBe(false);
+    expect(version.amount_monthly).toBe(1900);
+    expect(version.provider_price_id_monthly).toBe('price_stripe_legacy');
+  });
+});
+
+describe('DeviceAuthInitRequest PKCE and poll responses', () => {
+  it('accepts PKCE code_challenge fields on device auth initiation', () => {
+    const request: DeviceAuthInitRequest = {
+      token_kind: DeviceTokenKindSession,
+      code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+      code_challenge_method: 'S256',
+    };
+
+    expect(request.token_kind).toBe('session');
+    expect(request.code_challenge).toContain('E9Melhoa');
+    expect(request.code_challenge_method).toBe('S256');
+  });
+
+  it('allows legacy device auth initiation without PKCE or token_kind', () => {
+    const request: DeviceAuthInitRequest = {};
+
+    expect(request.token_kind).toBeUndefined();
+    expect(request.code_challenge).toBeUndefined();
+    expect(request.code_challenge_method).toBeUndefined();
+  });
+
+  it('preserves PKCE fields through JSON round-trip', () => {
+    const request: DeviceAuthInitRequest = {
+      code_challenge: 'challenge-hash',
+      code_challenge_method: 'S256',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as DeviceAuthInitRequest;
+
+    expect(parsed.code_challenge).toBe('challenge-hash');
+    expect(parsed.code_challenge_method).toBe('S256');
+  });
+
+  it('models session-token poll responses for PKCE device auth flows', () => {
+    const response: DeviceAuthPollResponse = {
+      status: DeviceAuthStatusApproved,
+      session_token: 'sess_cli_abc123',
+      team_id: 'team-1',
+    };
+
+    expect(response.status).toBe('approved');
+    expect(response.session_token).toBe('sess_cli_abc123');
+    expect(response.api_key).toBeUndefined();
+    expect(response.team_id).toBe('team-1');
+  });
+
+  it('models legacy api_key poll responses for backward-compatible CLIs', () => {
+    const response: DeviceAuthPollResponse = {
+      status: DeviceAuthStatusApproved,
+      api_key: 'inf_live_legacy',
+    };
+
+    expect(response.status).toBe('approved');
+    expect(response.api_key).toBe('inf_live_legacy');
+    expect(response.session_token).toBeUndefined();
+  });
+
+  it('exports DeviceAuthStatus constants for pending, approved, expired, and denied flows', () => {
+    expect(DeviceAuthStatusPending).toBe('pending');
+    expect(DeviceAuthStatusApproved).toBe('approved');
+    expect(DeviceAuthStatusExpired).toBe('expired');
+    expect(DeviceAuthStatusDenied).toBe('denied');
+  });
+
+  it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
+    expect(DeviceTokenKindSession).toBe('session');
+    expect(DeviceTokenKindAPIKey).toBe('api_key');
+  });
+});
+
+describe('SkillDTO and KnowledgeDTO usage metrics', () => {
+  it('tracks invocation and install counts on SkillDTO responses', () => {
+    const skill: SkillDTO = {
+      id: 'skill-1',
+      short_id: 's1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'research',
+      description: 'Research assistant skill',
+      version_id: 'ver-1',
+      uses: 128,
+      installs: 42,
+    };
+
+    expect(skill.uses).toBe(128);
+    expect(skill.installs).toBe(42);
+  });
+
+  it('tracks invocation and install counts on KnowledgeDTO responses', () => {
+    const knowledge: KnowledgeDTO = {
+      id: 'know-1',
+      short_id: 'k1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'docs',
+      description: 'Product documentation',
+      type: KnowledgeTypeSkill,
+      lifecycle: KnowledgeLifecyclePermanent,
+      version_id: 'ver-1',
+      uses: 512,
+      installs: 17,
+    };
+
+    expect(knowledge.uses).toBe(512);
+    expect(knowledge.installs).toBe(17);
+  });
+
+  it('preserves uses and installs after JSON round-trip', () => {
+    const skill: SkillDTO = {
+      id: 'skill-1',
+      short_id: 's1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'research',
+      description: 'Research assistant skill',
+      version_id: 'ver-1',
+      uses: 99,
+      installs: 3,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(skill)) as SkillDTO;
+
+    expect(parsed.uses).toBe(99);
+    expect(parsed.installs).toBe(3);
   });
 });
