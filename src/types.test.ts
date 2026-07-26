@@ -42,7 +42,6 @@ import {
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
-  SubscriptionIntervalYearly,
   SubscriptionStatusActive,
   VisibilityPrivate,
 } from './types';
