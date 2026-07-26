@@ -13,7 +13,10 @@ import {
   DeviceAuthStatusApproved,
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
+  DeviceAuthStatusInvalid,
+  DeviceAuthStatusLoading,
   DeviceAuthStatusPending,
+  DeviceAuthStatusValid,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
@@ -25,6 +28,8 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  IntegrationCompleteOAuthRequest,
+  IntegrationConnectResponse,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
@@ -49,7 +54,16 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  ToolInvocationDTO,
+  ToolInvocationStatusAwaitingInput,
+  ToolTypeClient,
   VisibilityPrivate,
+  Widget,
+  WidgetAction,
+  WidgetNode,
+  WidgetNodeTypeButton,
+  WidgetNodeTypeForm,
+  WidgetNodeTypeInput,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -967,9 +981,176 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
     expect(DeviceAuthStatusDenied).toBe('denied');
   });
 
+  it('exports DeviceAuthStatus constants for client-side claim UI states', () => {
+    expect(DeviceAuthStatusValid).toBe('valid');
+    expect(DeviceAuthStatusInvalid).toBe('invalid');
+    expect(DeviceAuthStatusLoading).toBe('loading');
+  });
+
+  it('models claim-step poll responses with valid, invalid, and loading statuses', () => {
+    const statuses = [
+      DeviceAuthStatusValid,
+      DeviceAuthStatusInvalid,
+      DeviceAuthStatusLoading,
+    ] as const;
+
+    for (const status of statuses) {
+      const response: DeviceAuthPollResponse = { status };
+      expect(response.status).toBe(status);
+    }
+  });
+
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
+  });
+});
+
+describe('Integration OAuth PKCE', () => {
+  it('accepts code_verifier on OAuth completion requests', () => {
+    const request: IntegrationCompleteOAuthRequest = {
+      provider: 'github',
+      type: 'oauth',
+      code: 'auth-code-123',
+      state: 'csrf-state',
+      code_verifier: 'pkce-verifier-abc',
+    };
+
+    expect(request.code_verifier).toBe('pkce-verifier-abc');
+  });
+
+  it('preserves code_verifier through OAuth completion JSON round-trip', () => {
+    const request: IntegrationCompleteOAuthRequest = {
+      provider: 'google',
+      type: 'oauth',
+      code: 'auth-code',
+      state: 'state-token',
+      code_verifier: 'verifier-hash',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as IntegrationCompleteOAuthRequest;
+
+    expect(parsed.code_verifier).toBe('verifier-hash');
+  });
+
+  it('models connect responses that return PKCE verifier for OAuth redirects', () => {
+    const response: IntegrationConnectResponse = {
+      auth_url: 'https://github.com/login/oauth/authorize?client_id=abc',
+      state: 'csrf-state',
+      code_verifier: 'server-generated-verifier',
+    };
+
+    expect(response.auth_url).toContain('github.com');
+    expect(response.code_verifier).toBe('server-generated-verifier');
+  });
+
+  it('preserves code_verifier on connect responses after JSON round-trip', () => {
+    const response: IntegrationConnectResponse = {
+      auth_url: 'https://accounts.google.com/o/oauth2/auth',
+      state: 'state-1',
+      code_verifier: 'pkce-verifier',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as IntegrationConnectResponse;
+
+    expect(parsed.code_verifier).toBe('pkce-verifier');
+    expect(parsed.state).toBe('state-1');
+  });
+});
+
+describe('ToolInvocationDTO widget payloads', () => {
+  it('models nested form widgets for human-in-the-loop tool invocations', () => {
+    const submitAction: WidgetAction = {
+      type: 'submit',
+      payload: { tool_invocation_id: 'inv-1' },
+    };
+    const widget: Widget = {
+      type: 'ui',
+      interactive: true,
+      title: 'Confirm deployment',
+      children: [
+        {
+          type: WidgetNodeTypeForm,
+          onSubmitAction: submitAction,
+          children: [
+            {
+              type: WidgetNodeTypeInput,
+              name: 'environment',
+              label: 'Environment',
+              placeholder: 'staging',
+              required: true,
+            },
+            {
+              type: WidgetNodeTypeButton,
+              label: 'Deploy',
+              submit: true,
+              onClickAction: submitAction,
+            },
+          ],
+        },
+      ],
+      actions: [
+        {
+          label: 'Cancel',
+          action: { type: 'cancel' },
+          variant: 'outline',
+        },
+      ],
+    };
+    const invocation: ToolInvocationDTO = {
+      id: 'inv-1',
+      short_id: 'ti1',
+      created_at: '2026-07-26T00:00:00Z',
+      updated_at: '2026-07-26T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      chat_message_id: 'msg-1',
+      tool_invocation_id: 'inv-1',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'deploy', arguments: { environment: 'staging' } },
+      widget,
+    };
+
+    expect(invocation.widget?.type).toBe('ui');
+    expect(invocation.widget?.children?.[0].type).toBe(WidgetNodeTypeForm);
+    expect(invocation.widget?.children?.[0].children?.[0].name).toBe('environment');
+    expect(invocation.widget?.actions?.[0].variant).toBe('outline');
+    expect(invocation.status).toBe('awaiting_input');
+  });
+
+  it('preserves widget tree structure through JSON round-trip', () => {
+    const widget: Widget = {
+      type: 'ui',
+      children: [
+        {
+          type: WidgetNodeTypeInput,
+          name: 'repo',
+          defaultValue: 'inference-sh/sdk-js',
+        },
+      ],
+    };
+    const invocation: ToolInvocationDTO = {
+      id: 'inv-2',
+      short_id: 'ti2',
+      created_at: '2026-07-26T00:00:00Z',
+      updated_at: '2026-07-26T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      chat_message_id: 'msg-2',
+      tool_invocation_id: 'inv-2',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'select_repo', arguments: { repo: 'inference-sh/sdk-js' } },
+      widget,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(invocation)) as ToolInvocationDTO;
+
+    expect(parsed.widget?.children?.[0].name).toBe('repo');
+    expect(parsed.widget?.children?.[0].defaultValue).toBe('inference-sh/sdk-js');
   });
 });
 

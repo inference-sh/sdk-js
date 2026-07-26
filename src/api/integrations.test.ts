@@ -58,6 +58,22 @@ describe('IntegrationsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should preserve code_verifier in OAuth connect() responses', async () => {
+    const payload = { provider: 'github', scopes: ['repo'] };
+    const response = {
+      auth_url: 'https://github.com/login/oauth/authorize?client_id=abc',
+      state: 'csrf-state',
+      code_verifier: 'pkce-verifier-xyz',
+    };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload as never);
+
+    expect(result.code_verifier).toBe('pkce-verifier-xyz');
+    expect(result.auth_url).toContain('github.com');
+    expect(result.state).toBe('csrf-state');
+  });
+
   it('should GET /integrations/{provider} for get()', async () => {
     const integration = { provider: 'slack', status: 'connected' };
     mockJsonResponse(integration);

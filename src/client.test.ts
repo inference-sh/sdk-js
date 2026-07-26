@@ -4,7 +4,12 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   DeviceAuthStatusApproved,
+  DeviceAuthStatusInvalid,
+  DeviceAuthStatusLoading,
+  DeviceAuthStatusValid,
   DeviceTokenKindSession,
+  WidgetNodeTypeForm,
+  WidgetNodeTypeInput,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -70,6 +75,17 @@ describe('package type exports', () => {
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
+  });
+
+  it('exports DeviceAuthStatus claim UI constants for valid, invalid, and loading states', () => {
+    expect(DeviceAuthStatusValid).toBe('valid');
+    expect(DeviceAuthStatusInvalid).toBe('invalid');
+    expect(DeviceAuthStatusLoading).toBe('loading');
+  });
+
+  it('exports WidgetNodeType constants for human-in-the-loop form widgets', () => {
+    expect(WidgetNodeTypeForm).toBe('form');
+    expect(WidgetNodeTypeInput).toBe('input');
   });
 });
 
