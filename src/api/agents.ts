@@ -307,14 +307,14 @@ export class Agent {
           options.onChat?.(chat);
 
           // Dispatch new/updated messages
-          if (chat.chat_messages && options.onMessage) {
+          if (chat.chat_messages && (options.onMessage || options.onToolCall)) {
             for (const message of chat.chat_messages) {
               if (!knownMessageIds.has(message.id)) {
                 knownMessageIds.add(message.id);
-                options.onMessage(message);
+                options.onMessage?.(message);
               } else {
                 // Re-dispatch for potential updates
-                options.onMessage(message);
+                options.onMessage?.(message);
               }
 
               // Handle client tool invocations

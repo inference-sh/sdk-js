@@ -123,6 +123,43 @@ describe('Agent.sendMessage (polling mode)', () => {
     expect(fullChatGets).toHaveLength(2);
   });
 
+  it('should dispatch onToolCall in poll mode when onMessage is not provided', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-no-message-cb',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'confirm_action', arguments: { approved: false } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    const onToolCall = jest.fn();
+    await agent().sendMessage('run tool', { stream: false, onToolCall });
+
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-no-message-cb',
+      name: 'confirm_action',
+      args: { approved: false },
+    });
+  });
+
   it('should dispatch onToolCall for in_progress client tool invocations', async () => {
     const toolInvocation = {
       id: 'tool-inv-progress',
