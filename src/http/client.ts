@@ -1,4 +1,5 @@
 import { RequirementError } from '../types';
+import { SDK_VERSION } from '../version';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource, type FetchLike } from 'eventsource';
 
@@ -70,7 +71,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', 'X-API-Version': '2', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': `inference-sdk-js/${SDK_VERSION}`, 'X-API-Version': '2', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.streamDefault = config.stream ?? true;

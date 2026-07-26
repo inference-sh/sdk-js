@@ -27,7 +27,10 @@ new_version="${new_tag#v}"
 # Update package.json
 node -e "var p=require('./package.json');p.version='$new_version';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
-git add package.json
+# Update src/version.ts so the X-Client-Source header stays in sync
+node -e "var fs=require('fs');var c=fs.readFileSync('src/version.ts','utf8');fs.writeFileSync('src/version.ts',c.replace(/SDK_VERSION = '[^']*'/,\"SDK_VERSION = '$new_version'\"))"
+
+git add package.json src/version.ts
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"

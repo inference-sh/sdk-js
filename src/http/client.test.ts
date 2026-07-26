@@ -309,7 +309,8 @@ describe('HttpClient', () => {
       expect(headers['X-Custom']).toBe('static');
     });
 
-    it('should send X-API-Version 2 and X-Client-Source on every request', async () => {
+    it('should send X-API-Version 2 and X-Client-Source matching package version on every request', async () => {
+      const { version } = await import('../../package.json');
       mockJsonResponse({ id: 'task-1' });
 
       await client().request('get', '/tasks/task-1');
@@ -317,7 +318,7 @@ describe('HttpClient', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers['X-API-Version']).toBe('2');
-      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+      expect(headers['X-Client-Source']).toBe(`inference-sdk-js/${version}`);
     });
 
     it('should prefer RFC 9457 detail over title in error responses', async () => {
