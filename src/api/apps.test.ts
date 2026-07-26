@@ -199,6 +199,42 @@ describe('AppsAPI', () => {
     });
   });
 
+  it('should POST /store/apps/{id}/estimate for estimate()', async () => {
+    const estimate = {
+      confidence: 'exact',
+      microcents: 150000,
+      pricing_description: '$0.0015 per run',
+    };
+    mockJsonResponse(estimate);
+
+    const result = await api().estimate('app-1', {
+      input: { prompt: 'hello' },
+      function: 'run',
+    });
+
+    expect(result).toEqual(estimate);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/store/apps/app-1/estimate');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      input: { prompt: 'hello' },
+      function: 'run',
+    });
+  });
+
+  it('should POST estimate without optional function name', async () => {
+    const estimate = {
+      confidence: 'unknown',
+      pricing_description: 'Depends on output size',
+    };
+    mockJsonResponse(estimate);
+
+    await api().estimate('app-1', { input: { batch_size: 4 } });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ input: { batch_size: 4 } });
+  });
+
   it('should GET /apps/{id}/license for getLicense()', async () => {
     const license = { app_id: 'app-1', license: 'MIT' };
     mockJsonResponse(license);

@@ -4,6 +4,8 @@ import {
   AppVersionDTO,
   CursorListRequest,
   CursorListResponse,
+  EstimateCostRequest,
+  EstimateCostResponse,
   LicenseRecordDTO
 } from '../types';
 
@@ -88,6 +90,13 @@ export class AppsAPI {
    */
   async updateStatus(appId: string, status: string, message?: string): Promise<App> {
     return this.http.request<App>('post', `/apps/${appId}/status`, { data: { status, message } });
+  }
+
+  /**
+   * Estimate run cost for an app given task inputs (store pricing preview).
+   */
+  async estimate(appId: string, data: EstimateCostRequest): Promise<EstimateCostResponse> {
+    return this.http.request<EstimateCostResponse>('post', `/store/apps/${appId}/estimate`, { data });
   }
 
   /**
