@@ -1,0 +1,38 @@
+# Mirrors the install/test/build steps of npm-publish.yml on every push.
+#
+# This package is developed inside a pnpm workspace but published with
+# `npm ci` against package-lock.json. pnpm tolerates unmet peer dependencies;
+# npm ci does not. Without this job, a dependency change can pass every local
+# check and only fail at release time — which is exactly how v0.6.16 broke
+# (typescript bumped to 6, @typescript-eslint left on a <6.0.0 peer range).
+
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  npm-install-check:
+    name: npm ci + test + build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      # Strict resolution — fails on lockfile drift or unmet peer deps.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
