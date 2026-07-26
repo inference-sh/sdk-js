@@ -396,6 +396,8 @@ export interface AuthResponse {
  */
 export interface DeviceAuthInitRequest {
   token_kind?: DeviceTokenKind;
+  code_challenge?: string;
+  code_challenge_method?: string;
 }
 export interface DeviceAuthResponse {
   user_code: string;
