@@ -68,6 +68,7 @@ describe('PollManager', () => {
     const manager = new PollManager({
       pollFunction,
       intervalMs: 100,
+      retryDelayMs: 100,
       maxRetries: 3,
       onError,
       onStop,
@@ -75,7 +76,6 @@ describe('PollManager', () => {
 
     manager.start();
 
-    // Immediate first poll
     await Promise.resolve();
     jest.advanceTimersByTime(100);
     await Promise.resolve();
@@ -225,6 +225,7 @@ describe('PollManager', () => {
     const manager = new PollManager({
       pollFunction,
       intervalMs: 100,
+      retryDelayMs: 100,
       maxRetries: 2,
       onError,
       onStop,
@@ -245,6 +246,38 @@ describe('PollManager', () => {
 
     expect(onStop).toHaveBeenCalled();
     expect(onError).toHaveBeenCalledTimes(3);
+
+    manager.stop();
+  });
+
+  it('should wait retryDelayMs before retrying after a poll error', async () => {
+    const onError = jest.fn();
+    const pollFunction = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('fail 1'))
+      .mockResolvedValueOnce({ status: 'ok' });
+
+    const manager = new PollManager({
+      pollFunction,
+      intervalMs: 100,
+      retryDelayMs: 500,
+      maxRetries: 5,
+      onError,
+    });
+
+    manager.start();
+    await Promise.resolve();
+
+    expect(pollFunction).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+    expect(pollFunction).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(400);
+    await Promise.resolve();
+    expect(pollFunction).toHaveBeenCalledTimes(2);
 
     manager.stop();
   });

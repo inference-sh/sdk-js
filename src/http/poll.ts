@@ -31,6 +31,7 @@ export class PollManager<T> {
   private consecutiveErrors = 0;
   private isStopped = true;
   private polling = false;
+  private awaitingRetry = false;
 
   constructor(options: PollManagerOptions<T>) {
     this.options = {
@@ -68,10 +69,11 @@ export class PollManager<T> {
       clearTimeout(this.retryTimeout);
       this.retryTimeout = null;
     }
+    this.awaitingRetry = false;
   }
 
   private async poll(): Promise<void> {
-    if (this.isStopped || this.polling) return;
+    if (this.isStopped || this.polling || this.awaitingRetry) return;
     this.polling = true;
     try {
       const data = await this.options.pollFunction();
@@ -88,6 +90,13 @@ export class PollManager<T> {
 
       if (this.consecutiveErrors >= this.options.maxRetries) {
         this.stop();
+      } else {
+        this.awaitingRetry = true;
+        this.retryTimeout = setTimeout(() => {
+          this.retryTimeout = null;
+          this.awaitingRetry = false;
+          this.poll();
+        }, this.options.retryDelayMs);
       }
     }
   }
