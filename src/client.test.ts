@@ -1,4 +1,6 @@
 import {
+  DeviceAuthStatusApproved,
+  DeviceTokenKindSession,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -52,6 +54,11 @@ describe('package type exports', () => {
   it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
     expect(GraphEdgeTypeInput).toBe('input');
     expect(GraphEdgeTypeOutput).toBe('output');
+  });
+
+  it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
+    expect(DeviceAuthStatusApproved).toBe('approved');
+    expect(DeviceTokenKindSession).toBe('session');
   });
 });
 

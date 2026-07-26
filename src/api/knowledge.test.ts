@@ -85,12 +85,24 @@ describe('KnowledgeAPI', () => {
   });
 
   it('should GET /knowledge/{id} for get()', async () => {
-    const entry = { id: 'know-1', name: 'docs' };
+    const entry = {
+      id: 'know-1',
+      name: 'docs',
+      namespace: 'acme',
+      description: 'Product docs',
+      type: 'skill',
+      lifecycle: 'permanent',
+      version_id: 'ver-1',
+      uses: 256,
+      installs: 12,
+    };
     mockJsonResponse(entry);
 
     const result = await api().get('know-1');
 
     expect(result).toEqual(entry);
+    expect(result.uses).toBe(256);
+    expect(result.installs).toBe(12);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/know-1');
     expect(init.method).toBe('GET');
@@ -270,12 +282,22 @@ describe('SkillsAPI', () => {
   });
 
   it('should GET /skills/{id} for get()', async () => {
-    const skill = { id: 'skill-1', name: 'research' };
+    const skill = {
+      id: 'skill-1',
+      name: 'research',
+      namespace: 'acme',
+      description: 'Research assistant',
+      version_id: 'ver-1',
+      uses: 64,
+      installs: 8,
+    };
     mockJsonResponse(skill);
 
     const result = await api().get('skill-1');
 
     expect(result).toEqual(skill);
+    expect(result.uses).toBe(64);
+    expect(result.installs).toBe(8);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/skill-1');
     expect(init.method).toBe('GET');
