@@ -70,6 +70,18 @@ endif
 
 .PHONY: patch minor major release
 
+# Regenerate package-lock.json with the pinned node, never the ambient one.
+#
+# .mise.toml pins node 24, which is what npm-publish.yml runs. Generating the
+# lockfile under a different node (e.g. nvm's default) resolves optional
+# platform deps differently, and `npm ci` then fails with
+#   npm error EUSAGE ... Missing: @emnapi/runtime@x.y.z from lock file
+# even though it passed locally. Use this target after changing dependencies.
+relock:
+	mise install
+	mise exec -- npm install --package-lock-only || mise exec -- npm install
+	@echo "Lockfile regenerated with $$(mise exec -- node -v)"
+
 patch:
 	@./scripts/bump.sh patch
 
