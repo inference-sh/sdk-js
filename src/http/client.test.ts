@@ -196,6 +196,21 @@ describe('HttpClient', () => {
       );
     });
 
+    it('should send X-API-Version and X-Client-Source to proxy for upstream forwarding', async () => {
+      // Proxy mode relies on the server forwarding these to the API. Without them
+      // the API returns the legacy envelope and sendMessage yields undefined fields.
+      const proxyClient = new HttpClient({ proxyUrl: 'https://proxy.example.com' });
+      mockJsonResponse({ id: '1' });
+
+      await proxyClient.request('post', '/agents/run', { data: { message: 'hi' } });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-API-Version']).toBe('2');
+      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+      expect(headers['x-inf-target-url']).toBe('https://api.inference.sh/agents/run');
+    });
+
     it('should serialize array query params as JSON', async () => {
       mockJsonResponse([]);
 
@@ -439,6 +454,8 @@ describe('HttpClient', () => {
       expect(config.headers['x-inf-target-url']).toBe(
         'https://api.inference.sh/tasks/task-1/stream'
       );
+      expect(config.headers['X-API-Version']).toBe('2');
+      expect(config.headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
     });
 
     it('should use getToken when apiKey is not set', () => {
@@ -511,6 +528,8 @@ describe('HttpClient', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             'x-inf-target-url': 'https://api.inference.sh/tasks/task-1/stream',
+            'X-API-Version': '2',
+            'X-Client-Source': expect.stringMatching(/inference-sdk-js\//),
           }),
         })
       );

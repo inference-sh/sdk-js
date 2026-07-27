@@ -53,6 +53,37 @@ describe('hono createHandler', () => {
     });
   });
 
+  it('should forward X-API-Version and X-Client-Source from client to upstream', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const handler = createHandler();
+    const target = 'https://api.inference.sh/agents/run';
+    await handler(
+      createMockContext({
+        headers: {
+          [INF_TARGET_HEADER]: target,
+          'X-API-Version': '2',
+          'X-Client-Source': 'inference-sdk-js/0.6.20',
+        },
+      }) as never
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-version': '2',
+          'x-client-source': 'inference-sdk-js/0.6.20',
+        }),
+      })
+    );
+  });
+
   it('should proxy JSON responses', async () => {
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {

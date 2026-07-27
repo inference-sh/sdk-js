@@ -142,6 +142,37 @@ describe('nextjs handlers (App Router)', () => {
     });
   });
 
+  it('should forward X-API-Version and X-Client-Source from client to upstream', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ user_message: { id: 'u1' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const target = 'https://api.inference.sh/agents/run';
+    await handlers.POST(
+      createMockNextRequest({
+        method: 'POST',
+        headers: {
+          [INF_TARGET_HEADER]: target,
+          'X-API-Version': '2',
+          'X-Client-Source': 'inference-sdk-js/0.6.20',
+        },
+      }) as never
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-version': '2',
+          'x-client-source': 'inference-sdk-js/0.6.20',
+        }),
+      })
+    );
+  });
+
   it('should passthrough streaming responses via Response body', async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
