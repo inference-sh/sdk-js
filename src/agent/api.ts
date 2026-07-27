@@ -93,6 +93,9 @@ export async function sendTemplateMessage(
     chat_id: chatId ?? undefined,
     // Only include agent if it's not empty (for existing chats, backend uses chat's agent)
     agent: config.agent || undefined,
+    // Agent-level context (version_id, app_id, ...). Omit when empty so we don't
+    // send a bare {} for agents that declare no context.
+    context: config.context && Object.keys(config.context).length > 0 ? config.context : undefined,
     input: {
       text,
       attachments,

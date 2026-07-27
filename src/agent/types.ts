@@ -82,6 +82,12 @@ export type AdHocAgentConfig = Omit<Partial<GeneratedAgentConfig>, 'tools' | 'co
 export interface TemplateAgentConfig {
   /** Agent reference: namespace/name@shortid */
   agent: string;
+  /**
+   * Context values passed to the agent on every message, keyed by the context
+   * name declared in the agent definition. Equivalent to the CLI's
+   * `--context key=value`. Agents with required context won't run without it.
+   */
+  context?: Record<string, string>;
 }
 
 /**

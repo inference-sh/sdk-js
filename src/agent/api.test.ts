@@ -129,6 +129,34 @@ describe('agent/api', () => {
       expect(body.chat_id).toBe('chat-existing');
       expect(body).not.toHaveProperty('agent');
     });
+
+    it('should forward agent context values', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendTemplateMessage(
+        makeClient(),
+        { agent: 'infsh/pricing-agent', context: { version_id: 'v1', app_id: 'a1' } },
+        null,
+        'show me the current pricing'
+      );
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.context).toEqual({ version_id: 'v1', app_id: 'a1' });
+    });
+
+    it('should omit context when absent or empty', async () => {
+      mockJsonResponse(runResponse);
+      await sendTemplateMessage(makeClient(), { agent: 'agent-1' }, null, 'hi');
+      let [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).not.toHaveProperty('context');
+
+      mockFetch.mockClear();
+      mockJsonResponse(runResponse);
+      await sendTemplateMessage(makeClient(), { agent: 'agent-1', context: {} }, null, 'hi');
+      [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).not.toHaveProperty('context');
+    });
   });
 
   describe('sendMessage', () => {
