@@ -254,6 +254,42 @@ describe('processProxyRequest', () => {
     );
   });
 
+  it('should forward X-API-Version and X-Client-Source to upstream', async () => {
+    // X-API-Version is load-bearing: the API returns bare DTOs for "2" and the
+    // legacy {success, status, data} envelope otherwise, and this SDK only
+    // parses the former. Dropping it here made every proxied response
+    // unparseable — the request succeeded server-side and the client saw
+    // nothing, with no error raised.
+    const target = 'https://api.inference.sh/agents/run';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => {
+          if (name === INF_TARGET_HEADER) return target;
+          if (name === 'x-api-version') return '2';
+          if (name === 'x-client-source') return 'inference-sdk-js/0.6.19';
+          return undefined;
+        },
+        headers: () => ({
+          [INF_TARGET_HEADER]: target,
+          'X-API-Version': '2',
+          'X-Client-Source': 'inference-sdk-js/0.6.19',
+        }),
+      }),
+      { apiKey: 'key' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-version': '2',
+          'x-client-source': 'inference-sdk-js/0.6.19',
+        }),
+      })
+    );
+  });
+
   it('should strip content-encoding and content-length from proxied responses', async () => {
     const target = 'https://api.inference.sh/v1/tasks/1';
     const setHeader = jest.fn();

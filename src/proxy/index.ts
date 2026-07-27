@@ -168,13 +168,21 @@ export async function processProxyRequest<T>(
         });
     }
 
-    // 4. Collect x-inf-* headers to forward
+    // 4. Collect headers to forward upstream.
+    //
+    // x-inf-* plus the SDK's own headers. X-API-Version is load-bearing: the
+    // API returns bare DTOs when it sees "2" and the legacy {success, status,
+    // data} envelope otherwise, and this SDK only parses the former. Dropping
+    // it here made every proxied response unparseable — requests succeeded
+    // server-side while the client silently saw nothing.
+    const FORWARD_HEADERS = ["x-api-version", "x-client-source"];
     const forwardHeaders: Record<string, string> = {};
     const allHeaders = adapter.headers();
     for (const [key, value] of Object.entries(allHeaders)) {
-        if (key.toLowerCase().startsWith("x-inf-")) {
+        const lower = key.toLowerCase();
+        if (lower.startsWith("x-inf-") || FORWARD_HEADERS.includes(lower)) {
             const v = firstValue(value);
-            if (v) forwardHeaders[key.toLowerCase()] = v;
+            if (v) forwardHeaders[lower] = v;
         }
     }
 
