@@ -225,6 +225,46 @@ describe('agent/api', () => {
       expect(body.chat_id).toBe('chat-existing');
       expect(body).not.toHaveProperty('agent_config');
     });
+
+    it('should forward template agent context through the unified sendMessage path', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendMessage(
+        makeClient(),
+        {
+          agent: 'infsh/pricing-agent',
+          context: { version_id: 'v1', app_id: 'a1' },
+        },
+        null,
+        'show pricing'
+      );
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.agent).toBe('infsh/pricing-agent');
+      expect(body.context).toEqual({ version_id: 'v1', app_id: 'a1' });
+      expect(body).not.toHaveProperty('agent_config');
+    });
+
+    it('should forward template context on follow-up messages to existing chats', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendTemplateMessage(
+        makeClient(),
+        {
+          agent: 'infsh/pricing-agent',
+          context: { version_id: 'v2', app_id: 'a2' },
+        },
+        'chat-existing',
+        'follow-up'
+      );
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.chat_id).toBe('chat-existing');
+      expect(body.agent).toBe('infsh/pricing-agent');
+      expect(body.context).toEqual({ version_id: 'v2', app_id: 'a2' });
+    });
   });
 
   describe('submitToolResult', () => {

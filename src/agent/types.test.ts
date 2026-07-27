@@ -34,6 +34,16 @@ describe('agent/types helpers', () => {
       expect(isTemplateConfig(templateConfig)).toBe(true);
     });
 
+    it('returns true when agent reference includes required context values', () => {
+      const withContext: TemplateAgentConfig = {
+        agent: 'infsh/pricing-agent',
+        context: { version_id: 'v1', app_id: 'a1' },
+      };
+
+      expect(isTemplateConfig(withContext)).toBe(true);
+      expect(isAdHocConfig(withContext)).toBe(false);
+    });
+
     it('returns false for ad-hoc config', () => {
       expect(isTemplateConfig(adHocConfig)).toBe(false);
     });
