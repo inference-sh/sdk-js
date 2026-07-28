@@ -70,17 +70,12 @@ export interface ResolvedUpload {
 }
 
 export function resolveUpload(data: string | Blob, options: UploadFileOptions = {}): ResolvedUpload {
-  let contentType = options.contentType;
-  if (!contentType) {
-    if (data instanceof Blob) {
-      contentType = data.type;
-    } else if (typeof data === 'string' && data.startsWith('data:')) {
-      const match = data.match(/^data:([^;,]*)?/);
-      contentType = match?.[1] || 'application/octet-stream';
-    } else {
-      contentType = 'application/octet-stream';
-    }
-  }
+  // One expression, one fallback. Stating the default in three places meant
+  // changing it in three places.
+  const contentType =
+    options.contentType ||
+    (data instanceof Blob ? data.type : data.match(/^data:([^;,]*)[;,]/)?.[1]) ||
+    'application/octet-stream';
 
   let filename = options.filename;
   if (!filename && data instanceof globalThis.File) {
@@ -103,7 +98,7 @@ export function resolveUpload(data: string | Blob, options: UploadFileOptions = 
   }
 
   return {
-    contentType: contentType || 'application/octet-stream',
+    contentType,
     filename,
     size: data instanceof Blob ? data.size : undefined,
     body,
