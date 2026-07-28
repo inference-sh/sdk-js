@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { FilesAPI } from './files';
+import { FilesAPI, resolveUpload } from './files';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -14,7 +14,7 @@ function mockJsonResponse(body: unknown) {
 
 describe('FilesAPI', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   const api = () => new FilesAPI(new HttpClient({ apiKey: 'test-key' }));
@@ -326,5 +326,37 @@ describe('FilesAPI', () => {
       expect(putCall[0]).toBe('https://upload.example.com/put');
       expect(putCall[1]?.method).toBe('PUT');
     });
+  });
+});
+
+describe('resolveUpload content-type fallback chain', () => {
+  it('should fall back to application/octet-stream when Blob type is empty', () => {
+    const blob = new Blob(['raw']);
+    const resolved = resolveUpload(blob);
+
+    expect(resolved.contentType).toBe('application/octet-stream');
+    expect(resolved.body).toBe(blob);
+  });
+
+  it('should fall back to application/octet-stream for bare base64 without contentType option', () => {
+    const resolved = resolveUpload('SGVsbG8=');
+
+    expect(resolved.contentType).toBe('application/octet-stream');
+    expect(resolved.body.type).toBe('application/octet-stream');
+  });
+
+  it('should extract content type from comma-separated data URIs', () => {
+    const resolved = resolveUpload('data:image/png,iVBORw0KGgo=');
+
+    expect(resolved.contentType).toBe('image/png');
+    expect(resolved.body.type).toBe('image/png');
+  });
+
+  it('should apply one octet-stream fallback when data URI omits media type', () => {
+    const resolved = resolveUpload('data:;base64,SGVsbG8=');
+
+    // Metadata field uses the unified fallback; body type still comes from parseDataUri.
+    expect(resolved.contentType).toBe('application/octet-stream');
+    expect(resolved.body.type).toBe('text/plain');
   });
 });
