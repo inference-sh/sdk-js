@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { FilesAPI } from './files';
+import { FilesAPI, putToSignedUrl, resolveUpload } from './files';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -11,6 +11,10 @@ function mockJsonResponse(body: unknown) {
     text: () => Promise.resolve(JSON.stringify(body)),
   });
 }
+
+beforeEach(() => {
+  mockFetch.mockReset();
+});
 
 describe('FilesAPI', () => {
   beforeEach(() => {
@@ -326,5 +330,116 @@ describe('FilesAPI', () => {
       expect(putCall[0]).toBe('https://upload.example.com/put');
       expect(putCall[1]?.method).toBe('PUT');
     });
+  });
+});
+
+describe('resolveUpload', () => {
+  it('should normalise Blob input with inferred content type and size', () => {
+    const blob = new Blob(['jpeg-bytes'], { type: 'image/jpeg' });
+    const resolved = resolveUpload(blob, { filename: 'photo.jpg' });
+
+    expect(resolved).toEqual({
+      contentType: 'image/jpeg',
+      filename: 'photo.jpg',
+      size: blob.size,
+      body: blob,
+    });
+  });
+
+  it('should extract filename from File objects when options.filename is omitted', () => {
+    const file = new File(['pdf-bytes'], 'report.pdf', { type: 'application/pdf' });
+    const resolved = resolveUpload(file);
+
+    expect(resolved.filename).toBe('report.pdf');
+    expect(resolved.contentType).toBe('application/pdf');
+    expect(resolved.size).toBe(file.size);
+    expect(resolved.body).toBe(file);
+  });
+
+  it('should decode base64 data URIs into a Blob body', () => {
+    const resolved = resolveUpload('data:text/plain;base64,SGVsbG8=');
+
+    expect(resolved.contentType).toBe('text/plain');
+    expect(resolved.body.type).toBe('text/plain');
+    expect(resolved.size).toBeUndefined();
+  });
+
+  it('should decode URL-encoded (non-base64) data URIs', () => {
+    const resolved = resolveUpload('data:text/plain,Hello%20World');
+
+    expect(resolved.contentType).toBe('text/plain');
+    expect(resolved.body.type).toBe('text/plain');
+  });
+
+  it('should default media type to text/plain for data URIs without explicit type', () => {
+    const resolved = resolveUpload('data:;base64,SGVsbG8=');
+
+    expect(resolved.contentType).toBe('application/octet-stream');
+    expect(resolved.body.type).toBe('text/plain');
+  });
+
+  it('should decode bare base64 strings with explicit contentType', () => {
+    const resolved = resolveUpload('SGVsbG8=', { contentType: 'text/plain' });
+
+    expect(resolved.contentType).toBe('text/plain');
+    expect(resolved.body.type).toBe('text/plain');
+    expect(resolved.size).toBeUndefined();
+  });
+
+  it('should let explicit contentType override Blob type inference', () => {
+    const blob = new Blob(['raw']);
+    const resolved = resolveUpload(blob, { contentType: 'application/octet-stream' });
+
+    expect(resolved.contentType).toBe('application/octet-stream');
+    expect(resolved.body).toBe(blob);
+  });
+
+  it('should let explicit filename override File name', () => {
+    const file = new File(['bytes'], 'original.txt', { type: 'text/plain' });
+    const resolved = resolveUpload(file, { filename: 'override.txt' });
+
+    expect(resolved.filename).toBe('override.txt');
+  });
+
+  it('should reject invalid data URI format', () => {
+    expect(() => resolveUpload('data:invalid')).toThrow('Invalid data URI format');
+  });
+});
+
+describe('putToSignedUrl', () => {
+  it('should PUT the body to the presigned URL with Content-Type from the Blob', async () => {
+    const blob = new Blob(['hello'], { type: 'text/plain' });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await putToSignedUrl('https://upload.example.com/put', blob);
+
+    expect(mockFetch).toHaveBeenCalledWith('https://upload.example.com/put', {
+      method: 'PUT',
+      body: blob,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  });
+
+  it('should default Content-Type to application/octet-stream when Blob type is empty', async () => {
+    const blob = new Blob(['raw']);
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await putToSignedUrl('https://upload.example.com/put', blob);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ 'Content-Type': 'application/octet-stream' });
+  });
+
+  it('should throw when the PUT response is not ok', async () => {
+    const blob = new Blob(['hello'], { type: 'text/plain' });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    });
+
+    await expect(putToSignedUrl('https://upload.example.com/put', blob)).rejects.toThrow(
+      'Failed to upload file content: Internal Server Error'
+    );
   });
 });
