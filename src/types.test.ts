@@ -28,6 +28,14 @@ import {
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  PageDTO,
+  PageMetadata,
+  PageStatusArchived,
+  PageStatusDraft,
+  PageStatusPublished,
+  PageStatusScheduled,
+  PageStatusUnknown,
+  PageTypeBlog,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -46,6 +54,7 @@ import {
   ScopePreset,
   ScopesResponse,
   SkillDTO,
+  SlugAvailabilityResponse,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
@@ -1039,5 +1048,92 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('Page scheduling and slug availability types', () => {
+  it('exports PageStatus constants including scheduled publishing state', () => {
+    expect(PageStatusUnknown).toBe(0);
+    expect(PageStatusDraft).toBe(1);
+    expect(PageStatusPublished).toBe(2);
+    expect(PageStatusArchived).toBe(3);
+    expect(PageStatusScheduled).toBe(4);
+  });
+
+  it('accepts publish_at on PageMetadata while status is scheduled', () => {
+    const metadata: PageMetadata = {
+      title: 'Launch post',
+      description: 'Goes live next week',
+      image: 'https://cdn.example/cover.png',
+      tags: ['release'],
+      publish_at: '2026-08-01T09:00:00Z',
+    };
+
+    const page: PageDTO = {
+      id: 'page-1',
+      short_id: 'pg1',
+      created_at: '2026-07-28T00:00:00Z',
+      updated_at: '2026-07-28T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      is_featured: false,
+      title: 'Launch post',
+      content: '# Coming soon',
+      excerpt: 'Scheduled launch',
+      status: PageStatusScheduled,
+      type: PageTypeBlog,
+      metadata,
+      slug: 'launch-post',
+    };
+
+    expect(page.status).toBe(PageStatusScheduled);
+    expect(page.metadata.publish_at).toBe('2026-08-01T09:00:00Z');
+  });
+
+  it('preserves scheduled page metadata through JSON round-trip', () => {
+    const page: PageDTO = {
+      id: 'page-1',
+      short_id: 'pg1',
+      created_at: '2026-07-28T00:00:00Z',
+      updated_at: '2026-07-28T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      is_featured: false,
+      title: 'Launch post',
+      content: '# Coming soon',
+      excerpt: 'Scheduled launch',
+      status: PageStatusScheduled,
+      type: PageTypeBlog,
+      metadata: {
+        title: 'Launch post',
+        description: 'Goes live next week',
+        image: '',
+        tags: [],
+        publish_at: '2026-08-01T09:00:00Z',
+      },
+      slug: 'launch-post',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(page)) as PageDTO;
+
+    expect(parsed.status).toBe(PageStatusScheduled);
+    expect(parsed.metadata.publish_at).toBe('2026-08-01T09:00:00Z');
+  });
+
+  it('accepts SlugAvailabilityResponse from the editor slug check endpoint', () => {
+    const available: SlugAvailabilityResponse = {
+      slug: 'launch-post',
+      available: true,
+    };
+    const taken: SlugAvailabilityResponse = {
+      slug: 'launch-post',
+      available: false,
+    };
+
+    expect(available.available).toBe(true);
+    expect(taken.available).toBe(false);
+    expect(taken.slug).toBe('launch-post');
   });
 });

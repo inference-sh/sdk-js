@@ -586,6 +586,28 @@ describe('createActions', () => {
       expect(mockAgentApi.sendMessage).toHaveBeenCalled();
       expect(StreamableManager).not.toHaveBeenCalled();
     });
+
+    it('should pass template agent context from provider config to api.sendMessage', async () => {
+      const templateWithContext: AgentOptions = {
+        agent: 'infsh/pricing-agent',
+        context: { version_id: 'v1', app_id: 'a1' },
+      };
+      const { ctx } = createTestContext({
+        getConfig: () => templateWithContext,
+        getChatId: () => null,
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('show pricing');
+
+      expect(mockAgentApi.sendMessage).toHaveBeenCalledWith(
+        ctx.client,
+        templateWithContext,
+        null,
+        'show pricing',
+        undefined
+      );
+    });
   });
 
   describe('streamChat error handling', () => {
