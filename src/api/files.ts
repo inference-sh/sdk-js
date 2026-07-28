@@ -52,6 +52,76 @@ export interface UploadFileOptions {
 /**
  * Files API
  */
+/**
+ * Everything about a presigned upload except which endpoint mints the record.
+ *
+ * js/app's platform-media API posts to /admin/media/upload with a category
+ * instead of /files, and had re-derived all of this — content type, filename,
+ * the PUT, the ok check — losing the data-URI and base64 handling in the
+ * process. Splitting the transfer from the create call lets both share one
+ * implementation of the part that talks to S3.
+ */
+export interface ResolvedUpload {
+  contentType: string;
+  filename?: string;
+  size?: number;
+  /** The bytes to PUT, normalised from a Blob, a data URI or bare base64. */
+  body: Blob;
+}
+
+export function resolveUpload(data: string | Blob, options: UploadFileOptions = {}): ResolvedUpload {
+  let contentType = options.contentType;
+  if (!contentType) {
+    if (data instanceof Blob) {
+      contentType = data.type;
+    } else if (typeof data === 'string' && data.startsWith('data:')) {
+      const match = data.match(/^data:([^;,]*)?/);
+      contentType = match?.[1] || 'application/octet-stream';
+    } else {
+      contentType = 'application/octet-stream';
+    }
+  }
+
+  let filename = options.filename;
+  if (!filename && data instanceof globalThis.File) {
+    filename = data.name;
+  }
+
+  let body: Blob;
+  if (data instanceof Blob) {
+    body = data;
+  } else if (data.startsWith('data:')) {
+    const parsed = parseDataUri(data);
+    body = new Blob([parsed.data.buffer as ArrayBuffer], { type: parsed.mediaType });
+  } else {
+    const binaryStr = atob(data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    body = new Blob([bytes.buffer as ArrayBuffer], { type: contentType });
+  }
+
+  return {
+    contentType: contentType || 'application/octet-stream',
+    filename,
+    size: data instanceof Blob ? data.size : undefined,
+    body,
+  };
+}
+
+/** PUTs the bytes to a presigned URL and throws on a non-2xx response. */
+export async function putToSignedUrl(uploadUrl: string, body: Blob): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    body,
+    headers: { 'Content-Type': body.type || 'application/octet-stream' },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to upload file content: ${response.statusText}`);
+  }
+}
+
 export class FilesAPI {
   constructor(private readonly http: HttpClient) {}
 
@@ -80,33 +150,15 @@ export class FilesAPI {
    * Upload a file (Blob or base64 string)
    */
   async upload(data: string | Blob, options: UploadFileOptions = {}): Promise<File> {
-    // Determine content type
-    let contentType = options.contentType;
-    if (!contentType) {
-      if (data instanceof Blob) {
-        contentType = data.type;
-      } else if (typeof data === 'string' && data.startsWith('data:')) {
-        // Extract media type from data URI
-        const match = data.match(/^data:([^;,]*)?/);
-        contentType = match?.[1] || 'application/octet-stream';
-      } else {
-        contentType = 'application/octet-stream';
-      }
-    }
-
-    // Extract filename from File object if not provided in options
-    let filename = options.filename;
-    if (!filename && data instanceof globalThis.File) {
-      filename = data.name;
-    }
+    const resolved = resolveUpload(data, options);
 
     // Step 1: Create the file record
     const fileRequest: PartialFile = {
       uri: '', // Empty URI as it will be set by the server
-      filename,
-      content_type: contentType,
+      filename: resolved.filename,
+      content_type: resolved.contentType,
       path: options.path,
-      size: data instanceof Blob ? data.size : undefined,
+      size: resolved.size,
     };
 
     const response = await this.http.request<File[]>('post', '/files', {
@@ -119,38 +171,7 @@ export class FilesAPI {
     if (!file.upload_url) {
       throw new Error('No upload URL provided by the server');
     }
-
-    let contentToUpload: Blob;
-    if (data instanceof Blob) {
-      contentToUpload = data;
-    } else {
-      // If it's a base64 string, convert it to a Blob
-      if (data.startsWith('data:')) {
-        const parsed = parseDataUri(data);
-        contentToUpload = new Blob([parsed.data.buffer as ArrayBuffer], { type: parsed.mediaType });
-      } else {
-        // Assume it's a clean base64 string
-        const binaryStr = atob(data);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
-        contentToUpload = new Blob([bytes.buffer as ArrayBuffer], { type: options.contentType || 'application/octet-stream' });
-      }
-    }
-
-    // Upload to S3 using the signed URL
-    const uploadResponse = await fetch(file.upload_url, {
-      method: 'PUT',
-      body: contentToUpload,
-      headers: {
-        'Content-Type': contentToUpload.type,
-      },
-    });
-
-    if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload file content: ${uploadResponse.statusText}`);
-    }
+    await putToSignedUrl(file.upload_url, resolved.body);
 
     return file;
   }
