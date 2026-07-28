@@ -1792,6 +1792,11 @@ export interface PageMetadata {
   type?: string;
   icon?: string;
   hide_from_nav?: boolean;
+  /**
+   * PublishAt is when a scheduled page goes live. Only meaningful while the
+   * page's status is PageStatusScheduled.
+   */
+  publish_at?: string /* RFC3339 */;
 }
 /**
  * MenuItem represents an item in a menu (can be nested)
@@ -1820,6 +1825,13 @@ export interface PageDTO extends BaseModelDTO, PermissionModelDTO {
   type: PageType;
   metadata: PageMetadata;
   slug: string;
+}
+/**
+ * SlugAvailabilityResponse answers the editor's slug availability check.
+ */
+export interface SlugAvailabilityResponse {
+  slug: string; // normalized form of the requested slug
+  available: boolean;
 }
 /**
  * MenuDTO for API responses
@@ -2950,6 +2962,7 @@ export const PageStatusUnknown: PageStatus = 0;
 export const PageStatusDraft: PageStatus = 1;
 export const PageStatusPublished: PageStatus = 2;
 export const PageStatusArchived: PageStatus = 3;
+export const PageStatusScheduled: PageStatus = 4;
 /**
  * PageType represents the type of page content
  */
