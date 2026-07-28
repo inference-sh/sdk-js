@@ -1825,6 +1825,11 @@ export interface PageDTO extends BaseModelDTO, PermissionModelDTO {
   type: PageType;
   metadata: PageMetadata;
   slug: string;
+  /**
+   * PublishAt mirrors Metadata.PublishAt, which remains the field clients write.
+   * Surfaced here so a reader does not have to reach into the metadata blob.
+   */
+  publish_at?: string /* RFC3339 */;
 }
 /**
  * SlugAvailabilityResponse answers the editor's slug availability check.
