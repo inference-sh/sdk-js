@@ -50,7 +50,42 @@ import {
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
   VisibilityPrivate,
+  PageDTO,
+  PageMetadata,
+  PageStatusScheduled,
+  PageTypeBlog,
 } from './types';
+
+function makePageMetadata(overrides: Partial<PageMetadata> = {}): PageMetadata {
+  return {
+    title: 'Launch post',
+    description: 'Goes live next week',
+    image: 'https://cdn.example/cover.png',
+    tags: ['release'],
+    ...overrides,
+  };
+}
+
+function makePage(overrides: Partial<PageDTO> = {}): PageDTO {
+  return {
+    id: 'page-1',
+    short_id: 'pg1',
+    created_at: '2026-07-28T00:00:00Z',
+    updated_at: '2026-07-28T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    is_featured: false,
+    title: 'Launch post',
+    content: '# Coming soon',
+    excerpt: 'Scheduled launch',
+    status: PageStatusScheduled,
+    type: PageTypeBlog,
+    metadata: makePageMetadata(),
+    slug: 'launch-post',
+    ...overrides,
+  };
+}
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
   return {
@@ -1039,5 +1074,41 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('PageDTO.publish_at projection', () => {
+  it('accepts top-level publish_at on scheduled page API responses', () => {
+    const publishAt = '2026-08-01T09:00:00Z';
+    const page = makePage({
+      publish_at: publishAt,
+      metadata: makePageMetadata({ publish_at: publishAt }),
+    });
+
+    expect(page.status).toBe(PageStatusScheduled);
+    expect(page.publish_at).toBe(publishAt);
+    expect(page.metadata.publish_at).toBe(publishAt);
+  });
+
+  it('allows scheduled pages without top-level publish_at when only metadata carries it', () => {
+    const page = makePage({
+      metadata: makePageMetadata({ publish_at: '2026-08-01T09:00:00Z' }),
+    });
+
+    expect(page.publish_at).toBeUndefined();
+    expect(page.metadata.publish_at).toBe('2026-08-01T09:00:00Z');
+  });
+
+  it('preserves top-level publish_at through JSON round-trip', () => {
+    const page = makePage({
+      publish_at: '2026-08-01T09:00:00Z',
+      metadata: makePageMetadata({ publish_at: '2026-08-01T09:00:00Z' }),
+    });
+
+    const parsed = JSON.parse(JSON.stringify(page)) as PageDTO;
+
+    expect(parsed.publish_at).toBe('2026-08-01T09:00:00Z');
+    expect(parsed.metadata.publish_at).toBe('2026-08-01T09:00:00Z');
+    expect(parsed.status).toBe(PageStatusScheduled);
   });
 });
