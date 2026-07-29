@@ -1,5 +1,6 @@
 import {
   APIError,
+  AvailabilityResponse,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -1039,5 +1040,60 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('AvailabilityResponse', () => {
+  it('models available slug, username, and voucher checks with normalized value', () => {
+    const slugCheck: AvailabilityResponse = {
+      value: 'launch-post',
+      available: true,
+    };
+    const usernameCheck: AvailabilityResponse = {
+      value: 'acme-corp',
+      available: true,
+    };
+    const voucherCheck: AvailabilityResponse = {
+      value: 'summer-2026',
+      available: true,
+    };
+
+    expect(slugCheck.value).toBe('launch-post');
+    expect(slugCheck.available).toBe(true);
+    expect(slugCheck.reason).toBeUndefined();
+    expect(usernameCheck.value).toBe('acme-corp');
+    expect(voucherCheck.value).toBe('summer-2026');
+  });
+
+  it('distinguishes taken names from reserved names via reason', () => {
+    const taken: AvailabilityResponse = {
+      value: 'launch-post',
+      available: false,
+      reason: 'taken',
+    };
+    const reserved: AvailabilityResponse = {
+      value: 'admin',
+      available: false,
+      reason: 'reserved',
+    };
+
+    expect(taken.reason).toBe('taken');
+    expect(reserved.reason).toBe('reserved');
+    expect(taken.available).toBe(false);
+    expect(reserved.available).toBe(false);
+  });
+
+  it('preserves normalized value and reason through JSON round-trip', () => {
+    const response: AvailabilityResponse = {
+      value: 'acme-corp',
+      available: false,
+      reason: 'taken',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AvailabilityResponse;
+
+    expect(parsed.value).toBe('acme-corp');
+    expect(parsed.available).toBe(false);
+    expect(parsed.reason).toBe('taken');
   });
 });

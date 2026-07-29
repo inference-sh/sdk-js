@@ -58,14 +58,30 @@ describe('TeamsAPI', () => {
   });
 
   it('should GET /teams/check-username with username param for checkUsername()', async () => {
-    mockJsonResponse({ available: true });
+    mockJsonResponse({ value: 'acme-corp', available: true });
 
     const result = await api().checkUsername('acme-corp');
 
-    expect(result).toEqual({ available: true });
+    expect(result).toEqual({ value: 'acme-corp', available: true });
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/teams/check-username');
     expect(url).toContain('username=acme-corp');
+  });
+
+  it('should surface taken reason when checkUsername finds an existing username', async () => {
+    mockJsonResponse({ value: 'acme-corp', available: false, reason: 'taken' });
+
+    const result = await api().checkUsername('Acme-Corp');
+
+    expect(result).toEqual({ value: 'acme-corp', available: false, reason: 'taken' });
+  });
+
+  it('should surface reserved reason when checkUsername hits a reserved username', async () => {
+    mockJsonResponse({ value: 'admin', available: false, reason: 'reserved' });
+
+    const result = await api().checkUsername('admin');
+
+    expect(result).toEqual({ value: 'admin', available: false, reason: 'reserved' });
   });
 
   it('should POST role for updateMemberRole()', async () => {
