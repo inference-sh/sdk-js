@@ -8,6 +8,7 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  ContentSafe,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -16,6 +17,15 @@ import {
   DeviceAuthStatusPending,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
+  EngineDTO,
+  EngineStatusDisconnected,
+  EngineStatusDraining,
+  EngineStatusPending,
+  EngineStatusRestarting,
+  EngineStatusRunning,
+  EngineStatusStopped,
+  EngineStatusStopping,
+  EngineSummary,
   EnforcementBlock,
   EntitlementDTO,
   EntitlementErrorMeta,
@@ -49,6 +59,8 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  TaskDTO,
+  TaskStatusRunning,
   VisibilityPrivate,
 } from './types';
 
@@ -970,6 +982,134 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
+  });
+});
+
+describe('EngineStatus constants and DTO shapes', () => {
+  function makeEngineConfig() {
+    return {
+      id: 'cfg-1',
+      name: 'local-engine',
+      api_url: 'http://127.0.0.1:8080',
+      engine_port: '8080',
+      workers: { gpu: [], cpu: { count: 4 } },
+      api_key: 'secret',
+      container_mode: false,
+      network_name: 'default',
+      cache_path: '/cache',
+      gpus: [],
+      callback_base_port: 9000,
+      engine_internal_api_url: 'http://127.0.0.1:8081',
+    };
+  }
+
+  function makeEngine(overrides: Partial<EngineDTO> = {}): EngineDTO {
+    return {
+      id: 'eng-1',
+      short_id: 'e1',
+      created_at: '2026-07-29T00:00:00Z',
+      updated_at: '2026-07-29T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'local-engine',
+      api_url: 'http://127.0.0.1:8080',
+      status: EngineStatusRunning,
+      engine_version: '2.4.1',
+      config: makeEngineConfig(),
+      workers: [],
+      ...overrides,
+    };
+  }
+
+  function makeEngineSummary(overrides: Partial<EngineSummary> = {}): EngineSummary {
+    return {
+      id: 'eng-1',
+      short_id: 'e1',
+      created_at: '2026-07-29T00:00:00Z',
+      updated_at: '2026-07-29T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'local-engine',
+      status: EngineStatusRunning,
+      workers: [],
+      ...overrides,
+    };
+  }
+
+  it('exports EngineStatus constants for engine lifecycle states', () => {
+    expect(EngineStatusRunning).toBe('running');
+    expect(EngineStatusPending).toBe('pending');
+    expect(EngineStatusDraining).toBe('draining');
+    expect(EngineStatusDisconnected).toBe('disconnected');
+    expect(EngineStatusRestarting).toBe('restarting');
+    expect(EngineStatusStopping).toBe('stopping');
+    expect(EngineStatusStopped).toBe('stopped');
+  });
+
+  it('accepts all EngineStatus values on EngineDTO responses', () => {
+    const statuses = [
+      EngineStatusRunning,
+      EngineStatusPending,
+      EngineStatusDraining,
+      EngineStatusDisconnected,
+      EngineStatusRestarting,
+      EngineStatusStopping,
+      EngineStatusStopped,
+    ] as const;
+
+    for (const status of statuses) {
+      const engine = makeEngine({ status });
+      expect(engine.status).toBe(status);
+    }
+  });
+
+  it('preserves restarting status on EngineDTO responses after JSON round-trip', () => {
+    const engine = makeEngine({ status: EngineStatusRestarting });
+
+    const parsed = JSON.parse(JSON.stringify(engine)) as EngineDTO;
+
+    expect(parsed.status).toBe('restarting');
+    expect(parsed.name).toBe('local-engine');
+    expect(parsed.engine_version).toBe('2.4.1');
+  });
+
+  it('accepts restarting status on EngineSummary embedded in TaskDTO responses', () => {
+    const task: TaskDTO = {
+      id: 'task-1',
+      short_id: 't1',
+      created_at: '2026-07-29T00:00:00Z',
+      updated_at: '2026-07-29T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      user_public_key: 'pub-user',
+      engine_public_key: 'pub-engine',
+      is_featured: false,
+      status: TaskStatusRunning,
+      app_id: 'app-1',
+      app_version_id: 'ver-1',
+      app_variant: 'default',
+      function: 'run',
+      infra: 'cloud',
+      workers: [],
+      input: {},
+      output: {},
+      rating: ContentSafe,
+      events: [],
+      logs: [],
+      usage_events: [],
+      engine_id: 'eng-1',
+      engine: makeEngineSummary({ status: EngineStatusRestarting }),
+    };
+
+    expect(task.engine?.status).toBe('restarting');
+
+    const parsed = JSON.parse(JSON.stringify(task)) as TaskDTO;
+
+    expect(parsed.engine?.status).toBe('restarting');
+    expect(parsed.engine?.name).toBe('local-engine');
   });
 });
 

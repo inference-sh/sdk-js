@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { EngineStatusRunning } from '../types';
+import { EngineStatusRestarting, EngineStatusRunning } from '../types';
 import { EnginesAPI } from './engines';
 
 const mockFetch = jest.fn();
@@ -211,6 +211,27 @@ describe('EnginesAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines/eng-1/update');
     expect(init.method).toBe('POST');
+  });
+
+  it('should preserve restarting status on get() during engine restart transitions', async () => {
+    const engine = makeEngine({ status: EngineStatusRestarting });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.status).toBe(EngineStatusRestarting);
+  });
+
+  it('should preserve restarting status in list() responses', async () => {
+    const page = {
+      items: [makeEngine({ status: EngineStatusRestarting })],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.items[0]?.status).toBe(EngineStatusRestarting);
   });
 
   it('should preserve top-level engine_version independently of system_info.engine_version', async () => {
