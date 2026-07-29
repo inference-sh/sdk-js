@@ -2830,6 +2830,7 @@ export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusDraining: EngineStatus = "draining";
 export const EngineStatusDisconnected: EngineStatus = "disconnected";
+export const EngineStatusRestarting: EngineStatus = "restarting";
 export const EngineStatusStopping: EngineStatus = "stopping";
 export const EngineStatusStopped: EngineStatus = "stopped";
 /**
