@@ -1069,6 +1069,27 @@ export interface ResourceStatusDTO {
   updated_at: string /* RFC3339 */;
 }
 /**
+ * AvailabilityResponse answers "can I use this name?" — for page slugs, team
+ * usernames and voucher codes alike.
+ * The three checks had three different shapes, and one of them was an untyped
+ * map[string]bool that generated no client type at all, so each caller invented
+ * its own handling. Reason exists because "not available" was previously
+ * indistinguishable from "reserved": every client that wanted to say why had to
+ * mirror the server's reserved-name list to guess, and those mirrors went stale.
+ */
+export interface AvailabilityResponse {
+  /**
+   * Value is the normalized form of what was checked — the server may slugify
+   * or lowercase the input, and the client should show what it actually took.
+   */
+  value: string;
+  available: boolean;
+  /**
+   * Reason is set only when Available is false: "taken" or "reserved".
+   */
+  reason?: string;
+}
+/**
  * ChatDTO for API responses
  */
 export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
@@ -1830,13 +1851,6 @@ export interface PageDTO extends BaseModelDTO, PermissionModelDTO {
    * Surfaced here so a reader does not have to reach into the metadata blob.
    */
   publish_at?: string /* RFC3339 */;
-}
-/**
- * SlugAvailabilityResponse answers the editor's slug availability check.
- */
-export interface SlugAvailabilityResponse {
-  slug: string; // normalized form of the requested slug
-  available: boolean;
 }
 /**
  * MenuDTO for API responses
