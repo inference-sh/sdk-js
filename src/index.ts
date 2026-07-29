@@ -19,7 +19,7 @@ export {
 
 // API modules
 export { TasksAPI, type RunOptions } from './api/tasks';
-export { FilesAPI, resolveUpload, putToSignedUrl, type UploadFileOptions, type ResolvedUpload } from './api/files';
+export { FilesAPI, type UploadFileOptions } from './api/files';
 export { AgentsAPI, Agent, type AgentOptions, type SendMessageOptions, type AgentRunOptions } from './api/agents';
 export { SessionsAPI } from './api/sessions';
 export { AppsAPI } from './api/apps';

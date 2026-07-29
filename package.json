@@ -39,6 +39,11 @@
       "types": "./dist/agent/index.d.ts",
       "inference-src": "./src/agent/index.ts",
       "default": "./dist/agent/index.js"
+    },
+    "./internal/upload": {
+      "types": "./dist/api/files.d.ts",
+      "inference-src": "./src/api/files.ts",
+      "default": "./dist/api/files.js"
     }
   },
   "scripts": {
