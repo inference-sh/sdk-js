@@ -242,6 +242,20 @@ export interface CoreAppConfigInput {
   setup?: any;
   input?: any;
 }
+export interface AgentRunDTO extends BaseModelDTO, PermissionModelDTO {
+  agent_id: string;
+  agent?: AgentDTO;
+  agent_version_id?: string;
+  chat_id: string;
+  user_message_id?: string;
+  state: AgentRunState;
+  error?: string;
+  interrupt_reason?: InterruptReason;
+  interrupt_tool_id?: string;
+  interrupt_meta?: any;
+  trigger_id?: string;
+  metadata?: any;
+}
 export interface APIResponse<T extends any> {
   success: boolean;
   status: number /* int */;
@@ -1107,6 +1121,7 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   description: string;
   chat_messages: ChatMessageDTO[];
   agent_data: ChatData;
+  active_run?: AgentRunDTO;
 }
 /**
  * ChatMessageDTO for API responses
@@ -2662,6 +2677,29 @@ export interface Widget {
   children?: WidgetNode[];
   actions?: WidgetActionButton[];
 }
+/**
+ * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
+ * Maps to A2A TaskState and AG-UI Run outcome for protocol compliance.
+ */
+export type AgentRunState = string;
+export const AgentRunStateSubmitted: AgentRunState = "submitted";
+export const AgentRunStateWorking: AgentRunState = "working";
+export const AgentRunStateInputRequired: AgentRunState = "input_required";
+export const AgentRunStateAuthRequired: AgentRunState = "auth_required";
+export const AgentRunStateCompleted: AgentRunState = "completed";
+export const AgentRunStateFailed: AgentRunState = "failed";
+export const AgentRunStateCanceled: AgentRunState = "canceled";
+export const AgentRunStateRejected: AgentRunState = "rejected";
+/**
+ * InterruptReason describes why an agent run is in an interrupted state.
+ * Aligns with AG-UI interrupt outcome reasons.
+ */
+export type InterruptReason = string;
+export const InterruptReasonToolApproval: InterruptReason = "tool_approval";
+export const InterruptReasonClientTool: InterruptReason = "client_tool";
+export const InterruptReasonWidget: InterruptReason = "widget";
+export const InterruptReasonAuth: InterruptReason = "auth";
+export const InterruptReasonConfirmation: InterruptReason = "confirmation";
 export type AppCategory = string;
 export const AppCategoryImage: AppCategory = "image";
 export const AppCategoryVideo: AppCategory = "video";
