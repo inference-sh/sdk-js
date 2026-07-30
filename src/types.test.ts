@@ -1,4 +1,13 @@
 import {
+  AgentRunDTO,
+  AgentRunStateAuthRequired,
+  AgentRunStateCanceled,
+  AgentRunStateCompleted,
+  AgentRunStateFailed,
+  AgentRunStateInputRequired,
+  AgentRunStateRejected,
+  AgentRunStateSubmitted,
+  AgentRunStateWorking,
   APIError,
   AppCategoryOther,
   AppDTO,
@@ -23,8 +32,18 @@ import {
   EntitlementSourceTier,
   EntitlementTypeBoolean,
   EntitlementTypeLimit,
+  ChatDTO,
+  ChatMessageDTO,
+  ChatMessageRoleUser,
+  ChatMessageStatusReady,
+  ChatStatusBusy,
   EstimateCostRequest,
   EstimateCostResponse,
+  InterruptReasonAuth,
+  InterruptReasonClientTool,
+  InterruptReasonConfirmation,
+  InterruptReasonToolApproval,
+  InterruptReasonWidget,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
@@ -461,6 +480,18 @@ describe('EstimateCostRequest/Response', () => {
 
     expect(request.input).toEqual({ prompt: 'hello', max_tokens: 256 });
     expect(request.function).toBe('generate');
+  });
+
+  it('accepts non-object input payloads after widening input to any', () => {
+    const arrayInput: EstimateCostRequest = {
+      input: ['frame-1', 'frame-2'],
+    };
+    const scalarInput: EstimateCostRequest = {
+      input: 'raw-prompt-text',
+    };
+
+    expect(arrayInput.input).toEqual(['frame-1', 'frame-2']);
+    expect(scalarInput.input).toBe('raw-prompt-text');
   });
 
   it('models exact-confidence responses with microcents total', () => {
@@ -1039,5 +1070,156 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('AgentRun lifecycle types', () => {
+  it('exports AgentRunState constants for the full run lifecycle', () => {
+    expect(AgentRunStateSubmitted).toBe('submitted');
+    expect(AgentRunStateWorking).toBe('working');
+    expect(AgentRunStateInputRequired).toBe('input_required');
+    expect(AgentRunStateAuthRequired).toBe('auth_required');
+    expect(AgentRunStateCompleted).toBe('completed');
+    expect(AgentRunStateFailed).toBe('failed');
+    expect(AgentRunStateCanceled).toBe('canceled');
+    expect(AgentRunStateRejected).toBe('rejected');
+  });
+
+  it('exports InterruptReason constants for AG-UI interrupt outcomes', () => {
+    expect(InterruptReasonToolApproval).toBe('tool_approval');
+    expect(InterruptReasonClientTool).toBe('client_tool');
+    expect(InterruptReasonWidget).toBe('widget');
+    expect(InterruptReasonAuth).toBe('auth');
+    expect(InterruptReasonConfirmation).toBe('confirmation');
+  });
+
+  it('models AgentRunDTO with tool-approval interrupt metadata', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-07-30T00:00:00Z',
+      updated_at: '2026-07-30T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      user_message_id: 'msg-user-1',
+      state: AgentRunStateInputRequired,
+      interrupt_reason: InterruptReasonToolApproval,
+      interrupt_tool_id: 'tool-call-42',
+      interrupt_meta: { tool_name: 'search_web' },
+    };
+
+    expect(run.state).toBe('input_required');
+    expect(run.interrupt_reason).toBe('tool_approval');
+    expect(run.interrupt_tool_id).toBe('tool-call-42');
+    expect(run.interrupt_meta).toEqual({ tool_name: 'search_web' });
+  });
+
+  it('models ChatDTO.active_run for in-flight agent turns', () => {
+    const chat: ChatDTO = {
+      id: 'chat-1',
+      short_id: 'c1',
+      created_at: '2026-07-30T00:00:00Z',
+      updated_at: '2026-07-30T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      children: [],
+      status: ChatStatusBusy,
+      name: 'Support chat',
+      description: '',
+      chat_messages: [],
+      agent_data: {},
+      active_run: {
+        id: 'run-1',
+        short_id: 'r1',
+        created_at: '2026-07-30T00:00:00Z',
+        updated_at: '2026-07-30T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: VisibilityPrivate,
+        agent_id: 'agent-1',
+        chat_id: 'chat-1',
+        state: AgentRunStateWorking,
+      },
+    };
+
+    expect(chat.active_run?.state).toBe('working');
+    expect(chat.active_run?.chat_id).toBe('chat-1');
+  });
+
+  it('models ChatMessageDTO.agent_run_id linking messages to runs', () => {
+    const message: ChatMessageDTO = {
+      id: 'msg-1',
+      short_id: 'm1',
+      created_at: '2026-07-30T00:00:00Z',
+      updated_at: '2026-07-30T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      chat_id: 'chat-1',
+      agent_run_id: 'run-1',
+      order: 1,
+      status: ChatMessageStatusReady,
+      role: ChatMessageRoleUser,
+      content: [{ type: 'text', text: 'Hello' }],
+    };
+
+    expect(message.agent_run_id).toBe('run-1');
+  });
+
+  it('preserves active_run and agent_run_id through JSON round-trip', () => {
+    const chat: ChatDTO = {
+      id: 'chat-1',
+      short_id: 'c1',
+      created_at: '2026-07-30T00:00:00Z',
+      updated_at: '2026-07-30T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      children: [],
+      status: ChatStatusBusy,
+      name: 'Support chat',
+      description: '',
+      chat_messages: [
+        {
+          id: 'msg-1',
+          short_id: 'm1',
+          created_at: '2026-07-30T00:00:00Z',
+          updated_at: '2026-07-30T00:00:00Z',
+          user_id: 'user-1',
+          team_id: 'team-1',
+          visibility: VisibilityPrivate,
+          chat_id: 'chat-1',
+          agent_run_id: 'run-1',
+          order: 1,
+          status: ChatMessageStatusReady,
+          role: ChatMessageRoleUser,
+          content: [{ type: 'text', text: 'Approve this tool?' }],
+        },
+      ],
+      agent_data: {},
+      active_run: {
+        id: 'run-1',
+        short_id: 'r1',
+        created_at: '2026-07-30T00:00:00Z',
+        updated_at: '2026-07-30T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: VisibilityPrivate,
+        agent_id: 'agent-1',
+        chat_id: 'chat-1',
+        state: AgentRunStateInputRequired,
+        interrupt_reason: InterruptReasonConfirmation,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.active_run?.state).toBe('input_required');
+    expect(parsed.active_run?.interrupt_reason).toBe('confirmation');
+    expect(parsed.chat_messages[0]?.agent_run_id).toBe('run-1');
   });
 });
