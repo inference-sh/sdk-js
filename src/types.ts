@@ -1129,6 +1129,7 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
 export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   chat_id: string;
   chat?: ChatDTO;
+  agent_run_id?: string;
   order: number /* int */;
   status: ChatMessageStatus;
   task_id?: string;
