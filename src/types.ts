@@ -509,7 +509,7 @@ export interface CreateApiKeyRequest {
  * EstimateCostRequest is the request for POST /store/apps/{appId}/estimate.
  */
 export interface EstimateCostRequest {
-  input: { [key: string]: any};
+  input: any;
   function?: string;
 }
 /**
