@@ -2,12 +2,15 @@ import {
   ChatStatusBusy,
   ChatStatusCompleted,
   ChatStatusIdle,
+  AgentRunStateWorking,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
-import type { ChatDTO, ChatMessageDTO } from '../types';
+import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
+
+const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
@@ -113,6 +116,7 @@ describe('createActions', () => {
     mockAgentApi.fetchChat.mockResolvedValue({
       id: 'chat-full-id-123',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [],
     } as unknown as ChatDTO);
     mockAgentApi.getChatStreamConfig.mockReturnValue({
@@ -617,7 +621,7 @@ describe('createActions', () => {
         ([event]) => event === 'chats'
       )?.[1] as (chat: ChatDTO) => void;
 
-      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
 
       expect(dispatch).toHaveBeenCalledWith({
         type: 'UPDATE_CHAT',
@@ -1112,7 +1116,7 @@ describe('createActions', () => {
         ([event]) => event === 'chats'
       )?.[1] as (chat: ChatDTO) => void;
 
-      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
       expect(onTurnEnd).not.toHaveBeenCalled();
 
       const idleChat = {
@@ -1138,7 +1142,7 @@ describe('createActions', () => {
         ([event]) => event === 'chats'
       )?.[1] as (chat: ChatDTO) => void;
 
-      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
 
       const completedChat = {
         id: 'chat-full-id-123',
@@ -1170,8 +1174,8 @@ describe('createActions', () => {
       )?.[1] as (chat: ChatDTO) => void;
 
       onChat({ id: 'chat-full-id-123', status: ChatStatusIdle } as ChatDTO);
-      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
-      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
 
       expect(onTurnEnd).not.toHaveBeenCalled();
     });
@@ -1204,7 +1208,7 @@ describe('createActions', () => {
         ([event]) => event === 'chats'
       )?.[1] as (chat: ChatDTO) => void;
 
-      const busyChat = { id: 'chat-full-id-123', status: ChatStatusBusy } as ChatDTO;
+      const busyChat = { id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO;
       const idleChat = {
         id: 'chat-full-id-123',
         status: ChatStatusIdle,
@@ -1241,6 +1245,7 @@ describe('createActions', () => {
         .mockResolvedValueOnce({
           id: 'chat-full-id-123',
           status: ChatStatusBusy,
+          active_run: workingRun,
           chat_messages: [],
         } as unknown as ChatDTO)
         .mockResolvedValueOnce({

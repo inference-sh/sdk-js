@@ -4,8 +4,14 @@ import {
   TaskStatusFailed,
   TaskStatusRunning,
   TaskStatusUnknown,
+  AgentRunStateWorking,
+  AgentRunStateSubmitted,
+  AgentRunStateCompleted,
+  AgentRunStateFailed,
+  AgentRunStateInputRequired,
 } from './types';
-import { isTerminalStatus, parseStatus } from './utils';
+import type { ChatDTO, AgentRunDTO } from './types';
+import { isTerminalStatus, parseStatus, isChatBusy } from './utils';
 
 describe('parseStatus', () => {
   it('should return TaskStatusUnknown for null and undefined', () => {
@@ -53,5 +59,30 @@ describe('isTerminalStatus', () => {
     expect(isTerminalStatus(TaskStatusRunning)).toBe(false);
     expect(isTerminalStatus('running')).toBe(false);
     expect(isTerminalStatus(null)).toBe(false);
+  });
+});
+
+describe('isChatBusy', () => {
+  const chatWith = (state: string) =>
+    ({ active_run: { state } as AgentRunDTO } as unknown as ChatDTO);
+
+  it('should return true for working and submitted', () => {
+    expect(isChatBusy(chatWith(AgentRunStateWorking))).toBe(true);
+    expect(isChatBusy(chatWith(AgentRunStateSubmitted))).toBe(true);
+  });
+
+  it('should return false for terminal and interrupted states', () => {
+    expect(isChatBusy(chatWith(AgentRunStateCompleted))).toBe(false);
+    expect(isChatBusy(chatWith(AgentRunStateFailed))).toBe(false);
+    expect(isChatBusy(chatWith(AgentRunStateInputRequired))).toBe(false);
+  });
+
+  it('should return false when no active run', () => {
+    expect(isChatBusy({ active_run: undefined } as unknown as ChatDTO)).toBe(false);
+  });
+
+  it('should return false for null/undefined chat', () => {
+    expect(isChatBusy(null)).toBe(false);
+    expect(isChatBusy(undefined)).toBe(false);
   });
 });

@@ -22,7 +22,10 @@ import {
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
-import { ChatStatusBusy, ChatStatusIdle } from './types';
+import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking } from './types';
+import type { AgentRunDTO } from './types';
+
+const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -353,7 +356,7 @@ describe('Inference', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] })),
+          text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] })),
         })
         .mockResolvedValueOnce({
           ok: true,

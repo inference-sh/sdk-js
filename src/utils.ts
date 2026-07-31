@@ -18,7 +18,10 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
+  AgentRunStateWorking,
+  AgentRunStateSubmitted,
 } from './types';
+import type { ChatDTO } from './types';
 
 /** Map string status names to TaskStatus values (for future string-based API) */
 const STATUS_STRING_MAP: Record<string, TaskStatus> = {
@@ -61,4 +64,9 @@ export function parseStatus(status: number | string | undefined | null): TaskSta
 export function isTerminalStatus(status: number | string | undefined | null): boolean {
   const parsed = parseStatus(status);
   return parsed === TaskStatusCompleted || parsed === TaskStatusFailed || parsed === TaskStatusCancelled;
+}
+
+export function isChatBusy(chat: ChatDTO | null | undefined): boolean {
+  const state = chat?.active_run?.state;
+  return state === AgentRunStateWorking || state === AgentRunStateSubmitted;
 }

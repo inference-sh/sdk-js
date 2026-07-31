@@ -14,10 +14,10 @@ import {
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
-  ChatStatusBusy,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
+import { isChatBusy } from '../utils';
 
 /** Internal tool definition returned by getInternalTools */
 export interface InternalToolDefinition {
@@ -249,7 +249,7 @@ export class Agent {
 
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
         options.onChat?.(chat);
-        if (chat.status !== ChatStatusBusy) {
+        if (!isChatBusy(chat)) {
           resolve();
         }
       });
@@ -334,7 +334,7 @@ export class Agent {
             }
           }
 
-          if (chat.status !== ChatStatusBusy) {
+          if (!isChatBusy(chat)) {
             this.poller?.stop();
             this.poller = null;
             resolve();

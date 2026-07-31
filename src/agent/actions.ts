@@ -10,8 +10,8 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
-  ChatStatusBusy,
 } from '../types';
+import { isChatBusy } from '../utils';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import type {
@@ -40,11 +40,11 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   let prevChatWasBusy = false;
 
   const checkTurnEnd = (chat: ChatDTO) => {
-    const isBusy = chat.status === ChatStatusBusy;
-    if (prevChatWasBusy && !isBusy) {
+    const busy = isChatBusy(chat);
+    if (prevChatWasBusy && !busy) {
       callbacks.onTurnEnd?.(chat);
     }
-    prevChatWasBusy = isBusy;
+    prevChatWasBusy = busy;
   };
 
   // =========================================================================
@@ -54,8 +54,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   const setChat = (chat: ChatDTO | null) => {
     dispatch({ type: 'SET_CHAT', payload: chat });
     if (chat) {
-      const status = chat.status === ChatStatusBusy ? 'streaming' : 'idle';
-      callbacks.onStatusChange?.(status);
+      callbacks.onStatusChange?.(isChatBusy(chat) ? 'streaming' : 'idle');
       checkTurnEnd(chat);
     }
   };
@@ -170,8 +169,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     manager.addEventListener<ChatDTO>('chats', (chatData) => {
       dispatch({ type: 'UPDATE_CHAT', payload: chatData });
       if (chatData) {
-        const status = chatData.status === ChatStatusBusy ? 'streaming' : 'idle';
-        callbacks.onStatusChange?.(status);
+        callbacks.onStatusChange?.(isChatBusy(chatData) ? 'streaming' : 'idle');
         checkTurnEnd(chatData);
       }
     });

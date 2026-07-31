@@ -8,10 +8,13 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  AgentRunStateWorking,
 } from '../types';
+import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
+const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -74,7 +77,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -100,6 +103,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     mockJsonResponse({
       id: 'chat-1',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [],
     });
     // Same status again — pollUntilIdle should return a stub without fetching full chat
@@ -140,6 +144,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     mockJsonResponse({
       id: 'chat-1',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [messageWithTool],
     });
     mockJsonResponse({ status: ChatStatusIdle });
@@ -178,6 +183,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     mockJsonResponse({
       id: 'chat-1',
         status: ChatStatusBusy,
+        active_run: workingRun,
         chat_messages: [messageWithTool],
     });
     // Same status again — stub poll should not re-dispatch tool
@@ -211,6 +217,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     mockJsonResponse({
       id: 'chat-1',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [msg1, msg2],
     });
     mockJsonResponse({ status: ChatStatusIdle });
@@ -236,7 +243,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy,
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun,
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -257,7 +264,7 @@ describe('Agent.sendMessage (polling mode)', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, output: null });
@@ -328,7 +335,7 @@ describe('Agent.sendMessage (streaming mode)', () => {
       }
       return Promise.resolve(
         mockNdjsonStream([
-          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy } })}\n`,
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
           `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
         ])
       );
@@ -458,7 +465,7 @@ describe('Agent.sendMessage (streaming mode)', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -534,7 +541,7 @@ describe('Agent.sendMessage (file attachments)', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -571,7 +578,7 @@ describe('Agent.sendMessage (file attachments)', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
 
@@ -613,7 +620,7 @@ describe('Agent.sendMessage (template ref)', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
   }
@@ -680,7 +687,7 @@ describe('Agent.sendMessage (ad-hoc config)', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
 
@@ -721,7 +728,7 @@ describe('Agent.sendMessage (ad-hoc config)', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
 
@@ -765,7 +772,7 @@ describe('Agent lifecycle', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -794,7 +801,7 @@ describe('Agent lifecycle', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
 
     const sendPromise = agentInstance.sendMessage('hello', {
       stream: false,
@@ -868,7 +875,7 @@ describe('Agent lifecycle', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -901,7 +908,7 @@ describe('Agent lifecycle', () => {
     });
     mockJsonResponse({ status: ChatStatusBusy });
     mockJsonResponse({
-      id: 'chat-1', status: ChatStatusBusy, chat_messages: [],
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
     });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({
@@ -937,6 +944,7 @@ describe('Agent lifecycle', () => {
     mockJsonResponse({
       id: 'chat-1',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [messageWithTool],
     });
     mockJsonResponse({ status: ChatStatusBusy });
@@ -962,6 +970,7 @@ describe('Agent lifecycle', () => {
     mockJsonResponse({
       id: 'chat-1',
       status: ChatStatusBusy,
+      active_run: workingRun,
       chat_messages: [messageWithTool],
     });
     mockJsonResponse({ status: ChatStatusBusy });
@@ -1018,7 +1027,7 @@ describe('Agent.getChat', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
 
@@ -1037,7 +1046,7 @@ describe('Agent.getChat', () => {
       assistant_message: makeMessage(),
     });
     mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, chat_messages: [] });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
     mockJsonResponse({ status: ChatStatusIdle });
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
 
