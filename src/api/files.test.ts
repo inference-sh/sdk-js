@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { FilesAPI } from './files';
+import { FilesAPI, resolveUpload } from './files';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -14,7 +14,7 @@ function mockJsonResponse(body: unknown) {
 
 describe('FilesAPI', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   const api = () => new FilesAPI(new HttpClient({ apiKey: 'test-key' }));
@@ -148,6 +148,48 @@ describe('FilesAPI', () => {
     });
   });
 
+  describe('resolveUpload filename extension MIME guessing', () => {
+    it('should infer image/jpeg from .jfif filename when Blob.type is empty', () => {
+      const blob = new Blob(['jfif-bytes']);
+      const resolved = resolveUpload(blob, { filename: 'photo.jfif' });
+
+      expect(resolved.contentType).toBe('image/jpeg');
+      expect(resolved.filename).toBe('photo.jfif');
+      expect(resolved.body).toBe(blob);
+    });
+
+    it('should infer MIME type from File.name when Blob.type is empty', () => {
+      const file = new File(['jfif-bytes'], 'snapshot.jfif');
+      const resolved = resolveUpload(file);
+
+      expect(resolved.contentType).toBe('image/jpeg');
+      expect(resolved.filename).toBe('snapshot.jfif');
+    });
+
+    it('should fall back to application/octet-stream when type and filename are unknown', () => {
+      const blob = new Blob(['raw']);
+      const resolved = resolveUpload(blob);
+
+      expect(resolved.contentType).toBe('application/octet-stream');
+    });
+
+    it('should prefer explicit contentType over filename extension guess', () => {
+      const blob = new Blob(['raw']);
+      const resolved = resolveUpload(blob, {
+        filename: 'photo.jfif',
+        contentType: 'application/octet-stream',
+      });
+
+      expect(resolved.contentType).toBe('application/octet-stream');
+    });
+
+    it('should infer other common extensions (webp, mp4, pdf)', () => {
+      expect(resolveUpload(new Blob([]), { filename: 'img.webp' }).contentType).toBe('image/webp');
+      expect(resolveUpload(new Blob([]), { filename: 'clip.mp4' }).contentType).toBe('video/mp4');
+      expect(resolveUpload(new Blob([]), { filename: 'doc.pdf' }).contentType).toBe('application/pdf');
+    });
+  });
+
   describe('upload', () => {
     it('should reject invalid data URI format when uploading content', async () => {
       mockJsonResponse([{ id: 'file-x', uri: '', upload_url: 'https://upload.example.com/put' }]);
@@ -266,6 +308,28 @@ describe('FilesAPI', () => {
       const createBody = JSON.parse(createInit.body as string);
       expect(createBody.files[0].filename).toBe('report.pdf');
       expect(createBody.files[0].content_type).toBe('application/pdf');
+    });
+
+    it('should infer image/jpeg from .jfif filename when Blob type is empty', async () => {
+      const fileRecord = {
+        id: 'file-jfif',
+        uri: 'inf://files/jfif',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/jpeg',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const file = new File(['jfif-bytes'], 'photo.jfif');
+      await api().upload(file);
+
+      const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const createBody = JSON.parse(createInit.body as string);
+      expect(createBody.files[0]).toMatchObject({
+        filename: 'photo.jfif',
+        content_type: 'image/jpeg',
+      });
     });
 
     it('should use explicit contentType when Blob type is empty', async () => {

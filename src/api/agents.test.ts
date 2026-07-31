@@ -9,12 +9,14 @@ import {
   ToolInvocationStatusInProgress,
   ToolTypeClient,
   AgentRunStateWorking,
+  AgentRunStateCompleted,
 } from '../types';
 import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
+const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -92,6 +94,41 @@ describe('Agent.sendMessage (polling mode)', () => {
     expect(onChat).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'chat-1', status: ChatStatusIdle })
     );
+  });
+
+  it('should treat chat as idle when active_run is completed even if status is still busy', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage, assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    // Stale derived status: chat.status still busy while the run has finished
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: completedRun,
+      chat_messages: [],
+    });
+
+    const onChat = jest.fn();
+    const result = await agent().sendMessage('hello', { stream: false, onChat });
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(result.assistantMessage).toEqual(assistantMessage);
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'chat-1',
+        status: ChatStatusBusy,
+        active_run: completedRun,
+      })
+    );
+    // Should not keep polling for a status flip — active_run.state drives busy detection
+    const statusPolls = mockFetch.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/status')
+    );
+    expect(statusPolls.length).toBe(1);
   });
 
   it('should skip full GET /chats when poll status is unchanged', async () => {

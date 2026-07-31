@@ -3,6 +3,7 @@ import {
   ChatStatusCompleted,
   ChatStatusIdle,
   AgentRunStateWorking,
+  AgentRunStateCompleted,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -11,6 +12,7 @@ import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
+const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
@@ -1153,6 +1155,32 @@ describe('createActions', () => {
 
       expect(onTurnEnd).toHaveBeenCalledTimes(1);
       expect(onTurnEnd).toHaveBeenCalledWith(completedChat);
+    });
+
+    it('should call onTurnEnd when active_run completes even if chat.status stays busy', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
+
+      const staleBusyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: completedRun,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      onChat(staleBusyChat);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(staleBusyChat);
     });
 
     it('should not call onTurnEnd when chat goes from idle to busy or stays busy', async () => {
