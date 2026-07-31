@@ -42,6 +42,22 @@ function parseDataUri(uri: string): { mediaType: string; data: Uint8Array } {
   }
 }
 
+const extMimeTypes: Record<string, string> = {
+  jfif: 'image/jpeg', jpe: 'image/jpeg', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+  heic: 'image/heif', heif: 'image/heif', tif: 'image/tiff', tiff: 'image/tiff',
+  bmp: 'image/bmp', svg: 'image/svg+xml',
+  mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac',
+  aac: 'audio/aac', m4a: 'audio/mp4',
+  pdf: 'application/pdf',
+};
+
+function mimeFromFilename(name: string): string | undefined {
+  const ext = name.split('.').pop()?.toLowerCase();
+  return ext ? extMimeTypes[ext] : undefined;
+}
+
 export interface UploadFileOptions {
   filename?: string;
   contentType?: string;
@@ -70,17 +86,16 @@ export interface ResolvedUpload {
 }
 
 export function resolveUpload(data: string | Blob, options: UploadFileOptions = {}): ResolvedUpload {
-  // One expression, one fallback. Stating the default in three places meant
-  // changing it in three places.
-  const contentType =
-    options.contentType ||
-    (data instanceof Blob ? data.type : data.match(/^data:([^;,]*)[;,]/)?.[1]) ||
-    'application/octet-stream';
-
   let filename = options.filename;
   if (!filename && data instanceof globalThis.File) {
     filename = data.name;
   }
+
+  const contentType =
+    options.contentType ||
+    (data instanceof Blob ? data.type : data.match(/^data:([^;,]*)[;,]/)?.[1]) ||
+    (filename ? mimeFromFilename(filename) : undefined) ||
+    'application/octet-stream';
 
   let body: Blob;
   if (data instanceof Blob) {
