@@ -91,6 +91,7 @@ export class Agent {
     text: string,
     options: SendMessageOptions = {}
   ): Promise<{ userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO }> {
+    this.dispatchedToolCalls.clear();
     const isTemplate = typeof this.config === 'string';
     const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall);
 

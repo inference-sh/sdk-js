@@ -803,7 +803,7 @@ describe('createActions', () => {
   });
 
   describe('client tool deduplication', () => {
-    it('should share deduplication across separate createActions instances', async () => {
+    it('should isolate deduplication per createActions instance', async () => {
       const handlerA = jest.fn().mockResolvedValue('from-a');
       const handlerB = jest.fn().mockResolvedValue('from-b');
 
@@ -847,8 +847,8 @@ describe('createActions', () => {
       await new Promise((resolve) => setImmediate(resolve));
 
       expect(handlerA).toHaveBeenCalledTimes(1);
-      expect(handlerB).not.toHaveBeenCalled();
-      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+      expect(handlerB).toHaveBeenCalledTimes(1);
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
     });
 
     it('should not submit the same client tool invocation twice', async () => {

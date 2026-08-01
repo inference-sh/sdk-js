@@ -25,16 +25,11 @@ import { isAdHocConfig, extractClientToolHandlers } from './types';
 import * as api from './api';
 
 // =============================================================================
-// Track dispatched client tool invocations to prevent duplicates
-// =============================================================================
-
-const dispatchedToolInvocations = new Set<string>();
-
-// =============================================================================
 // Action Creators
 // =============================================================================
 
 export function createActions(ctx: ActionsContext): ActionsResult {
+  const dispatchedToolInvocations = new Set<string>();
   const { client, dispatch, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
 
   let prevChatWasBusy = false;
@@ -258,6 +253,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
       const trimmedText = text.trim();
       if (!trimmedText) return;
+
+      dispatchedToolInvocations.clear();
 
       // Update status
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
