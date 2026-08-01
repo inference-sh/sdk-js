@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { FilesAPI } from './files';
+import { FilesAPI, resolveUpload } from './files';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -14,7 +14,7 @@ function mockJsonResponse(body: unknown) {
 
 describe('FilesAPI', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   const api = () => new FilesAPI(new HttpClient({ apiKey: 'test-key' }));
@@ -67,6 +67,13 @@ describe('FilesAPI', () => {
     it('should not treat short plain strings as base64 file uploads', async () => {
       const result = await api().processInput({ key: 'key1', note: 'hello' });
       expect(result).toEqual({ key: 'key1', note: 'hello' });
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid nested data URIs before any network call', async () => {
+      await expect(
+        api().processInput({ image: 'data:invalid' })
+      ).rejects.toThrow('Invalid data URI format');
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -148,9 +155,20 @@ describe('FilesAPI', () => {
     });
   });
 
+  describe('resolveUpload data URI validation', () => {
+    it('should throw synchronously for malformed data URIs without a comma separator', () => {
+      expect(() => resolveUpload('data:invalid')).toThrow('Invalid data URI format');
+    });
+
+    it('should throw synchronously for invalid base64 payload in data URIs', () => {
+      expect(() => resolveUpload('data:text/plain;base64,!!!')).toThrow();
+    });
+  });
+
   describe('upload', () => {
-    it('should reject invalid data URI format when uploading content', async () => {
+    it('should reject invalid data URI format before any network call', async () => {
       await expect(api().upload('data:invalid')).rejects.toThrow('Invalid data URI format');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should decode URL-encoded (non-base64) data URIs', async () => {
