@@ -166,6 +166,86 @@ describe('Agent.sendMessage (polling mode)', () => {
     });
   });
 
+  it('should isolate tool dedup between separate Agent instances', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-shared',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusInProgress,
+      function: { name: 'my_tool', arguments: { x: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    const agentA = agent();
+    const agentB = agent();
+    const onToolCallA = jest.fn();
+    const onToolCallB = jest.fn();
+    const onMessageA = jest.fn();
+    const onMessageB = jest.fn();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-a', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-a' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentA.sendMessage('run tool', {
+      stream: false,
+      onMessage: onMessageA,
+      onToolCall: onToolCallA,
+    });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-b', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-b', chat_id: 'chat-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-2',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-2',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentB.sendMessage('run tool', {
+      stream: false,
+      onMessage: onMessageB,
+      onToolCall: onToolCallB,
+    });
+
+    expect(onToolCallA).toHaveBeenCalledTimes(1);
+    expect(onToolCallB).toHaveBeenCalledTimes(1);
+    expect(onToolCallA).toHaveBeenCalledWith({
+      id: 'tool-inv-shared',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
+    expect(onToolCallB).toHaveBeenCalledWith({
+      id: 'tool-inv-shared',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
+  });
+
   it('should dispatch onToolCall once per client tool invocation', async () => {
     const toolInvocation = {
       id: 'tool-inv-1',
@@ -921,6 +1001,71 @@ describe('Agent lifecycle', () => {
 
     await agentInstance.stopChat();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sendMessage should clear dedup at turn boundary so onToolCall fires again without reset', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-turn',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'my_tool', arguments: { x: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    const agentInstance = agent();
+    const onMessage = jest.fn();
+    const onToolCall = jest.fn();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool', { stream: false, onMessage, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+
+    onToolCall.mockClear();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-2', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool again', { stream: false, onMessage, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-turn',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
   });
 
   it('reset should allow onToolCall to fire again for the same invocation id', async () => {

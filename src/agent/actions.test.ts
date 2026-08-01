@@ -884,6 +884,46 @@ describe('createActions', () => {
       expect(handler).toHaveBeenCalledTimes(1);
       expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
     });
+
+    it('should clear dedup on sendMessage so the same tool invocation can dispatch on a new turn', async () => {
+      const handler = jest.fn().mockResolvedValue('ok');
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { publicActions, internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const toolMessage = makeMessage({
+        chat_id: 'chat-short',
+        tool_invocations: [
+          {
+            id: 'tool-inv-turn',
+            type: ToolTypeClient,
+            status: ToolInvocationStatusAwaitingInput,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      });
+
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      await publicActions.sendMessage('follow-up');
+
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('publicActions lifecycle', () => {
