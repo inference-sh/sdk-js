@@ -150,8 +150,6 @@ describe('FilesAPI', () => {
 
   describe('upload', () => {
     it('should reject invalid data URI format when uploading content', async () => {
-      mockJsonResponse([{ id: 'file-x', uri: '', upload_url: 'https://upload.example.com/put' }]);
-
       await expect(api().upload('data:invalid')).rejects.toThrow('Invalid data URI format');
     });
 
