@@ -31,6 +31,19 @@ describe('ProjectsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should forward search term and exact match in list() body', async () => {
+    mockJsonResponse({ items: [], next_cursor: '' });
+    const params = {
+      limit: 10,
+      search: { term: 'demo', exact: true },
+    };
+
+    await api().list(params);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(params);
+  });
+
   it('should GET /projects/{id} for get()', async () => {
     const project = { id: 'proj-1', name: 'Demo' };
     mockJsonResponse(project);

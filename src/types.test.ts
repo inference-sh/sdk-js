@@ -45,6 +45,8 @@ import {
   ScopeGroupApps,
   ScopePreset,
   ScopesResponse,
+  CursorListRequest,
+  SearchRequest,
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
@@ -970,6 +972,40 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
+  });
+});
+
+describe('SearchRequest and CursorListRequest pagination search', () => {
+  it('models repository-owned search with term and exact only', () => {
+    const search: SearchRequest = {
+      term: 'billing',
+      exact: false,
+    };
+
+    expect(search.term).toBe('billing');
+    expect(search.exact).toBe(false);
+    expect('fields' in search).toBe(false);
+  });
+
+  it('preserves search separately from CursorListRequest field projection', () => {
+    const request: CursorListRequest = {
+      cursor: '',
+      limit: 20,
+      direction: 'next',
+      search: { term: 'flux', exact: true },
+      filters: [],
+      preloads: [],
+      sort: [],
+      fields: ['id', 'name'],
+      permissions: [],
+      include_others: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CursorListRequest;
+
+    expect(parsed.search).toEqual({ term: 'flux', exact: true });
+    expect(parsed.fields).toEqual(['id', 'name']);
+    expect('fields' in (parsed.search ?? {})).toBe(false);
   });
 });
 
