@@ -1140,10 +1140,12 @@ export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   tool_invocations?: ToolInvocationDTO[];
 }
 /**
- * SearchRequest represents a search request
+ * SearchRequest represents a search request.
+ * Fields is accepted for backward compatibility but ignored -- each model
+ * declares its own SearchFields() on the repository.
  */
 export interface SearchRequest {
-  fields: string[];
+  fields?: string[];
   term: string;
   exact: boolean;
 }
