@@ -230,7 +230,7 @@ export class HttpClient {
    * Get URL and headers for NDJSON streaming.
    * Returns the full URL and auth headers needed for streamable requests.
    */
-  getStreamableConfig(endpoint: string): { url: string; headers: Record<string, string> } {
+  getStreamableConfig(endpoint: string): { url: string; headers: Record<string, string>; credentials: RequestCredentials } {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     const isProxyMode = !!this.proxyUrl;
 
@@ -250,7 +250,7 @@ export class HttpClient {
       }
     }
 
-    return { url, headers };
+    return { url, headers, credentials: this.credentials };
   }
 
   /**

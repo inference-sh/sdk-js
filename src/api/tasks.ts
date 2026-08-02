@@ -135,12 +135,13 @@ export class TasksAPI {
     // Wait for completion with optional updates via NDJSON streaming
     // Accumulate state across partial updates to preserve fields like session_id
     let accumulatedTask = { ...task };
-    const { url, headers } = this.http.getStreamableConfig(`/tasks/${task.id}/stream`);
+    const { url, headers, credentials } = this.http.getStreamableConfig(`/tasks/${task.id}/stream`);
 
     return new Promise<Task>((resolve, reject) => {
       const streamManager = new StreamableManager<Task>({
         url,
         headers,
+        credentials,
         onData: (data) => {
           // Merge new data, preserving existing fields if not in update
           accumulatedTask = { ...accumulatedTask, ...data };

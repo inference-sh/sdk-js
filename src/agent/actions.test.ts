@@ -53,7 +53,7 @@ function createTestContext(overrides: Partial<ActionsContext> = {}): {
     client: {
       http: {
         request: jest.fn(),
-        getStreamableConfig: jest.fn(() => ({ url: 'https://stream.test', headers: {} })),
+        getStreamableConfig: jest.fn(() => ({ url: 'https://stream.test', headers: {}, credentials: 'include' as RequestCredentials })),
         getStreamDefault: jest.fn(() => true),
         getPollIntervalMs: jest.fn(() => 50),
       },
@@ -122,6 +122,7 @@ describe('createActions', () => {
     mockAgentApi.getChatStreamConfig.mockReturnValue({
       url: 'https://api.test/chats/chat-full-id-123/stream',
       headers: {},
+      credentials: 'include' as RequestCredentials,
     });
     mockAgentApi.sendMessage.mockResolvedValue({
       chatId: 'chat-full-id-123',

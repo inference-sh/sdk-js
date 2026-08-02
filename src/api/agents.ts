@@ -238,7 +238,7 @@ export class Agent {
   private streamUntilIdle(options: SendMessageOptions): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
-    const { url, headers } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
+    const { url, headers, credentials } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
 
     return new Promise((resolve) => {
       this.stream?.stop();
@@ -246,6 +246,7 @@ export class Agent {
       this.stream = new StreamableManager<unknown>({
         url,
         headers,
+        credentials,
       });
 
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {

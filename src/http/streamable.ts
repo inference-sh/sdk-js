@@ -15,6 +15,8 @@ export interface StreamableOptions {
   signal?: AbortSignal;
   /** Skip heartbeat messages (default: true) */
   skipHeartbeats?: boolean;
+  /** Request credentials mode (for cookie-based auth) */
+  credentials?: RequestCredentials;
 }
 
 export interface StreamableMessage<T = unknown> {
@@ -42,6 +44,7 @@ export async function* streamable<T = unknown>(
     method = body ? 'POST' : 'GET',
     signal,
     skipHeartbeats = true,
+    credentials,
   } = options;
 
   const requestHeaders: Record<string, string> = {
@@ -58,6 +61,7 @@ export async function* streamable<T = unknown>(
     headers: requestHeaders,
     body: body ? JSON.stringify(body) : undefined,
     signal,
+    credentials,
   });
 
   if (!res.ok) {
@@ -127,6 +131,8 @@ export interface StreamableManagerOptions<T> {
   url: string;
   /** Additional headers */
   headers?: Record<string, string>;
+  /** Request credentials mode (for cookie-based auth) */
+  credentials?: RequestCredentials;
   /** Request body */
   body?: unknown;
   /** Called for each message */
@@ -185,6 +191,7 @@ export class StreamableManager<T> {
         headers: this.options.headers,
         body: this.options.body,
         signal: this.abortController.signal,
+        credentials: this.options.credentials,
       })) {
         if (!this.isRunning) break;
 
@@ -251,6 +258,7 @@ export async function* streamableRaw<T = unknown>(
     method = body ? 'POST' : 'GET',
     signal,
     skipHeartbeats = true,
+    credentials,
   } = options;
 
   const requestHeaders: Record<string, string> = {
@@ -267,6 +275,7 @@ export async function* streamableRaw<T = unknown>(
     headers: requestHeaders,
     body: body ? JSON.stringify(body) : undefined,
     signal,
+    credentials,
   });
 
   if (!res.ok) {

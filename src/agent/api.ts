@@ -262,6 +262,6 @@ export async function uploadFile(client: AgentClient, file: globalThis.File): Pr
 /**
  * Get streamable config for chat streaming (NDJSON)
  */
-export function getChatStreamConfig(client: AgentClient, chatId: string): { url: string; headers: Record<string, string> } {
+export function getChatStreamConfig(client: AgentClient, chatId: string): { url: string; headers: Record<string, string>; credentials: RequestCredentials } {
   return client.http.getStreamableConfig(`/chats/${chatId}/stream`);
 }
