@@ -1,5 +1,5 @@
-import type { ChatDTO, ChatMessageDTO } from '../types';
-import { ChatStatusBusy, ChatStatusIdle } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types';
+import { AgentRunStateCompleted, ChatStatusBusy, ChatStatusIdle } from '../types';
 import { chatReducer, initialState } from './reducer';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
@@ -69,6 +69,32 @@ describe('chatReducer', () => {
     const next = chatReducer(withChat, { type: 'UPDATE_CHAT', payload: null });
 
     expect(next).toBe(withChat);
+  });
+
+  it('UPDATE_ACTIVE_RUN should update active_run without replacing messages', () => {
+    const chat = makeChat();
+    const withMessages = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+    const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+
+    const next = chatReducer(withMessages, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: completedRun,
+    });
+
+    expect(next.chat?.active_run).toBe(completedRun);
+    expect(next.messages).toHaveLength(2);
+    expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+  });
+
+  it('UPDATE_ACTIVE_RUN should leave state unchanged when chat is null', () => {
+    const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+
+    const next = chatReducer(initialState, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: completedRun,
+    });
+
+    expect(next).toBe(initialState);
   });
 
   it('UPDATE_MESSAGE should replace an existing message by id', () => {

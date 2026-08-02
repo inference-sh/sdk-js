@@ -8,6 +8,7 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  AgentRunStateCompleted,
   AgentRunStateWorking,
 } from '../types';
 import type { AgentRunDTO } from '../types';
@@ -315,6 +316,40 @@ describe('Agent.sendMessage (streaming mode)', () => {
     const http = new HttpClient({ apiKey: 'test-key', stream: true });
     return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
   };
+
+  it('should wait until run completes via agent_runs stream events', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'agent_runs', data: workingRun })}\n`,
+          `${JSON.stringify({ event: 'agent_runs', data: completedRun })}\n`,
+        ])
+      );
+    });
+
+    const onChat = jest.fn();
+    const result = await streamingAgent().sendMessage('hello', { onChat });
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(onChat).toHaveBeenCalledWith({ active_run: workingRun });
+    expect(onChat).toHaveBeenCalledWith({ active_run: completedRun });
+  });
 
   it('should wait until chat is idle via typed stream events', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
