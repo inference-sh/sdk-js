@@ -458,6 +458,23 @@ describe('HttpClient', () => {
       expect(config.headers['X-Team-ID']).toBe('team-stream');
       expect(config.headers.Authorization).toBe('Bearer secret-key');
     });
+
+    it('should include credentials for cookie-based auth (default include)', () => {
+      const config = new HttpClient({ apiKey: 'secret-key' }).getStreamableConfig(
+        '/tasks/task-1/stream'
+      );
+
+      expect(config.credentials).toBe('include');
+    });
+
+    it('should respect custom credentials mode', () => {
+      const config = new HttpClient({
+        apiKey: 'secret-key',
+        credentials: 'same-origin',
+      }).getStreamableConfig('/tasks/task-1/stream');
+
+      expect(config.credentials).toBe('same-origin');
+    });
   });
 
   describe('createEventSource', () => {

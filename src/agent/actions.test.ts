@@ -514,7 +514,9 @@ describe('createActions', () => {
       await publicActions.sendMessage('hello');
 
       expect(onChatCreated).toHaveBeenCalledWith('chat-full-id-123');
-      expect(StreamableManager).toHaveBeenCalled();
+      expect(StreamableManager).toHaveBeenCalledWith(
+        expect.objectContaining({ credentials: 'include' })
+      );
     });
 
     it('should reset connection status when the API returns no result', async () => {

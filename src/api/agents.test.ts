@@ -348,6 +348,9 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(onChat).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'chat-1', status: ChatStatusIdle })
     );
+
+    const streamCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/stream'));
+    expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
   });
 
   it('should dispatch onToolCall for in_progress tools from chat_messages stream events', async () => {
