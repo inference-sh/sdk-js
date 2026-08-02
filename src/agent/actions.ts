@@ -58,7 +58,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     const chatId = getChatId();
     // TODO: remove startsWith once the provider normalizes chatId to full ID after first fetchChat
     // Support short ID matching (URL short IDs are prefixes of full IDs)
-    if (chatId && message.chat_id !== chatId && !message.chat_id.startsWith(chatId)) return;
+    if (chatId && message.chat_id && message.chat_id !== chatId && !message.chat_id.startsWith(chatId)) return;
 
     dispatch({ type: 'UPDATE_MESSAGE', payload: message });
 
