@@ -177,6 +177,26 @@ describe('createActions', () => {
       });
     });
 
+    it('should accept partial SSE updates that omit chat_id', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const partialUpdate = makeMessage({ chat_id: undefined, content: 'streaming chunk' });
+      onMessage(partialUpdate);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({ content: 'streaming chunk' }),
+      });
+    });
+
     it('should run the handler and submit its result when a client tool is available', async () => {
       const handler = jest.fn().mockResolvedValue('tool ok');
       const { ctx } = createTestContext({
