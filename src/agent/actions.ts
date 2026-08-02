@@ -5,7 +5,7 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -173,6 +173,14 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // Listen for ChatMessage updates
     manager.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
       updateMessage(message);
+    });
+
+    // Listen for AgentRun updates (state transitions, output)
+    manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
+      dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
+      const asChat = { active_run: run } as ChatDTO;
+      callbacks.onStatusChange?.(isChatBusy(asChat) ? 'streaming' : 'idle');
+      checkTurnEnd(asChat);
     });
 
     setStreamManager(manager);

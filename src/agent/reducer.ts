@@ -38,10 +38,15 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     }
 
     case 'UPDATE_CHAT': {
-      // Update chat metadata (e.g. status) without replacing messages
+      // Update chat metadata without replacing messages
       const chat = action.payload;
       if (!chat) return state;
       return { ...state, chat };
+    }
+
+    case 'UPDATE_ACTIVE_RUN': {
+      if (!state.chat) return state;
+      return { ...state, chat: { ...state.chat, active_run: action.payload } };
     }
 
     case 'SET_MESSAGES':

@@ -3,6 +3,7 @@ import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
 import {
+  AgentRunDTO,
   ChatDTO,
   ChatMessageDTO,
   ResourceStatusDTO,
@@ -252,6 +253,14 @@ export class Agent {
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
         options.onChat?.(chat);
         if (!isChatBusy(chat)) {
+          resolve();
+        }
+      });
+
+      this.stream.addEventListener<AgentRunDTO>('agent_runs', (run) => {
+        const asChat = { active_run: run } as ChatDTO;
+        options.onChat?.(asChat);
+        if (!isChatBusy(asChat)) {
           resolve();
         }
       });
