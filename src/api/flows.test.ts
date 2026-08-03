@@ -55,12 +55,16 @@ describe('FlowsAPI', () => {
   });
 
   it('should POST /flows/list for list()', async () => {
-    const page = { items: [{ id: 'flow-1' }], next_cursor: null };
+    const page = {
+      items: [{ id: 'flow-1', namespace: 'acme', name: 'Demo' }],
+      next_cursor: null,
+    };
     mockJsonResponse(page);
 
     const result = await api().list({ limit: 10 });
 
     expect(result).toEqual(page);
+    expect(result.items[0]?.namespace).toBe('acme');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/list');
     expect(init.method).toBe('POST');

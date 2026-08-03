@@ -1,4 +1,9 @@
 import { HttpClient } from '../http/client';
+import {
+  ResultTypeComplete,
+  ToolCallResponse,
+  ToolContentTypeText,
+} from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
 const mockFetch = jest.fn();
@@ -55,6 +60,23 @@ describe('MCPServersAPI', () => {
     expect(url).toContain('/mcps/filesystem/tools/read_file');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(input);
+  });
+
+  it('should deserialize isError ToolCallResponse from callTool()', async () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeComplete,
+      content: [{ type: ToolContentTypeText, text: 'path not found' }],
+      isError: true,
+    };
+    mockJsonResponse(response);
+
+    const result = (await api().callTool('filesystem', 'read_file', {
+      path: '/missing.txt',
+    })) as ToolCallResponse;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe('path not found');
+    expect(result.resultType).toBe('complete');
   });
 
   it('should POST /mcp-servers for create()', async () => {
