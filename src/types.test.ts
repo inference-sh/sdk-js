@@ -1,4 +1,6 @@
 import {
+  AgentRunDTO,
+  AgentRunStateCompleted,
   APIError,
   AppCategoryOther,
   AppDTO,
@@ -8,6 +10,7 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  ClientCapabilities,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -16,6 +19,10 @@ import {
   DeviceAuthStatusPending,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
+  ElicitActionAccept,
+  ElicitActionCancel,
+  ElicitActionDecline,
+  ElicitResult,
   EnforcementBlock,
   EntitlementDTO,
   EntitlementErrorMeta,
@@ -25,6 +32,8 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  FlowDTO,
+  InputRequest,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
@@ -49,6 +58,7 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  ToolCallRequest,
   VisibilityPrivate,
 } from './types';
 
@@ -1039,5 +1049,141 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+function makeFlow(overrides: Partial<FlowDTO> = {}): FlowDTO {
+  return {
+    id: 'flow-1',
+    short_id: 'f1',
+    created_at: '2026-08-03T00:00:00Z',
+    updated_at: '2026-08-03T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    namespace: 'acme',
+    name: 'demo-flow',
+    description: 'Demo flow',
+    card_image: '',
+    thumbnail: '',
+    banner_image: '',
+    draft_version_id: 'draft-1',
+    published_version_id: 'pub-1',
+    input_schema: {},
+    input: {},
+    output_schema: {},
+    output_mappings: {},
+    node_data: {},
+    nodes: [],
+    edges: [],
+    ...overrides,
+  };
+}
+
+describe('FlowDTO namespace projection', () => {
+  it('requires namespace on flow responses for namespace/name addressing', () => {
+    const flow = makeFlow({ namespace: 'inference', name: 'image-pipeline' });
+
+    expect(flow.namespace).toBe('inference');
+    expect(flow.name).toBe('image-pipeline');
+  });
+
+  it('preserves namespace after JSON round-trip', () => {
+    const flow = makeFlow({ namespace: 'acme', name: 'onboarding' });
+    const parsed = JSON.parse(JSON.stringify(flow)) as FlowDTO;
+
+    expect(parsed.namespace).toBe('acme');
+    expect(parsed.name).toBe('onboarding');
+  });
+});
+
+describe('AgentRunDTO structured output', () => {
+  it('carries finish-tool output on completed runs', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-03T00:00:00Z',
+      updated_at: '2026-08-03T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateCompleted,
+      output: { answer: 42, citations: ['doc-1'] },
+    };
+
+    expect(run.output).toEqual({ answer: 42, citations: ['doc-1'] });
+  });
+
+  it('preserves output after JSON round-trip from agent_runs SSE payloads', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-03T00:00:00Z',
+      updated_at: '2026-08-03T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateCompleted,
+      output: { result: 'done' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(run)) as AgentRunDTO;
+
+    expect(parsed.output).toEqual({ result: 'done' });
+  });
+});
+
+describe('MCP elicitation and tool-call types', () => {
+  it('exports ElicitAction constants for user responses', () => {
+    expect(ElicitActionAccept).toBe('accept');
+    expect(ElicitActionDecline).toBe('decline');
+    expect(ElicitActionCancel).toBe('cancel');
+  });
+
+  it('models ElicitResult with optional content payload', () => {
+    const result: ElicitResult = {
+      action: ElicitActionAccept,
+      content: { field_a: 'value' },
+    };
+
+    expect(result.action).toBe('accept');
+    expect(result.content).toEqual({ field_a: 'value' });
+  });
+
+  it('models ClientCapabilities elicitation modes', () => {
+    const capabilities: ClientCapabilities = {
+      elicitation: { form: {}, url: {} },
+    };
+
+    expect(capabilities.elicitation?.form).toEqual({});
+    expect(capabilities.elicitation?.url).toEqual({});
+  });
+
+  it('models InputRequest method/params for input-required flows', () => {
+    const request: InputRequest = {
+      method: 'elicitation/create',
+      params: { message: 'Approve transfer?' },
+    };
+
+    expect(request.method).toBe('elicitation/create');
+    expect(request.params).toEqual({ message: 'Approve transfer?' });
+  });
+
+  it('models ToolCallRequest MRTR retry fields for input-required tool calls', () => {
+    const request: ToolCallRequest = {
+      name: 'transfer_funds',
+      arguments: { amount: 100 },
+      inputResponses: { approval: 'yes' },
+      requestState: 'retry-1',
+    };
+
+    expect(request.name).toBe('transfer_funds');
+    expect(request.arguments).toEqual({ amount: 100 });
+    expect(request.inputResponses).toEqual({ approval: 'yes' });
+    expect(request.requestState).toBe('retry-1');
   });
 });
