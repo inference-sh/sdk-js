@@ -3,6 +3,7 @@ import {
   ChatStatusCompleted,
   ChatStatusIdle,
   AgentRunStateWorking,
+  AgentRunStateCompleted,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -11,6 +12,7 @@ import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
+const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
@@ -174,6 +176,26 @@ describe('createActions', () => {
       expect(dispatch).toHaveBeenCalledWith({
         type: 'UPDATE_MESSAGE',
         payload: expect.objectContaining({ chat_id: 'chat-short-full-suffix' }),
+      });
+    });
+
+    it('should accept partial SSE updates that omit chat_id', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const partialUpdate = makeMessage({ chat_id: undefined, content: 'streaming chunk' });
+      onMessage(partialUpdate);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({ content: 'streaming chunk' }),
       });
     });
 
@@ -514,7 +536,9 @@ describe('createActions', () => {
       await publicActions.sendMessage('hello');
 
       expect(onChatCreated).toHaveBeenCalledWith('chat-full-id-123');
-      expect(StreamableManager).toHaveBeenCalled();
+      expect(StreamableManager).toHaveBeenCalledWith(
+        expect.objectContaining({ credentials: 'include' })
+      );
     });
 
     it('should reset connection status when the API returns no result', async () => {
@@ -885,6 +909,46 @@ describe('createActions', () => {
       expect(handler).toHaveBeenCalledTimes(1);
       expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
     });
+
+    it('should clear dedup on sendMessage so the same tool invocation can dispatch on a new turn', async () => {
+      const handler = jest.fn().mockResolvedValue('ok');
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        getClientToolHandlers: () => new Map([['my_tool', handler]]),
+      });
+      const { publicActions, internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const toolMessage = makeMessage({
+        chat_id: 'chat-short',
+        tool_invocations: [
+          {
+            id: 'tool-inv-turn',
+            type: ToolTypeClient,
+            status: ToolInvocationStatusAwaitingInput,
+            function: { name: 'my_tool', arguments: {} },
+          },
+        ],
+      });
+
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      await publicActions.sendMessage('follow-up');
+
+      onMessage(toolMessage);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('publicActions lifecycle', () => {
@@ -1154,6 +1218,32 @@ describe('createActions', () => {
 
       expect(onTurnEnd).toHaveBeenCalledTimes(1);
       expect(onTurnEnd).toHaveBeenCalledWith(completedChat);
+    });
+
+    it('should call onTurnEnd when active_run completes even if chat.status stays busy', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
+
+      const staleBusyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: completedRun,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      onChat(staleBusyChat);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(staleBusyChat);
     });
 
     it('should not call onTurnEnd when chat goes from idle to busy or stays busy', async () => {

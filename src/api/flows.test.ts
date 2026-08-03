@@ -67,12 +67,13 @@ describe('FlowsAPI', () => {
   });
 
   it('should GET /flows/{id} for get()', async () => {
-    const flow = { id: 'flow-1', name: 'Demo' };
+    const flow = { id: 'flow-1', namespace: 'acme', name: 'Demo' };
     mockJsonResponse(flow);
 
     const result = await api().get('flow-1');
 
     expect(result).toEqual(flow);
+    expect(result.namespace).toBe('acme');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/flow-1');
     expect(init.method).toBe('GET');

@@ -1,4 +1,10 @@
 import { HttpClient } from '../http/client';
+import {
+  ResultTypeComplete,
+  ResultTypeInputRequired,
+  ToolCallResponse,
+  ToolContentTypeText,
+} from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
 const mockFetch = jest.fn();
@@ -55,6 +61,57 @@ describe('MCPServersAPI', () => {
     expect(url).toContain('/mcps/filesystem/tools/read_file');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(input);
+  });
+
+  it('should deserialize complete ToolCallResponse from callTool()', async () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeComplete,
+      content: [{ type: ToolContentTypeText, text: 'file contents' }],
+      structuredContent: { path: '/tmp/test.txt' },
+      isError: false,
+      _meta: {
+        'io.modelcontextprotocol/serverInfo': {
+          name: 'filesystem',
+          title: 'Filesystem MCP',
+          version: '1.0.0',
+        },
+      },
+    };
+    mockJsonResponse(response);
+
+    const result = (await api().callTool('filesystem', 'read_file', {
+      path: '/tmp/test.txt',
+    })) as ToolCallResponse;
+
+    expect(result.resultType).toBe('complete');
+    expect(result.content[0].text).toBe('file contents');
+    expect(result.structuredContent).toEqual({ path: '/tmp/test.txt' });
+    expect(result._meta?.['io.modelcontextprotocol/serverInfo']?.name).toBe('filesystem');
+  });
+
+  it('should deserialize input_required MRTR ToolCallResponse from callTool()', async () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeInputRequired,
+      content: [],
+      isError: false,
+      inputRequests: {
+        approval: {
+          method: 'elicitation/create',
+          params: { message: 'Approve file write?' },
+        },
+      },
+      requestState: 'mrtr-1',
+    };
+    mockJsonResponse(response);
+
+    const result = (await api().callTool('filesystem', 'write_file', {
+      path: '/tmp/out.txt',
+      content: 'hello',
+    })) as ToolCallResponse;
+
+    expect(result.resultType).toBe('input_required');
+    expect(result.inputRequests?.approval.method).toBe('elicitation/create');
+    expect(result.requestState).toBe('mrtr-1');
   });
 
   it('should POST /mcp-servers for create()', async () => {

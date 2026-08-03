@@ -8,13 +8,16 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  AgentRunStateCompleted,
   AgentRunStateWorking,
+  AgentRunStateCompleted,
 } from '../types';
 import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
+const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -94,6 +97,41 @@ describe('Agent.sendMessage (polling mode)', () => {
     );
   });
 
+  it('should treat chat as idle when active_run is completed even if status is still busy', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage, assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    // Stale derived status: chat.status still busy while the run has finished
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: completedRun,
+      chat_messages: [],
+    });
+
+    const onChat = jest.fn();
+    const result = await agent().sendMessage('hello', { stream: false, onChat });
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(result.assistantMessage).toEqual(assistantMessage);
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'chat-1',
+        status: ChatStatusBusy,
+        active_run: completedRun,
+      })
+    );
+    // Should not keep polling for a status flip — active_run.state drives busy detection
+    const statusPolls = mockFetch.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/status')
+    );
+    expect(statusPolls.length).toBe(1);
+  });
+
   it('should skip full GET /chats when poll status is unchanged', async () => {
     mockJsonResponse({
       user_message: makeMessage({ id: 'user-1', role: 'user' }),
@@ -163,6 +201,86 @@ describe('Agent.sendMessage (polling mode)', () => {
       id: 'tool-inv-progress',
       name: 'my_tool',
       args: { x: 2 },
+    });
+  });
+
+  it('should isolate tool dedup between separate Agent instances', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-shared',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusInProgress,
+      function: { name: 'my_tool', arguments: { x: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    const agentA = agent();
+    const agentB = agent();
+    const onToolCallA = jest.fn();
+    const onToolCallB = jest.fn();
+    const onMessageA = jest.fn();
+    const onMessageB = jest.fn();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-a', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-a' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentA.sendMessage('run tool', {
+      stream: false,
+      onMessage: onMessageA,
+      onToolCall: onToolCallA,
+    });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-b', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-b', chat_id: 'chat-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-2',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-2',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentB.sendMessage('run tool', {
+      stream: false,
+      onMessage: onMessageB,
+      onToolCall: onToolCallB,
+    });
+
+    expect(onToolCallA).toHaveBeenCalledTimes(1);
+    expect(onToolCallB).toHaveBeenCalledTimes(1);
+    expect(onToolCallA).toHaveBeenCalledWith({
+      id: 'tool-inv-shared',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
+    expect(onToolCallB).toHaveBeenCalledWith({
+      id: 'tool-inv-shared',
+      name: 'my_tool',
+      args: { x: 1 },
     });
   });
 
@@ -316,6 +434,44 @@ describe('Agent.sendMessage (streaming mode)', () => {
     return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
   };
 
+  it('should forward agent_runs output through onChat callbacks', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    const completedRun = {
+      state: AgentRunStateCompleted,
+      output: { answer: 42 },
+    } as AgentRunDTO;
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'agent_runs', data: workingRun })}\n`,
+          `${JSON.stringify({ event: 'agent_runs', data: completedRun })}\n`,
+        ])
+      );
+    });
+
+    const onChat = jest.fn();
+    await streamingAgent().sendMessage('hello', { onChat });
+
+    expect(onChat).toHaveBeenCalledWith({ active_run: completedRun });
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({ active_run: expect.objectContaining({ output: { answer: 42 } }) })
+    );
+  });
+
   it('should wait until chat is idle via typed stream events', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });
@@ -348,6 +504,9 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(onChat).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'chat-1', status: ChatStatusIdle })
     );
+
+    const streamCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/stream'));
+    expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
   });
 
   it('should dispatch onToolCall for in_progress tools from chat_messages stream events', async () => {
@@ -921,6 +1080,71 @@ describe('Agent lifecycle', () => {
 
     await agentInstance.stopChat();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('sendMessage should clear dedup at turn boundary so onToolCall fires again without reset', async () => {
+    const toolInvocation = {
+      id: 'tool-inv-turn',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'my_tool', arguments: { x: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+
+    const agentInstance = agent();
+    const onMessage = jest.fn();
+    const onToolCall = jest.fn();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool', { stream: false, onMessage, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+
+    onToolCall.mockClear();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-2', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [messageWithTool],
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [messageWithTool],
+    });
+
+    await agentInstance.sendMessage('run tool again', { stream: false, onMessage, onToolCall });
+    expect(onToolCall).toHaveBeenCalledTimes(1);
+    expect(onToolCall).toHaveBeenCalledWith({
+      id: 'tool-inv-turn',
+      name: 'my_tool',
+      args: { x: 1 },
+    });
   });
 
   it('reset should allow onToolCall to fire again for the same invocation id', async () => {

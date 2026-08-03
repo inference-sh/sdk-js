@@ -9,6 +9,7 @@ import {
   TeamInviteCreateRequest,
   CursorListRequest,
   CursorListResponse,
+  AvailabilityResponse,
 } from '../types';
 
 export interface MeResponse {
@@ -67,8 +68,8 @@ export class TeamsAPI {
   /**
    * Check username availability
    */
-  async checkUsername(username: string): Promise<{ available: boolean }> {
-    return this.http.request<{ available: boolean }>('get', '/teams/check-username', { params: { username } });
+  async checkUsername(username: string): Promise<AvailabilityResponse> {
+    return this.http.request<AvailabilityResponse>('get', '/teams/check-username', { params: { username } });
   }
 
   /**

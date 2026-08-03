@@ -1,11 +1,15 @@
 import { HttpClient } from '../http/client';
 import {
+  AgentRunStateInputRequired,
+  AgentRunStateWorking,
+  ChatStatusBusy,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeReferences,
   GraphEdgeTypeSupersedes,
   GraphNodeStatusCompleted,
   GraphNodeTypeResource,
+  InterruptReasonToolApproval,
 } from '../types';
 import { ChatsAPI } from './chats';
 
@@ -187,6 +191,58 @@ describe('ChatsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve active_run with interrupt details in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: {
+        id: 'run-1',
+        agent_id: 'agent-1',
+        chat_id: 'chat-1',
+        state: AgentRunStateInputRequired,
+        interrupt_reason: InterruptReasonToolApproval,
+        interrupt_tool_id: 'tool-call-7',
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.active_run?.state).toBe(AgentRunStateInputRequired);
+    expect(result.active_run?.interrupt_reason).toBe(InterruptReasonToolApproval);
+    expect(result.active_run?.interrupt_tool_id).toBe('tool-call-7');
+  });
+
+  it('should preserve agent_run_id on chat messages in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [
+        {
+          id: 'msg-1',
+          chat_id: 'chat-1',
+          agent_run_id: 'run-1',
+          order: 1,
+          status: 'ready',
+          role: 'user',
+          content: [{ type: 'text', text: 'Run this tool' }],
+        },
+      ],
+      active_run: {
+        id: 'run-1',
+        agent_id: 'agent-1',
+        chat_id: 'chat-1',
+        state: AgentRunStateWorking,
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.chat_messages[0]?.agent_run_id).toBe('run-1');
+    expect(result.active_run?.state).toBe(AgentRunStateWorking);
   });
 
   it('should POST /chats/{id} for update()', async () => {
