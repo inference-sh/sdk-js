@@ -1783,6 +1783,70 @@ export interface ElicitResult {
   content?: { [key: string]: any};
 }
 /**
+ * ResultType is the kind of result a response carries, required on every result
+ * from 2026-07-28 onward.
+ */
+export type ResultType = string;
+/**
+ * ResultTypeComplete marks an ordinary, finished result.
+ */
+export const ResultTypeComplete: ResultType = "complete";
+/**
+ * ResultTypeInputRequired marks a Multi Round-Trip Request interim result.
+ * Recognised so the outbound client never mistakes one for tool output.
+ */
+export const ResultTypeInputRequired: ResultType = "input_required";
+/**
+ * CacheScope says who may reuse a cached result, per MCP 2026-07-28 (SEP-2549).
+ * Analogous to HTTP Cache-Control public/private; the spec defines exactly these.
+ */
+export type CacheScope = string;
+/**
+ * CacheScopePublic marks a response as free of user-specific data, so any
+ * client or shared intermediary may cache it across authorization contexts.
+ */
+export const CacheScopePublic: CacheScope = "public";
+/**
+ * CacheScopePrivate restricts reuse to the same authorization context.
+ */
+export const CacheScopePrivate: CacheScope = "private";
+/**
+ * ServerInfo represents information about the server
+ */
+export interface ServerInfo {
+  name: string;
+  title: string;
+  version: string;
+}
+/**
+ * ResultMeta is the _meta object attached to results. Servers SHOULD identify
+ * themselves in every result from 2026-07-28 onward (SEP-2575).
+ * The struct tag is the single definition of the key — Go tags cannot reference
+ * a constant, so there is deliberately no MetaServerInfo const to drift from it.
+ */
+export interface ResultMeta {
+  'io.modelcontextprotocol/serverInfo'?: ServerInfo;
+  /**
+   * TTLMs and CacheScope are read-only legacy fields: servers older than
+   * 2026-07-28 nested the caching signals here instead of on the result. They
+   * live on this type rather than a separate one so a single decode of the
+   * _meta object yields both them and serverInfo.
+   */
+  ttlMs?: number /* int64 */;
+  cacheScope?: CacheScope;
+}
+/**
+ * ResourceContent represents resource content
+ */
+export interface ResourceContent {
+  uri: string;
+  name: string;
+  title?: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+}
+/**
  * ToolCallRequest represents a request to call a tool.
  * InputResponses and RequestState are present on MRTR retries: the client is
  * echoing back responses to the server's InputRequiredResult.
@@ -1792,6 +1856,44 @@ export interface ToolCallRequest {
   arguments: { [key: string]: any};
   inputResponses?: { [key: string]: any};
   requestState?: string;
+}
+/**
+ * ToolCallResponse represents a response from a tool call.
+ * ResultType is read as well as written: an inbound response carrying
+ * ResultTypeInputRequired is a Multi Round-Trip Request asking for more input,
+ * not tool output, and callers must not treat it as a result. Servers older than
+ * 2026-07-28 omit the field, which clients MUST read as "complete".
+ */
+export interface ToolCallResponse {
+  resultType?: ResultType;
+  content: ToolContent[];
+  structuredContent?: any;
+  isError: boolean;
+  _meta?: ResultMeta;
+  /**
+   * MRTR fields — present when ResultType == ResultTypeInputRequired.
+   */
+  inputRequests?: { [key: string]: InputRequest};
+  requestState?: string;
+}
+/**
+ * ToolContentType is the kind of a content block. The spec defines exactly these.
+ */
+export type ToolContentType = string;
+export const ToolContentTypeText: ToolContentType = "text";
+export const ToolContentTypeImage: ToolContentType = "image";
+export const ToolContentTypeAudio: ToolContentType = "audio";
+export const ToolContentTypeResourceLink: ToolContentType = "resource_link";
+export const ToolContentTypeResource: ToolContentType = "resource";
+/**
+ * ToolContent represents content in a tool response
+ */
+export interface ToolContent {
+  type: ToolContentType;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+  resource?: ResourceContent;
 }
 /**
  * StringSlice is a custom type for storing string slices
