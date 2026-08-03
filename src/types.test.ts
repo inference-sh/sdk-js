@@ -8,12 +8,18 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  AvailabilityResponse,
+  ClientCapabilities,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
   DeviceAuthStatusPending,
+  ElicitActionAccept,
+  ElicitActionCancel,
+  ElicitActionDecline,
+  ElicitResult,
   CacheScopePrivate,
   CacheScopePublic,
   DeviceTokenKindAPIKey,
@@ -1185,5 +1191,90 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('AvailabilityResponse name checks', () => {
+  it('models an available username with normalized value', () => {
+    const response: AvailabilityResponse = {
+      value: 'acme-corp',
+      available: true,
+    };
+
+    expect(response.available).toBe(true);
+    expect(response.value).toBe('acme-corp');
+    expect(response.reason).toBeUndefined();
+  });
+
+  it('distinguishes taken vs reserved with explicit reason', () => {
+    const taken: AvailabilityResponse = {
+      value: 'acme-corp',
+      available: false,
+      reason: 'taken',
+    };
+    const reserved: AvailabilityResponse = {
+      value: 'admin',
+      available: false,
+      reason: 'reserved',
+    };
+
+    expect(taken.reason).toBe('taken');
+    expect(reserved.reason).toBe('reserved');
+  });
+
+  it('preserves normalized value and reason through JSON round-trip', () => {
+    const response: AvailabilityResponse = {
+      value: 'acme-corp',
+      available: false,
+      reason: 'taken',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AvailabilityResponse;
+
+    expect(parsed.value).toBe('acme-corp');
+    expect(parsed.available).toBe(false);
+    expect(parsed.reason).toBe('taken');
+  });
+});
+
+describe('MCP elicitation capability types', () => {
+  it('models client elicitation capabilities for form and url modes', () => {
+    const capabilities: ClientCapabilities = {
+      elicitation: {
+        form: {},
+        url: {},
+      },
+    };
+
+    expect(capabilities.elicitation?.form).toEqual({});
+    expect(capabilities.elicitation?.url).toEqual({});
+  });
+
+  it('exports ElicitAction constants for user responses', () => {
+    expect(ElicitActionAccept).toBe('accept');
+    expect(ElicitActionDecline).toBe('decline');
+    expect(ElicitActionCancel).toBe('cancel');
+  });
+
+  it('models ElicitResult with action and optional content payload', () => {
+    const result: ElicitResult = {
+      action: ElicitActionAccept,
+      content: { amount: 100, currency: 'USD' },
+    };
+
+    expect(result.action).toBe('accept');
+    expect(result.content).toEqual({ amount: 100, currency: 'USD' });
+  });
+
+  it('preserves elicitation payloads through JSON round-trip', () => {
+    const result: ElicitResult = {
+      action: ElicitActionDecline,
+      content: { reason: 'too expensive' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(result)) as ElicitResult;
+
+    expect(parsed.action).toBe('decline');
+    expect(parsed.content).toEqual({ reason: 'too expensive' });
   });
 });

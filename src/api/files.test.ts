@@ -165,6 +165,32 @@ describe('FilesAPI', () => {
     });
   });
 
+  describe('resolveUpload content type inference', () => {
+    it('should infer content type from filename extension when Blob.type is empty', () => {
+      const blob = new Blob(['jpeg-bytes']);
+      const resolved = resolveUpload(blob, { filename: 'photo.jpg' });
+
+      expect(resolved.contentType).toBe('image/jpeg');
+      expect(resolved.filename).toBe('photo.jpg');
+      expect(resolved.body).toBe(blob);
+    });
+
+    it('should infer content type from File name when type is empty', () => {
+      const file = new File(['pdf-bytes'], 'report.pdf');
+      const resolved = resolveUpload(file);
+
+      expect(resolved.contentType).toBe('application/pdf');
+      expect(resolved.filename).toBe('report.pdf');
+    });
+
+    it('should prefer explicit Blob.type over filename extension', () => {
+      const blob = new Blob(['png-bytes'], { type: 'image/png' });
+      const resolved = resolveUpload(blob, { filename: 'photo.jpg' });
+
+      expect(resolved.contentType).toBe('image/png');
+    });
+  });
+
   describe('upload', () => {
     it('should reject invalid data URI format before any network call', async () => {
       await expect(api().upload('data:invalid')).rejects.toThrow('Invalid data URI format');
@@ -301,6 +327,28 @@ describe('FilesAPI', () => {
       const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
       const createBody = JSON.parse(createInit.body as string);
       expect(createBody.files[0].content_type).toBe('application/octet-stream');
+    });
+
+    it('should infer content type from filename when Blob.type is empty', async () => {
+      const fileRecord = {
+        id: 'file-jpg',
+        uri: 'inf://files/jpg',
+        upload_url: 'https://upload.example.com/put',
+        content_type: 'image/jpeg',
+      };
+
+      mockJsonResponse([fileRecord]);
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const blob = new Blob(['jpeg-bytes']);
+      await api().upload(blob, { filename: 'snapshot.jpg' });
+
+      const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const createBody = JSON.parse(createInit.body as string);
+      expect(createBody.files[0]).toMatchObject({
+        filename: 'snapshot.jpg',
+        content_type: 'image/jpeg',
+      });
     });
 
     it('should upload clean base64 strings without a data URI prefix', async () => {
