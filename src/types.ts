@@ -250,6 +250,7 @@ export interface AgentRunDTO extends BaseModelDTO, PermissionModelDTO {
   user_message_id?: string;
   state: AgentRunState;
   error?: string;
+  output?: any;
   interrupt_reason?: InterruptReason;
   interrupt_tool_id?: string;
   interrupt_meta?: any;
