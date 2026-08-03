@@ -101,7 +101,7 @@
     "@types/react": "^19.1.12",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "eslint": "^9.32.0",
+    "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "hono": "^4.0.0",
     "jest": "^30.4.2",
