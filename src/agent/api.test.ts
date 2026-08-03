@@ -357,6 +357,7 @@ describe('agent/api', () => {
       expect(config.headers).toEqual(
         expect.objectContaining({ Authorization: expect.stringContaining('Bearer') })
       );
+      expect(config.credentials).toBe('include');
     });
   });
 

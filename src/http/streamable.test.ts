@@ -392,6 +392,22 @@ describe('streamable', () => {
       expect(results).toHaveLength(1);
     });
   });
+
+  it('should pass credentials to fetch', async () => {
+    const fetchMock = mockFetch(['{"id":1}\n']);
+    global.fetch = fetchMock as typeof fetch;
+
+    const results: unknown[] = [];
+    for await (const item of streamable('http://test.com/stream', { credentials: 'include' })) {
+      results.push(item);
+    }
+
+    expect(results).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://test.com/stream',
+      expect.objectContaining({ credentials: 'include' })
+    );
+  });
 });
 
 describe('streamableRaw', () => {
@@ -417,6 +433,24 @@ describe('streamableRaw', () => {
       data: { id: 1 },
       fields: ['id'],
     });
+  });
+
+  it('should pass credentials to fetch', async () => {
+    const fetchMock = mockFetch([
+      '{"event":"update","data":{"id":1},"fields":["id"]}\n',
+    ]);
+    global.fetch = fetchMock as typeof fetch;
+
+    const results: unknown[] = [];
+    for await (const item of streamableRaw('http://test.com/stream', { credentials: 'same-origin' })) {
+      results.push(item);
+    }
+
+    expect(results).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://test.com/stream',
+      expect.objectContaining({ credentials: 'same-origin' })
+    );
   });
 });
 
@@ -709,5 +743,23 @@ describe('StreamableManager', () => {
     await manager.start();
 
     expect(onData).toHaveBeenCalledWith({ id: 1, status: 'busy' });
+  });
+
+  it('should pass credentials to fetch', async () => {
+    const fetchMock = mockFetch(['{"id":1}\n']);
+    global.fetch = fetchMock as typeof fetch;
+
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      credentials: 'include',
+      onData: () => {},
+    });
+
+    await manager.start();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://test.com/stream',
+      expect.objectContaining({ credentials: 'include' })
+    );
   });
 });

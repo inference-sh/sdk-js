@@ -14,6 +14,8 @@ import {
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
   DeviceAuthStatusPending,
+  CacheScopePrivate,
+  CacheScopePublic,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
@@ -39,6 +41,9 @@ import {
   RefRouteTypeApp,
   ResourceFeatureSeedance,
   ResourceSeats,
+  ResultMeta,
+  ResultTypeComplete,
+  ResultTypeInputRequired,
   ScopeAgentsRead,
   ScopeAppsRead,
   ScopeAppsWrite,
@@ -49,6 +54,12 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  ToolCallResponse,
+  ToolContentTypeAudio,
+  ToolContentTypeImage,
+  ToolContentTypeResource,
+  ToolContentTypeResourceLink,
+  ToolContentTypeText,
   VisibilityPrivate,
 } from './types';
 
@@ -1039,5 +1050,140 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('MCP tool call response types', () => {
+  it('exports ResultType constants for complete and input-required MRTR results', () => {
+    expect(ResultTypeComplete).toBe('complete');
+    expect(ResultTypeInputRequired).toBe('input_required');
+  });
+
+  it('exports CacheScope constants for MCP result caching', () => {
+    expect(CacheScopePublic).toBe('public');
+    expect(CacheScopePrivate).toBe('private');
+  });
+
+  it('exports ToolContentType constants for all MCP content block kinds', () => {
+    expect(ToolContentTypeText).toBe('text');
+    expect(ToolContentTypeImage).toBe('image');
+    expect(ToolContentTypeAudio).toBe('audio');
+    expect(ToolContentTypeResourceLink).toBe('resource_link');
+    expect(ToolContentTypeResource).toBe('resource');
+  });
+
+  it('models complete ToolCallResponse with text content and server metadata', () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeComplete,
+      content: [{ type: ToolContentTypeText, text: 'file contents' }],
+      structuredContent: { lines: 3 },
+      isError: false,
+      _meta: {
+        'io.modelcontextprotocol/serverInfo': {
+          name: 'filesystem',
+          title: 'Filesystem MCP',
+          version: '1.0.0',
+        },
+        cacheScope: CacheScopePrivate,
+      },
+    };
+
+    expect(response.resultType).toBe('complete');
+    expect(response.content[0].text).toBe('file contents');
+    expect(response.structuredContent).toEqual({ lines: 3 });
+    expect(response._meta?.['io.modelcontextprotocol/serverInfo']?.name).toBe('filesystem');
+    expect(response._meta?.cacheScope).toBe('private');
+  });
+
+  it('models input_required MRTR ToolCallResponse with inputRequests and requestState', () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeInputRequired,
+      content: [],
+      isError: false,
+      inputRequests: {
+        approval: {
+          method: 'elicitation/create',
+          params: { message: 'Approve transfer of $100?' },
+        },
+      },
+      requestState: 'mrtr-state-1',
+    };
+
+    expect(response.resultType).toBe('input_required');
+    expect(response.inputRequests?.approval.method).toBe('elicitation/create');
+    expect(response.inputRequests?.approval.params).toEqual({ message: 'Approve transfer of $100?' });
+    expect(response.requestState).toBe('mrtr-state-1');
+  });
+
+  it('allows legacy ToolCallResponse without resultType (implicit complete)', () => {
+    const response: ToolCallResponse = {
+      content: [{ type: ToolContentTypeText, text: 'legacy output' }],
+      isError: false,
+    };
+
+    expect(response.resultType).toBeUndefined();
+    expect(response.content[0].text).toBe('legacy output');
+    expect(response.inputRequests).toBeUndefined();
+  });
+
+  it('models resource ToolContent with embedded ResourceContent', () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeComplete,
+      content: [
+        {
+          type: ToolContentTypeResource,
+          resource: {
+            uri: 'file:///tmp/report.pdf',
+            name: 'report.pdf',
+            mimeType: 'application/pdf',
+            blob: 'JVBERi0xLjQK',
+          },
+        },
+      ],
+      isError: false,
+    };
+
+    expect(response.content[0].type).toBe('resource');
+    expect(response.content[0].resource?.uri).toBe('file:///tmp/report.pdf');
+    expect(response.content[0].resource?.mimeType).toBe('application/pdf');
+  });
+
+  it('preserves ResultMeta legacy ttlMs and cacheScope after JSON round-trip', () => {
+    const meta: ResultMeta = {
+      ttlMs: 60_000,
+      cacheScope: CacheScopePublic,
+      'io.modelcontextprotocol/serverInfo': {
+        name: 'demo',
+        title: 'Demo MCP',
+        version: '0.1.0',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(meta)) as ResultMeta;
+
+    expect(parsed.ttlMs).toBe(60_000);
+    expect(parsed.cacheScope).toBe('public');
+    expect(parsed['io.modelcontextprotocol/serverInfo']?.version).toBe('0.1.0');
+  });
+
+  it('preserves input_required ToolCallResponse after JSON round-trip', () => {
+    const response: ToolCallResponse = {
+      resultType: ResultTypeInputRequired,
+      content: [],
+      isError: false,
+      inputRequests: {
+        confirm: {
+          method: 'elicitation/create',
+          params: { schema: { type: 'object' } },
+        },
+      },
+      requestState: 'state-abc',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as ToolCallResponse;
+
+    expect(parsed.resultType).toBe('input_required');
+    expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
+    expect(parsed.requestState).toBe('state-abc');
   });
 });

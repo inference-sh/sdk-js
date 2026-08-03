@@ -235,6 +235,11 @@ describe('TasksAPI.run (streaming mode)', () => {
 
     expect(result.status).toBe(TaskStatusCompleted);
     expect(onUpdate).toHaveBeenCalled();
+
+    const streamCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/tasks/task-1/stream')
+    );
+    expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
   });
 
   it('should reject when NDJSON stream reports failure', async () => {
