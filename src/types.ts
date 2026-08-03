@@ -1397,6 +1397,7 @@ export type FlowNodeDataMap = { [key: string]: FlowNodeData};
  * FlowDTO for API responses
  */
 export interface FlowDTO extends BaseModelDTO, PermissionModelDTO {
+  namespace: string;
   name: string;
   description: string;
   card_image: string;
@@ -1743,6 +1744,54 @@ export interface SkillStoreListingDTO {
   installs: number /* int64 */;
   uses: number /* int64 */;
   tags?: string[];
+}
+/**
+ * ElicitationCapability advertises which elicitation modes the client handles.
+ * An empty struct is equivalent to form-only for backward compatibility.
+ */
+export interface ElicitationCapability {
+  form?: {
+  };
+  url?: {
+  };
+}
+/**
+ * ClientCapabilities advertises what a client can do.
+ */
+export interface ClientCapabilities {
+  elicitation?: ElicitationCapability;
+}
+/**
+ * InputRequest is a single server-to-client request inside an InputRequiredResult.
+ */
+export interface InputRequest {
+  method: string;
+  params: any;
+}
+/**
+ * ElicitAction is the user's response to an elicitation request.
+ */
+export type ElicitAction = string;
+export const ElicitActionAccept: ElicitAction = "accept";
+export const ElicitActionDecline: ElicitAction = "decline";
+export const ElicitActionCancel: ElicitAction = "cancel";
+/**
+ * ElicitResult is the client's response to an elicitation/create request.
+ */
+export interface ElicitResult {
+  action: ElicitAction;
+  content?: { [key: string]: any};
+}
+/**
+ * ToolCallRequest represents a request to call a tool.
+ * InputResponses and RequestState are present on MRTR retries: the client is
+ * echoing back responses to the server's InputRequiredResult.
+ */
+export interface ToolCallRequest {
+  name: string;
+  arguments: { [key: string]: any};
+  inputResponses?: { [key: string]: any};
+  requestState?: string;
 }
 /**
  * StringSlice is a custom type for storing string slices
