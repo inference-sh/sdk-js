@@ -297,7 +297,7 @@ export interface ApiAgentRunRequest {
   agent?: string;
   agent_config?: AgentConfigInput;
   agent_name?: string;
-  input: ChatTaskInput;
+  input: LLMInput;
   context?: { [key: string]: string};
   stream?: boolean;
 }
@@ -310,7 +310,7 @@ export interface CreateAgentMessageRequest {
   agent_version_id?: string;
   agent?: string;
   tool_call_id?: string;
-  input: ChatTaskInput;
+  input: LLMInput;
   integration_context?: IntegrationContext;
   agent_config?: AgentConfigInput;
   agent_name?: string;
@@ -2972,46 +2972,6 @@ export interface IntegrationContext {
   integration_type?: IntegrationType;
   integration_metadata?: any;
 }
-/**
- * ChatTaskInput is the input envelope for a chat LLM task
- */
-export interface ChatTaskInput {
-  model?: string;
-  context_size: number /* int */;
-  temperature?: number /* float64 */;
-  top_p?: number /* float64 */;
-  reasoning_effort?: string;
-  reasoning_max_tokens?: number /* int */;
-  system_prompt: string;
-  context: ChatTaskContextMessage[];
-  role?: ChatMessageRole;
-  text?: string;
-  reasoning?: string;
-  /**
-   * Attachments is the SDK input field with full file metadata
-   */
-  attachments?: FileRef[];
-  /**
-   * Images and Files are internal fields for task workers (filled from Attachments or context)
-   */
-  images?: string[];
-  files?: string[];
-  tools?: Tool[];
-  tool_call_id?: string;
-}
-/**
- * ChatTaskContextMessage represents a message in the chat context for LLM tasks
- */
-export interface ChatTaskContextMessage {
-  role: ChatMessageRole;
-  text?: string;
-  reasoning?: string;
-  images?: string[];
-  files?: string[];
-  tools?: Tool[];
-  tool_calls?: ToolCall[];
-  tool_call_id?: string;
-}
 export type StringEncodedMap = { [key: string]: any};
 /**
  * EngineStatus represents the status of an engine.
@@ -3152,6 +3112,56 @@ export const GraphEdgeTypeReferences: GraphEdgeType = "references";
 export const GraphEdgeTypeSupersedes: GraphEdgeType = "supersedes";
 export const GraphEdgeTypeInput: GraphEdgeType = "input";
 export const GraphEdgeTypeOutput: GraphEdgeType = "output";
+/**
+ * LLMOutput is the output envelope from an LLM provider task.
+ * This is the contract between chat apps (sdk-py) and the agent runtime (go/api).
+ */
+export interface LLMOutput {
+  response: string;
+  reasoning?: string;
+  tool_calls?: ToolCall[];
+  usage?: LLMUsage;
+}
+/**
+ * LLMInput is the input envelope for an LLM provider task.
+ */
+export interface LLMInput {
+  model?: string;
+  context_size: number /* int */;
+  temperature?: number /* float64 */;
+  top_p?: number /* float64 */;
+  reasoning_effort?: string;
+  reasoning_max_tokens?: number /* int */;
+  system_prompt: string;
+  context: LLMContextMessage[];
+  role?: ChatMessageRole;
+  text?: string;
+  reasoning?: string;
+  /**
+   * Attachments is the SDK input field with full file metadata
+   */
+  attachments?: FileRef[];
+  /**
+   * Images and Files are internal fields for task workers (filled from Attachments or context)
+   */
+  images?: string[];
+  files?: string[];
+  tools?: Tool[];
+  tool_call_id?: string;
+}
+/**
+ * LLMContextMessage represents a message in the chat context for LLM tasks
+ */
+export interface LLMContextMessage {
+  role: ChatMessageRole;
+  text?: string;
+  reasoning?: string;
+  images?: string[];
+  files?: string[];
+  tools?: Tool[];
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}
 /**
  * SecretScope defines the visibility/purpose of a secret
  */
@@ -3654,6 +3664,19 @@ export interface ToolCall {
 export interface ToolCallFunction {
   name: string;
   arguments: StringEncodedMap;
+}
+/**
+ * LLMUsage contains token usage and performance metrics from an LLM response
+ */
+export interface LLMUsage {
+  stop_reason: string;
+  time_to_first_token: number /* float64 */;
+  tokens_per_second: number /* float64 */;
+  prompt_tokens: number /* int */;
+  completion_tokens: number /* int */;
+  total_tokens: number /* int */;
+  reasoning_tokens: number /* int */;
+  reasoning_time: number /* float64 */;
 }
 /**
  * FileRef is a lightweight reference to a file with essential metadata.
