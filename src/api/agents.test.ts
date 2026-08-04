@@ -471,6 +471,39 @@ describe('Agent.sendMessage (streaming mode)', () => {
     );
   });
 
+  it('should resolve sendMessage when agent_runs completes without a chats idle event', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage,
+                assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'agent_runs', data: workingRun })}\n`,
+          `${JSON.stringify({ event: 'agent_runs', data: completedRun })}\n`,
+        ])
+      );
+    });
+
+    const result = await streamingAgent().sendMessage('hello');
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(result.assistantMessage).toEqual(assistantMessage);
+  });
+
   it('should wait until chat is idle via typed stream events', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });

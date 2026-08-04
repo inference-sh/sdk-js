@@ -656,6 +656,86 @@ describe('createActions', () => {
     });
   });
 
+  describe('agent_runs stream events', () => {
+    function getAgentRunsListener() {
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'agent_runs'
+      )?.[1] as (run: AgentRunDTO) => void;
+    }
+
+    it('should register an agent_runs listener alongside chats and chat_messages', async () => {
+      const { ctx } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const events = streamInstances[0].addEventListener.mock.calls.map(([event]) => event);
+      expect(events).toEqual(expect.arrayContaining(['chats', 'chat_messages', 'agent_runs']));
+    });
+
+    it('should dispatch UPDATE_ACTIVE_RUN (not UPDATE_CHAT) for agent_runs events', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRuns = getAgentRunsListener();
+      const runWithOutput = {
+        state: AgentRunStateCompleted,
+        output: { answer: 42 },
+      } as AgentRunDTO;
+      onAgentRuns(runWithOutput);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_ACTIVE_RUN',
+        payload: runWithOutput,
+      });
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'UPDATE_CHAT' })
+      );
+    });
+
+    it('should drive onStatusChange from agent_runs state without chats events', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRuns = getAgentRunsListener();
+      onAgentRuns(workingRun);
+      expect(onStatusChange).toHaveBeenLastCalledWith('streaming');
+
+      onAgentRuns({ state: AgentRunStateCompleted } as AgentRunDTO);
+      expect(onStatusChange).toHaveBeenLastCalledWith('idle');
+    });
+
+    it('should call onTurnEnd when agent_runs transitions from working to completed', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRuns = getAgentRunsListener();
+      onAgentRuns(workingRun);
+      expect(onTurnEnd).not.toHaveBeenCalled();
+
+      const completedRunWithOutput = {
+        state: AgentRunStateCompleted,
+        output: { done: true },
+      } as AgentRunDTO;
+      onAgentRuns(completedRunWithOutput);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith({ active_run: completedRunWithOutput });
+    });
+  });
+
   describe('pollChat', () => {
     it('should dispatch streaming status when the poll manager starts', async () => {
       const onStatusChange = jest.fn();
