@@ -3123,27 +3123,44 @@ export interface LLMOutput {
   usage?: LLMUsage;
 }
 /**
+ * ModelSettings groups sampling and generation parameters.
+ * All fields are optional — omitted fields use the provider's defaults.
+ */
+export interface ModelSettings {
+  temperature?: number /* float64 */;
+  top_p?: number /* float64 */;
+  top_k?: number /* int */;
+  min_p?: number /* float64 */;
+  frequency_penalty?: number /* float64 */;
+  presence_penalty?: number /* float64 */;
+  repetition_penalty?: number /* float64 */;
+  seed?: number /* int */;
+  stop?: string[];
+  max_tokens?: number /* int */;
+  reasoning_effort?: string;
+  reasoning_max_tokens?: number /* int */;
+}
+/**
  * LLMInput is the input envelope for an LLM provider task.
  */
 export interface LLMInput {
   model?: string;
   context_size: number /* int */;
+  /**
+   * Flat sampling fields — kept for backward compat with stored agent configs.
+   * New code should use ModelSettings.
+   */
   temperature?: number /* float64 */;
   top_p?: number /* float64 */;
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
+  model_settings?: ModelSettings;
   system_prompt: string;
   context: LLMContextMessage[];
   role?: ChatMessageRole;
   text?: string;
   reasoning?: string;
-  /**
-   * Attachments is the SDK input field with full file metadata
-   */
   attachments?: FileRef[];
-  /**
-   * Images and Files are internal fields for task workers (filled from Attachments or context)
-   */
   images?: string[];
   files?: string[];
   tools?: Tool[];
