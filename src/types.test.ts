@@ -61,6 +61,16 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  ApiAgentRunRequest,
+  ChatMessageRoleAssistant,
+  ChatMessageRoleSystem,
+  ChatMessageRoleTool,
+  ChatMessageRoleUser,
+  CreateAgentMessageRequest,
+  LLMContextMessage,
+  LLMInput,
+  LLMOutput,
+  LLMUsage,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1050,6 +1060,155 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('LLM contract types', () => {
+  it('models LLMInput with required envelope fields and optional generation params', () => {
+    const context: LLMContextMessage[] = [
+      { role: ChatMessageRoleSystem, text: 'You are helpful.' },
+      { role: ChatMessageRoleUser, text: 'Hello' },
+    ];
+
+    const input: LLMInput = {
+      model: 'openrouter/claude@latest',
+      context_size: 128_000,
+      temperature: 0.7,
+      top_p: 0.9,
+      reasoning_effort: 'medium',
+      reasoning_max_tokens: 4096,
+      system_prompt: 'You are a coding assistant.',
+      context,
+      role: ChatMessageRoleUser,
+      text: 'Explain async/await',
+      reasoning: 'User wants a concise explanation.',
+      attachments: [
+        {
+          uri: 'inf://files/spec.pdf',
+          filename: 'spec.pdf',
+          content_type: 'application/pdf',
+          size: 2048,
+        },
+      ],
+      images: ['inf://files/diagram.png'],
+      files: ['inf://files/spec.pdf'],
+      tool_call_id: 'call-1',
+    };
+
+    expect(input.context_size).toBe(128_000);
+    expect(input.system_prompt).toBe('You are a coding assistant.');
+    expect(input.context).toHaveLength(2);
+    expect(input.context[0].role).toBe('system');
+    expect(input.attachments?.[0].filename).toBe('spec.pdf');
+    expect(input.images).toEqual(['inf://files/diagram.png']);
+    expect(input.tool_call_id).toBe('call-1');
+  });
+
+  it('models LLMContextMessage with tool_calls for function-calling turns', () => {
+    const message: LLMContextMessage = {
+      role: ChatMessageRoleAssistant,
+      text: 'Let me look that up.',
+      tool_calls: [
+        {
+          id: 'call-weather',
+          type: 'function',
+          function: { name: 'get_weather', arguments: { city: 'Berlin' } },
+        },
+      ],
+    };
+
+    expect(message.tool_calls?.[0].function.name).toBe('get_weather');
+    expect(message.tool_calls?.[0].function.arguments).toEqual({ city: 'Berlin' });
+  });
+
+  it('models LLMOutput with response, reasoning, tool_calls, and usage metrics', () => {
+    const usage: LLMUsage = {
+      stop_reason: 'end_turn',
+      time_to_first_token: 0.42,
+      tokens_per_second: 85.5,
+      prompt_tokens: 1200,
+      completion_tokens: 340,
+      total_tokens: 1540,
+      reasoning_tokens: 96,
+      reasoning_time: 1.8,
+    };
+
+    const output: LLMOutput = {
+      response: 'Async/await lets you write asynchronous code sequentially.',
+      reasoning: 'Summarized the core benefit without implementation detail.',
+      tool_calls: [
+        {
+          id: 'call-docs',
+          type: 'function',
+          function: { name: 'search_docs', arguments: { query: 'async await' } },
+        },
+      ],
+      usage,
+    };
+
+    expect(output.response).toContain('Async/await');
+    expect(output.usage?.total_tokens).toBe(1540);
+    expect(output.usage?.reasoning_tokens).toBe(96);
+    expect(output.tool_calls?.[0].function.name).toBe('search_docs');
+  });
+
+  it('types ApiAgentRunRequest and CreateAgentMessageRequest input as LLMInput', () => {
+    const llmInput: LLMInput = {
+      context_size: 0,
+      system_prompt: '',
+      context: [],
+      role: ChatMessageRoleUser,
+      text: 'ping',
+    };
+
+    const runRequest: ApiAgentRunRequest = {
+      agent: 'inference/my-agent',
+      input: llmInput,
+      stream: true,
+    };
+
+    const messageRequest: CreateAgentMessageRequest = {
+      chat_id: 'chat-1',
+      agent_id: 'agent-1',
+      input: llmInput,
+    };
+
+    expect(runRequest.input.text).toBe('ping');
+    expect(runRequest.stream).toBe(true);
+    expect(messageRequest.input.role).toBe('user');
+    expect(messageRequest.chat_id).toBe('chat-1');
+  });
+
+  it('preserves LLM contract types after JSON round-trip', () => {
+    const input: LLMInput = {
+      context_size: 8192,
+      system_prompt: 'Be concise.',
+      context: [{ role: ChatMessageRoleTool, text: 'result: ok', tool_call_id: 'call-9' }],
+      role: ChatMessageRoleUser,
+      text: 'continue',
+    };
+
+    const output: LLMOutput = {
+      response: 'Done.',
+      usage: {
+        stop_reason: 'stop',
+        time_to_first_token: 0.1,
+        tokens_per_second: 100,
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        total_tokens: 15,
+        reasoning_tokens: 0,
+        reasoning_time: 0,
+      },
+    };
+
+    const parsedInput = JSON.parse(JSON.stringify(input)) as LLMInput;
+    const parsedOutput = JSON.parse(JSON.stringify(output)) as LLMOutput;
+
+    expect(parsedInput.context[0].role).toBe('tool');
+    expect(parsedInput.context[0].tool_call_id).toBe('call-9');
+    expect(parsedOutput.usage?.stop_reason).toBe('stop');
+    expect(parsedOutput.response).toBe('Done.');
   });
 });
 

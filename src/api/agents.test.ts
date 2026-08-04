@@ -797,7 +797,15 @@ describe('Agent.sendMessage (template ref)', () => {
     expect(body.agent_config).toBeUndefined();
     expect(body.context).toEqual({ tenant: 'acme' });
     expect(body.chat_id).toBeNull();
-    expect(body.input.text).toBe('hello');
+    expect(body.input).toEqual({
+      text: 'hello',
+      images: undefined,
+      files: undefined,
+      role: 'user',
+      context: [],
+      system_prompt: '',
+      context_size: 0,
+    });
   });
 
   it('should include chat_id on follow-up messages', async () => {
