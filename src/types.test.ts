@@ -1,5 +1,6 @@
 import {
   APIError,
+  ApiAgentRunRequest,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -16,6 +17,8 @@ import {
   DeviceAuthStatusPending,
   CacheScopePrivate,
   CacheScopePublic,
+  ChatMessageRoleUser,
+  CreateAgentMessageRequest,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
@@ -30,6 +33,8 @@ import {
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  LLMInput,
+  ModelSettings,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -1185,5 +1190,118 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('ModelSettings and LLMInput generation params', () => {
+  it('models ModelSettings with all optional sampling and generation fields', () => {
+    const settings: ModelSettings = {
+      temperature: 0.8,
+      top_p: 0.95,
+      top_k: 40,
+      min_p: 0.05,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.1,
+      repetition_penalty: 1.1,
+      seed: 42,
+      stop: ['</s>', 'END'],
+      max_tokens: 2048,
+      reasoning_effort: 'high',
+      reasoning_max_tokens: 8192,
+    };
+
+    expect(settings.temperature).toBe(0.8);
+    expect(settings.top_k).toBe(40);
+    expect(settings.stop).toEqual(['</s>', 'END']);
+    expect(settings.reasoning_effort).toBe('high');
+    expect(settings.reasoning_max_tokens).toBe(8192);
+  });
+
+  it('allows LLMInput to carry nested model_settings for new code paths', () => {
+    const input: LLMInput = {
+      context_size: 128_000,
+      system_prompt: 'You are helpful.',
+      context: [],
+      role: ChatMessageRoleUser,
+      text: 'Summarize this document.',
+      model_settings: {
+        temperature: 0.2,
+        top_p: 0.9,
+        max_tokens: 512,
+        stop: ['\n\n'],
+      },
+    };
+
+    expect(input.model_settings?.temperature).toBe(0.2);
+    expect(input.model_settings?.max_tokens).toBe(512);
+    expect(input.model_settings?.stop).toEqual(['\n\n']);
+  });
+
+  it('keeps flat sampling fields on LLMInput for backward compat with stored agent configs', () => {
+    const input: LLMInput = {
+      context_size: 8192,
+      system_prompt: 'Legacy config.',
+      context: [],
+      temperature: 0.7,
+      top_p: 0.85,
+      reasoning_effort: 'medium',
+      reasoning_max_tokens: 4096,
+      model_settings: {
+        temperature: 0.5,
+        top_p: 0.8,
+      },
+    };
+
+    expect(input.temperature).toBe(0.7);
+    expect(input.top_p).toBe(0.85);
+    expect(input.reasoning_effort).toBe('medium');
+    expect(input.reasoning_max_tokens).toBe(4096);
+    expect(input.model_settings?.temperature).toBe(0.5);
+  });
+
+  it('types ApiAgentRunRequest and CreateAgentMessageRequest input with model_settings', () => {
+    const llmInput: LLMInput = {
+      context_size: 0,
+      system_prompt: '',
+      context: [],
+      role: ChatMessageRoleUser,
+      text: 'ping',
+      model_settings: { temperature: 0, seed: 1 },
+    };
+
+    const runRequest: ApiAgentRunRequest = {
+      agent: 'inference/my-agent',
+      input: llmInput,
+      stream: true,
+    };
+
+    const messageRequest: CreateAgentMessageRequest = {
+      chat_id: 'chat-1',
+      agent_id: 'agent-1',
+      input: llmInput,
+    };
+
+    expect(runRequest.input.model_settings?.temperature).toBe(0);
+    expect(runRequest.input.model_settings?.seed).toBe(1);
+    expect(messageRequest.input.text).toBe('ping');
+  });
+
+  it('preserves ModelSettings nested in LLMInput after JSON round-trip', () => {
+    const input: LLMInput = {
+      context_size: 4096,
+      system_prompt: 'Be concise.',
+      context: [],
+      model_settings: {
+        temperature: 0.3,
+        frequency_penalty: 0.5,
+        stop: ['DONE'],
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.model_settings?.temperature).toBe(0.3);
+    expect(parsed.model_settings?.frequency_penalty).toBe(0.5);
+    expect(parsed.model_settings?.stop).toEqual(['DONE']);
   });
 });
