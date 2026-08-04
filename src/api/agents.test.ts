@@ -10,7 +10,6 @@ import {
   ToolTypeClient,
   AgentRunStateCompleted,
   AgentRunStateWorking,
-  AgentRunStateCompleted,
 } from '../types';
 import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
