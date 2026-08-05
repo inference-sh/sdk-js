@@ -1,5 +1,6 @@
 import {
   APIError,
+  ApiAgentRunRequest,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -16,6 +17,8 @@ import {
   DeviceAuthStatusPending,
   CacheScopePrivate,
   CacheScopePublic,
+  ChatMessageRoleUser,
+  CreateAgentMessageRequest,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
@@ -30,6 +33,8 @@ import {
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  LLMInput,
+  ModelSettings,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -1050,6 +1055,118 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('LLMInput flattened sampling fields (INF-626)', () => {
+  it('models ModelSettings as a passable unit with all optional sampling fields', () => {
+    const settings: ModelSettings = {
+      temperature: 0.8,
+      top_p: 0.95,
+      top_k: 40,
+      min_p: 0.05,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.1,
+      repetition_penalty: 1.1,
+      seed: 42,
+      stop: ['</s>', 'END'],
+      max_tokens: 2048,
+      reasoning_effort: 'high',
+      reasoning_max_tokens: 8192,
+    };
+
+    expect(settings.temperature).toBe(0.8);
+    expect(settings.top_k).toBe(40);
+    expect(settings.stop).toEqual(['</s>', 'END']);
+    expect(settings.reasoning_effort).toBe('high');
+    expect(settings.reasoning_max_tokens).toBe(8192);
+  });
+
+  it('models LLMInput with flattened sampling fields on the envelope', () => {
+    const input: LLMInput = {
+      model: 'openrouter/claude@latest',
+      context_size: 128_000,
+      system_prompt: 'You are helpful.',
+      context: [],
+      role: ChatMessageRoleUser,
+      text: 'Summarize this document.',
+      temperature: 0.2,
+      top_p: 0.9,
+      top_k: 50,
+      min_p: 0.02,
+      frequency_penalty: 0.4,
+      presence_penalty: 0.2,
+      repetition_penalty: 1.05,
+      seed: 7,
+      stop: ['\n\n', 'END'],
+      max_tokens: 512,
+      reasoning_effort: 'medium',
+      reasoning_max_tokens: 4096,
+    };
+
+    expect(input.temperature).toBe(0.2);
+    expect(input.top_k).toBe(50);
+    expect(input.min_p).toBe(0.02);
+    expect(input.frequency_penalty).toBe(0.4);
+    expect(input.presence_penalty).toBe(0.2);
+    expect(input.repetition_penalty).toBe(1.05);
+    expect(input.seed).toBe(7);
+    expect(input.stop).toEqual(['\n\n', 'END']);
+    expect(input.max_tokens).toBe(512);
+    expect(input.reasoning_effort).toBe('medium');
+    expect(input.reasoning_max_tokens).toBe(4096);
+  });
+
+  it('types ApiAgentRunRequest and CreateAgentMessageRequest input with flattened sampling params', () => {
+    const llmInput: LLMInput = {
+      context_size: 0,
+      system_prompt: '',
+      context: [],
+      role: ChatMessageRoleUser,
+      text: 'ping',
+      temperature: 0,
+      seed: 1,
+      max_tokens: 256,
+    };
+
+    const runRequest: ApiAgentRunRequest = {
+      agent: 'inference/my-agent',
+      input: llmInput,
+      stream: true,
+    };
+
+    const messageRequest: CreateAgentMessageRequest = {
+      chat_id: 'chat-1',
+      agent_id: 'agent-1',
+      input: llmInput,
+    };
+
+    expect(runRequest.input.temperature).toBe(0);
+    expect(runRequest.input.seed).toBe(1);
+    expect(runRequest.input.max_tokens).toBe(256);
+    expect(messageRequest.input.text).toBe('ping');
+  });
+
+  it('preserves flattened LLMInput sampling fields after JSON round-trip', () => {
+    const input: LLMInput = {
+      context_size: 4096,
+      system_prompt: 'Be concise.',
+      context: [],
+      temperature: 0.3,
+      top_p: 0.85,
+      top_k: 20,
+      frequency_penalty: 0.5,
+      stop: ['DONE'],
+      max_tokens: 1024,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.temperature).toBe(0.3);
+    expect(parsed.top_k).toBe(20);
+    expect(parsed.frequency_penalty).toBe(0.5);
+    expect(parsed.stop).toEqual(['DONE']);
+    expect(parsed.max_tokens).toBe(1024);
   });
 });
 
