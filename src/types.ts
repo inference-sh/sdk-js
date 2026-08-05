@@ -3123,8 +3123,7 @@ export interface LLMOutput {
   usage?: LLMUsage;
 }
 /**
- * ModelSettings groups sampling and generation parameters.
- * All fields are optional — omitted fields use the provider's defaults.
+ * ModelSettings groups sampling and generation parameters as a passable unit.
  */
 export interface ModelSettings {
   temperature?: number /* float64 */;
@@ -3146,15 +3145,18 @@ export interface ModelSettings {
 export interface LLMInput {
   model?: string;
   context_size: number /* int */;
-  /**
-   * Flat sampling fields — kept for backward compat with stored agent configs.
-   * New code should use ModelSettings.
-   */
   temperature?: number /* float64 */;
   top_p?: number /* float64 */;
+  top_k?: number /* int */;
+  min_p?: number /* float64 */;
+  frequency_penalty?: number /* float64 */;
+  presence_penalty?: number /* float64 */;
+  repetition_penalty?: number /* float64 */;
+  seed?: number /* int */;
+  stop?: string[];
+  max_tokens?: number /* int */;
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
-  model_settings?: ModelSettings;
   system_prompt: string;
   context: LLMContextMessage[];
   role?: ChatMessageRole;
