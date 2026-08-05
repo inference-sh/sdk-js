@@ -68,6 +68,24 @@ describe('agent/api', () => {
       expect(result).toBeNull();
     });
 
+    it('should post minimal LLMInput envelope with required fields', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendAdHocMessage(makeClient(), adHocConfig, null, 'hello');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.input).toEqual({
+        text: 'hello',
+        attachments: undefined,
+        context_size: 0,
+        system_prompt: '',
+        context: [],
+        role: 'user',
+      });
+      expect(body.input).not.toHaveProperty('model_settings');
+    });
+
     it('should strip client tool handlers from the agents/run request body', async () => {
       mockJsonResponse(runResponse);
 
@@ -117,6 +135,24 @@ describe('agent/api', () => {
       );
 
       expect(result).toBeNull();
+    });
+
+    it('should post minimal LLMInput envelope with required fields', async () => {
+      mockJsonResponse(runResponse);
+
+      await sendTemplateMessage(makeClient(), { agent: 'agent-1' }, null, 'hello');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init.body));
+      expect(body.input).toEqual({
+        text: 'hello',
+        attachments: undefined,
+        context_size: 0,
+        system_prompt: '',
+        context: [],
+        role: 'user',
+      });
+      expect(body.input).not.toHaveProperty('model_settings');
     });
 
     it('should omit empty agent field for existing chats', async () => {
@@ -224,6 +260,15 @@ describe('agent/api', () => {
       expect(body.agent).toBe('agent-template-1');
       expect(body.chat_id).toBe('chat-existing');
       expect(body).not.toHaveProperty('agent_config');
+      expect(body.input).toEqual({
+        text: 'hi',
+        attachments: undefined,
+        context_size: 0,
+        system_prompt: '',
+        context: [],
+        role: 'user',
+      });
+      expect(body.input).not.toHaveProperty('model_settings');
     });
   });
 
