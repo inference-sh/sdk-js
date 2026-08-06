@@ -106,6 +106,61 @@ describe('Inference', () => {
     });
   });
 
+  describe('onMessage config forwarding', () => {
+    it('should forward onMessage from Inference constructor to HttpClient', async () => {
+      const messages = [
+        {
+          level: 'warning',
+          code: 'concurrency_limit',
+          message: 'You are near your concurrency limit',
+        },
+      ];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ data: { id: 'task-1' }, messages })),
+      });
+
+      const onMessage = jest.fn();
+      const client = new Inference({ apiKey: 'test-api-key', onMessage });
+      const result = await client.tasks.get('task-1');
+
+      expect(result).toEqual({ id: 'task-1' });
+      expect(onMessage).toHaveBeenCalledTimes(1);
+      expect(onMessage).toHaveBeenCalledWith(messages);
+    });
+
+    it('should forward onMessage through createClient', async () => {
+      const messages = [{ level: 'info', code: 'deprecation_notice', message: 'Endpoint deprecated' }];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ data: { ok: true }, messages })),
+      });
+
+      const onMessage = jest.fn();
+      const client = createClient({ apiKey: 'test-api-key', onMessage });
+      const result = await client._request<{ ok: boolean }>('get', '/health');
+
+      expect(result).toEqual({ ok: true });
+      expect(onMessage).toHaveBeenCalledWith(messages);
+    });
+
+    it('should not invoke onMessage when V3 envelope has no messages', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ data: { id: 'task-2' } })),
+      });
+
+      const onMessage = jest.fn();
+      const client = new Inference({ apiKey: 'test-api-key', onMessage });
+      await client.tasks.get('task-2');
+
+      expect(onMessage).not.toHaveBeenCalled();
+    });
+  });
+
   describe('run', () => {
     it('should make a POST request to /run', async () => {
       const mockTask = {
