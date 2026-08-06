@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import {
   FlowRunDTO as FlowRun,
   CursorListRequest,
@@ -14,42 +15,42 @@ export class FlowRunsAPI {
   /**
    * List flow runs with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowRun>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<FlowRun>>> {
     return this.http.request<CursorListResponse<FlowRun>>('post', '/flowruns/list', { data: params });
   }
 
   /**
    * Get a flow run by ID
    */
-  async get(flowRunId: string): Promise<FlowRun> {
+  async get(flowRunId: string): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('get', `/flowruns/${flowRunId}`);
   }
 
   /**
    * Create a new flow run
    */
-  async create(flowId: string, input?: unknown): Promise<FlowRun> {
+  async create(flowId: string, input?: unknown): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', '/flowruns', { data: { flow: flowId, input } });
   }
 
   /**
    * Clone a flow run
    */
-  async clone(flowRunId: string): Promise<FlowRun> {
+  async clone(flowRunId: string): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}/clone`);
   }
 
   /**
    * Update a flow run
    */
-  async update(flowRunId: string, data: Partial<FlowRun>): Promise<FlowRun> {
+  async update(flowRunId: string, data: Partial<FlowRun>): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}`, { data });
   }
 
   /**
    * Cancel a flow run
    */
-  async cancel(flowRunId: string): Promise<void> {
+  async cancel(flowRunId: string): Promise<Response<void>> {
     return this.http.request<void>('post', `/flowruns/${flowRunId}/cancel`);
   }
 
@@ -70,7 +71,7 @@ export class FlowRunsAPI {
   /**
    * Update flow run visibility
    */
-  async updateVisibility(flowRunId: string, visibility: string): Promise<FlowRun> {
+  async updateVisibility(flowRunId: string, visibility: string): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}/visibility`, { data: { visibility } });
   }
 }

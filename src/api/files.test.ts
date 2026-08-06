@@ -25,7 +25,7 @@ describe('FilesAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/files/list');
     expect(init.method).toBe('POST');
@@ -38,7 +38,7 @@ describe('FilesAPI', () => {
 
     const result = await api().get('file-1');
 
-    expect(result).toEqual(file);
+    expect(result.data).toEqual(file);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/files/file-1');
     expect(init.method).toBe('GET');

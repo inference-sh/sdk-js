@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import {
   AppDTO as App,
   AppVersionDTO,
@@ -16,105 +17,105 @@ export class AppsAPI {
   /**
    * List apps with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<App>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<App>>> {
     return this.http.request<CursorListResponse<App>>('post', '/apps/list', { data: params });
   }
 
   /**
    * Get an app by ID
    */
-  async get(appId: string): Promise<App> {
+  async get(appId: string): Promise<Response<App>> {
     return this.http.request<App>('get', `/apps/${appId}`);
   }
 
   /**
    * Get an app by version ID
    */
-  async getByVersionId(appId: string, versionId: string): Promise<App> {
+  async getByVersionId(appId: string, versionId: string): Promise<Response<App>> {
     return this.http.request<App>('get', `/apps/${appId}/versions/${versionId}`);
   }
 
   /**
    * Create a new app
    */
-  async create(data: Partial<App>): Promise<App> {
+  async create(data: Partial<App>): Promise<Response<App>> {
     return this.http.request<App>('post', '/apps', { data });
   }
 
   /**
    * Update an app
    */
-  async update(appId: string, data: Partial<App>): Promise<App> {
+  async update(appId: string, data: Partial<App>): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}`, { data });
   }
 
   /**
    * Delete an app
    */
-  async delete(appId: string): Promise<void> {
+  async delete(appId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/apps/${appId}`);
   }
 
   /**
    * Duplicate an app
    */
-  async duplicate(appId: string): Promise<App> {
+  async duplicate(appId: string): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}/duplicate`);
   }
 
   /**
    * List app versions
    */
-  async listVersions(appId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AppVersionDTO>> {
+  async listVersions(appId: string, params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<AppVersionDTO>>> {
     return this.http.request<CursorListResponse<AppVersionDTO>>('post', `/apps/${appId}/versions/list`, { data: params });
   }
 
   /**
    * Transfer app ownership to another team
    */
-  async transferOwnership(appId: string, newTeamId: string): Promise<App> {
+  async transferOwnership(appId: string, newTeamId: string): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}/transfer`, { data: { team_id: newTeamId } });
   }
 
   /**
    * Update app visibility
    */
-  async updateVisibility(appId: string, visibility: string): Promise<App> {
+  async updateVisibility(appId: string, visibility: string): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}/visibility`, { data: { visibility } });
   }
 
   /**
    * Update app lifecycle status
    */
-  async updateStatus(appId: string, status: string, message?: string): Promise<App> {
+  async updateStatus(appId: string, status: string, message?: string): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}/status`, { data: { status, message } });
   }
 
   /**
    * Get an app by namespace and name (e.g., "inference/claude-haiku")
    */
-  async getByName(name: string): Promise<App> {
+  async getByName(name: string): Promise<Response<App>> {
     return this.http.request<App>('get', `/apps/${name}`);
   }
 
   /**
    * Get app license record
    */
-  async getLicense(appId: string): Promise<LicenseRecordDTO> {
+  async getLicense(appId: string): Promise<Response<LicenseRecordDTO>> {
     return this.http.request<LicenseRecordDTO>('get', `/apps/${appId}/license`);
   }
 
   /**
    * Save app license
    */
-  async saveLicense(appId: string, license: string): Promise<LicenseRecordDTO> {
+  async saveLicense(appId: string, license: string): Promise<Response<LicenseRecordDTO>> {
     return this.http.request<LicenseRecordDTO>('post', `/apps/${appId}/license`, { data: { license } });
   }
 
   /**
    * Set the current (active) version of an app
    */
-  async setCurrentVersion(appId: string, versionId: string): Promise<App> {
+  async setCurrentVersion(appId: string, versionId: string): Promise<Response<App>> {
     return this.http.request<App>('put', `/apps/${appId}/versions/${versionId}/current`);
   }
 }

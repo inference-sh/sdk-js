@@ -25,7 +25,7 @@ describe('ProjectsAPI', () => {
 
     const result = await api().list({ limit: 20 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/projects/list');
     expect(init.method).toBe('POST');
@@ -50,7 +50,7 @@ describe('ProjectsAPI', () => {
 
     const result = await api().get('proj-1');
 
-    expect(result).toEqual(project);
+    expect(result.data).toEqual(project);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/projects/proj-1');
     expect(init.method).toBe('GET');
@@ -63,7 +63,7 @@ describe('ProjectsAPI', () => {
 
     const result = await api().create(payload);
 
-    expect(result).toEqual(project);
+    expect(result.data).toEqual(project);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/projects');
     expect(init.method).toBe('POST');
@@ -85,7 +85,7 @@ describe('ProjectsAPI', () => {
 
     const result = await api().update('proj-1', { name: 'Renamed' });
 
-    expect(result).toEqual(project);
+    expect(result.data).toEqual(project);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/projects/proj-1');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });

@@ -1,5 +1,7 @@
 // HTTP utilities
 export { HttpClient, type HttpClientConfig, type ErrorHandler, type MessageHandler, createHttpClient } from './http/client';
+export type { Response } from './http/response';
+import type { Response } from './http/response';
 export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream';
 export { StreamableManager, type StreamableManagerOptions, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
 export { PollManager, type PollManagerOptions } from './http/poll';
@@ -182,7 +184,7 @@ export class Inference {
     method: 'get' | 'post' | 'put' | 'delete',
     endpoint: string,
     options: { params?: Record<string, unknown>; data?: Record<string, unknown> } = {}
-  ): Promise<T> {
+  ): Promise<Response<T>> {
     return this.http.request<T>(method, endpoint, options);
   }
 
@@ -209,14 +211,14 @@ export class Inference {
   /**
    * Cancel a running task
    */
-  async cancel(taskId: string): Promise<void> {
+  async cancel(taskId: string): Promise<Response<void>> {
     return this.tasks.cancel(taskId);
   }
 
   /**
    * Get a task by ID
    */
-  async getTask(taskId: string): Promise<Task> {
+  async getTask(taskId: string): Promise<Response<Task>> {
     return this.tasks.get(taskId);
   }
 

@@ -25,7 +25,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/list');
     expect(init.method).toBe('POST');
@@ -37,7 +37,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().getByName('acme', 'docs');
 
-    expect(result).toEqual(entry);
+    expect(result.data).toEqual(entry);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/acme/docs');
     expect(init.method).toBe('GET');
@@ -50,7 +50,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().create(payload as never);
 
-    expect(result).toEqual(entry);
+    expect(result.data).toEqual(entry);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge');
     expect(init.method).toBe('POST');
@@ -100,9 +100,9 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().get('know-1');
 
-    expect(result).toEqual(entry);
-    expect(result.uses).toBe(256);
-    expect(result.installs).toBe(12);
+    expect(result.data).toEqual(entry);
+    expect(result.data.uses).toBe(256);
+    expect(result.data.installs).toBe(12);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/know-1');
     expect(init.method).toBe('GET');
@@ -114,7 +114,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().update('know-1', { name: 'updated' } as never);
 
-    expect(result).toEqual(entry);
+    expect(result.data).toEqual(entry);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
   });
@@ -135,7 +135,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().listVersions('know-1', { limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/know-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 10 });
@@ -147,7 +147,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().getVersion('know-1', 'ver-1');
 
-    expect(result).toEqual(version);
+    expect(result.data).toEqual(version);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/knowledge/know-1/versions/ver-1');
     expect(init.method).toBe('GET');
@@ -166,7 +166,7 @@ describe('KnowledgeAPI', () => {
 
     const result = await api().getVersion('know-1', 'ver-1');
 
-    expect(result.scope).toEqual(['git:inference-sh/sdk-js', 'lang:typescript']);
+    expect(result.data.scope).toEqual(['git:inference-sh/sdk-js', 'lang:typescript']);
   });
 
   it('should POST visibility for updateVisibility()', async () => {
@@ -193,7 +193,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().resolve('acme/skill@v1', 'main');
 
-    expect(result).toEqual(resolved);
+    expect(result.data).toEqual(resolved);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/skills/resolve');
     expect(url).toContain('ref=acme');
@@ -206,7 +206,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().getByName('acme', 'research');
 
-    expect(result).toEqual(skill);
+    expect(result.data).toEqual(skill);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/acme/research');
     expect(init.method).toBe('GET');
@@ -228,7 +228,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().listStore();
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/store/skills/list');
     expect(init.method).toBe('POST');
@@ -240,7 +240,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().resolve('acme/skill@v1');
 
-    expect(result).toEqual(resolved);
+    expect(result.data).toEqual(resolved);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/skills/resolve');
     expect(url).toContain('ref=acme');
@@ -252,7 +252,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().getContent('acme', 'research');
 
-    expect(result).toEqual({ body: '# Skill instructions' });
+    expect(result.data).toEqual({ body: '# Skill instructions' });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/acme/research/content');
     expect(init.method).toBe('GET');
@@ -275,7 +275,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/list');
     expect(init.method).toBe('POST');
@@ -295,9 +295,9 @@ describe('SkillsAPI', () => {
 
     const result = await api().get('skill-1');
 
-    expect(result).toEqual(skill);
-    expect(result.uses).toBe(64);
-    expect(result.installs).toBe(8);
+    expect(result.data).toEqual(skill);
+    expect(result.data.uses).toBe(64);
+    expect(result.data.installs).toBe(8);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/skill-1');
     expect(init.method).toBe('GET');
@@ -310,7 +310,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().create(payload);
 
-    expect(result).toEqual(skill);
+    expect(result.data).toEqual(skill);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills');
     expect(init.method).toBe('POST');
@@ -323,7 +323,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().update('skill-1', { name: 'updated' });
 
-    expect(result).toEqual(skill);
+    expect(result.data).toEqual(skill);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
   });
@@ -344,7 +344,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().listVersions('skill-1', { limit: 5 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/skill-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 5 });
@@ -356,7 +356,7 @@ describe('SkillsAPI', () => {
 
     const result = await api().getVersion('skill-1', 'ver-1');
 
-    expect(result).toEqual(version);
+    expect(result.data).toEqual(version);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/skill-1/versions/ver-1');
     expect(init.method).toBe('GET');

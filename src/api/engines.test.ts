@@ -61,8 +61,8 @@ describe('EnginesAPI', () => {
       agent_ids: ['agent-1'],
     });
 
-    expect(result).toEqual(engines);
-    expect(result[0]?.engine_version).toBe('2.4.1');
+    expect(result.data).toEqual(engines);
+    expect(result.data[0]?.engine_version).toBe('2.4.1');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines/resources');
     expect(JSON.parse(init.body as string)).toEqual({
@@ -109,8 +109,8 @@ describe('EnginesAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(page);
-    expect(result.items[0]?.engine_version).toBe('2.4.1');
+    expect(result.data).toEqual(page);
+    expect(result.data.items[0]?.engine_version).toBe('2.4.1');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines/list');
     expect(init.method).toBe('POST');
@@ -122,8 +122,8 @@ describe('EnginesAPI', () => {
 
     const result = await api().get('eng-1');
 
-    expect(result).toEqual(engine);
-    expect(result.engine_version).toBe('2.4.1');
+    expect(result.data).toEqual(engine);
+    expect(result.data.engine_version).toBe('2.4.1');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines/eng-1');
     expect(init.method).toBe('GET');
@@ -135,7 +135,7 @@ describe('EnginesAPI', () => {
 
     const result = await api().create({ name: 'worker' });
 
-    expect(result).toEqual(engine);
+    expect(result.data).toEqual(engine);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines');
     expect(init.method).toBe('POST');
@@ -148,7 +148,7 @@ describe('EnginesAPI', () => {
 
     const result = await api().update('eng-1', { name: 'updated' });
 
-    expect(result).toEqual(engine);
+    expect(result.data).toEqual(engine);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
   });
@@ -219,7 +219,7 @@ describe('EnginesAPI', () => {
 
     const result = await api().get('eng-1');
 
-    expect(result.status).toBe(EngineStatusRestarting);
+    expect(result.data.status).toBe(EngineStatusRestarting);
   });
 
   it('should preserve restarting status in list() responses', async () => {
@@ -231,7 +231,7 @@ describe('EnginesAPI', () => {
 
     const result = await api().list();
 
-    expect(result.items[0]?.status).toBe(EngineStatusRestarting);
+    expect(result.data.items[0]?.status).toBe(EngineStatusRestarting);
   });
 
   it('should preserve top-level engine_version independently of system_info.engine_version', async () => {
@@ -257,7 +257,7 @@ describe('EnginesAPI', () => {
 
     const result = await api().get('eng-1');
 
-    expect(result.engine_version).toBe('3.0.0');
-    expect(result.system_info?.engine_version).toBe('2.9.9');
+    expect(result.data.engine_version).toBe('3.0.0');
+    expect(result.data.system_info?.engine_version).toBe('2.9.9');
   });
 });

@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import {
   SecretDTO,
   SecretCreateRequest,
@@ -15,35 +16,35 @@ export class SecretsAPI {
   /**
    * List secrets with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<SecretDTO>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<SecretDTO>>> {
     return this.http.request<CursorListResponse<SecretDTO>>('post', '/secrets/list', { data: params });
   }
 
   /**
    * Create a secret
    */
-  async create(data: SecretCreateRequest): Promise<SecretDTO> {
+  async create(data: SecretCreateRequest): Promise<Response<SecretDTO>> {
     return this.http.request<SecretDTO>('post', '/secrets', { data });
   }
 
   /**
    * Update a secret
    */
-  async update(key: string, data: Partial<SecretCreateRequest>): Promise<SecretDTO> {
+  async update(key: string, data: Partial<SecretCreateRequest>): Promise<Response<SecretDTO>> {
     return this.http.request<SecretDTO>('put', `/secrets/${key}`, { data });
   }
 
   /**
    * Delete a secret
    */
-  async delete(key: string): Promise<void> {
+  async delete(key: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/secrets/${key}`);
   }
 
   /**
    * Reveal a secret value
    */
-  async reveal(key: string): Promise<SecretDTO> {
+  async reveal(key: string): Promise<Response<SecretDTO>> {
     return this.http.request<SecretDTO>('get', `/secrets/reveal/${key}`);
   }
 }

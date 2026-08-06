@@ -25,7 +25,7 @@ describe('ApiKeysAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apikeys/list');
     expect(init.method).toBe('POST');
@@ -38,7 +38,7 @@ describe('ApiKeysAPI', () => {
 
     const result = await api().create(payload);
 
-    expect(result).toEqual(key);
+    expect(result.data).toEqual(key);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apikeys');
     expect(init.method).toBe('POST');

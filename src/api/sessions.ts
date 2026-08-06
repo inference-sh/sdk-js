@@ -3,6 +3,7 @@
  */
 
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import { AppSessionDTO } from '../types';
 
 /**
@@ -37,7 +38,7 @@ export class SessionsAPI {
    * @returns Session information
    * @throws SessionNotFoundError if session doesn't exist
    */
-  async get(sessionId: string): Promise<AppSessionDTO> {
+  async get(sessionId: string): Promise<Response<AppSessionDTO>> {
     return this.http.request<AppSessionDTO>('get', `/sessions/${sessionId}`);
   }
 
@@ -46,9 +47,8 @@ export class SessionsAPI {
    *
    * @returns List of session information
    */
-  async list(): Promise<AppSessionDTO[]> {
-    const data = await this.http.request<AppSessionDTO[]>('get', '/sessions');
-    return data || [];
+  async list(): Promise<Response<AppSessionDTO[]>> {
+    return this.http.request<AppSessionDTO[]>('get', '/sessions');
   }
 
   /**
@@ -62,7 +62,7 @@ export class SessionsAPI {
    * @throws SessionExpiredError if session has expired
    * @throws SessionEndedError if session was ended
    */
-  async keepalive(sessionId: string): Promise<AppSessionDTO> {
+  async keepalive(sessionId: string): Promise<Response<AppSessionDTO>> {
     return this.http.request<AppSessionDTO>('post', `/sessions/${sessionId}/keepalive`);
   }
 
@@ -72,8 +72,8 @@ export class SessionsAPI {
    * @param sessionId - The session ID
    * @throws SessionNotFoundError if session doesn't exist
    */
-  async end(sessionId: string): Promise<void> {
-    await this.http.request<void>('delete', `/sessions/${sessionId}`);
+  async end(sessionId: string): Promise<Response<void>> {
+    return this.http.request<void>('delete', `/sessions/${sessionId}`);
   }
 }
 

@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import { PartialFile, FileDTO as File, CursorListRequest, CursorListResponse } from '../types';
 
 /**
@@ -138,21 +139,21 @@ export class FilesAPI {
   /**
    * List files with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<File>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<File>>> {
     return this.http.request<CursorListResponse<File>>('post', '/files/list', { data: params });
   }
 
   /**
    * Get a file by ID
    */
-  async get(fileId: string): Promise<File> {
+  async get(fileId: string): Promise<Response<File>> {
     return this.http.request<File>('get', `/files/${fileId}`);
   }
 
   /**
    * Delete a file
    */
-  async delete(fileId: string): Promise<void> {
+  async delete(fileId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/files/${fileId}`);
   }
 
@@ -171,11 +172,11 @@ export class FilesAPI {
       size: resolved.size,
     };
 
-    const response = await this.http.request<File[]>('post', '/files', {
+    const resp = await this.http.request<File[]>('post', '/files', {
       data: { files: [fileRequest] },
     });
 
-    const file = response[0];
+    const file = resp.data[0];
 
     // Step 2: Upload the file content to the provided upload_url
     if (!file.upload_url) {

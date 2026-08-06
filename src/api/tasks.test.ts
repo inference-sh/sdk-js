@@ -411,7 +411,7 @@ describe('TasksAPI.create', () => {
 
     const result = await api().create({ app: 'test-app', input: { prompt: 'hi' } });
 
-    expect(result).toEqual(task);
+    expect(result.data).toEqual(task);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/run');
     expect(init.method).toBe('POST');
@@ -435,7 +435,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().list({ limit: 5 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/list');
     expect(init.method).toBe('POST');
@@ -448,7 +448,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().listFeatured({ cursor: 'abc' });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/featured');
     expect(init.method).toBe('GET');
@@ -460,7 +460,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().get('task-1');
 
-    expect(result).toEqual(task);
+    expect(result.data).toEqual(task);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1');
     expect(init.method).toBe('GET');
@@ -492,7 +492,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().updateVisibility('task-1', 'public');
 
-    expect(result).toEqual(task);
+    expect(result.data).toEqual(task);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
   });
@@ -527,7 +527,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().getLogs('task-1');
 
-    expect(result).toEqual(logs);
+    expect(result.data).toEqual(logs);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1/logs');
     expect(init.method).toBe('GET');
@@ -539,7 +539,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().getTimings('task-1');
 
-    expect(result).toEqual(timings);
+    expect(result.data).toEqual(timings);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1/timings');
     expect(init.method).toBe('GET');
@@ -551,7 +551,7 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const result = await api().getTelemetry('task-1');
 
-    expect(result).toEqual(telemetry);
+    expect(result.data).toEqual(telemetry);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1/telemetry');
     expect(init.method).toBe('GET');

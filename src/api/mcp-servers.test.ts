@@ -31,7 +31,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/list');
     expect(init.method).toBe('POST');
@@ -43,7 +43,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().listTools('filesystem');
 
-    expect(result).toEqual(tools);
+    expect(result.data).toEqual(tools);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem/tools');
     expect(init.method).toBe('GET');
@@ -56,7 +56,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().callTool('filesystem', 'read_file', input);
 
-    expect(result).toEqual(output);
+    expect(result.data).toEqual(output);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem/tools/read_file');
     expect(init.method).toBe('POST');
@@ -79,9 +79,10 @@ describe('MCPServersAPI', () => {
     };
     mockJsonResponse(response);
 
-    const result = (await api().callTool('filesystem', 'read_file', {
+    const resp = await api().callTool('filesystem', 'read_file', {
       path: '/tmp/test.txt',
-    })) as ToolCallResponse;
+    });
+    const result = resp.data as ToolCallResponse;
 
     expect(result.resultType).toBe('complete');
     expect(result.content[0].text).toBe('file contents');
@@ -104,10 +105,11 @@ describe('MCPServersAPI', () => {
     };
     mockJsonResponse(response);
 
-    const result = (await api().callTool('filesystem', 'write_file', {
+    const resp = await api().callTool('filesystem', 'write_file', {
       path: '/tmp/out.txt',
       content: 'hello',
-    })) as ToolCallResponse;
+    });
+    const result = resp.data as ToolCallResponse;
 
     expect(result.resultType).toBe('input_required');
     expect(result.inputRequests?.approval.method).toBe('elicitation/create');
@@ -121,7 +123,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().create(payload);
 
-    expect(result).toEqual(server);
+    expect(result.data).toEqual(server);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers');
     expect(init.method).toBe('POST');
@@ -144,7 +146,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().get('filesystem');
 
-    expect(result).toEqual(server);
+    expect(result.data).toEqual(server);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');
@@ -156,7 +158,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().listOwned({ limit: 5 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/list');
     expect(init.method).toBe('POST');
@@ -168,7 +170,7 @@ describe('MCPServersAPI', () => {
 
     const result = await api().getOwned('mcp-1');
 
-    expect(result).toEqual(server);
+    expect(result.data).toEqual(server);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('GET');

@@ -26,7 +26,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/list');
     expect(init.method).toBe('POST');
@@ -38,7 +38,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().listAvailable();
 
-    expect(result).toEqual(available);
+    expect(result.data).toEqual(available);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/available');
     expect(init.method).toBe('GET');
@@ -51,7 +51,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().connect(payload as never);
 
-    expect(result).toEqual(response);
+    expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations');
     expect(init.method).toBe('POST');
@@ -64,7 +64,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().get('slack');
 
-    expect(result).toEqual(integration);
+    expect(result.data).toEqual(integration);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/slack');
     expect(init.method).toBe('GET');
@@ -86,7 +86,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().getConfigs();
 
-    expect(result).toEqual(configs);
+    expect(result.data).toEqual(configs);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/configs');
     expect(init.method).toBe('GET');
@@ -98,7 +98,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().getCapabilities();
 
-    expect(result).toEqual(capabilities);
+    expect(result.data).toEqual(capabilities);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/capabilities');
     expect(init.method).toBe('GET');
@@ -128,7 +128,7 @@ describe('IntegrationsAPI', () => {
 
     const result = await api().checkRequirements(payload);
 
-    expect(result).toEqual(response);
+    expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/check');
     expect(init.method).toBe('POST');

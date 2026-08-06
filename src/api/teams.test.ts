@@ -25,7 +25,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().me();
 
-    expect(result).toEqual(me);
+    expect(result.data).toEqual(me);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/me');
     expect(init.method).toBe('GET');
@@ -37,7 +37,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(teams);
+    expect(result.data).toEqual(teams);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams');
     expect(init.method).toBe('GET');
@@ -50,7 +50,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().create(payload as never);
 
-    expect(result).toEqual(team);
+    expect(result.data).toEqual(team);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams');
     expect(init.method).toBe('POST');
@@ -62,7 +62,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().checkUsername('acme-corp');
 
-    expect(result).toEqual({ value: 'acme-corp', available: true });
+    expect(result.data).toEqual({ value: 'acme-corp', available: true });
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/teams/check-username');
     expect(url).toContain('username=acme-corp');
@@ -73,7 +73,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().checkUsername('Acme-Corp');
 
-    expect(result).toEqual({ value: 'acme-corp', available: false, reason: 'taken' });
+    expect(result.data).toEqual({ value: 'acme-corp', available: false, reason: 'taken' });
   });
 
   it('should surface reserved reason when checkUsername hits a reserved username', async () => {
@@ -81,7 +81,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().checkUsername('admin');
 
-    expect(result).toEqual({ value: 'admin', available: false, reason: 'reserved' });
+    expect(result.data).toEqual({ value: 'admin', available: false, reason: 'reserved' });
   });
 
   it('should POST role for updateMemberRole()', async () => {
@@ -112,7 +112,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().createInvite('team-1', payload as never);
 
-    expect(result).toEqual(invite);
+    expect(result.data).toEqual(invite);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1/invites');
     expect(JSON.parse(init.body as string)).toEqual(payload);
@@ -124,7 +124,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().get('team-1');
 
-    expect(result).toEqual(team);
+    expect(result.data).toEqual(team);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1');
     expect(init.method).toBe('GET');
@@ -136,7 +136,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().update('team-1', { name: 'Acme Updated' } as never);
 
-    expect(result).toEqual(team);
+    expect(result.data).toEqual(team);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Acme Updated' });
@@ -158,7 +158,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().getMembers('team-1');
 
-    expect(result).toEqual(members);
+    expect(result.data).toEqual(members);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1/members');
     expect(init.method).toBe('GET');
@@ -171,7 +171,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().addMember('team-1', payload as never);
 
-    expect(result).toEqual(member);
+    expect(result.data).toEqual(member);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1/members');
     expect(JSON.parse(init.body as string)).toEqual(payload);
@@ -183,7 +183,7 @@ describe('TeamsAPI', () => {
 
     const result = await api().listInvites('team-1');
 
-    expect(result).toEqual(invites);
+    expect(result.data).toEqual(invites);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1/invites');
     expect(init.method).toBe('GET');

@@ -25,7 +25,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().create('My Flow');
 
-    expect(result).toEqual(flow);
+    expect(result.data).toEqual(flow);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'My Flow' });
   });
@@ -36,7 +36,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().createApp('flow-1');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/flows/flow-1/app');
   });
@@ -60,7 +60,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/list');
     expect(init.method).toBe('POST');
@@ -72,8 +72,8 @@ describe('FlowsAPI', () => {
 
     const result = await api().get('flow-1');
 
-    expect(result).toEqual(flow);
-    expect(result.namespace).toBe('acme');
+    expect(result.data).toEqual(flow);
+    expect(result.data.namespace).toBe('acme');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/flow-1');
     expect(init.method).toBe('GET');
@@ -85,7 +85,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().update('flow-1', { name: 'Renamed' });
 
-    expect(result).toEqual(flow);
+    expect(result.data).toEqual(flow);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
@@ -96,7 +96,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().updateVisibility('flow-1', 'public');
 
-    expect(result).toEqual(flow);
+    expect(result.data).toEqual(flow);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/flow-1/visibility');
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
@@ -118,7 +118,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().duplicate('flow-1');
 
-    expect(result).toEqual(flow);
+    expect(result.data).toEqual(flow);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/flows/flow-1/duplicate');
   });
@@ -129,7 +129,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().listVersions('flow-1');
 
-    expect(result).toEqual(versions);
+    expect(result.data).toEqual(versions);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/flows/flow-1/versions/list');
   });
@@ -150,7 +150,7 @@ describe('FlowsAPI', () => {
 
     const result = await api().updateVisibility('flow-1', 'public');
 
-    expect(result).toEqual(flow);
+    expect(result.data).toEqual(flow);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flows/flow-1/visibility');
     expect(init.method).toBe('POST');

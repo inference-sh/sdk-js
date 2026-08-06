@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import {
   FlowDTO as Flow,
   FlowVersionDTO,
@@ -16,70 +17,70 @@ export class FlowsAPI {
   /**
    * List flows with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Flow>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<Flow>>> {
     return this.http.request<CursorListResponse<Flow>>('post', '/flows/list', { data: params });
   }
 
   /**
    * Get a flow by ID
    */
-  async get(flowId: string): Promise<Flow> {
+  async get(flowId: string): Promise<Response<Flow>> {
     return this.http.request<Flow>('get', `/flows/${flowId}`);
   }
 
   /**
    * Create a new flow
    */
-  async create(name: string): Promise<Flow> {
+  async create(name: string): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', '/flows', { data: { name } });
   }
 
   /**
    * Update a flow
    */
-  async update(flowId: string, data: Partial<Flow>): Promise<Flow> {
+  async update(flowId: string, data: Partial<Flow>): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', `/flows/${flowId}`, { data });
   }
 
   /**
    * Update flow visibility
    */
-  async updateVisibility(flowId: string, visibility: string): Promise<Flow> {
+  async updateVisibility(flowId: string, visibility: string): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', `/flows/${flowId}/visibility`, { data: { visibility } });
   }
 
   /**
    * Delete a flow
    */
-  async delete(flowId: string): Promise<void> {
+  async delete(flowId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/flows/${flowId}`);
   }
 
   /**
    * Duplicate a flow
    */
-  async duplicate(flowId: string): Promise<Flow> {
+  async duplicate(flowId: string): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', `/flows/${flowId}/duplicate`);
   }
 
   /**
    * List flow versions
    */
-  async listVersions(flowId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<FlowVersionDTO>> {
+  async listVersions(flowId: string, params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<FlowVersionDTO>>> {
     return this.http.request<CursorListResponse<FlowVersionDTO>>('post', `/flows/${flowId}/versions/list`, { data: params });
   }
 
   /**
    * Create an app from a flow
    */
-  async createApp(flowId: string): Promise<App> {
+  async createApp(flowId: string): Promise<Response<App>> {
     return this.http.request<App>('post', `/flows/${flowId}/app`);
   }
 
   /**
    * Transfer flow ownership to another team
    */
-  async transferOwnership(flowId: string, newTeamId: string): Promise<Flow> {
+  async transferOwnership(flowId: string, newTeamId: string): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', `/flows/${flowId}/transfer`, { data: { team_id: newTeamId } });
   }
 

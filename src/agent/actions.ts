@@ -192,7 +192,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     let prevStatus: string | null = null;
 
     const manager = new PollManager<ResourceStatusDTO>({
-      pollFunction: () => client.http.request<ResourceStatusDTO>('get', `/chats/${id}/status`),
+      pollFunction: async () => {
+        const resp = await client.http.request<ResourceStatusDTO>('get', `/chats/${id}/status`);
+        return resp.data;
+      },
       intervalMs: getPollIntervalMs(),
       onData: async (statusData) => {
         if (statusData.status === prevStatus) return;

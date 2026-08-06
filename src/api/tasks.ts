@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import {
@@ -54,42 +55,42 @@ export class TasksAPI {
   /**
    * List tasks with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<Task>>> {
     return this.http.request<CursorListResponse<Task>>('post', '/tasks/list', { data: params });
   }
 
   /**
    * List featured tasks with cursor-based pagination
    */
-  async listFeatured(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Task>> {
+  async listFeatured(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<Task>>> {
     return this.http.request<CursorListResponse<Task>>('get', '/tasks/featured', { params });
   }
 
   /**
    * Get a task by ID
    */
-  async get(taskId: string): Promise<Task> {
+  async get(taskId: string): Promise<Response<Task>> {
     return this.http.request<Task>('get', `/tasks/${taskId}`);
   }
 
   /**
    * Create and run a task
    */
-  async create(data: ApiAppRunRequest): Promise<Task> {
+  async create(data: ApiAppRunRequest): Promise<Response<Task>> {
     return this.http.request<Task>('post', '/apps/run', { data });
   }
 
   /**
    * Delete a task
    */
-  async delete(taskId: string): Promise<void> {
+  async delete(taskId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/tasks/${taskId}`);
   }
 
   /**
    * Cancel a running task
    */
-  async cancel(taskId: string): Promise<void> {
+  async cancel(taskId: string): Promise<Response<void>> {
     return this.http.request<void>('post', `/tasks/${taskId}/cancel`);
   }
 
@@ -114,12 +115,13 @@ export class TasksAPI {
       wait = true,
     } = options;
 
-    const task = await this.http.request<Task>('post', '/apps/run', {
+    const resp = await this.http.request<Task>('post', '/apps/run', {
       data: {
         ...params,
         input: processedInput,
       },
     });
+    const task = resp.data;
 
     // Return immediately if not waiting
     if (!wait) {
@@ -194,7 +196,10 @@ export class TasksAPI {
 
     return new Promise<Task>((resolve, reject) => {
       const poller = new PollManager<ResourceStatusDTO>({
-        pollFunction: () => this.http.request<ResourceStatusDTO>('get', `/tasks/${task.id}/status`),
+        pollFunction: async () => {
+          const resp = await this.http.request<ResourceStatusDTO>('get', `/tasks/${task.id}/status`);
+          return resp.data;
+        },
         intervalMs,
         maxRetries: maxReconnects,
         onData: async (statusData) => {
@@ -203,7 +208,8 @@ export class TasksAPI {
 
           // Status changed — fetch full task
           try {
-            const fullTask = await this.http.request<Task>('get', `/tasks/${task.id}`);
+            const fullResp = await this.http.request<Task>('get', `/tasks/${task.id}`);
+            const fullTask = fullResp.data;
             const stripped = stripTask(fullTask);
             onUpdate?.(stripped);
 
@@ -235,35 +241,35 @@ export class TasksAPI {
   /**
    * Update task visibility
    */
-  async updateVisibility(taskId: string, visibility: string): Promise<Task> {
+  async updateVisibility(taskId: string, visibility: string): Promise<Response<Task>> {
     return this.http.request<Task>('post', `/tasks/${taskId}/visibility`, { data: { visibility } });
   }
 
   /**
    * Feature/unfeature a task
    */
-  async feature(taskId: string, featured: boolean): Promise<Task> {
+  async feature(taskId: string, featured: boolean): Promise<Response<Task>> {
     return this.http.request<Task>('post', `/tasks/${taskId}/featured`, { data: { is_featured: featured } });
   }
 
   /**
    * Get task logs
    */
-  async getLogs(taskId: string): Promise<TaskLogsDTO> {
+  async getLogs(taskId: string): Promise<Response<TaskLogsDTO>> {
     return this.http.request<TaskLogsDTO>('get', `/tasks/${taskId}/logs`);
   }
 
   /**
    * Get task timings
    */
-  async getTimings(taskId: string): Promise<TaskTimingsDTO> {
+  async getTimings(taskId: string): Promise<Response<TaskTimingsDTO>> {
     return this.http.request<TaskTimingsDTO>('get', `/tasks/${taskId}/timings`);
   }
 
   /**
    * Get task telemetry
    */
-  async getTelemetry(taskId: string): Promise<Record<string, unknown>[]> {
+  async getTelemetry(taskId: string): Promise<Response<Record<string, unknown>[]>> {
     return this.http.request<Record<string, unknown>[]>('get', `/tasks/${taskId}/telemetry`);
   }
 }

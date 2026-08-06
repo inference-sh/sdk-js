@@ -281,15 +281,15 @@ describeIfApiKey('Sessions Integration Tests', () => {
       const sessionInfo = await client.sessions.get(sessionId);
 
       // API returns flattened structure (Go embedded structs)
-      expect((sessionInfo as any).id).toBe(sessionId);
-      expect(sessionInfo.status).toBe('active');
-      expect(sessionInfo.call_count).toBeGreaterThanOrEqual(1);
+      expect((sessionInfo.data as any).id).toBe(sessionId);
+      expect(sessionInfo.data.status).toBe('active');
+      expect(sessionInfo.data.call_count).toBeGreaterThanOrEqual(1);
     }, 60000);
 
     it('should list sessions', async () => {
-      const sessions = await client.sessions.list();
+      const resp = await client.sessions.list();
 
-      expect(Array.isArray(sessions)).toBe(true);
+      expect(Array.isArray(resp.data)).toBe(true);
       // Should have at least one session from previous tests
     }, 30000);
 
@@ -309,8 +309,8 @@ describeIfApiKey('Sessions Integration Tests', () => {
       const updated = await client.sessions.keepalive(sessionId);
 
       // API returns flattened structure (Go embedded structs)
-      expect((updated as any).id).toBe(sessionId);
-      expect(updated.status).toBe('active');
+      expect((updated.data as any).id).toBe(sessionId);
+      expect(updated.data.status).toBe('active');
     }, 60000);
 
     it('should end a session', async () => {
