@@ -254,12 +254,40 @@ describe('processProxyRequest', () => {
     );
   });
 
-  it('should forward X-API-Version and X-Client-Source to upstream', async () => {
-    // X-API-Version is load-bearing: the API returns bare DTOs for "2" and the
-    // legacy {success, status, data} envelope otherwise, and this SDK only
-    // parses the former. Dropping it here made every proxied response
-    // unparseable — the request succeeded server-side and the client saw
-    // nothing, with no error raised.
+  it('should forward X-Client-Source without X-API-Version for V3 clients', async () => {
+    const target = 'https://api.inference.sh/tasks/list';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => {
+          if (name === INF_TARGET_HEADER) return target;
+          if (name === 'x-client-source') return 'inference-sdk-js/0.6.32';
+          return undefined;
+        },
+        headers: () => ({
+          [INF_TARGET_HEADER]: target,
+          'X-Client-Source': 'inference-sdk-js/0.6.32',
+        }),
+      }),
+      { apiKey: 'key' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-client-source': 'inference-sdk-js/0.6.32',
+        }),
+      })
+    );
+
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers['x-api-version']).toBeUndefined();
+  });
+
+  it('should forward X-API-Version and X-Client-Source to upstream for legacy clients', async () => {
+    // Legacy clients may still send X-API-Version: 2; the proxy must forward it.
     const target = 'https://api.inference.sh/agents/run';
 
     await processProxyRequest(

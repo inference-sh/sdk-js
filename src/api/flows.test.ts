@@ -19,6 +19,15 @@ describe('FlowsAPI', () => {
 
   const api = () => new FlowsAPI(new HttpClient({ apiKey: 'test-key' }));
 
+  it('should unwrap V3 envelope responses from the API', async () => {
+    const flow = { id: 'flow-1', name: 'My Flow' };
+    mockJsonResponse({ data: flow });
+
+    const result = await api().create('My Flow');
+
+    expect(result).toEqual(flow);
+  });
+
   it('should POST name for create()', async () => {
     const flow = { id: 'flow-1', name: 'My Flow' };
     mockJsonResponse(flow);

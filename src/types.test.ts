@@ -1,4 +1,21 @@
 import {
+  ActionEdgeAdd,
+  ActionEdgeRemove,
+  ActionFlowRemoveOutputMapping,
+  ActionFlowRenameOutputField,
+  ActionFlowSetInputSchema,
+  ActionFlowSetOutputMapping,
+  ActionFlowSetOutputSchema,
+  ActionNodeAdd,
+  ActionNodeClearInput,
+  ActionNodeDuplicate,
+  ActionNodeMove,
+  ActionNodeMoveMany,
+  ActionNodeRemove,
+  ActionNodeRename,
+  ActionNodeSetApp,
+  ActionNodeSetInput,
+  ActionNodeUpdate,
   APIError,
   AppCategoryOther,
   AppDTO,
@@ -25,6 +42,10 @@ import {
   EntitlementSourceTier,
   EntitlementTypeBoolean,
   EntitlementTypeLimit,
+  FlowAction,
+  FlowActionError,
+  FlowActionsRequest,
+  FlowActionsResponse,
   EstimateCostRequest,
   EstimateCostResponse,
   KnowledgeDTO,
@@ -42,6 +63,7 @@ import {
   ResourceFeatureSeedance,
   ResourceSeats,
   ResultMeta,
+  ResponseMessage,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ScopeAgentsRead,
@@ -1185,5 +1207,118 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('ResponseMessage', () => {
+  it('models info and warning notices with optional meta', () => {
+    const warning: ResponseMessage = {
+      level: 'warning',
+      code: 'seat_limit_near',
+      message: 'You are approaching your seat limit',
+      meta: { limit: 5, current: 4, upgrade_available: true },
+    };
+    const info: ResponseMessage = {
+      level: 'info',
+      code: 'cache_hit',
+      message: 'Result served from cache',
+    };
+
+    expect(warning.level).toBe('warning');
+    expect(warning.meta?.upgrade_available).toBe(true);
+    expect(info.code).toBe('cache_hit');
+    expect(info.meta).toBeUndefined();
+  });
+
+  it('preserves ResponseMessage after JSON round-trip', () => {
+    const message: ResponseMessage = {
+      level: 'warning',
+      code: 'quota_soft_limit',
+      message: 'Monthly quota at 90%',
+      meta: { percent: 90 },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(message)) as ResponseMessage;
+
+    expect(parsed.level).toBe('warning');
+    expect(parsed.meta?.percent).toBe(90);
+  });
+});
+
+describe('FlowAction graph mutation types', () => {
+  it('exports stable action type constants', () => {
+    expect(ActionNodeAdd).toBe('node.add');
+    expect(ActionNodeRemove).toBe('node.remove');
+    expect(ActionNodeMove).toBe('node.move');
+    expect(ActionNodeMoveMany).toBe('node.move_many');
+    expect(ActionNodeDuplicate).toBe('node.duplicate');
+    expect(ActionNodeRename).toBe('node.rename');
+    expect(ActionNodeSetApp).toBe('node.set_app');
+    expect(ActionNodeUpdate).toBe('node.update');
+    expect(ActionNodeSetInput).toBe('node.set_input');
+    expect(ActionNodeClearInput).toBe('node.clear_input');
+    expect(ActionEdgeAdd).toBe('edge.add');
+    expect(ActionEdgeRemove).toBe('edge.remove');
+    expect(ActionFlowSetInputSchema).toBe('flow.set_input_schema');
+    expect(ActionFlowSetOutputSchema).toBe('flow.set_output_schema');
+    expect(ActionFlowSetOutputMapping).toBe('flow.set_output_mapping');
+    expect(ActionFlowRemoveOutputMapping).toBe('flow.remove_output_mapping');
+    expect(ActionFlowRenameOutputField).toBe('flow.rename_output_field');
+  });
+
+  it('models FlowActionsRequest and FlowActionsResponse', () => {
+    const request: FlowActionsRequest = {
+      actions: [
+        {
+          type: ActionNodeAdd,
+          payload: {
+            id: 'node-1',
+            type: 'app',
+            position: { x: 0, y: 0 },
+            data: { label: 'Start' },
+          },
+        },
+        {
+          type: ActionEdgeAdd,
+          payload: { id: 'edge-1', source: 'node-1', target: 'node-2' },
+        },
+      ],
+    };
+
+    const response: FlowActionsResponse = {
+      version: 3,
+      actions: request.actions,
+      errors: [{ type: 'validation', message: 'node-2 not found' }],
+    };
+
+    expect(request.actions).toHaveLength(2);
+    expect(request.actions[0].type).toBe('node.add');
+    expect(response.version).toBe(3);
+    expect(response.errors?.[0].message).toBe('node-2 not found');
+  });
+
+  it('preserves FlowAction payloads after JSON round-trip', () => {
+    const action: FlowAction = {
+      type: ActionNodeSetApp,
+      payload: {
+        node_id: 'node-1',
+        app_id: 'app-1',
+        app_version_id: 'ver-1',
+        function: 'run',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(action)) as FlowAction;
+
+    expect(parsed.type).toBe('node.set_app');
+    expect((parsed.payload as { app_id: string }).app_id).toBe('app-1');
+  });
+
+  it('models FlowActionError with optional type', () => {
+    const error: FlowActionError = { message: 'duplicate node id' };
+    const typed: FlowActionError = { type: 'conflict', message: 'node already exists' };
+
+    expect(error.type).toBeUndefined();
+    expect(typed.type).toBe('conflict');
   });
 });

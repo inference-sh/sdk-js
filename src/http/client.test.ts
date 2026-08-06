@@ -416,6 +416,34 @@ describe('HttpClient', () => {
       const result = await client().request<{ id: string }>('get', '/tasks/123');
       expect(result).toEqual({ id: 'task-123' });
     });
+
+    it('should unwrap V3 envelope when data is an array', async () => {
+      mockJsonResponse({ data: [{ id: 'task-1' }, { id: 'task-2' }] });
+
+      const result = await client().request<Array<{ id: string }>>('get', '/tasks');
+      expect(result).toEqual([{ id: 'task-1' }, { id: 'task-2' }]);
+    });
+
+    it('should unwrap V3 envelope when data is null', async () => {
+      mockJsonResponse({ data: null });
+
+      const result = await client().request<null>('post', '/tasks/task-1/cancel');
+      expect(result).toBeNull();
+    });
+
+    it('should pass through top-level JSON arrays without unwrapping', async () => {
+      mockJsonResponse([{ id: 'task-1' }]);
+
+      const result = await client().request<Array<{ id: string }>>('get', '/tasks');
+      expect(result).toEqual([{ id: 'task-1' }]);
+    });
+
+    it('should still accept legacy bare DTOs without V3 envelope', async () => {
+      mockJsonResponse({ id: 'task-legacy', status: 'completed' });
+
+      const result = await client().request<{ id: string; status: string }>('get', '/tasks/legacy');
+      expect(result).toEqual({ id: 'task-legacy', status: 'completed' });
+    });
   });
 
   describe('getStreamableConfig', () => {
