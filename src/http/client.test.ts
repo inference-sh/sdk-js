@@ -416,6 +416,65 @@ describe('HttpClient', () => {
       const result = await client().request<{ id: string }>('get', '/tasks/123');
       expect(result).toEqual({ id: 'task-123' });
     });
+
+    it('should call onMessage with V3 envelope messages and still return unwrapped data', async () => {
+      const messages = [
+        {
+          level: 'warning',
+          code: 'concurrency_limit',
+          message: 'You are near your concurrency limit',
+          meta: { limit: 10, current: 9 },
+        },
+        {
+          level: 'info',
+          code: 'deprecation_notice',
+          message: 'This endpoint will be deprecated',
+        },
+      ];
+      mockJsonResponse({ data: { id: 'task-123' }, messages });
+
+      const onMessage = jest.fn();
+      const httpClient = new HttpClient({ apiKey: 'test-key', onMessage });
+      const result = await httpClient.request<{ id: string }>('get', '/tasks/123');
+
+      expect(result).toEqual({ id: 'task-123' });
+      expect(onMessage).toHaveBeenCalledTimes(1);
+      expect(onMessage).toHaveBeenCalledWith(messages);
+    });
+
+    it('should not call onMessage when V3 envelope has no messages', async () => {
+      mockJsonResponse({ data: { id: 'task-123' } });
+
+      const onMessage = jest.fn();
+      const httpClient = new HttpClient({ apiKey: 'test-key', onMessage });
+      await httpClient.request('get', '/tasks/123');
+
+      expect(onMessage).not.toHaveBeenCalled();
+    });
+
+    it('should not call onMessage when V3 envelope messages array is empty', async () => {
+      mockJsonResponse({ data: { id: 'task-123' }, messages: [] });
+
+      const onMessage = jest.fn();
+      const httpClient = new HttpClient({ apiKey: 'test-key', onMessage });
+      await httpClient.request('get', '/tasks/123');
+
+      expect(onMessage).not.toHaveBeenCalled();
+    });
+
+    it('should not call onMessage for legacy bare DTO responses', async () => {
+      mockJsonResponse({ id: 'task-legacy', status: 'completed' });
+
+      const onMessage = jest.fn();
+      const httpClient = new HttpClient({ apiKey: 'test-key', onMessage });
+      const result = await httpClient.request<{ id: string; status: string }>(
+        'get',
+        '/tasks/legacy'
+      );
+
+      expect(result).toEqual({ id: 'task-legacy', status: 'completed' });
+      expect(onMessage).not.toHaveBeenCalled();
+    });
   });
 
   describe('getStreamableConfig', () => {
