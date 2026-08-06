@@ -151,6 +151,7 @@ export class Inference {
       headers: 'headers' in config ? config.headers : undefined,
       credentials: 'credentials' in config ? config.credentials : undefined,
       onError: 'onError' in config ? config.onError : undefined,
+      onMessage: 'onMessage' in config ? config.onMessage : undefined,
       stream: 'stream' in config ? config.stream : undefined,
       pollIntervalMs: 'pollIntervalMs' in config ? config.pollIntervalMs : undefined,
     });
