@@ -34,7 +34,10 @@ new_version="${new_tag#v}"
 # which fails the publish workflow on every release.
 npm version "$new_version" --no-git-tag-version --allow-same-version >/dev/null
 
-git add package.json package-lock.json
+# Keep src/version.ts in sync so the X-Client-Source header stays accurate.
+sed -i "s/export const SDK_VERSION = '.*'/export const SDK_VERSION = '$new_version'/" src/version.ts
+
+git add package.json package-lock.json src/version.ts
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"
