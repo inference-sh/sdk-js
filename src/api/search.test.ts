@@ -26,7 +26,7 @@ describe('SearchAPI', () => {
 
     const result = await api().suggest(payload as never);
 
-    expect(result).toEqual(response);
+    expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/suggest');
     expect(init.method).toBe('POST');
@@ -72,9 +72,9 @@ describe('SearchAPI', () => {
 
     const result = await api().suggest({ query: 'billing' });
 
-    expect(result).toEqual(response);
-    expect(result.results[0]?.tag).toBe('subscription_stats');
-    expect(result.results[1]?.tag).toBeUndefined();
+    expect(result.data).toEqual(response);
+    expect(result.data.results[0]?.tag).toBe('subscription_stats');
+    expect(result.data.results[1]?.tag).toBeUndefined();
   });
 
   it('should forward environment scope signals in suggest() body', async () => {
@@ -98,7 +98,7 @@ describe('SearchAPI', () => {
 
     const result = await api().search(payload);
 
-    expect(result).toEqual(response);
+    expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/search');
     expect(init.method).toBe('POST');

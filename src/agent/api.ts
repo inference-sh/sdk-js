@@ -63,7 +63,8 @@ export async function sendAdHocMessage(
     },
   };
 
-  const response = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
+  const resp = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
+  const response = resp.data;
 
   if (response) {
     const { user_message, assistant_message } = response;
@@ -106,7 +107,8 @@ export async function sendTemplateMessage(
     },
   };
 
-  const response = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
+  const resp = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
+  const response = resp.data;
 
   if (response) {
     const { user_message, assistant_message } = response;
@@ -173,7 +175,8 @@ export async function sendMessage(
  */
 export async function fetchChat(client: AgentClient, chatId: string): Promise<ChatDTO | null> {
   try {
-    return await client.http.request<ChatDTO>('get', `/chats/${chatId}`);
+    const resp = await client.http.request<ChatDTO>('get', `/chats/${chatId}`);
+    return resp.data;
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch chat:', error);
   }

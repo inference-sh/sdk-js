@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
@@ -152,11 +153,12 @@ export class Agent {
     }
 
     // Make the POST request
-    const response = await this.http.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
+    const resp = await this.http.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
       'post',
       '/agents/run',
       { data: body }
     );
+    const response = resp.data;
 
     // For new chats: Set chatId and start waiting immediately after POST
     const isNewChat = !this.chatId && response.assistant_message.chat_id;
@@ -179,7 +181,8 @@ export class Agent {
   async getChat(chatId?: string): Promise<ChatDTO | null> {
     const id = chatId || this.chatId;
     if (!id) return null;
-    return this.http.request<ChatDTO>('get', `/chats/${id}`);
+    const resp = await this.http.request<ChatDTO>('get', `/chats/${id}`);
+    return resp.data;
   }
 
   /** Stop the current chat generation */
@@ -302,13 +305,15 @@ export class Agent {
       this.poller = new PollManager<ChatDTO>({
         pollFunction: async () => {
           // Lightweight status check first
-          const status = await this.http.request<ResourceStatusDTO>('get', `/chats/${this.chatId}/status`);
+          const statusResp = await this.http.request<ResourceStatusDTO>('get', `/chats/${this.chatId}/status`);
+          const status = statusResp.data;
           if (status.status === prevStatus) {
             // No change — return a stub to skip processing
             return { status: status.status } as ChatDTO;
           }
           // Status changed — fetch full chat
-          return this.http.request<ChatDTO>('get', `/chats/${this.chatId}`);
+          const chatResp = await this.http.request<ChatDTO>('get', `/chats/${this.chatId}`);
+          return chatResp.data;
         },
         intervalMs,
         onData: (chat) => {
@@ -377,84 +382,84 @@ export class AgentsAPI {
   /**
    * List agent templates with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentDTO>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<AgentDTO>>> {
     return this.http.request<CursorListResponse<AgentDTO>>('post', '/agents/list', { data: params });
   }
 
   /**
    * Get an agent template by ID
    */
-  async get(agentId: string): Promise<AgentDTO> {
+  async get(agentId: string): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('get', `/agents/${agentId}`);
   }
 
   /**
    * Create a new agent template or create a new version of an existing agent
    */
-  async createAgent(data: CreateAgentRequest): Promise<AgentDTO> {
+  async createAgent(data: CreateAgentRequest): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', '/agents', { data });
   }
 
   /**
    * Update an agent template
    */
-  async update(agentId: string, data: Partial<AgentDTO>): Promise<AgentDTO> {
+  async update(agentId: string, data: Partial<AgentDTO>): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}`, { data });
   }
 
   /**
    * Delete an agent template
    */
-  async delete(agentId: string): Promise<void> {
+  async delete(agentId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/agents/${agentId}`);
   }
 
   /**
    * Duplicate an agent template
    */
-  async duplicate(agentId: string): Promise<AgentDTO> {
+  async duplicate(agentId: string): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}/duplicate`);
   }
 
   /**
    * List agent template versions
    */
-  async listVersions(agentId: string, params?: Partial<CursorListRequest>): Promise<CursorListResponse<AgentVersionDTO>> {
+  async listVersions(agentId: string, params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<AgentVersionDTO>>> {
     return this.http.request<CursorListResponse<AgentVersionDTO>>('post', `/agents/${agentId}/versions/list`, { data: params });
   }
 
   /**
    * Transfer agent ownership to another team
    */
-  async transferOwnership(agentId: string, newTeamId: string): Promise<AgentDTO> {
+  async transferOwnership(agentId: string, newTeamId: string): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}/transfer`, { data: { team_id: newTeamId } });
   }
 
   /**
    * Update agent visibility
    */
-  async updateVisibility(agentId: string, visibility: string): Promise<AgentDTO> {
+  async updateVisibility(agentId: string, visibility: string): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}/visibility`, { data: { visibility } });
   }
 
   /**
    * Get a specific agent version
    */
-  async getVersion(agentId: string, versionId: string): Promise<AgentVersionDTO> {
+  async getVersion(agentId: string, versionId: string): Promise<Response<AgentVersionDTO>> {
     return this.http.request<AgentVersionDTO>('get', `/agents/${agentId}/versions/${versionId}`);
   }
 
   /**
    * Get an agent by namespace/name (e.g., "inference/my-agent")
    */
-  async getByName(namespace: string, name: string): Promise<AgentDTO> {
+  async getByName(namespace: string, name: string): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('get', `/agents/${namespace}/${name}`);
   }
 
   /**
    * Get internal tools for the agent
    */
-  async getInternalTools(): Promise<InternalToolDefinition[]> {
+  async getInternalTools(): Promise<Response<InternalToolDefinition[]>> {
     return this.http.request<InternalToolDefinition[]>('get', '/agents/internal-tools');
   }
 
@@ -463,7 +468,7 @@ export class AgentsAPI {
    * Returns raw JSON (not wrapped in {data:...}) for direct upload to GCP Producer Portal.
    * Spec: https://a2a-protocol.org/latest/specification/
    */
-  async getA2ACard(agentId: string): Promise<Record<string, unknown>> {
+  async getA2ACard(agentId: string): Promise<Response<Record<string, unknown>>> {
     return this.http.request<Record<string, unknown>>('get', `/agents/${agentId}/card`);
   }
 

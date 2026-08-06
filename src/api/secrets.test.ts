@@ -25,7 +25,7 @@ describe('SecretsAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets/list');
     expect(init.method).toBe('POST');
@@ -38,7 +38,7 @@ describe('SecretsAPI', () => {
 
     const result = await api().create(payload as never);
 
-    expect(result).toEqual(secret);
+    expect(result.data).toEqual(secret);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets');
     expect(init.method).toBe('POST');
@@ -62,7 +62,7 @@ describe('SecretsAPI', () => {
 
     const result = await api().reveal('API_KEY');
 
-    expect(result).toEqual(secret);
+    expect(result.data).toEqual(secret);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets/reveal/API_KEY');
     expect(init.method).toBe('GET');

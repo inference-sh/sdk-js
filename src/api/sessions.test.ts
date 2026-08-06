@@ -25,7 +25,7 @@ describe('SessionsAPI', () => {
 
     const result = await api().get('sess_1');
 
-    expect(result).toEqual(session);
+    expect(result.data).toEqual(session);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sessions/sess_1');
     expect(init.method).toBe('GET');
@@ -40,18 +40,18 @@ describe('SessionsAPI', () => {
 
     const result = await api().list();
 
-    expect(result).toEqual(sessions);
+    expect(result.data).toEqual(sessions);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sessions');
     expect(init.method).toBe('GET');
   });
 
-  it('should return an empty array when list() response is null', async () => {
+  it('should return null data when list() response is null', async () => {
     mockJsonResponse(null);
 
     const result = await api().list();
 
-    expect(result).toEqual([]);
+    expect(result.data).toBeNull();
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/sessions');
   });
@@ -62,7 +62,7 @@ describe('SessionsAPI', () => {
 
     const result = await api().keepalive('sess_2');
 
-    expect(result).toEqual(session);
+    expect(result.data).toEqual(session);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sessions/sess_2/keepalive');
     expect(init.method).toBe('POST');

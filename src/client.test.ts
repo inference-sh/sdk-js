@@ -314,7 +314,7 @@ describe('Inference', () => {
       const client = new Inference({ apiKey: 'test-api-key' });
       const result = await client.getTask('task-legacy');
 
-      expect(result.id).toBe('task-legacy');
+      expect(result.data.id).toBe('task-legacy');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/tasks/task-legacy'),
         expect.objectContaining({ method: 'GET' })
@@ -398,7 +398,7 @@ describe('Inference', () => {
       const client = new Inference({ apiKey: 'test-api-key' });
       const result = await client._request<{ legacy: boolean }>('get', '/legacy/path');
 
-      expect(result).toEqual({ legacy: true });
+      expect(result.data).toEqual({ legacy: true });
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/legacy/path'),
         expect.objectContaining({ method: 'GET' })
@@ -469,7 +469,7 @@ describe('namespaced APIs', () => {
         input: { message: 'hello world!' },
       });
 
-      expect(result.id).toBe('task-123');
+      expect(result.data.id).toBe('task-123');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/apps/run'),
         expect.objectContaining({ method: 'POST' })
@@ -489,7 +489,7 @@ describe('namespaced APIs', () => {
       const client = new Inference({ apiKey: 'test-api-key' });
       const result = await client.tasks.get('task-123');
 
-      expect(result.id).toBe('task-123');
+      expect(result.data.id).toBe('task-123');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/tasks/task-123'),
         expect.objectContaining({ method: 'GET' })

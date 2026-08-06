@@ -64,14 +64,14 @@ describe('HttpClient', () => {
       mockJsonResponse({ id: 'task-1' });
 
       const result = await client().request<{ id: string }>('get', '/tasks/task-1');
-      expect(result).toEqual({ id: 'task-1' });
+      expect(result.data).toEqual({ id: 'task-1' });
     });
 
     it('should return null for null response body', async () => {
       mockJsonResponse(null);
 
       const result = await client().request<null>('post', '/tasks/task-1/cancel');
-      expect(result).toBeNull();
+      expect(result.data).toBeNull();
     });
 
     it('should return undefined for 204 No Content', async () => {
@@ -82,7 +82,7 @@ describe('HttpClient', () => {
       });
 
       const result = await client().request<void>('delete', '/tasks/task-1');
-      expect(result).toBeUndefined();
+      expect(result.data).toBeUndefined();
     });
 
     it('should throw InferenceError on non-ok response', async () => {
@@ -129,7 +129,7 @@ describe('HttpClient', () => {
         });
 
       const result = await httpClient.request<{ ok: boolean }>('get', '/tasks/1');
-      expect(result).toEqual({ ok: true });
+      expect(result.data).toEqual({ ok: true });
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
@@ -414,7 +414,7 @@ describe('HttpClient', () => {
       mockJsonResponse({ data: { id: 'task-123' } });
 
       const result = await client().request<{ id: string }>('get', '/tasks/123');
-      expect(result).toEqual({ id: 'task-123' });
+      expect(result.data).toEqual({ id: 'task-123' });
     });
   });
 

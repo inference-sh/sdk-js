@@ -25,7 +25,7 @@ describe('AppsAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(apps);
+    expect(result.data).toEqual(apps);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/list');
     expect(init.method).toBe('POST');
@@ -38,7 +38,7 @@ describe('AppsAPI', () => {
 
     const result = await api().getByName('inference/claude-haiku');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/apps/inference/claude-haiku');
   });
@@ -60,7 +60,7 @@ describe('AppsAPI', () => {
 
     const result = await api().saveLicense('app-1', 'key-abc');
 
-    expect(result).toEqual(license);
+    expect(result.data).toEqual(license);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ license: 'key-abc' });
   });
@@ -82,7 +82,7 @@ describe('AppsAPI', () => {
 
     const result = await api().duplicate('app-1');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1/duplicate');
     expect(init.method).toBe('POST');
@@ -94,7 +94,7 @@ describe('AppsAPI', () => {
 
     const result = await api().get('app-1');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1');
     expect(init.method).toBe('GET');
@@ -106,7 +106,7 @@ describe('AppsAPI', () => {
 
     const result = await api().getByVersionId('app-1', 'ver-1');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/apps/app-1/versions/ver-1');
   });
@@ -117,7 +117,7 @@ describe('AppsAPI', () => {
 
     const result = await api().create({ name: 'New App' });
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps');
     expect(init.method).toBe('POST');
@@ -130,7 +130,7 @@ describe('AppsAPI', () => {
 
     const result = await api().update('app-1', { description: 'updated' });
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1');
     expect(JSON.parse(init.body as string)).toEqual({ description: 'updated' });
@@ -152,7 +152,7 @@ describe('AppsAPI', () => {
 
     const result = await api().listVersions('app-1', { limit: 20 });
 
-    expect(result).toEqual(versions);
+    expect(result.data).toEqual(versions);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 20 });
@@ -174,7 +174,7 @@ describe('AppsAPI', () => {
 
     const result = await api().updateStatus('app-1', 'maintenance');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1/status');
     expect(init.method).toBe('POST');
@@ -191,7 +191,7 @@ describe('AppsAPI', () => {
 
     const result = await api().updateStatus('app-1', 'deprecated', 'Use v2 instead');
 
-    expect(result).toEqual(app);
+    expect(result.data).toEqual(app);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({
       status: 'deprecated',
@@ -205,7 +205,7 @@ describe('AppsAPI', () => {
 
     const result = await api().getLicense('app-1');
 
-    expect(result).toEqual(license);
+    expect(result.data).toEqual(license);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/apps/app-1/license');
   });

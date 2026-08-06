@@ -1,5 +1,6 @@
 import { RequirementError } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
+import type { Response } from './response';
 import { EventSource, type FetchLike } from 'eventsource';
 
 /**
@@ -136,14 +137,14 @@ export class HttpClient {
       params?: P;
       data?: unknown;
     } = {}
-  ): Promise<T> {
+  ): Promise<Response<T>> {
     const doRequest = () => this.executeRequest<T, P>(method, endpoint, options);
 
     try {
       return await doRequest();
     } catch (error) {
       if (this.onError) {
-        return await this.onError(error, doRequest) as T;
+        return await this.onError(error, doRequest) as Response<T>;
       }
       throw error;
     }
@@ -159,7 +160,7 @@ export class HttpClient {
       params?: P;
       data?: unknown;
     } = {}
-  ): Promise<T> {
+  ): Promise<Response<T>> {
     // Build the target URL (always points to the API)
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
     if (options.params) {
@@ -229,18 +230,19 @@ export class HttpClient {
     }
 
     if (response.status === 204 || !responseText) {
-      return undefined as T;
+      return { data: undefined as T, messages: [] };
     }
 
-    // Unwrap V3 envelope: successful responses are wrapped as {"data": <dto>, "messages": [...]}
+    // Unwrap V3 envelope: {"data": <dto>, "messages": [...]}
     if (data && typeof data === 'object' && 'data' in data && !Array.isArray(data)) {
-      if (this.onMessage && data.messages?.length) {
-        this.onMessage(data.messages);
+      const messages = data.messages ?? [];
+      if (this.onMessage && messages.length) {
+        this.onMessage(messages);
       }
-      return data.data as T;
+      return { data: data.data as T, messages };
     }
 
-    return data as T;
+    return { data: data as T, messages: [] };
   }
 
   /**
@@ -328,7 +330,7 @@ export class HttpClient {
         try { data = JSON.parse(body); } catch { /* non-JSON body */ }
         const error = new InferenceError(response.status, this.extractErrorDetail(data) ?? 'Request failed', body);
         const handled = await this.onError(error, () => doFetch(input, init));
-        return (handled as Response) ?? response;
+        return (handled as globalThis.Response) ?? response;
       }
 
       return response;

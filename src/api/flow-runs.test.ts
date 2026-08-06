@@ -25,7 +25,7 @@ describe('FlowRunsAPI', () => {
 
     const result = await api().create('flow-1', { prompt: 'hi' });
 
-    expect(result).toEqual(flowRun);
+    expect(result.data).toEqual(flowRun);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({
       flow: 'flow-1',
@@ -75,7 +75,7 @@ describe('FlowRunsAPI', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flowruns/list');
     expect(init.method).toBe('POST');
@@ -87,7 +87,7 @@ describe('FlowRunsAPI', () => {
 
     const result = await api().get('fr-1');
 
-    expect(result).toEqual(flowRun);
+    expect(result.data).toEqual(flowRun);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flowruns/fr-1');
     expect(init.method).toBe('GET');
@@ -99,7 +99,7 @@ describe('FlowRunsAPI', () => {
 
     const result = await api().clone('fr-1');
 
-    expect(result).toEqual(flowRun);
+    expect(result.data).toEqual(flowRun);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flowruns/fr-1/clone');
     expect(init.method).toBe('POST');
@@ -111,7 +111,7 @@ describe('FlowRunsAPI', () => {
 
     const result = await api().update('fr-1', { fail_on_error: false });
 
-    expect(result).toEqual(flowRun);
+    expect(result.data).toEqual(flowRun);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ fail_on_error: false });
   });

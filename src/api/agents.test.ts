@@ -1363,7 +1363,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().getInternalTools();
 
-    expect(result).toEqual(tools);
+    expect(result.data).toEqual(tools);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/internal-tools');
     expect(init.method).toBe('GET');
@@ -1380,7 +1380,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().getA2ACard('agent-1');
 
-    expect(result).toEqual(card);
+    expect(result.data).toEqual(card);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1/card');
     expect(init.method).toBe('GET');
@@ -1404,7 +1404,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().createAgent(payload as never);
 
-    expect(result).toEqual(created);
+    expect(result.data).toEqual(created);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents');
     expect(init.method).toBe('POST');
@@ -1417,7 +1417,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().getByName('inference', 'my-agent');
 
-    expect(result).toEqual(agent);
+    expect(result.data).toEqual(agent);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/inference/my-agent');
     expect(init.method).toBe('GET');
@@ -1429,7 +1429,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().list({ limit: 10 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/list');
     expect(init.method).toBe('POST');
@@ -1441,7 +1441,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().get('agent-1');
 
-    expect(result).toEqual(agent);
+    expect(result.data).toEqual(agent);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1');
     expect(init.method).toBe('GET');
@@ -1453,7 +1453,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().update('agent-1', { name: 'updated' } as never);
 
-    expect(result).toEqual(agent);
+    expect(result.data).toEqual(agent);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
   });
@@ -1474,7 +1474,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().duplicate('agent-1');
 
-    expect(result).toEqual(agent);
+    expect(result.data).toEqual(agent);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1/duplicate');
     expect(init.method).toBe('POST');
@@ -1486,7 +1486,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().listVersions('agent-1', { limit: 5 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 5 });
@@ -1498,7 +1498,7 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const result = await api().getVersion('agent-1', 'ver-1');
 
-    expect(result).toEqual(version);
+    expect(result.data).toEqual(version);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1/versions/ver-1');
     expect(init.method).toBe('GET');

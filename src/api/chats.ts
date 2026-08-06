@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import type { Response } from '../http/response';
 import {
   ChatDTO as Chat,
   ChatTraceDTO,
@@ -15,49 +16,49 @@ export class ChatsAPI {
   /**
    * List chats with cursor-based pagination
    */
-  async list(params?: Partial<CursorListRequest>): Promise<CursorListResponse<Chat>> {
+  async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<Chat>>> {
     return this.http.request<CursorListResponse<Chat>>('post', '/chats/list', { data: params });
   }
 
   /**
    * Get a chat by ID
    */
-  async get(chatId: string): Promise<Chat> {
+  async get(chatId: string): Promise<Response<Chat>> {
     return this.http.request<Chat>('get', `/chats/${chatId}`);
   }
 
   /**
    * Update a chat
    */
-  async update(chatId: string, data: Partial<Chat>): Promise<Chat> {
+  async update(chatId: string, data: Partial<Chat>): Promise<Response<Chat>> {
     return this.http.request<Chat>('post', `/chats/${chatId}`, { data });
   }
 
   /**
    * Delete a chat
    */
-  async delete(chatId: string): Promise<void> {
+  async delete(chatId: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/chats/${chatId}`);
   }
 
   /**
    * Get chat trace (for debugging/observability)
    */
-  async getTrace(chatId: string): Promise<ChatTraceDTO> {
+  async getTrace(chatId: string): Promise<Response<ChatTraceDTO>> {
     return this.http.request<ChatTraceDTO>('get', `/chats/${chatId}/trace`);
   }
 
   /**
    * Get chat status
    */
-  async getStatus(chatId: string): Promise<{ status: string }> {
+  async getStatus(chatId: string): Promise<Response<{ status: string }>> {
     return this.http.request<{ status: string }>('get', `/chats/${chatId}/status`);
   }
 
   /**
    * Stop chat generation
    */
-  async stop(chatId: string): Promise<void> {
+  async stop(chatId: string): Promise<Response<void>> {
     return this.http.request<void>('post', `/chats/${chatId}/stop`);
   }
 

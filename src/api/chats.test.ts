@@ -45,7 +45,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().getTrace('chat-1');
 
-    expect(result).toEqual(trace);
+    expect(result.data).toEqual(trace);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1/trace');
     expect(init.method).toBe('GET');
@@ -97,10 +97,10 @@ describe('ChatsAPI', () => {
 
     const result = await api().getTrace('chat-1');
 
-    expect(result.edges[0]?.type).toBe(GraphEdgeTypeSupersedes);
-    expect(result.edges[0]?.from_node).toBe('node-v1');
-    expect(result.edges[0]?.to_node).toBe('node-v2');
-    expect(result.edges[1]?.type).toBe(GraphEdgeTypeReferences);
+    expect(result.data.edges[0]?.type).toBe(GraphEdgeTypeSupersedes);
+    expect(result.data.edges[0]?.from_node).toBe('node-v1');
+    expect(result.data.edges[0]?.to_node).toBe('node-v2');
+    expect(result.data.edges[1]?.type).toBe(GraphEdgeTypeReferences);
   });
 
   it('should preserve input and output graph edges in getTrace() responses', async () => {
@@ -150,12 +150,12 @@ describe('ChatsAPI', () => {
 
     const result = await api().getTrace('chat-1');
 
-    expect(result.edges[0]?.type).toBe(GraphEdgeTypeInput);
-    expect(result.edges[0]?.from_node).toBe('node-source');
-    expect(result.edges[0]?.to_node).toBe('node-step');
-    expect(result.edges[1]?.type).toBe(GraphEdgeTypeOutput);
-    expect(result.edges[1]?.from_node).toBe('node-step');
-    expect(result.edges[1]?.to_node).toBe('node-sink');
+    expect(result.data.edges[0]?.type).toBe(GraphEdgeTypeInput);
+    expect(result.data.edges[0]?.from_node).toBe('node-source');
+    expect(result.data.edges[0]?.to_node).toBe('node-step');
+    expect(result.data.edges[1]?.type).toBe(GraphEdgeTypeOutput);
+    expect(result.data.edges[1]?.from_node).toBe('node-step');
+    expect(result.data.edges[1]?.to_node).toBe('node-sink');
   });
 
   it('should DELETE /chats/{id} for delete()', async () => {
@@ -174,7 +174,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().list({ limit: 25 });
 
-    expect(result).toEqual(page);
+    expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/list');
     expect(init.method).toBe('POST');
@@ -187,7 +187,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().get('chat-1');
 
-    expect(result).toEqual(chat);
+    expect(result.data).toEqual(chat);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1');
     expect(init.method).toBe('GET');
@@ -210,9 +210,9 @@ describe('ChatsAPI', () => {
 
     const result = await api().get('chat-1');
 
-    expect(result.active_run?.state).toBe(AgentRunStateInputRequired);
-    expect(result.active_run?.interrupt_reason).toBe(InterruptReasonToolApproval);
-    expect(result.active_run?.interrupt_tool_id).toBe('tool-call-7');
+    expect(result.data.active_run?.state).toBe(AgentRunStateInputRequired);
+    expect(result.data.active_run?.interrupt_reason).toBe(InterruptReasonToolApproval);
+    expect(result.data.active_run?.interrupt_tool_id).toBe('tool-call-7');
   });
 
   it('should preserve agent_run_id on chat messages in get() responses', async () => {
@@ -241,8 +241,8 @@ describe('ChatsAPI', () => {
 
     const result = await api().get('chat-1');
 
-    expect(result.chat_messages[0]?.agent_run_id).toBe('run-1');
-    expect(result.active_run?.state).toBe(AgentRunStateWorking);
+    expect(result.data.chat_messages[0]?.agent_run_id).toBe('run-1');
+    expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
   });
 
   it('should POST /chats/{id} for update()', async () => {
@@ -251,7 +251,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().update('chat-1', { name: 'Renamed' });
 
-    expect(result).toEqual(chat);
+    expect(result.data).toEqual(chat);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
@@ -261,7 +261,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().getStatus('chat-1');
 
-    expect(result).toEqual({ status: 'busy' });
+    expect(result.data).toEqual({ status: 'busy' });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1/status');
     expect(init.method).toBe('GET');
