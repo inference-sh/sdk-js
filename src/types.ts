@@ -270,6 +270,17 @@ export interface APIError {
   meta?: { [key: string]: any};
 }
 /**
+ * ResponseMessage carries a non-error notice alongside a successful response.
+ * Inspired by GraphQL's coexisting data+errors pattern, but for actionable
+ * messages (warnings, info) rather than partial failures.
+ */
+export interface ResponseMessage {
+  level: string; // "info", "warning"
+  code: string; // machine-readable identifier
+  message: string; // human-readable text
+  meta?: { [key: string]: any}; // structured context (limits, upgrade info, etc.)
+}
+/**
  * ApiAppRunRequest is the request body for /apps/run endpoint.
  */
 export interface ApiAppRunRequest {
@@ -1454,6 +1465,174 @@ export interface FlowRunDTO extends BaseModelDTO, PermissionModelDTO {
   fail_on_error: boolean;
   output: any;
   node_tasks: { [key: string]: NodeTaskDTO | undefined};
+}
+/**
+ * FlowActionType is the string type for action constants.
+ */
+export type FlowActionType = string;
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeAdd: FlowActionType = "node.add";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeRemove: FlowActionType = "node.remove";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeMove: FlowActionType = "node.move";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeMoveMany: FlowActionType = "node.move_many";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeDuplicate: FlowActionType = "node.duplicate";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeRename: FlowActionType = "node.rename";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeSetApp: FlowActionType = "node.set_app";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeUpdate: FlowActionType = "node.update";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeSetInput: FlowActionType = "node.set_input";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionNodeClearInput: FlowActionType = "node.clear_input";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionEdgeAdd: FlowActionType = "edge.add";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionEdgeRemove: FlowActionType = "edge.remove";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionFlowSetInputSchema: FlowActionType = "flow.set_input_schema";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionFlowSetOutputSchema: FlowActionType = "flow.set_output_schema";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionFlowSetOutputMapping: FlowActionType = "flow.set_output_mapping";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionFlowRemoveOutputMapping: FlowActionType = "flow.remove_output_mapping";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionFlowRenameOutputField: FlowActionType = "flow.rename_output_field";
+/**
+ * FlowAction represents a single graph mutation.
+ */
+export interface FlowAction {
+  type: FlowActionType;
+  payload: any;
+}
+/**
+ * FlowActionsRequest is the request body for POST /flows/{id}/actions.
+ */
+export interface FlowActionsRequest {
+  actions: FlowAction[];
+}
+/**
+ * FlowActionsResponse is the response from the actions endpoint.
+ */
+export interface FlowActionsResponse {
+  version: number /* int */;
+  actions: FlowAction[];
+  errors?: FlowActionError[];
+}
+/**
+ * FlowActionError is an error returned from an action.
+ */
+export interface FlowActionError {
+  type?: string;
+  message: string;
+}
+export interface AddNodePayload {
+  id: string;
+  type: string;
+  position: FlowNodePosition;
+  data: FlowNodeData;
+}
+export interface RemoveNodePayload {
+  id: string;
+}
+export interface MoveNodePayload {
+  id: string;
+  position: FlowNodePosition;
+}
+export interface MoveNodesPayload {
+  positions: { [key: string]: FlowNodePosition};
+}
+export interface DuplicateNodePayload {
+  source_id: string;
+  new_id: string;
+  offset: FlowNodePosition;
+}
+export interface RenameNodePayload {
+  old_id: string;
+  new_id: string;
+}
+export interface SetNodeAppPayload {
+  node_id: string;
+  app_id: string;
+  app_version_id: string;
+  function: string;
+}
+export interface UpdateNodeDataPayload {
+  node_id: string;
+  patch: { [key: string]: any};
+}
+export interface SetInputPayload {
+  node_id: string;
+  input_key: string;
+  input: FlowRunInput;
+}
+export interface ClearInputPayload {
+  node_id: string;
+  input_key: string;
+}
+export interface AddEdgePayload {
+  id: string;
+  source: string;
+  target: string;
+  source_handle?: string;
+  target_handle?: string;
+}
+export interface RemoveEdgePayload {
+  id: string;
+}
+export interface SetSchemaPayload {
+  schema: any;
+}
+export interface SetOutputMappingPayload {
+  field: string;
+  mapping: OutputFieldMapping;
+}
+export interface RemoveOutputMappingPayload {
+  field: string;
+}
+export interface RenameOutputFieldPayload {
+  old_field: string;
+  new_field: string;
 }
 /**
  * GraphNodeDTO is the API representation of a graph node
