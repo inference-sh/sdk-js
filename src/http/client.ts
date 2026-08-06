@@ -11,6 +11,8 @@ export type ErrorHandler = (
   retry: () => Promise<unknown>
 ) => Promise<unknown>;
 
+export type MessageHandler = (messages: import('../types').ResponseMessage[]) => void;
+
 export interface HttpClientConfig {
   /** Your inference.sh API key (required unless using proxyUrl) */
   apiKey?: string;
@@ -32,6 +34,11 @@ export interface HttpClientConfig {
    * Can be used for retry logic, auth refresh, OTP handling, etc.
    */
   onError?: ErrorHandler;
+  /**
+   * Callback fired when a successful response includes messages (warnings, info).
+   * Use for surfacing concurrency limits, upgrade prompts, deprecation notices, etc.
+   */
+  onMessage?: MessageHandler;
   /**
    * Use polling instead of SSE for real-time updates (default: true = SSE).
    * Set to false for environments that can't maintain long-lived connections
@@ -58,6 +65,7 @@ export class HttpClient {
   private readonly customHeaders: Record<string, string | (() => string | undefined)>;
   private readonly credentials: RequestCredentials;
   private readonly onError: ErrorHandler | undefined;
+  private readonly onMessage: MessageHandler | undefined;
   private readonly streamDefault: boolean;
   private readonly pollInterval: number;
 
@@ -73,6 +81,7 @@ export class HttpClient {
     this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
+    this.onMessage = config.onMessage;
     this.streamDefault = config.stream ?? true;
     this.pollInterval = config.pollIntervalMs ?? 2000;
   }
@@ -223,8 +232,11 @@ export class HttpClient {
       return undefined as T;
     }
 
-    // Unwrap V3 envelope: successful responses are wrapped as {"data": <dto>}
+    // Unwrap V3 envelope: successful responses are wrapped as {"data": <dto>, "messages": [...]}
     if (data && typeof data === 'object' && 'data' in data && !Array.isArray(data)) {
+      if (this.onMessage && data.messages?.length) {
+        this.onMessage(data.messages);
+      }
       return data.data as T;
     }
 
