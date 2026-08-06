@@ -70,7 +70,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', 'X-API-Version': '2', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.streamDefault = config.stream ?? true;
@@ -221,6 +221,11 @@ export class HttpClient {
 
     if (response.status === 204 || !responseText) {
       return undefined as T;
+    }
+
+    // Unwrap V3 envelope: successful responses are wrapped as {"data": <dto>}
+    if (data && typeof data === 'object' && 'data' in data && !Array.isArray(data)) {
+      return data.data as T;
     }
 
     return data as T;

@@ -309,14 +309,14 @@ describe('HttpClient', () => {
       expect(headers['X-Custom']).toBe('static');
     });
 
-    it('should send X-API-Version 2 and X-Client-Source on every request', async () => {
-      mockJsonResponse({ id: 'task-1' });
+    it('should not send X-API-Version (V3 default) and include X-Client-Source', async () => {
+      mockJsonResponse({ data: { id: 'task-1' } });
 
       await client().request('get', '/tasks/task-1');
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
-      expect(headers['X-API-Version']).toBe('2');
+      expect(headers['X-API-Version']).toBeUndefined();
       expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
     });
 
@@ -410,12 +410,11 @@ describe('HttpClient', () => {
       }
     });
 
-    it('should not unwrap legacy v1 APIResponse envelopes', async () => {
-      const v1Envelope = { success: true, data: { id: 'task-legacy' } };
-      mockJsonResponse(v1Envelope);
+    it('should unwrap V3 envelope and return data', async () => {
+      mockJsonResponse({ data: { id: 'task-123' } });
 
-      const result = await client().request<typeof v1Envelope>('get', '/tasks/legacy');
-      expect(result).toEqual(v1Envelope);
+      const result = await client().request<{ id: string }>('get', '/tasks/123');
+      expect(result).toEqual({ id: 'task-123' });
     });
   });
 
