@@ -20,6 +20,15 @@ describe('package export surface', () => {
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
     });
+
+    it('exports Response type for V3 API envelope access', () => {
+      // Type-only export — verify it is part of the public barrel without
+      // pulling in runtime values.
+      type ExportedResponse = import('./index').Response<{ id: string }>;
+      const sample: ExportedResponse = { data: { id: 'x' }, messages: [] };
+      expect(sample.data.id).toBe('x');
+      expect(sample.messages).toEqual([]);
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

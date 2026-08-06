@@ -399,10 +399,29 @@ describe('Inference', () => {
       const result = await client._request<{ legacy: boolean }>('get', '/legacy/path');
 
       expect(result.data).toEqual({ legacy: true });
+      expect(result.messages).toEqual([]);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/legacy/path'),
         expect.objectContaining({ method: 'GET' })
       );
+    });
+
+    it('should return V3 envelope messages from _request', async () => {
+      const messages = [
+        { level: 'warning', code: 'quota', message: 'Approaching quota' },
+      ];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () =>
+          Promise.resolve(JSON.stringify({ data: { legacy: true }, messages })),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client._request<{ legacy: boolean }>('get', '/legacy/path');
+
+      expect(result.data).toEqual({ legacy: true });
+      expect(result.messages).toEqual(messages);
     });
 
     it('should delegate _createEventSource to HttpClient.createEventSource', async () => {

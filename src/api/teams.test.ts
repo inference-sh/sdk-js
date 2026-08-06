@@ -26,9 +26,28 @@ describe('TeamsAPI', () => {
     const result = await api().me();
 
     expect(result.data).toEqual(me);
+    expect(result.messages).toEqual([]);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/me');
     expect(init.method).toBe('GET');
+  });
+
+  it('should surface V3 envelope messages from API methods', async () => {
+    const messages = [
+      {
+        level: 'warning',
+        code: 'seat_limit',
+        message: 'You are near your seat limit',
+        meta: { limit: 5, current: 4 },
+      },
+    ];
+    const me = { user: { id: 'user-1' }, team: { id: 'team-1' } };
+    mockJsonResponse({ data: me, messages });
+
+    const result = await api().me();
+
+    expect(result.data).toEqual(me);
+    expect(result.messages).toEqual(messages);
   });
 
   it('should GET /teams for list()', async () => {
