@@ -1,5 +1,6 @@
 import { HttpClient, createHttpClient } from './client';
 import { InferenceError, RequirementsNotMetException } from './errors';
+import { SDK_VERSION } from '../version';
 import { EventSource } from 'eventsource';
 
 jest.mock('eventsource');
@@ -317,7 +318,16 @@ describe('HttpClient', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers['X-API-Version']).toBeUndefined();
-      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+      expect(headers['X-Client-Source']).toMatch(/^inference-sdk-js\/\d+\.\d+\.\d+$/);
+    });
+
+    it('should send X-Client-Source version matching SDK_VERSION', async () => {
+      mockJsonResponse({ data: { id: 'task-1' } });
+      await client().request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-Client-Source']).toBe(`inference-sdk-js/${SDK_VERSION}`);
     });
 
     it('should prefer RFC 9457 detail over title in error responses', async () => {
