@@ -1,5 +1,6 @@
 import { HttpClient, createHttpClient } from './client';
 import { InferenceError, RequirementsNotMetException } from './errors';
+import { SDK_VERSION } from '../version';
 import { EventSource } from 'eventsource';
 
 jest.mock('eventsource');
@@ -317,7 +318,16 @@ describe('HttpClient', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers['X-API-Version']).toBeUndefined();
-      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+      expect(headers['X-Client-Source']).toMatch(/^inference-sdk-js\/\d+\.\d+\.\d+$/);
+    });
+
+    it('should send X-Client-Source version matching SDK_VERSION', async () => {
+      mockJsonResponse({ data: { id: 'task-1' } });
+      await client().request('get', '/tasks/task-1');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-Client-Source']).toBe(`inference-sdk-js/${SDK_VERSION}`);
     });
 
     it('should prefer RFC 9457 detail over title in error responses', async () => {
@@ -415,6 +425,34 @@ describe('HttpClient', () => {
 
       const result = await client().request<{ id: string }>('get', '/tasks/123');
       expect(result).toEqual({ id: 'task-123' });
+    });
+
+    it('should not call onMessage on HTTP error responses even when body includes messages', async () => {
+      const messages = [{ level: 'warning', code: 'quota_soft_limit', message: 'Near quota' }];
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: () =>
+          Promise.resolve(JSON.stringify({ detail: 'Rate limited', messages })),
+      });
+
+      const onMessage = jest.fn();
+      const httpClient = new HttpClient({ apiKey: 'test-key', onMessage });
+
+      await expect(httpClient.request('get', '/tasks/123')).rejects.toThrow(InferenceError);
+      expect(onMessage).not.toHaveBeenCalled();
+    });
+
+    it('should forward onMessage through createHttpClient', async () => {
+      const messages = [{ level: 'info', code: 'deprecation_notice', message: 'Endpoint deprecated' }];
+      mockJsonResponse({ data: { ok: true }, messages });
+
+      const onMessage = jest.fn();
+      const httpClient = createHttpClient({ apiKey: 'test-key', onMessage });
+      const result = await httpClient.request<{ ok: boolean }>('get', '/health');
+
+      expect(result).toEqual({ ok: true });
+      expect(onMessage).toHaveBeenCalledWith(messages);
     });
   });
 

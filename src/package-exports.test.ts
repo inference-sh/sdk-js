@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as main from './index';
+import type { MessageHandler } from './http/client';
 import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
 
 const packageJson = JSON.parse(
@@ -19,6 +20,13 @@ describe('package export surface', () => {
 
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
+    });
+
+    it('exports MessageHandler type for V3 response notice callbacks', () => {
+      const handler: MessageHandler = (messages) => {
+        expect(messages[0].level).toBe('info');
+      };
+      handler([{ level: 'info', code: 'cache_hit', message: 'Served from cache' }]);
     });
   });
 
