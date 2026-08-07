@@ -1,5 +1,7 @@
 import {
   APIError,
+  BountyProgramDTO,
+  BountySubmissionDTO,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -30,6 +32,11 @@ import {
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  PageDTO,
+  PageMetadata,
+  PageStatusPublished,
+  PageTypeAnnouncement,
+  PageTypeDoc,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -51,6 +58,8 @@ import {
   ScopePreset,
   ScopesResponse,
   SkillDTO,
+  SubmitBountyRequest,
+  SubmitBountyResponse,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
@@ -1185,5 +1194,217 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+function makeBountyProgram(overrides: Partial<BountyProgramDTO> = {}): BountyProgramDTO {
+  return {
+    id: 'bounty-1',
+    short_id: 'b1',
+    created_at: '2026-08-07T00:00:00Z',
+    updated_at: '2026-08-07T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    name: 'Tweet bounty',
+    description: 'Share on X for credits',
+    amount_microcents: 5_000_000,
+    grant_type: 'credits',
+    expiry_days: 30,
+    max_per_day: 3,
+    proof_type: 'url',
+    proof_min_length: 10,
+    status: 'active',
+    notice_text: 'Complete the bounty to earn credits',
+    notice_cooldown_hours: 24,
+    notice_priority: 1,
+    claim_count: 42,
+    ...overrides,
+  };
+}
+
+function makeBountySubmission(overrides: Partial<BountySubmissionDTO> = {}): BountySubmissionDTO {
+  return {
+    id: 'submission-1',
+    short_id: 'bs1',
+    created_at: '2026-08-07T01:00:00Z',
+    updated_at: '2026-08-07T01:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    bounty_id: 'bounty-1',
+    proof_id: 'proof-1',
+    proof_ref: 'https://x.com/user/status/123',
+    ...overrides,
+  };
+}
+
+describe('BountyProgramDTO and bounty claim types (models v0.7.26)', () => {
+  it('models bounty programs with microcent rewards and proof constraints', () => {
+    const program = makeBountyProgram({
+      amount_microcents: 10_000_000,
+      proof_type: 'text',
+      proof_min_length: 50,
+      max_per_day: 1,
+      starts_at: '2026-08-07T00:00:00Z',
+      ends_at: '2026-09-07T00:00:00Z',
+    });
+
+    expect(program.amount_microcents).toBe(10_000_000);
+    expect(program.proof_type).toBe('text');
+    expect(program.proof_min_length).toBe(50);
+    expect(program.max_per_day).toBe(1);
+    expect(program.starts_at).toBe('2026-08-07T00:00:00Z');
+    expect(program.ends_at).toBe('2026-09-07T00:00:00Z');
+    expect(program.claim_count).toBe(42);
+  });
+
+  it('models SubmitBountyRequest with required proof and optional agent attribution', () => {
+    const request: SubmitBountyRequest = {
+      bounty_id: 'bounty-1',
+      proof_id: 'proof-1',
+      agent: 'agent-cli',
+      source: 'twitter',
+    };
+
+    expect(request.bounty_id).toBe('bounty-1');
+    expect(request.proof_id).toBe('proof-1');
+    expect(request.agent).toBe('agent-cli');
+    expect(request.source).toBe('twitter');
+  });
+
+  it('models SubmitBountyResponse with nested submission and granted reward amount', () => {
+    const response: SubmitBountyResponse = {
+      submission: makeBountySubmission({
+        agent: 'agent-cli',
+        source: 'twitter',
+      }),
+      granted_amount: 5_000_000,
+    };
+
+    expect(response.submission.bounty_id).toBe('bounty-1');
+    expect(response.submission.proof_ref).toBe('https://x.com/user/status/123');
+    expect(response.submission.agent).toBe('agent-cli');
+    expect(response.granted_amount).toBe(5_000_000);
+  });
+
+  it('allows SubmitBountyResponse without granted_amount when reward is pending review', () => {
+    const response: SubmitBountyResponse = {
+      submission: makeBountySubmission(),
+    };
+
+    expect(response.submission.proof_id).toBe('proof-1');
+    expect(response.granted_amount).toBeUndefined();
+  });
+
+  it('preserves bounty program and claim shapes after JSON round-trip', () => {
+    const program = makeBountyProgram();
+    const response: SubmitBountyResponse = {
+      submission: makeBountySubmission({ source: 'manual' }),
+      granted_amount: 2_500_000,
+    };
+
+    const parsedProgram = JSON.parse(JSON.stringify(program)) as BountyProgramDTO;
+    const parsedResponse = JSON.parse(JSON.stringify(response)) as SubmitBountyResponse;
+
+    expect(parsedProgram.notice_cooldown_hours).toBe(24);
+    expect(parsedProgram.notice_priority).toBe(1);
+    expect(parsedResponse.submission.source).toBe('manual');
+    expect(parsedResponse.granted_amount).toBe(2_500_000);
+  });
+});
+
+describe('PageMetadata announcement fields and PageTypeAnnouncement (models v0.7.26)', () => {
+  it('exports PageTypeAnnouncement for announcement page content', () => {
+    expect(PageTypeAnnouncement).toBe('announcement');
+  });
+
+  it('models announcement metadata with action CTA and display mode', () => {
+    const metadata: PageMetadata = {
+      title: 'New feature launch',
+      description: 'Try the new bounty system',
+      image: 'https://cdn.example.com/banner.png',
+      tags: ['product', 'launch'],
+      type: PageTypeAnnouncement,
+      action_url: 'https://app.example.com/bounties',
+      action_label: 'View bounties',
+      display_mode: 'banner',
+    };
+
+    expect(metadata.type).toBe('announcement');
+    expect(metadata.action_url).toBe('https://app.example.com/bounties');
+    expect(metadata.action_label).toBe('View bounties');
+    expect(metadata.display_mode).toBe('banner');
+  });
+
+  it('allows modal and both display modes for announcement pages', () => {
+    const modal: PageMetadata = {
+      title: 'Maintenance notice',
+      description: 'Scheduled downtime tonight',
+      image: '',
+      tags: [],
+      display_mode: 'modal',
+    };
+    const both: PageMetadata = {
+      title: 'Credits promo',
+      description: 'Earn bonus credits',
+      image: '',
+      tags: [],
+      display_mode: 'both',
+    };
+
+    expect(modal.display_mode).toBe('modal');
+    expect(both.display_mode).toBe('both');
+  });
+
+  it('preserves announcement metadata on PageDTO responses after JSON round-trip', () => {
+    const page: PageDTO = {
+      id: 'page-1',
+      short_id: 'p1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      is_featured: true,
+      title: 'Platform update',
+      content: '# Update\n\nNew bounty rewards are live.',
+      excerpt: 'New bounty rewards are live.',
+      status: PageStatusPublished,
+      type: PageTypeAnnouncement,
+      slug: 'platform-update',
+      metadata: {
+        title: 'Platform update',
+        description: 'New bounty rewards are live.',
+        image: 'https://cdn.example.com/update.png',
+        tags: ['announcement'],
+        type: PageTypeAnnouncement,
+        action_url: '/bounties',
+        action_label: 'Claim rewards',
+        display_mode: 'both',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(page)) as PageDTO;
+
+    expect(parsed.type).toBe('announcement');
+    expect(parsed.metadata.action_url).toBe('/bounties');
+    expect(parsed.metadata.action_label).toBe('Claim rewards');
+    expect(parsed.metadata.display_mode).toBe('both');
+  });
+
+  it('allows doc pages without announcement action fields for backward compatibility', () => {
+    const metadata: PageMetadata = {
+      title: 'Getting started',
+      description: 'SDK quickstart guide',
+      image: '',
+      tags: ['docs'],
+      type: PageTypeDoc,
+    };
+
+    expect(metadata.type).toBe('doc');
+    expect(metadata.action_url).toBeUndefined();
+    expect(metadata.action_label).toBeUndefined();
+    expect(metadata.display_mode).toBeUndefined();
   });
 });
