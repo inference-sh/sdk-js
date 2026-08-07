@@ -1,5 +1,7 @@
 import {
   APIError,
+  AgentConfigInput,
+  AgentVersionDTO,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -8,6 +10,8 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  ChatMessageRoleCompaction,
+  ChatMessageRoleInjection,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -27,9 +31,31 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  HookEventAgentComplete,
+  HookEventAgentError,
+  HookEventAgentIdle,
+  HookEventAgentStart,
+  HookEventToolCall,
+  HookEventToolResult,
+  HookEventTurnComplete,
+  HookEventTurnStart,
+  HookHandlerTask,
+  HookHandlerWebhook,
+  IntegrationAuthTypeOAuth,
+  IntegrationDTO,
+  IntegrationGrantCredentials,
+  IntegrationGrantToken,
+  IntegrationProviderSlack,
+  IntegrationScopePlatform,
+  IntegrationScopeTeam,
+  IntegrationScopeUser,
+  IntegrationStatusConnected,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  LifecycleHookConfig,
+  PermRead,
+  PermWrite,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -41,15 +67,18 @@ import {
   RefRouteTypeApp,
   ResourceFeatureSeedance,
   ResourceSeats,
+  ResourceShareDTO,
   ResultMeta,
   ResultTypeComplete,
   ResultTypeInputRequired,
+  RoleUser,
   ScopeAgentsRead,
   ScopeAppsRead,
   ScopeAppsWrite,
   ScopeGroupApps,
   ScopePreset,
   ScopesResponse,
+  ShareRequest,
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
@@ -61,6 +90,7 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  VisibilityTeam,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1185,5 +1215,233 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('Agent lifecycle hooks (LifecycleHookConfig)', () => {
+  it('exports HookEvent constants for the agent conversation loop', () => {
+    expect(HookEventAgentStart).toBe('agent.start');
+    expect(HookEventTurnStart).toBe('agent.turn_start');
+    expect(HookEventToolCall).toBe('agent.tool_call');
+    expect(HookEventToolResult).toBe('agent.tool_result');
+    expect(HookEventTurnComplete).toBe('agent.turn_complete');
+    expect(HookEventAgentError).toBe('agent.error');
+    expect(HookEventAgentComplete).toBe('agent.complete');
+    expect(HookEventAgentIdle).toBe('agent.idle');
+  });
+
+  it('exports HookHandlerType constants for webhook and task handlers', () => {
+    expect(HookHandlerWebhook).toBe('webhook');
+    expect(HookHandlerTask).toBe('task');
+  });
+
+  it('models lifecycle hooks on AgentVersionDTO responses', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventTurnStart,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/turn-start',
+        every: 1,
+        async: true,
+        timeout: 60,
+      },
+      {
+        event: HookEventToolCall,
+        type: HookHandlerTask,
+        handler: '@acme/audit-tool-call',
+      },
+    ];
+
+    const version: AgentVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      description: 'Agent with lifecycle hooks',
+      system_prompt: 'You are helpful.',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      hooks,
+    };
+
+    expect(version.hooks).toHaveLength(2);
+    expect(version.hooks?.[0].event).toBe('agent.turn_start');
+    expect(version.hooks?.[0].async).toBe(true);
+    expect(version.hooks?.[1].handler).toBe('@acme/audit-tool-call');
+  });
+
+  it('accepts hooks on AgentConfigInput for create/update agent requests', () => {
+    const config: AgentConfigInput = {
+      description: 'Hooked agent',
+      system_prompt: 'System',
+      hooks: [
+        {
+          event: HookEventAgentComplete,
+          type: HookHandlerWebhook,
+          handler: 'https://example.com/hooks/complete',
+          every: 0,
+        },
+      ],
+    };
+
+    expect(config.hooks?.[0].event).toBe('agent.complete');
+    expect(config.hooks?.[0].every).toBe(0);
+  });
+
+  it('preserves lifecycle hook config through JSON round-trip', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventAgentError,
+        type: HookHandlerTask,
+        handler: '@acme/error-handler',
+        timeout: 0,
+      },
+    ];
+
+    const version: AgentVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      description: 'Agent',
+      system_prompt: 'System',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      hooks,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AgentVersionDTO;
+
+    expect(parsed.hooks?.[0].event).toBe('agent.error');
+    expect(parsed.hooks?.[0].timeout).toBe(0);
+  });
+});
+
+describe('Resource sharing types (ResourceShareDTO, ShareRequest)', () => {
+  it('exports Permission constants for read and write access', () => {
+    expect(PermRead).toBe('read');
+    expect(PermWrite).toBe('write');
+  });
+
+  it('models ResourceShareDTO with nested user relation', () => {
+    const share: ResourceShareDTO = {
+      id: 'share-1',
+      short_id: 'sh1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      resource_id: 'agent-1',
+      resource_type: 'agent',
+      user_id: 'user-2',
+      permission: PermRead,
+      user: {
+        id: 'user-2',
+        created_at: '2026-07-01T00:00:00Z',
+        updated_at: '2026-07-01T00:00:00Z',
+        role: RoleUser,
+        avatar_url: 'https://cdn.example.com/avatar.png',
+      },
+    };
+
+    expect(share.resource_type).toBe('agent');
+    expect(share.permission).toBe('read');
+    expect(share.user?.role).toBe('user');
+  });
+
+  it('models ShareRequest for granting resource access', () => {
+    const request: ShareRequest = {
+      user_id: 'user-3',
+      permission: PermWrite,
+    };
+
+    expect(request.user_id).toBe('user-3');
+    expect(request.permission).toBe('write');
+  });
+
+  it('preserves ResourceShareDTO through JSON round-trip', () => {
+    const share: ResourceShareDTO = {
+      id: 'share-1',
+      short_id: 'sh1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      resource_id: 'flow-1',
+      resource_type: 'flow',
+      user_id: 'user-2',
+      permission: PermWrite,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(share)) as ResourceShareDTO;
+
+    expect(parsed.resource_id).toBe('flow-1');
+    expect(parsed.permission).toBe('write');
+  });
+});
+
+describe('IntegrationDTO grant and scope refinements', () => {
+  it('exports IntegrationScope constants including user-owned integrations', () => {
+    expect(IntegrationScopeTeam).toBe('team');
+    expect(IntegrationScopePlatform).toBe('platform');
+    expect(IntegrationScopeUser).toBe('user');
+  });
+
+  it('exports IntegrationGrant constants for credentials vs token grants', () => {
+    expect(IntegrationGrantCredentials).toBe('credentials');
+    expect(IntegrationGrantToken).toBe('token');
+  });
+
+  it('models grant on IntegrationDTO for credential-providing integrations', () => {
+    const integration: IntegrationDTO = {
+      id: 'int-1',
+      short_id: 'i1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      scope: IntegrationScopePlatform,
+      grant: IntegrationGrantCredentials,
+      provider: IntegrationProviderSlack,
+      type: IntegrationAuthTypeOAuth,
+      auth: IntegrationAuthTypeOAuth,
+      status: IntegrationStatusConnected,
+      display_name: 'Slack',
+      scopes: ['chat:write'],
+      is_primary: true,
+    };
+
+    expect(integration.grant).toBe('credentials');
+    expect(integration.scope).toBe('platform');
+  });
+
+  it('preserves grant through IntegrationDTO JSON round-trip', () => {
+    const integration: IntegrationDTO = {
+      id: 'int-1',
+      short_id: 'i1',
+      created_at: '2026-08-07T00:00:00Z',
+      updated_at: '2026-08-07T00:00:00Z',
+      scope: IntegrationScopeUser,
+      grant: IntegrationGrantToken,
+      provider: IntegrationProviderSlack,
+      type: IntegrationAuthTypeOAuth,
+      auth: IntegrationAuthTypeOAuth,
+      status: IntegrationStatusConnected,
+      display_name: 'Slack (personal)',
+      scopes: [],
+      is_primary: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(integration)) as IntegrationDTO;
+
+    expect(parsed.scope).toBe('user');
+    expect(parsed.grant).toBe('token');
+  });
+});
+
+describe('Visibility and chat message role constants', () => {
+  it('exports VisibilityTeam for team-scoped resources', () => {
+    expect(VisibilityTeam).toBe('team');
+  });
+
+  it('exports ChatMessageRole constants for injection and compaction messages', () => {
+    expect(ChatMessageRoleInjection).toBe('injection');
+    expect(ChatMessageRoleCompaction).toBe('compaction');
   });
 });
