@@ -1116,6 +1116,52 @@ export interface AvailabilityResponse {
   reason?: string;
 }
 /**
+ * BountyProgramDTO is the API representation of a bounty program.
+ */
+export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
+  name: string;
+  description: string;
+  amount_microcents: number /* int64 */;
+  grant_type: string;
+  expiry_days: number /* int */;
+  max_per_day: number /* int */;
+  proof_type: string;
+  proof_min_length: number /* int */;
+  status: string;
+  notice_text: string;
+  notice_cooldown_hours: number /* int */;
+  notice_priority: number /* int */;
+  starts_at?: string /* RFC3339 */;
+  ends_at?: string /* RFC3339 */;
+  claim_count: number /* int64 */;
+}
+/**
+ * BountySubmissionDTO is the API representation of a bounty claim.
+ */
+export interface BountySubmissionDTO extends BaseModelDTO, PermissionModelDTO {
+  bounty_id: string;
+  proof_id: string;
+  proof_ref: string;
+  agent?: string;
+  source?: string;
+}
+/**
+ * SubmitBountyRequest is used to claim a bounty reward.
+ */
+export interface SubmitBountyRequest {
+  bounty_id: string;
+  proof_id: string;
+  agent?: string;
+  source?: string;
+}
+/**
+ * SubmitBountyResponse is returned when claiming a bounty.
+ */
+export interface SubmitBountyResponse {
+  submission: BountySubmissionDTO;
+  granted_amount?: number /* int64 */;
+}
+/**
  * ChatDTO for API responses
  */
 export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
@@ -2160,6 +2206,9 @@ export interface PageMetadata {
   type?: string;
   icon?: string;
   hide_from_nav?: boolean;
+  action_url?: string;
+  action_label?: string;
+  display_mode?: string; // "banner", "modal", or "both" (default)
   /**
    * PublishAt is when a scheduled page goes live. Only meaningful while the
    * page's status is PageStatusScheduled.
@@ -3389,6 +3438,7 @@ export type PageType = string;
 export const PageTypeDoc: PageType = "doc";
 export const PageTypeBlog: PageType = "blog";
 export const PageTypePage: PageType = "page";
+export const PageTypeAnnouncement: PageType = "announcement";
 /**
  * ToolInvocationStatus represents the execution status of a tool invocation
  */
