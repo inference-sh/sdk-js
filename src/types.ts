@@ -199,6 +199,7 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   skills: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  hooks?: LifecycleHookConfig[];
   output_schema?: any;
 }
 /**
@@ -230,6 +231,7 @@ export interface AgentConfigInput {
   skills?: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  hooks?: LifecycleHookConfig[];
   output_schema?: any;
 }
 /**
@@ -1786,6 +1788,7 @@ export interface InstanceTypeBootTime {
  */
 export interface IntegrationDTO extends BaseModelDTO, PermissionModelDTO {
   scope: IntegrationScope;
+  grant?: IntegrationGrant;
   provider: IntegrationProvider;
   type: IntegrationAuthType;
   auth: IntegrationAuthType;
@@ -1969,6 +1972,21 @@ export interface SkillStoreListingDTO {
   installs: number /* int64 */;
   uses: number /* int64 */;
   tags?: string[];
+}
+/**
+ * LifecycleHookConfig registers a handler for an agent lifecycle event.
+ * Stored on AgentVersion alongside Tools and Skills.
+ */
+export interface LifecycleHookConfig {
+  event: HookEvent;
+  type: HookHandlerType;
+  handler: string;
+  /**
+   * Filtering — fire every N occurrences (0 = every time)
+   */
+  every?: number /* int */;
+  async?: boolean;
+  timeout?: number /* int */; // seconds, 0 = default (30s)
 }
 /**
  * ElicitationCapability advertises which elicitation modes the client handles.
@@ -2536,6 +2554,17 @@ export interface CheckRequirementsRequest {
 export interface CheckRequirementsResponse {
   satisfied: boolean;
   errors?: RequirementError[];
+}
+export interface ResourceShareDTO extends BaseModelDTO {
+  resource_id: string;
+  resource_type: string;
+  user_id: string;
+  user?: UserRelationDTO;
+  permission: Permission;
+}
+export interface ShareRequest {
+  user_id: string;
+  permission: Permission;
 }
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
@@ -3109,8 +3138,15 @@ export const GPUTypeApple: GPUType = "apple";
  */
 export type Visibility = string;
 export const VisibilityPrivate: Visibility = "private";
+export const VisibilityTeam: Visibility = "team";
 export const VisibilityPublic: Visibility = "public";
 export const VisibilityUnlisted: Visibility = "unlisted";
+/**
+ * Permission represents a permission level for access checks.
+ */
+export type Permission = string;
+export const PermRead: Permission = "read";
+export const PermWrite: Permission = "write";
 export type SubscriptionStatus = string;
 export const SubscriptionStatusTrialing: SubscriptionStatus = "trialing";
 export const SubscriptionStatusActive: SubscriptionStatus = "active";
@@ -3150,6 +3186,8 @@ export const ChatMessageRoleSystem: ChatMessageRole = "system";
 export const ChatMessageRoleUser: ChatMessageRole = "user";
 export const ChatMessageRoleAssistant: ChatMessageRole = "assistant";
 export const ChatMessageRoleTool: ChatMessageRole = "tool";
+export const ChatMessageRoleInjection: ChatMessageRole = "injection";
+export const ChatMessageRoleCompaction: ChatMessageRole = "compaction";
 export type ChatMessageStatus = string;
 export const ChatMessageStatusPending: ChatMessageStatus = "pending";
 export const ChatMessageStatusReady: ChatMessageStatus = "ready";
@@ -3342,6 +3380,26 @@ export const GraphEdgeTypeReferences: GraphEdgeType = "references";
 export const GraphEdgeTypeSupersedes: GraphEdgeType = "supersedes";
 export const GraphEdgeTypeInput: GraphEdgeType = "input";
 export const GraphEdgeTypeOutput: GraphEdgeType = "output";
+/**
+ * HookEvent is a lifecycle event in the agent conversation loop.
+ * Events fire at well-defined points in the turn cycle, giving external
+ * handlers the ability to observe, inject context, or halt execution.
+ */
+export type HookEvent = string;
+export const HookEventAgentStart: HookEvent = "agent.start";
+export const HookEventTurnStart: HookEvent = "agent.turn_start";
+export const HookEventToolCall: HookEvent = "agent.tool_call";
+export const HookEventToolResult: HookEvent = "agent.tool_result";
+export const HookEventTurnComplete: HookEvent = "agent.turn_complete";
+export const HookEventAgentError: HookEvent = "agent.error";
+export const HookEventAgentComplete: HookEvent = "agent.complete";
+export const HookEventAgentIdle: HookEvent = "agent.idle";
+/**
+ * HookHandlerType distinguishes how a lifecycle hook is executed.
+ */
+export type HookHandlerType = string;
+export const HookHandlerWebhook: HookHandlerType = "webhook";
+export const HookHandlerTask: HookHandlerType = "task";
 /**
  * LLMOutput is the output envelope from an LLM provider task.
  * This is the contract between chat apps (sdk-py) and the agent runtime (go/api).
@@ -3686,17 +3744,25 @@ export const IntegrationStatusDisconnected: IntegrationStatus = "disconnected";
 export const IntegrationStatusExpired: IntegrationStatus = "expired";
 export const IntegrationStatusError: IntegrationStatus = "error";
 /**
- * IntegrationScope distinguishes platform-provided vs team-owned integrations.
+ * IntegrationScope controls credential resolution priority and ownership.
  */
 export type IntegrationScope = string;
-/**
- * IntegrationScopeTeam is owned by a user/team (BYOK credentials, user connections)
- */
 export const IntegrationScopeTeam: IntegrationScope = "team";
-/**
- * IntegrationScopePlatform is owned by the platform (managed credentials, admin-configured)
- */
 export const IntegrationScopePlatform: IntegrationScope = "platform";
+export const IntegrationScopeUser: IntegrationScope = "user";
+/**
+ * IntegrationGrant describes what an integration provides.
+ */
+export type IntegrationGrant = string;
+/**
+ * IntegrationGrantCredentials provides OAuth app credentials (client_id/secret).
+ * Users connect their own accounts against it. Only valid for type=oauth.
+ */
+export const IntegrationGrantCredentials: IntegrationGrant = "credentials";
+/**
+ * IntegrationGrantToken provides ready-to-use access (token, API key, etc.).
+ */
+export const IntegrationGrantToken: IntegrationGrant = "token";
 export type WidgetNodeType = string;
 export const WidgetNodeTypeText: WidgetNodeType = "text";
 export const WidgetNodeTypeMarkdown: WidgetNodeType = "markdown";
