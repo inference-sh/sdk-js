@@ -31,6 +31,23 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should surface banned_at and ban_note on me() UserDTO responses', async () => {
+    const me = {
+      user: {
+        id: 'user-1',
+        banned_at: '2026-08-07T12:00:00Z',
+        ban_note: 'Repeated policy violations',
+      },
+      team: { id: 'team-1' },
+    };
+    mockJsonResponse(me);
+
+    const result = await api().me();
+
+    expect(result.data.user.banned_at).toBe('2026-08-07T12:00:00Z');
+    expect(result.data.user.ban_note).toBe('Repeated policy violations');
+  });
+
   it('should GET /teams for list()', async () => {
     const teams = [{ id: 'team-1', name: 'Acme' }];
     mockJsonResponse(teams);

@@ -60,6 +60,8 @@ import {
   ToolContentTypeResource,
   ToolContentTypeResourceLink,
   ToolContentTypeText,
+  UserDTO,
+  RoleUser,
   VisibilityPrivate,
 } from './types';
 
@@ -76,6 +78,22 @@ function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDT
     provider_price_id_yearly: 'price_stripe_yearly',
     credits_monthly: 1_000_000,
     active: true,
+    ...overrides,
+  };
+}
+
+function makeUser(overrides: Partial<UserDTO> = {}): UserDTO {
+  return {
+    id: 'user-1',
+    short_id: 'u1',
+    created_at: '2026-08-01T00:00:00Z',
+    updated_at: '2026-08-01T00:00:00Z',
+    default_team_id: 'team-1',
+    role: RoleUser,
+    email: 'user@example.com',
+    name: 'user',
+    full_name: 'Test User',
+    avatar_url: 'https://example.com/avatar.png',
     ...overrides,
   };
 }
@@ -1185,5 +1203,37 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('UserDTO moderation fields', () => {
+  it('models banned users with banned_at and ban_note on UserDTO responses', () => {
+    const user = makeUser({
+      banned_at: '2026-08-07T12:00:00Z',
+      ban_note: 'Repeated policy violations',
+    });
+
+    expect(user.banned_at).toBe('2026-08-07T12:00:00Z');
+    expect(user.ban_note).toBe('Repeated policy violations');
+  });
+
+  it('allows active users without banned_at or ban_note', () => {
+    const user = makeUser();
+
+    expect(user.banned_at).toBeUndefined();
+    expect(user.ban_note).toBeUndefined();
+  });
+
+  it('preserves banned_at and ban_note through JSON round-trip', () => {
+    const user = makeUser({
+      banned_at: '2026-08-07T12:00:00Z',
+      ban_note: 'Account suspended pending review',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(user)) as UserDTO;
+
+    expect(parsed.banned_at).toBe('2026-08-07T12:00:00Z');
+    expect(parsed.ban_note).toBe('Account suspended pending review');
+    expect(parsed.email).toBe('user@example.com');
   });
 });
