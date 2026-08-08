@@ -3182,10 +3182,17 @@ export const PlanStepStatusInProgress: PlanStepStatus = "in_progress";
 export const PlanStepStatusCompleted: PlanStepStatus = "completed";
 export const PlanStepStatusCancelled: PlanStepStatus = "cancelled";
 export type ChatMessageRole = string;
+/**
+ * LLM wire-protocol roles
+ */
 export const ChatMessageRoleSystem: ChatMessageRole = "system";
 export const ChatMessageRoleUser: ChatMessageRole = "user";
 export const ChatMessageRoleAssistant: ChatMessageRole = "assistant";
 export const ChatMessageRoleTool: ChatMessageRole = "tool";
+/**
+ * Internal bookkeeping roles — never sent to the LLM provider.
+ * BuildContext converts these to system messages or skips them.
+ */
 export const ChatMessageRoleInjection: ChatMessageRole = "injection";
 export const ChatMessageRoleCompaction: ChatMessageRole = "compaction";
 export type ChatMessageStatus = string;
@@ -3394,6 +3401,8 @@ export const HookEventTurnComplete: HookEvent = "agent.turn_complete";
 export const HookEventAgentError: HookEvent = "agent.error";
 export const HookEventAgentComplete: HookEvent = "agent.complete";
 export const HookEventAgentIdle: HookEvent = "agent.idle";
+export const HookEventPreCompact: HookEvent = "agent.pre_compact";
+export const HookEventPostCompact: HookEvent = "agent.post_compact";
 /**
  * HookHandlerType distinguishes how a lifecycle hook is executed.
  */
