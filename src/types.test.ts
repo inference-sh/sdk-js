@@ -1,4 +1,6 @@
 import {
+  AgentConfigInput,
+  AgentVersionDTO,
   APIError,
   AppCategoryOther,
   AppDTO,
@@ -27,9 +29,13 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  HookEventPostCompact,
+  HookEventPreCompact,
+  HookHandlerWebhook,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  LifecycleHookConfig,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -1185,5 +1191,105 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('Compaction lifecycle hooks (models v0.7.37)', () => {
+  it('exports HookEvent constants for context compaction boundaries', () => {
+    expect(HookEventPreCompact).toBe('agent.pre_compact');
+    expect(HookEventPostCompact).toBe('agent.post_compact');
+  });
+
+  it('models pre/post compact hooks on AgentVersionDTO', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventPreCompact,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/pre-compact',
+        every: 0,
+        async: true,
+      },
+      {
+        event: HookEventPostCompact,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/post-compact',
+        every: 0,
+      },
+    ];
+
+    const version: AgentVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-08T00:00:00Z',
+      updated_at: '2026-08-08T00:00:00Z',
+      description: 'Agent with compaction hooks',
+      system_prompt: 'You are helpful.',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      hooks,
+    };
+
+    expect(version.hooks).toHaveLength(2);
+    expect(version.hooks?.[0].event).toBe('agent.pre_compact');
+    expect(version.hooks?.[0].async).toBe(true);
+    expect(version.hooks?.[1].event).toBe('agent.post_compact');
+  });
+
+  it('accepts compaction hooks on AgentConfigInput for create/update requests', () => {
+    const config: AgentConfigInput = {
+      description: 'Compaction-aware agent',
+      system_prompt: 'System',
+      hooks: [
+        {
+          event: HookEventPreCompact,
+          type: HookHandlerWebhook,
+          handler: 'https://example.com/hooks/pre-compact',
+        },
+        {
+          event: HookEventPostCompact,
+          type: HookHandlerWebhook,
+          handler: 'https://example.com/hooks/post-compact',
+          timeout: 120,
+        },
+      ],
+    };
+
+    expect(config.hooks?.[0].event).toBe('agent.pre_compact');
+    expect(config.hooks?.[1].event).toBe('agent.post_compact');
+    expect(config.hooks?.[1].timeout).toBe(120);
+  });
+
+  it('preserves compaction hook config through JSON round-trip', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventPreCompact,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/pre-compact',
+      },
+      {
+        event: HookEventPostCompact,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/post-compact',
+      },
+    ];
+
+    const version: AgentVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-08T00:00:00Z',
+      updated_at: '2026-08-08T00:00:00Z',
+      description: 'Agent',
+      system_prompt: 'System',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      hooks,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AgentVersionDTO;
+
+    expect(parsed.hooks?.[0].event).toBe('agent.pre_compact');
+    expect(parsed.hooks?.[1].event).toBe('agent.post_compact');
   });
 });
