@@ -61,6 +61,12 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  HookEventTurnStart,
+  HookHandlerWebhook,
+  IntegrationConfigDTO,
+  IntegrationGrantCredentials,
+  IntegrationGrantToken,
+  LifecycleHookConfig,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1185,5 +1191,89 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('IntegrationConfigDTO grant (models v0.7.38)', () => {
+  function makeIntegrationConfig(
+    overrides: Partial<IntegrationConfigDTO> = {},
+  ): IntegrationConfigDTO {
+    return {
+      slug: 'slack',
+      provider: 'slack',
+      type: 'oauth',
+      auth: 'oauth',
+      name: 'Slack',
+      short_name: 'Slack',
+      description: 'Connect Slack workspaces',
+      allows_byok: false,
+      available: true,
+      has_managed: true,
+      ...overrides,
+    };
+  }
+
+  it('models grant on IntegrationConfigDTO for credential-providing integrations', () => {
+    const config = makeIntegrationConfig({ grant: IntegrationGrantCredentials });
+
+    expect(config.grant).toBe('credentials');
+  });
+
+  it('models grant on IntegrationConfigDTO for token-based managed integrations', () => {
+    const config = makeIntegrationConfig({ grant: IntegrationGrantToken });
+
+    expect(config.grant).toBe('token');
+  });
+
+  it('preserves grant on IntegrationConfigDTO through JSON round-trip', () => {
+    const config = makeIntegrationConfig({ grant: IntegrationGrantCredentials });
+
+    const parsed = JSON.parse(JSON.stringify(config)) as IntegrationConfigDTO;
+
+    expect(parsed.grant).toBe('credentials');
+    expect(parsed.slug).toBe('slack');
+  });
+});
+
+describe('LifecycleHookConfig shape (models v0.7.38)', () => {
+  it('models optional async and timeout without the removed every field', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventTurnStart,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/turn-start',
+        async: true,
+        timeout: 60,
+      },
+    ];
+
+    expect(hooks[0].async).toBe(true);
+    expect(hooks[0].timeout).toBe(60);
+    expect(hooks).toEqual([
+      {
+        event: 'agent.turn_start',
+        type: 'webhook',
+        handler: 'https://example.com/hooks/turn-start',
+        async: true,
+        timeout: 60,
+      },
+    ]);
+  });
+
+  it('preserves LifecycleHookConfig through JSON round-trip without every', () => {
+    const hooks: LifecycleHookConfig[] = [
+      {
+        event: HookEventTurnStart,
+        type: HookHandlerWebhook,
+        handler: 'https://example.com/hooks/turn-start',
+        timeout: 0,
+      },
+    ];
+
+    const parsed = JSON.parse(JSON.stringify(hooks)) as LifecycleHookConfig[];
+
+    expect(parsed[0].event).toBe('agent.turn_start');
+    expect(parsed[0].timeout).toBe(0);
+    expect(parsed[0]).not.toHaveProperty('every');
   });
 });

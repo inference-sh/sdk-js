@@ -1,6 +1,10 @@
 import { HttpClient } from '../http/client';
 import { IntegrationsAPI } from './integrations';
-import { IntegrationProviderGoogleSA } from '../types';
+import {
+  IntegrationGrantCredentials,
+  IntegrationGrantToken,
+  IntegrationProviderGoogleSA,
+} from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -42,6 +46,29 @@ describe('IntegrationsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/available');
     expect(init.method).toBe('GET');
+  });
+
+  it('should surface grant on IntegrationConfigDTO from listAvailable()', async () => {
+    const available = [
+      {
+        slug: 'slack',
+        provider: 'slack',
+        type: 'oauth',
+        auth: 'oauth',
+        name: 'Slack',
+        short_name: 'Slack',
+        description: 'Connect Slack',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        grant: IntegrationGrantCredentials,
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0].grant).toBe('credentials');
   });
 
   it('should POST /integrations for connect()', async () => {
@@ -90,6 +117,29 @@ describe('IntegrationsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/integrations/configs');
     expect(init.method).toBe('GET');
+  });
+
+  it('should surface grant on IntegrationConfigDTO from getConfigs()', async () => {
+    const configs = [
+      {
+        slug: 'notion',
+        provider: 'notion',
+        type: 'oauth',
+        auth: 'oauth',
+        name: 'Notion',
+        short_name: 'Notion',
+        description: 'Connect Notion',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        grant: IntegrationGrantToken,
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0].grant).toBe('token');
   });
 
   it('should GET /integrations/capabilities for getCapabilities()', async () => {
