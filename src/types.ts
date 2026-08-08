@@ -1822,7 +1822,7 @@ export interface IntegrationConfigDTO {
   allows_byok: boolean;
   available: boolean;
   has_managed: boolean;
-  grant?: string; // "credentials" or "token" — from platform integration
+  grant?: IntegrationGrant;
   integration?: IntegrationDTO;
 }
 /**
