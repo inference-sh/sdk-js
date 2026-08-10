@@ -135,6 +135,7 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
       uri: 'inf://files/uploaded',
@@ -188,7 +189,7 @@ describe('createActions', () => {
 
       const onMessage = streamInstances[0].addEventListener.mock.calls.find(
         ([event]) => event === 'chat_messages'
-      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+      )?.[1] as (msg: ReturnType<typeof makeMessage>, fields?: string[]) => void;
 
       const partialUpdate = makeMessage({ chat_id: undefined, content: 'streaming chunk' });
       onMessage(partialUpdate);
@@ -196,6 +197,27 @@ describe('createActions', () => {
       expect(dispatch).toHaveBeenCalledWith({
         type: 'UPDATE_MESSAGE',
         payload: expect.objectContaining({ content: 'streaming chunk' }),
+      });
+    });
+
+    it('should dispatch partial UPDATE_MESSAGE when stream provides fields', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>, fields?: string[]) => void;
+
+      const partialUpdate = makeMessage({ id: 'msg-1', chat_id: 'chat-short', content: 'chunk' });
+      onMessage(partialUpdate, ['content']);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({ id: 'msg-1', content: 'chunk' }),
+        partial: true,
       });
     });
 
@@ -539,6 +561,30 @@ describe('createActions', () => {
       expect(StreamableManager).toHaveBeenCalledWith(
         expect.objectContaining({ credentials: 'include' })
       );
+    });
+
+    it('should dispatch POST response messages before the stream connects', async () => {
+      const userMessage = makeMessage({ id: 'u1', role: 'user', content: 'hello' });
+      const assistantMessage = makeMessage({ id: 'a1', role: 'assistant', content: 'pending' });
+      mockAgentApi.sendMessage.mockResolvedValueOnce({
+        chatId: 'chat-full-id-123',
+        userMessage,
+        assistantMessage,
+      });
+
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: userMessage,
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: assistantMessage,
+      });
     });
 
     it('should reset connection status when the API returns no result', async () => {
@@ -1165,6 +1211,30 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'allow failed' }));
+    });
+
+    it('cancelMessage should delegate to the API', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.cancelMessage('msg-queued');
+
+      expect(mockAgentApi.cancelMessage).toHaveBeenCalledWith(ctx.client, 'msg-queued');
+    });
+
+    it('cancelMessage should set error state when API fails', async () => {
+      mockAgentApi.cancelMessage.mockRejectedValueOnce(new Error('cancel failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.cancelMessage('msg-queued')).rejects.toThrow('cancel failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'cancel failed',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'cancel failed' }));
     });
   });
 

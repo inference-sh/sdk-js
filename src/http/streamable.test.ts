@@ -567,6 +567,26 @@ describe('StreamableManager', () => {
     expect(onMessage).toHaveBeenCalledWith({ id: 'msg-1', content: 'hi' }, undefined);
   });
 
+  it('should pass fields through addEventListener for partial typed events', async () => {
+    global.fetch = mockFetch([
+      '{"event":"chat_messages","data":{"id":"msg-1","content":"chunk"},"fields":["content"]}\n',
+    ]) as typeof fetch;
+
+    const onMessage = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData: jest.fn(),
+    });
+
+    manager.addEventListener('chat_messages', onMessage);
+    await manager.start();
+
+    expect(onMessage).toHaveBeenCalledWith(
+      { id: 'msg-1', content: 'chunk' },
+      ['content']
+    );
+  });
+
   it('should stop dispatching to an unsubscribed listener', async () => {
     global.fetch = mockFetch([
       '{"event":"chats","data":{"id":"chat-1"}}\n',

@@ -277,6 +277,18 @@ describe('ChatsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should POST /chats/messages/{id}/cancel for cancelMessage()', async () => {
+    const cancelled = { id: 'msg-queued', status: 'cancelled', role: 'user' };
+    mockJsonResponse(cancelled);
+
+    const result = await api().cancelMessage('msg-queued');
+
+    expect(result.data).toEqual(cancelled);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/messages/msg-queued/cancel');
+    expect(init.method).toBe('POST');
+  });
+
   it('should open SSE on /chats/{id}/stream for stream()', async () => {
     const http = new HttpClient({ apiKey: 'test-key' });
     const createEventSource = jest

@@ -11,6 +11,7 @@ import {
   alwaysAllowTool,
   fetchChat,
   stopChat,
+  cancelMessage,
   getChatStreamConfig,
   uploadFile,
 } from './api';
@@ -293,6 +294,24 @@ describe('agent/api', () => {
       mockFetch.mockRejectedValueOnce(new Error('stop failed'));
 
       await expect(stopChat(makeClient(), 'chat-1')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('cancelMessage', () => {
+    it('should POST to /chats/messages/{id}/cancel', async () => {
+      mockJsonResponse(null);
+
+      await cancelMessage(makeClient(), 'msg-queued');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/messages/msg-queued/cancel');
+      expect(init.method).toBe('POST');
+    });
+
+    it('should propagate request failures', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('cancel failed'));
+
+      await expect(cancelMessage(makeClient(), 'msg-queued')).rejects.toThrow('cancel failed');
     });
   });
 
