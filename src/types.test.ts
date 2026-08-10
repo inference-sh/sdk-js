@@ -1,5 +1,8 @@
 import {
   APIError,
+  BountyProgramDTO,
+  BountySubmissionDTO,
+  CountResponse,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -1185,5 +1188,78 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+function makeBountyProgram(overrides: Partial<BountyProgramDTO> = {}): BountyProgramDTO {
+  return {
+    id: 'bounty-1',
+    short_id: 'b1',
+    created_at: '2026-08-10T00:00:00Z',
+    updated_at: '2026-08-10T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    name: 'Tweet bounty',
+    description: 'Share on X for credits',
+    amount_microcents: 5_000_000,
+    grant_type: 'credits',
+    expiry_days: 30,
+    max_per_user: 1,
+    max_per_day: 3,
+    proof_type: 'url',
+    proof_min_length: 10,
+    status: 'active',
+    notice_text: 'Complete the bounty to earn credits',
+    notice_cooldown_hours: 24,
+    notice_priority: 1,
+    ...overrides,
+  };
+}
+
+describe('BountyProgramDTO and CountResponse', () => {
+  it('should include max_per_user on BountyProgramDTO', () => {
+    const program = makeBountyProgram({ max_per_user: 2, max_per_day: 5 });
+
+    expect(program.max_per_user).toBe(2);
+    expect(program.max_per_day).toBe(5);
+    expect(program).not.toHaveProperty('claim_count');
+  });
+
+  it('should preserve BountyProgramDTO max_per_user after JSON round-trip', () => {
+    const program = makeBountyProgram({ max_per_user: 3 });
+
+    const parsed = JSON.parse(JSON.stringify(program)) as BountyProgramDTO;
+
+    expect(parsed.max_per_user).toBe(3);
+    expect(parsed).not.toHaveProperty('claim_count');
+  });
+
+  it('should preserve BountySubmissionDTO resource_id after JSON round-trip', () => {
+    const submission: BountySubmissionDTO = {
+      id: 'submission-1',
+      short_id: 'bs1',
+      created_at: '2026-08-10T01:00:00Z',
+      updated_at: '2026-08-10T01:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      bounty_id: 'bounty-1',
+      proof_id: 'proof-1',
+      proof_ref: 'https://x.com/user/status/123',
+      resource_id: 'resource-abc',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(submission)) as BountySubmissionDTO;
+
+    expect(parsed.resource_id).toBe('resource-abc');
+  });
+
+  it('should preserve CountResponse count after JSON round-trip', () => {
+    const response: CountResponse = { count: 42 };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as CountResponse;
+
+    expect(parsed.count).toBe(42);
   });
 });

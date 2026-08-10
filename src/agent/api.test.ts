@@ -9,6 +9,8 @@ import {
   alwaysAllowTool,
   fetchChat,
   stopChat,
+  cancelMessage,
+  setAgent,
   getChatStreamConfig,
   uploadFile,
 } from './api';
@@ -117,6 +119,70 @@ describe('agent/api', () => {
       const body = JSON.parse(String(init1.body));
       expect(body.agent).toBe('infsh/pricing-agent');
     });
+
+    it('should create chat with empty agent for ad-hoc config', async () => {
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(
+        makeClient(),
+        { core_app: { ref: 'openrouter/claude@abc' }, system_prompt: 'Be helpful' },
+        null,
+        'hello'
+      );
+
+      const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init1.body));
+      expect(body.agent).toBe('');
+    });
+
+    it('should return only userMessage (assistant arrives via SSE)', async () => {
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const result = await sendMessage(makeClient(), { agent: 'ns/agent' }, null, 'hello');
+
+      expect(result).toEqual({
+        chatId: 'chat-1',
+        userMessage: userMessageResponse,
+      });
+      expect(result).not.toHaveProperty('assistantMessage');
+    });
+
+    it('should upload raw File attachments before sending', async () => {
+      const client = makeClient();
+      const fileRecord = {
+        id: 'file-1',
+        uri: 'inf://files/uploaded',
+        filename: 'notes.txt',
+        content_type: 'text/plain',
+      };
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue(fileRecord);
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+      await sendMessage(client, { agent: 'ns/agent' }, null, 'see attachment', [file]);
+
+      expect(uploadSpy).toHaveBeenCalledWith(file);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      uploadSpy.mockRestore();
+    });
+
+    it('should continue sending when a file upload fails', async () => {
+      const client = makeClient();
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest.spyOn(client.files, 'upload').mockRejectedValueOnce(new Error('upload failed'));
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+      const result = await sendMessage(client, { agent: 'ns/agent' }, null, 'hello', [file]);
+
+      expect(result).not.toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      consoleError.mockRestore();
+    });
   });
 
   describe('submitToolResult', () => {
@@ -159,6 +225,33 @@ describe('agent/api', () => {
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/stop');
       expect(init.method).toBe('POST');
+    });
+  });
+
+  describe('cancelMessage', () => {
+    it('should POST to /chats/messages/{id}/cancel', async () => {
+      mockJsonResponse(null);
+
+      await cancelMessage(makeClient(), 'msg-queued');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/messages/msg-queued/cancel');
+      expect(init.method).toBe('POST');
+    });
+  });
+
+  describe('setAgent', () => {
+    it('should POST agent ref to /chats/{id}/agent', async () => {
+      const updatedChat = { id: 'chat-1', status: 'idle', agent_id: 'agent-2' };
+      mockJsonResponse(updatedChat);
+
+      const result = await setAgent(makeClient(), 'chat-1', 'infsh/support-agent');
+
+      expect(result).toEqual(updatedChat);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/agent');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ agent: 'infsh/support-agent' });
     });
   });
 
