@@ -8,6 +8,7 @@ import {
   rejectTool,
   alwaysAllowTool,
   fetchChat,
+  fetchMessages,
   stopChat,
   getChatStreamConfig,
   uploadFile,
@@ -137,15 +138,103 @@ describe('agent/api', () => {
     });
   });
 
-  describe('fetchChat', () => {
-    it('should return chat data on success', async () => {
-      const chat = { id: 'chat-1', status: 'idle' };
-      mockJsonResponse(chat);
-      const result = await fetchChat(makeClient(), 'chat-1');
-      expect(result).toEqual(chat);
+  describe('fetchMessages', () => {
+    it('should GET /chats/{id}/messages with default limit', async () => {
+      const messages = [
+        { id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' },
+        { id: 'm2', chat_id: 'chat-1', role: 'assistant', content: 'hello' },
+      ];
+      mockJsonResponse({ items: messages });
+
+      const result = await fetchMessages(makeClient(), 'chat-1');
+
+      expect(result).toEqual(messages);
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/messages');
+      expect(url).toContain('limit=-1');
     });
 
-    it('should return null on failure', async () => {
+    it('should pass a custom limit query param', async () => {
+      mockJsonResponse({ items: [] });
+
+      await fetchMessages(makeClient(), 'chat-1', 50);
+
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('limit=50');
+    });
+
+    it('should return an empty array when items is missing', async () => {
+      mockJsonResponse({});
+
+      const result = await fetchMessages(makeClient(), 'chat-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return an empty array on failure', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+      const result = await fetchMessages(makeClient(), 'chat-1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('fetchChat', () => {
+    it('should fetch messages separately when Chat.Get does not preload them', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({ ...chat, chat_messages: messages });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [chatUrl] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const [messagesUrl] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(chatUrl).toContain('/chats/chat-1');
+      expect(chatUrl).not.toContain('/messages');
+      expect(messagesUrl).toContain('/chats/chat-1/messages');
+    });
+
+    it('should fetch messages when chat_messages is an empty array', async () => {
+      const chat = { id: 'chat-1', status: 'idle', chat_messages: [] };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'assistant', content: 'done' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result!.chat_messages).toEqual(messages);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not refetch messages when chat already has them', async () => {
+      const existingMessages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'cached' }];
+      const chat = { id: 'chat-1', status: 'idle', chat_messages: existingMessages };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual(chat);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1');
+      expect(url).not.toContain('/messages');
+    });
+
+    it('should return chat with empty messages when message fetch fails', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      mockJsonResponse(chat);
+      mockFetch.mockRejectedValueOnce(new Error('messages unavailable'));
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({ ...chat, chat_messages: [] });
+    });
+
+    it('should return null when chat fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
       const result = await fetchChat(makeClient(), 'chat-1');
       expect(result).toBeNull();
