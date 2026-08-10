@@ -55,14 +55,16 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'UPDATE_MESSAGE': {
       const message = action.payload;
       const existingIndex = state.messages.findIndex((m) => m.id === message.id);
-      let newMessages: ChatMessageDTO[];
       if (existingIndex !== -1) {
-        newMessages = [...state.messages];
-        newMessages[existingIndex] = message;
-      } else {
-        newMessages = [...state.messages, message].sort((a, b) => a.order - b.order);
+        const existing = state.messages[existingIndex];
+        const updated = action.partial ? { ...existing, ...message } : message;
+        if (existing === updated) return state;
+        const newMessages = [...state.messages];
+        newMessages[existingIndex] = updated;
+        return { ...state, messages: newMessages };
       }
-      return { ...state, messages: newMessages };
+      if (action.partial) return state;
+      return { ...state, messages: [...state.messages, message].sort((a, b) => a.order - b.order) };
     }
 
     case 'ADD_MESSAGE':

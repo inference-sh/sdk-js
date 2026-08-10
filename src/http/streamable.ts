@@ -151,7 +151,7 @@ export class StreamableManager<T> {
   private options: StreamableManagerOptions<T>;
   private abortController: AbortController | null = null;
   private isRunning = false;
-  private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
+  private eventListeners: Map<string, Set<(data: unknown, fields?: string[]) => void>> = new Map();
 
   constructor(options: StreamableManagerOptions<T>) {
     this.options = options;
@@ -161,9 +161,9 @@ export class StreamableManager<T> {
    * Add a listener for typed events (e.g., 'chats', 'chat_messages').
    * Used when server sends events with {"event": "eventName", "data": ...} format.
    */
-  addEventListener<E = unknown>(eventName: string, callback: (data: E) => void): () => void {
+  addEventListener<E = unknown>(eventName: string, callback: (data: E, fields?: string[]) => void): () => void {
     const listeners = this.eventListeners.get(eventName) || new Set();
-    listeners.add(callback as (data: unknown) => void);
+    listeners.add(callback as (data: unknown, fields?: string[]) => void);
     this.eventListeners.set(eventName, listeners);
 
     // Return cleanup function
@@ -201,7 +201,8 @@ export class StreamableManager<T> {
         if (wrapper.event && this.eventListeners.has(wrapper.event)) {
           const listeners = this.eventListeners.get(wrapper.event)!;
           const eventData = wrapper.data !== undefined ? wrapper.data : message;
-          listeners.forEach(callback => callback(eventData));
+          const fields = wrapper.fields;
+          listeners.forEach(callback => callback(eventData, fields));
           continue;
         }
 
