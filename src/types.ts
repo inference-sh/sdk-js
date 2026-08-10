@@ -1136,7 +1136,6 @@ export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
   notice_priority: number /* int */;
   starts_at?: string /* RFC3339 */;
   ends_at?: string /* RFC3339 */;
-  claim_count: number /* int64 */;
 }
 /**
  * BountySubmissionDTO is the API representation of a bounty claim.
@@ -1251,6 +1250,12 @@ export interface CursorListResponse<T extends any> {
   has_previous: boolean;
   items_per_page: number /* int */;
   total_items: number /* int */;
+}
+/**
+ * CountResponse is the response for count endpoints.
+ */
+export interface CountResponse {
+  count: number /* int64 */;
 }
 /**
  * EngineConfig holds engine configuration (no gorm tags).
