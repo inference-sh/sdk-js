@@ -17,6 +17,8 @@ export const initialState: AgentChatState = {
   connectionStatus: 'idle',
   error: undefined,
   chat: null,
+  messageCursor: undefined,
+  hasOlderMessages: undefined,
 };
 
 // =============================================================================
@@ -31,10 +33,12 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'SET_CHAT': {
       const chat = action.payload;
       if (!chat) {
-        return { ...state, chat: null, messages: [], connectionStatus: 'idle' };
+        return { ...state, chat: null, messages: [], connectionStatus: 'idle', messageCursor: undefined, hasOlderMessages: undefined };
       }
       const messages = [...(chat.chat_messages || [])].sort((a, b) => a.order - b.order);
-      return { ...state, chat, messages };
+      const cursor = (chat as any)?._messageCursor as string | undefined;
+      const hasOlder = (chat as any)?._hasOlderMessages as boolean | undefined;
+      return { ...state, chat, messages, messageCursor: cursor, hasOlderMessages: hasOlder };
     }
 
     case 'UPDATE_CHAT': {
@@ -51,6 +55,14 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
 
     case 'SET_MESSAGES':
       return { ...state, messages: action.payload };
+
+    case 'PREPEND_MESSAGES': {
+      const { messages: older, cursor, hasMore } = action.payload;
+      const existingIds = new Set(state.messages.map(m => m.id));
+      const deduped = older.filter(m => !existingIds.has(m.id));
+      const merged = [...deduped, ...state.messages].sort((a, b) => a.order - b.order);
+      return { ...state, messages: merged, messageCursor: cursor, hasOlderMessages: hasMore };
+    }
 
     case 'UPDATE_MESSAGE': {
       const message = action.payload;

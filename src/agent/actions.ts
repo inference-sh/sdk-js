@@ -30,7 +30,7 @@ import * as api from './api';
 
 export function createActions(ctx: ActionsContext): ActionsResult {
   const dispatchedToolInvocations = new Set<string>();
-  const { client, dispatch, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
+  const { client, dispatch, getState, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
 
   let prevChatWasBusy = false;
 
@@ -396,6 +396,25 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         callbacks.onError?.(err);
         throw error;
       }
+    },
+
+    loadOlderMessages: async () => {
+      const chatId = getChatId();
+      const cursor = getState().messageCursor;
+      if (!chatId || !cursor) return false;
+
+      const page = await api.fetchMessagesPage(client, chatId, { cursor });
+      if (page.items.length > 0) {
+        dispatch({
+          type: 'PREPEND_MESSAGES',
+          payload: { messages: page.items, cursor: page.next_cursor, hasMore: page.has_next },
+        });
+      }
+      return page.has_next;
+    },
+
+    get hasOlderMessages() {
+      return getState().hasOlderMessages ?? false;
     },
   };
 

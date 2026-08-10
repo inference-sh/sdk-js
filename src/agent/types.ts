@@ -133,6 +133,10 @@ export interface AgentChatState {
   error?: string;
   /** The full chat object (if loaded) */
   chat: ChatDTO | null;
+  /** Cursor for loading older messages */
+  messageCursor?: string;
+  /** Whether older messages exist beyond the current page */
+  hasOlderMessages?: boolean;
 }
 
 /**
@@ -159,6 +163,10 @@ export interface AgentChatActions {
   alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
   /** Cancel a queued message before the agent processes it */
   cancelMessage: (messageId: string) => Promise<void>;
+  /** Load older messages (scroll-up pagination). Returns true if more exist. */
+  loadOlderMessages: () => Promise<boolean>;
+  /** Whether there are older messages to load */
+  hasOlderMessages: boolean;
 }
 
 // =============================================================================
@@ -258,6 +266,7 @@ export type ChatAction =
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
+  | { type: 'PREPEND_MESSAGES'; payload: { messages: ChatMessageDTO[]; cursor?: string; hasMore: boolean } }
   | { type: 'RESET' };
 
 /**
@@ -269,6 +278,7 @@ export type UpdateManager = StreamableManager<unknown> | PollManager<unknown>;
 export interface ActionsContext {
   client: AgentClient;
   dispatch: Dispatch<ChatAction>;
+  getState: () => AgentChatState;
   getConfig: () => AgentOptions | null;
   getChatId: () => string | null;
   getClientToolHandlers: () => Map<string, ClientToolHandlerFn>;
