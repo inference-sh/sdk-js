@@ -1,23 +1,23 @@
 /**
  * Agent Chat API
  *
- * API functions for agent chat operations.
- * Uses the client passed in from the provider.
+ * Two paths by user intent:
+ * - New conversation:  POST /chats (create chat with agent) → POST /chats/{id}/messages
+ * - Existing chat:     POST /chats/{id}/messages
+ *
+ * /agents/run stays for A2A/programmatic use.
  */
 
 import type {
   ChatDTO,
   ChatMessageDTO,
-  ApiAgentRunRequest,
-  AgentTool,
 } from '../types';
-import type { AdHocAgentConfig, TemplateAgentConfig, AgentOptions, AgentClient, FileRef } from './types';
-import { isAdHocConfig, extractToolSchemas } from './types';
+import type { AgentOptions, AgentClient, FileRef } from './types';
+import { isAdHocConfig } from './types';
 
-// Local type definition for agent run response
-interface ApiAgentRunResponse {
-  user_message: ChatMessageDTO;
-  assistant_message: ChatMessageDTO;
+export interface SendResult {
+  chatId: string;
+  userMessage: ChatMessageDTO;
 }
 
 /**
@@ -25,107 +25,66 @@ interface ApiAgentRunResponse {
  */
 export type FileInput = globalThis.File | FileRef;
 
-/**
- * Check if input is an already-uploaded file
- */
 function isFileRef(input: FileInput): input is FileRef {
   return 'uri' in input && typeof (input as FileRef).uri === 'string';
 }
 
 /**
- * Send a message using ad-hoc agent config
+ * Process file inputs — upload raw files, pass through already-uploaded FileRefs
  */
-export async function sendAdHocMessage(
-  client: AgentClient,
-  config: AdHocAgentConfig,
-  chatId: string | null,
-  text: string,
-  attachments?: FileRef[]
-): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
-  // Extract just the schemas from tools (handlers are stripped out)
-  const toolSchemas = config.tools ? extractToolSchemas(config.tools) : undefined;
+async function processFiles(client: AgentClient, files?: FileInput[]): Promise<FileRef[] | undefined> {
+  if (!files || files.length === 0) return undefined;
 
-  const request: ApiAgentRunRequest = {
-    chat_id: chatId ?? undefined,
-    agent_config: {
-      ...config,
-      system_prompt: config.system_prompt ?? '',
-      tools: toolSchemas as (AgentTool | undefined)[]
-    },
-    agent_name: config.name,
-    input: {
-      text,
-      attachments,
-      context_size: 0,
-      system_prompt: '',
-      context: [],
-      role: 'user',
-    },
-  };
-
-  const resp = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
-  const response = resp.data;
-
-  if (response) {
-    const { user_message, assistant_message } = response;
-    if (user_message && assistant_message) {
-      return {
-        chatId: assistant_message.chat_id,
-        userMessage: user_message,
-        assistantMessage: assistant_message,
-      };
+  const refs: FileRef[] = [];
+  for (const file of files) {
+    if (isFileRef(file)) {
+      refs.push(file);
+    } else {
+      try {
+        const result = await client.files.upload(file);
+        if (result) refs.push(result);
+      } catch (error) {
+        console.error('[AgentSDK] Failed to upload file:', error);
+      }
     }
   }
-
-  return null;
+  return refs.length > 0 ? refs : undefined;
 }
 
 /**
- * Send a message using template agent config
+ * Create a new chat with an agent — POST /chats
  */
-export async function sendTemplateMessage(
+async function createChat(
   client: AgentClient,
-  config: TemplateAgentConfig,
-  chatId: string | null,
-  text: string,
-  attachments?: FileRef[]
-): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
-  const request: ApiAgentRunRequest = {
-    chat_id: chatId ?? undefined,
-    // Only include agent if it's not empty (for existing chats, backend uses chat's agent)
-    agent: config.agent || undefined,
-    // Agent-level context (version_id, app_id, ...). Omit when empty so we don't
-    // send a bare {} for agents that declare no context.
-    context: config.context && Object.keys(config.context).length > 0 ? config.context : undefined,
-    input: {
-      text,
-      attachments,
-      context_size: 0,
-      system_prompt: '',
-      context: [],
-      role: 'user',
-    },
-  };
-
-  const resp = await client.http.request<ApiAgentRunResponse>('post', '/agents/run', { data: request });
-  const response = resp.data;
-
-  if (response) {
-    const { user_message, assistant_message } = response;
-    if (user_message && assistant_message) {
-      return {
-        chatId: assistant_message.chat_id,
-        userMessage: user_message,
-        assistantMessage: assistant_message,
-      };
-    }
-  }
-
-  return null;
+  config: AgentOptions,
+): Promise<ChatDTO> {
+  const agentRef = isAdHocConfig(config) ? undefined : config.agent;
+  const resp = await client.http.request<ChatDTO>('post', '/chats', {
+    data: { agent: agentRef || '' },
+  });
+  return resp.data;
 }
 
 /**
- * Send a message (unified interface)
+ * Send a message in a chat — POST /chats/{id}/messages
+ */
+async function sendChatMessage(
+  client: AgentClient,
+  chatId: string,
+  text: string,
+): Promise<SendResult> {
+  const resp = await client.http.request<ChatMessageDTO>('post', `/chats/${chatId}/messages`, {
+    data: { message: text },
+  });
+
+  return {
+    chatId,
+    userMessage: resp.data,
+  };
+}
+
+/**
+ * Send a message — creates chat if needed, then sends message
  */
 export async function sendMessage(
   client: AgentClient,
@@ -133,46 +92,23 @@ export async function sendMessage(
   chatId: string | null,
   text: string,
   files?: FileInput[]
-): Promise<{ chatId: string; userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO } | null> {
-  // Process files - upload if needed, collect as FileRef attachments
-  let attachments: FileRef[] | undefined;
+): Promise<SendResult | null> {
+  await processFiles(client, files);
 
-  if (files && files.length > 0) {
-    attachments = [];
-
-    for (const file of files) {
-      // Check if already uploaded (FileRef)
-      if (isFileRef(file)) {
-        attachments.push(file);
-        continue;
-      }
-
-      // Upload the file
-      try {
-        const result = await client.files.upload(file);
-        if (result) {
-          attachments.push(result);
-        }
-      } catch (error) {
-        console.error('[AgentSDK] Failed to upload file:', error);
-      }
-    }
-
-    if (attachments.length === 0) {
-      attachments = undefined;
-    }
+  // Existing chat — just send the message
+  if (chatId) {
+    return sendChatMessage(client, chatId, text);
   }
 
-  if (isAdHocConfig(config)) {
-    return sendAdHocMessage(client, config, chatId, text, attachments);
-  } else {
-    return sendTemplateMessage(client, config, chatId, text, attachments);
-  }
+  // New chat — create it, then send the first message
+  const chat = await createChat(client, config);
+  return sendChatMessage(client, chat.id, text);
 }
 
-/**
- * Fetch a chat by ID
- */
+// =========================================================================
+// Chat operations
+// =========================================================================
+
 export async function fetchChat(client: AgentClient, chatId: string): Promise<ChatDTO | null> {
   try {
     const resp = await client.http.request<ChatDTO>('get', `/chats/${chatId}`);
@@ -183,9 +119,6 @@ export async function fetchChat(client: AgentClient, chatId: string): Promise<Ch
   return null;
 }
 
-/**
- * Stop a chat
- */
 export async function stopChat(client: AgentClient, chatId: string): Promise<void> {
   try {
     await client.http.request<void>('post', `/chats/${chatId}/stop`);
@@ -194,84 +127,57 @@ export async function stopChat(client: AgentClient, chatId: string): Promise<voi
   }
 }
 
-/**
- * Submit a tool result (for client tools/widgets/awaiting input)
- */
+export async function cancelMessage(client: AgentClient, messageId: string): Promise<void> {
+  await client.http.request<void>('post', `/chats/messages/${messageId}/cancel`);
+}
+
+export async function setAgent(client: AgentClient, chatId: string, agentRef: string): Promise<ChatDTO> {
+  const resp = await client.http.request<ChatDTO>('post', `/chats/${chatId}/agent`, {
+    data: { agent: agentRef },
+  });
+  return resp.data;
+}
+
+// =========================================================================
+// Tool operations
+// =========================================================================
+
 export async function submitToolResult(
   client: AgentClient,
   toolInvocationId: string,
   resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
 ): Promise<void> {
-  try {
-    const data = typeof resultOrAction === 'string' ? { result: resultOrAction } : resultOrAction;
-    await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
-  } catch (error) {
-    console.error('[AgentSDK] Failed to submit tool result:', error);
-    throw error;
-  }
+  const data = typeof resultOrAction === 'string' ? { result: resultOrAction } : resultOrAction;
+  await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
 }
 
-/**
- * Approve a tool (for HIL approval)
- */
 export async function approveTool(client: AgentClient, toolInvocationId: string): Promise<void> {
-  try {
-    await client.http.request<void>('post', `/tools/${toolInvocationId}/invoke`);
-  } catch (error) {
-    console.error('[AgentSDK] Failed to approve tool:', error);
-    throw error;
-  }
+  await client.http.request<void>('post', `/tools/${toolInvocationId}/invoke`);
 }
 
-/**
- * Reject a tool (for HIL approval)
- */
 export async function rejectTool(client: AgentClient, toolInvocationId: string, reason?: string): Promise<void> {
-  try {
-    await client.http.request<void>('post', `/tools/${toolInvocationId}/reject`, { data: { reason } });
-  } catch (error) {
-    console.error('[AgentSDK] Failed to reject tool:', error);
-    throw error;
-  }
+  await client.http.request<void>('post', `/tools/${toolInvocationId}/reject`, { data: { reason } });
 }
 
-/**
- * Always allow a tool for this chat
- */
 export async function alwaysAllowTool(
   client: AgentClient,
   chatId: string,
   toolInvocationId: string,
   toolName: string
 ): Promise<void> {
-  try {
-    await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
-      data: { tool_name: toolName }
-    });
-  } catch (error) {
-    console.error('[AgentSDK] Failed to always-allow tool:', error);
-    throw error;
-  }
+  await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
+    data: { tool_name: toolName }
+  });
 }
 
-/**
- * Cancel a queued message
- */
-export async function cancelMessage(client: AgentClient, messageId: string): Promise<void> {
-  await client.http.request<void>('post', `/chats/messages/${messageId}/cancel`);
-}
+// =========================================================================
+// File & stream operations
+// =========================================================================
 
-/**
- * Upload a file and return the uploaded file reference
- */
 export async function uploadFile(client: AgentClient, file: globalThis.File): Promise<FileRef> {
-  const result = await client.files.upload(file);
-  return result;
+  return client.files.upload(file);
 }
 
-/**
- * Get streamable config for chat streaming (NDJSON)
- */
 export function getChatStreamConfig(client: AgentClient, chatId: string): { url: string; headers: Record<string, string>; credentials: RequestCredentials } {
   return client.http.getStreamableConfig(`/chats/${chatId}/stream`);
 }

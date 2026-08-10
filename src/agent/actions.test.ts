@@ -129,7 +129,6 @@ describe('createActions', () => {
     mockAgentApi.sendMessage.mockResolvedValue({
       chatId: 'chat-full-id-123',
       userMessage: makeMessage({ id: 'u1', role: 'user' }),
-      assistantMessage: makeMessage(),
     });
     mockAgentApi.submitToolResult.mockResolvedValue(undefined);
     mockAgentApi.approveTool.mockResolvedValue(undefined);
