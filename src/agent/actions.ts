@@ -276,12 +276,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         const result = await api.sendMessage(client, agentConfig, chatId, trimmedText, files);
 
         if (result) {
-          const { chatId: newChatId, userMessage, assistantMessage } = result;
+          const { chatId: newChatId, userMessage } = result;
 
-          // Add messages from POST response immediately so the UI shows
-          // the pending assistant message before the SSE stream connects
+          // Add user message from POST response immediately
           if (userMessage) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
-          if (assistantMessage) dispatch({ type: 'UPDATE_MESSAGE', payload: assistantMessage });
 
           // Start streaming if not already connected
           const streamManager = getStreamManager();
