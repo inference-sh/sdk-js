@@ -123,6 +123,11 @@ describe('createActions', () => {
       chat_messages: [],
     } as unknown as ChatDTO);
     mockAgentApi.fetchMessages.mockResolvedValue([]);
+    mockAgentApi.fetchMessagesPage.mockResolvedValue({
+      items: [],
+      next_cursor: '',
+      has_next: false,
+    });
     mockAgentApi.getChatStreamConfig.mockReturnValue({
       url: 'https://api.test/chats/chat-full-id-123/stream',
       headers: {},
@@ -1358,6 +1363,117 @@ describe('createActions', () => {
       expect(onTurnEnd).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'chat-full-id-123', status: ChatStatusIdle })
       );
+    });
+  });
+
+  describe('loadOlderMessages', () => {
+    it('should return false when chatId is missing', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(result).toBe(false);
+      expect(mockAgentApi.fetchMessagesPage).not.toHaveBeenCalled();
+    });
+
+    it('should return false when messageCursor is missing', async () => {
+      const { ctx } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'idle',
+          chat: null,
+          messageCursor: undefined,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(result).toBe(false);
+      expect(mockAgentApi.fetchMessagesPage).not.toHaveBeenCalled();
+    });
+
+    it('should fetch older messages with cursor and dispatch PREPEND_MESSAGES', async () => {
+      const olderMsg = makeMessage({ id: 'msg-old', role: 'user' });
+      mockAgentApi.fetchMessagesPage.mockResolvedValueOnce({
+        items: [olderMsg],
+        next_cursor: 'cursor-2',
+        has_next: true,
+      });
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [makeMessage({ id: 'msg-new' })],
+          connectionStatus: 'idle',
+          chat: null,
+          messageCursor: 'cursor-1',
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(mockAgentApi.fetchMessagesPage).toHaveBeenCalledWith(
+        ctx.client,
+        'chat-short',
+        { cursor: 'cursor-1' }
+      );
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'PREPEND_MESSAGES',
+        payload: { messages: [olderMsg], cursor: 'cursor-2', hasMore: true },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should not dispatch when the page has no items', async () => {
+      mockAgentApi.fetchMessagesPage.mockResolvedValueOnce({
+        items: [],
+        next_cursor: 'cursor-end',
+        has_next: false,
+      });
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [makeMessage({ id: 'msg-new' })],
+          connectionStatus: 'idle',
+          chat: null,
+          messageCursor: 'cursor-1',
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PREPEND_MESSAGES' })
+      );
+      expect(result).toBe(false);
+    });
+
+    it('hasOlderMessages getter should reflect state', () => {
+      const { ctx } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'idle',
+          chat: null,
+          hasOlderMessages: true,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      expect(publicActions.hasOlderMessages).toBe(true);
+    });
+
+    it('hasOlderMessages getter should default to false when unset', () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      expect(publicActions.hasOlderMessages).toBe(false);
     });
   });
 

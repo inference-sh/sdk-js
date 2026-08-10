@@ -123,8 +123,10 @@ describe('chatReducer', () => {
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
   });
 
-  it('SET_CHAT with null should clear chat and messages', () => {
+  it('SET_CHAT with null should clear chat, messages, and pagination metadata', () => {
     const chat = makeChat();
+    (chat as Record<string, unknown>)._messageCursor = 'cursor-1';
+    (chat as Record<string, unknown>)._hasOlderMessages = true;
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
 
     const next = chatReducer(state, { type: 'SET_CHAT', payload: null });
@@ -132,6 +134,19 @@ describe('chatReducer', () => {
     expect(next.chat).toBeNull();
     expect(next.messages).toEqual([]);
     expect(next.connectionStatus).toBe('idle');
+    expect(next.messageCursor).toBeUndefined();
+    expect(next.hasOlderMessages).toBeUndefined();
+  });
+
+  it('SET_CHAT should extract pagination metadata from the chat object', () => {
+    const chat = makeChat();
+    (chat as Record<string, unknown>)._messageCursor = 'cursor-xyz';
+    (chat as Record<string, unknown>)._hasOlderMessages = true;
+
+    const next = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    expect(next.messageCursor).toBe('cursor-xyz');
+    expect(next.hasOlderMessages).toBe(true);
   });
 
   it('ADD_MESSAGE should append and sort by order', () => {
@@ -192,5 +207,46 @@ describe('chatReducer', () => {
   it('should return the same state for unknown action types', () => {
     const state = chatReducer(initialState, { type: 'UNKNOWN' } as never);
     expect(state).toBe(initialState);
+  });
+
+  describe('PREPEND_MESSAGES', () => {
+    it('should prepend older messages, dedupe by id, and sort by order', () => {
+      const chat = makeChat({
+        chat_messages: [makeMessage('msg-2', 2), makeMessage('msg-3', 3)],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const older = [
+        makeMessage('msg-0', 0),
+        makeMessage('msg-1', 1),
+        makeMessage('msg-2', 2),
+      ];
+      const next = chatReducer(state, {
+        type: 'PREPEND_MESSAGES',
+        payload: { messages: older, cursor: 'cursor-abc', hasMore: true },
+      });
+
+      expect(next.messages.map((m) => m.id)).toEqual(['msg-0', 'msg-1', 'msg-2', 'msg-3']);
+      expect(next.messageCursor).toBe('cursor-abc');
+      expect(next.hasOlderMessages).toBe(true);
+    });
+
+    it('should update pagination metadata when all older messages are duplicates', () => {
+      const chat = makeChat({ chat_messages: [makeMessage('msg-1', 1)] });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'PREPEND_MESSAGES',
+        payload: {
+          messages: [makeMessage('msg-1', 1)],
+          cursor: 'cursor-end',
+          hasMore: false,
+        },
+      });
+
+      expect(next.messages.map((m) => m.id)).toEqual(['msg-1']);
+      expect(next.messageCursor).toBe('cursor-end');
+      expect(next.hasOlderMessages).toBe(false);
+    });
   });
 });

@@ -8,6 +8,8 @@ import {
   rejectTool,
   alwaysAllowTool,
   fetchChat,
+  fetchMessages,
+  fetchMessagesPage,
   stopChat,
   getChatStreamConfig,
   uploadFile,
@@ -137,15 +139,127 @@ describe('agent/api', () => {
     });
   });
 
-  describe('fetchChat', () => {
-    it('should return chat data on success', async () => {
-      const chat = { id: 'chat-1', status: 'idle' };
-      mockJsonResponse(chat);
-      const result = await fetchChat(makeClient(), 'chat-1');
-      expect(result).toEqual(chat);
+  describe('fetchMessages', () => {
+    it('should GET /chats/{id}/messages without limit (server default)', async () => {
+      const messages = [
+        { id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' },
+        { id: 'm2', chat_id: 'chat-1', role: 'assistant', content: 'hello' },
+      ];
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchMessages(makeClient(), 'chat-1');
+
+      expect(result).toEqual(messages);
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/messages');
+      expect(url).not.toContain('limit=');
+      expect(url).not.toContain('cursor=');
     });
 
-    it('should return null on failure', async () => {
+    it('should pass cursor when provided in options', async () => {
+      mockJsonResponse({ items: [], next_cursor: 'cursor-abc', has_next: true });
+
+      await fetchMessages(makeClient(), 'chat-1', { cursor: 'cursor-abc' });
+
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('cursor=cursor-abc');
+    });
+
+    it('should return an empty array on failure', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+      const result = await fetchMessages(makeClient(), 'chat-1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('fetchMessagesPage', () => {
+    it('should return full pagination result including cursor and has_next', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse({ items: messages, next_cursor: 'page-2', has_next: true });
+
+      const result = await fetchMessagesPage(makeClient(), 'chat-1');
+
+      expect(result).toEqual({
+        items: messages,
+        next_cursor: 'page-2',
+        has_next: true,
+      });
+    });
+
+    it('should return empty defaults on failure', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+      const result = await fetchMessagesPage(makeClient(), 'chat-1');
+
+      expect(result).toEqual({ items: [], next_cursor: '', has_next: false });
+    });
+  });
+
+  describe('fetchChat', () => {
+    it('should fetch messages separately when Chat.Get does not preload them', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({
+        ...chat,
+        chat_messages: messages,
+        _messageCursor: '',
+        _hasOlderMessages: false,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [chatUrl] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const [messagesUrl] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(chatUrl).toContain('/chats/chat-1');
+      expect(chatUrl).not.toContain('/messages');
+      expect(messagesUrl).toContain('/chats/chat-1/messages');
+    });
+
+    it('should attach pagination metadata when more message pages exist', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: 'page-2', has_next: true });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result!.chat_messages).toEqual(messages);
+      expect((result as Record<string, unknown>)._messageCursor).toBe('page-2');
+      expect((result as Record<string, unknown>)._hasOlderMessages).toBe(true);
+    });
+
+    it('should skip message fetch when chat_messages are already preloaded', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      const chat = { id: 'chat-1', status: 'idle', chat_messages: messages };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual(chat);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return chat with empty messages when message fetch fails', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      mockJsonResponse(chat);
+      mockFetch.mockRejectedValueOnce(new Error('messages unavailable'));
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({
+        ...chat,
+        chat_messages: [],
+        _messageCursor: '',
+        _hasOlderMessages: false,
+      });
+    });
+
+    it('should return null when chat fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
       const result = await fetchChat(makeClient(), 'chat-1');
       expect(result).toBeNull();
