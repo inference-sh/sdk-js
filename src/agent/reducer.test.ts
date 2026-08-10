@@ -73,13 +73,13 @@ describe('chatReducer', () => {
 
   it('UPDATE_ACTIVE_RUN should update active_run output without replacing messages', () => {
     const chat = makeChat();
-    const withMessages = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
     const completedRun = {
       state: AgentRunStateCompleted,
       output: { answer: 42 },
     } as AgentRunDTO;
 
-    const next = chatReducer(withMessages, {
+    const next = chatReducer(state, {
       type: 'UPDATE_ACTIVE_RUN',
       payload: completedRun,
     });

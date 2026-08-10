@@ -121,6 +121,7 @@ describe('createActions', () => {
       active_run: workingRun,
       chat_messages: [],
     } as unknown as ChatDTO);
+    mockAgentApi.fetchMessages.mockResolvedValue([]);
     mockAgentApi.getChatStreamConfig.mockReturnValue({
       url: 'https://api.test/chats/chat-full-id-123/stream',
       headers: {},
