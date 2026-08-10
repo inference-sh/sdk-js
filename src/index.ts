@@ -59,6 +59,10 @@ export {
 } from './tool-builder';
 export type { ClientTool, ClientToolHandler } from './tool-builder';
 
+// Hook Builder (fluent API)
+export { lifecycleHook } from './hook-builder';
+export type { LifecycleHookBuilder } from './hook-builder';
+
 // Status utilities (handle both int and string status values)
 export { parseStatus, isTerminalStatus, isChatBusy } from './utils';
 

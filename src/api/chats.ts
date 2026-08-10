@@ -2,6 +2,7 @@ import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
 import {
   ChatDTO as Chat,
+  ChatMessageDTO,
   ChatTraceDTO,
   CursorListRequest,
   CursorListResponse,
@@ -60,6 +61,13 @@ export class ChatsAPI {
    */
   async stop(chatId: string): Promise<Response<void>> {
     return this.http.request<void>('post', `/chats/${chatId}/stop`);
+  }
+
+  /**
+   * Cancel a queued message
+   */
+  async cancelMessage(messageId: string): Promise<Response<ChatMessageDTO>> {
+    return this.http.request<ChatMessageDTO>('post', `/chats/messages/${messageId}/cancel`);
   }
 
   /**

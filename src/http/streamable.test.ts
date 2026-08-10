@@ -563,8 +563,8 @@ describe('StreamableManager', () => {
 
     await manager.start();
 
-    expect(onChat).toHaveBeenCalledWith({ id: 'chat-1', status: 'busy' });
-    expect(onMessage).toHaveBeenCalledWith({ id: 'msg-1', content: 'hi' });
+    expect(onChat).toHaveBeenCalledWith({ id: 'chat-1', status: 'busy' }, undefined);
+    expect(onMessage).toHaveBeenCalledWith({ id: 'msg-1', content: 'hi' }, undefined);
   });
 
   it('should stop dispatching to an unsubscribed listener', async () => {
@@ -585,7 +585,7 @@ describe('StreamableManager', () => {
     await manager.start();
 
     expect(removedListener).not.toHaveBeenCalled();
-    expect(activeListener).toHaveBeenCalledWith({ id: 'chat-1' });
+    expect(activeListener).toHaveBeenCalledWith({ id: 'chat-1' }, undefined);
   });
 
   it('should ignore start() when a stream is already running', async () => {
