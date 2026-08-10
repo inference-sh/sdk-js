@@ -99,7 +99,7 @@ export function AgentChatProvider({
     pollIntervalMsRef.current = pollIntervalMs;
   }, [stream, pollIntervalMs]);
 
-  // Keep chatIdRef synced with state
+  // Keep refs synced with state
   useEffect(() => {
     chatIdRef.current = state.chatId;
   }, [state.chatId]);

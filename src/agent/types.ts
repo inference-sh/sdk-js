@@ -157,6 +157,8 @@ export interface AgentChatActions {
   rejectTool: (toolInvocationId: string, reason?: string) => Promise<void>;
   /** Always allow a tool for this chat (approves + auto-approves future invocations) */
   alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
+  /** Cancel a queued message before the agent processes it */
+  cancelMessage: (messageId: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -252,7 +254,7 @@ export type ChatAction =
   | { type: 'UPDATE_CHAT'; payload: ChatDTO | null }
   | { type: 'UPDATE_ACTIVE_RUN'; payload: AgentRunDTO }
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
-  | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO }
+  | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO; partial?: boolean }
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }

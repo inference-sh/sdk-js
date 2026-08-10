@@ -255,6 +255,13 @@ export async function alwaysAllowTool(
 }
 
 /**
+ * Cancel a queued message
+ */
+export async function cancelMessage(client: AgentClient, messageId: string): Promise<void> {
+  await client.http.request<void>('post', `/chats/messages/${messageId}/cancel`);
+}
+
+/**
  * Upload a file and return the uploaded file reference
  */
 export async function uploadFile(client: AgentClient, file: globalThis.File): Promise<FileRef> {

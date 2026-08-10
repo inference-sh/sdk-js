@@ -54,13 +54,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     }
   };
 
-  const updateMessage = (message: ChatMessageDTO) => {
+  const updateMessage = (message: ChatMessageDTO, fields?: string[]) => {
     const chatId = getChatId();
     // TODO: remove startsWith once the provider normalizes chatId to full ID after first fetchChat
     // Support short ID matching (URL short IDs are prefixes of full IDs)
     if (chatId && message.chat_id && message.chat_id !== chatId && !message.chat_id.startsWith(chatId)) return;
 
-    dispatch({ type: 'UPDATE_MESSAGE', payload: message });
+    dispatch({ type: 'UPDATE_MESSAGE', payload: message, partial: fields ? true : undefined });
 
     // Dispatch client tool handlers when ready (in_progress or awaiting_input for backwards compat)
     const clientToolHandlers = getClientToolHandlers();
@@ -171,8 +171,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     // Listen for ChatMessage updates
-    manager.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
-      updateMessage(message);
+    manager.addEventListener<ChatMessageDTO>('chat_messages', (message, fields) => {
+      updateMessage(message, fields);
     });
 
     // Listen for AgentRun updates (state transitions, output)
@@ -276,7 +276,12 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         const result = await api.sendMessage(client, agentConfig, chatId, trimmedText, files);
 
         if (result) {
-          const { chatId: newChatId } = result;
+          const { chatId: newChatId, userMessage, assistantMessage } = result;
+
+          // Add messages from POST response immediately so the UI shows
+          // the pending assistant message before the SSE stream connects
+          if (userMessage) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
+          if (assistantMessage) dispatch({ type: 'UPDATE_MESSAGE', payload: assistantMessage });
 
           // Start streaming if not already connected
           const streamManager = getStreamManager();
@@ -377,6 +382,18 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         console.error('[AgentSDK] Failed to always-allow tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to always-allow tool');
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_ERROR', payload: err.message });
+        callbacks.onError?.(err);
+        throw error;
+      }
+    },
+
+    cancelMessage: async (messageId: string) => {
+      try {
+        await api.cancelMessage(client, messageId);
+      } catch (error) {
+        console.error('[AgentSDK] Failed to cancel message:', error);
+        const err = error instanceof Error ? error : new Error('Failed to cancel message');
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;

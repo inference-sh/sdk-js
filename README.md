@@ -409,6 +409,41 @@ const agent = client.agents.create({
 
 `callTool` is an alias for `httpTool`. Run `npx tsx examples/tool-builder.ts` for more schema examples (no API key required).
 
+### Lifecycle hooks
+
+Use `lifecycleHook()` to attach hooks to agent events. Hooks can call a webhook or delegate to another agent as a task:
+
+```typescript
+import { inference, lifecycleHook, HookEventTurnStart, HookEventToolCall } from '@inferencesh/sdk';
+
+const client = inference({ apiKey: 'your-api-key' });
+
+const agent = client.agents.create({
+  core_app: { ref: 'openrouter/claude-sonnet-4@abc' },
+  hooks: [
+    lifecycleHook(HookEventTurnStart)
+      .webhook('https://example.com/on-turn')
+      .timeout(10)
+      .build(),
+    lifecycleHook(HookEventToolCall)
+      .task('my-org/approval-agent')
+      .async(true)
+      .build(),
+  ],
+});
+```
+
+### Queued messages
+
+`sendMessage` automatically queues when the agent is busy processing a previous message. Queued messages appear with a `queued` status until the agent picks them up.
+
+To cancel a queued message before it is processed, use `cancelMessage` on the React provider or `chats.cancelMessage` on the API client:
+
+```typescript
+// Via the API client
+await client.chats.cancelMessage(messageId);
+```
+
 ### File attachments
 
 Pass files in `sendMessage` options. `Blob` values are uploaded first; objects with a `uri` (already uploaded via `client.files.upload`) are attached as-is:
