@@ -109,11 +109,24 @@ export async function sendMessage(
 // Chat operations
 // =========================================================================
 
-export async function fetchMessages(client: AgentClient, chatId: string, limit = -1): Promise<ChatMessageDTO[]> {
+export interface FetchMessagesOptions {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface FetchMessagesResult {
+  items: ChatMessageDTO[];
+  next_cursor: string;
+  has_next: boolean;
+}
+
+export async function fetchMessages(client: AgentClient, chatId: string, options?: FetchMessagesOptions): Promise<ChatMessageDTO[]> {
   try {
-    const resp = await client.http.request<{ items: ChatMessageDTO[] }>('get', `/chats/${chatId}/messages`, {
-      params: { limit },
-    });
+    const params: Record<string, string | number> = {};
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.cursor) params.cursor = options.cursor;
+
+    const resp = await client.http.request<FetchMessagesResult>('get', `/chats/${chatId}/messages`, { params });
     return resp.data.items || [];
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch messages:', error);
