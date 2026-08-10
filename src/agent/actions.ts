@@ -117,7 +117,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     callbacks.onStatusChange?.('connecting');
 
     try {
-      // Fetch initial chat
+      // Fetch initial chat (fetchChat loads messages separately since Chat.Get no longer preloads them)
       const chat = await api.fetchChat(client, id);
       if (chat) {
         setChat(chat);
@@ -201,7 +201,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         if (statusData.status === prevStatus) return;
         prevStatus = statusData.status as string;
 
-        // Status changed — fetch full chat
+        // Status changed — fetch chat (fetchChat loads messages)
         try {
           const chat = await api.fetchChat(client, id);
           if (chat) {
