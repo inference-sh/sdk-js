@@ -62,6 +62,7 @@ function createTestContext(overrides: Partial<ActionsContext> = {}): {
       files: { upload: jest.fn() },
     },
     dispatch,
+    getState: () => ({ chatId: 'chat-short', messages: [], connectionStatus: 'idle' as const, chat: null }),
     getConfig: () => adHocConfig,
     getChatId: () => 'chat-short',
     getClientToolHandlers: () => new Map(),

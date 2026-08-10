@@ -121,16 +121,21 @@ export interface FetchMessagesResult {
 }
 
 export async function fetchMessages(client: AgentClient, chatId: string, options?: FetchMessagesOptions): Promise<ChatMessageDTO[]> {
+  const result = await fetchMessagesPage(client, chatId, options);
+  return result.items;
+}
+
+export async function fetchMessagesPage(client: AgentClient, chatId: string, options?: FetchMessagesOptions): Promise<FetchMessagesResult> {
   try {
     const params: Record<string, string | number> = {};
     if (options?.limit !== undefined) params.limit = options.limit;
     if (options?.cursor) params.cursor = options.cursor;
 
     const resp = await client.http.request<FetchMessagesResult>('get', `/chats/${chatId}/messages`, { params });
-    return resp.data.items || [];
+    return resp.data || { items: [], next_cursor: '', has_next: false };
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch messages:', error);
-    return [];
+    return { items: [], next_cursor: '', has_next: false };
   }
 }
 
@@ -140,7 +145,11 @@ export async function fetchChat(client: AgentClient, chatId: string): Promise<Ch
     const chat = resp.data;
     // Chat.Get no longer preloads messages — fetch them separately and attach
     if (chat && (!chat.chat_messages || chat.chat_messages.length === 0)) {
-      chat.chat_messages = await fetchMessages(client, chatId);
+      const page = await fetchMessagesPage(client, chatId);
+      chat.chat_messages = page.items;
+      // Store pagination info on the chat for the reducer to pick up
+      (chat as any)._messageCursor = page.next_cursor;
+      (chat as any)._hasOlderMessages = page.has_next;
     }
     return chat;
   } catch (error) {

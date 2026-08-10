@@ -100,6 +100,8 @@ export function AgentChatProvider({
   }, [stream, pollIntervalMs]);
 
   // Keep refs synced with state
+  const stateRef = useRef(state);
+  stateRef.current = state;
   useEffect(() => {
     chatIdRef.current = state.chatId;
   }, [state.chatId]);
@@ -108,6 +110,7 @@ export function AgentChatProvider({
   const actionsContext = useMemo<ActionsContext>(() => ({
     client,
     dispatch,
+    getState: () => stateRef.current,
     getConfig: () => configRef.current,
     getChatId: () => chatIdRef.current,
     getClientToolHandlers: () => clientToolHandlersRef.current,
