@@ -94,7 +94,6 @@
   },
   "devDependencies": {
     "@sveltejs/kit": "^2.60.1",
-    "svelte": "^5.55.7",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
@@ -103,12 +102,13 @@
     "@typescript-eslint/parser": "^8.65.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
-    "hono": "^4.0.0",
+    "hono": "^4.13.1",
     "jest": "^30.4.2",
     "next": "^16.2.6",
     "prettier": "^3.6.2",
     "react": "^19.2.3",
     "rimraf": "^6.0.1",
+    "svelte": "^5.55.7",
     "ts-jest": "^29.2.5",
     "typescript": "~6.0.3"
   },
