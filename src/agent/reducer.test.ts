@@ -1,5 +1,10 @@
 import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types';
-import { AgentRunStateCompleted, ChatStatusBusy, ChatStatusIdle } from '../types';
+import {
+  AgentRunStateCompleted,
+  AgentRunStateWorking,
+  ChatStatusBusy,
+  ChatStatusIdle,
+} from '../types';
 import { chatReducer, initialState } from './reducer';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
@@ -88,6 +93,25 @@ describe('chatReducer', () => {
     expect(next.chat?.active_run?.output).toEqual({ answer: 42 });
     expect(next.messages).toHaveLength(2);
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+  });
+
+  it('UPDATE_ACTIVE_RUN should preserve tool_invocation_id on interrupted runs', () => {
+    const chat = makeChat();
+    const withMessages = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+    const interruptedRun = {
+      state: AgentRunStateWorking,
+      interrupt_tool_id: 'tool-search',
+      tool_invocation_id: 'inv-sse-1',
+    } as AgentRunDTO;
+
+    const next = chatReducer(withMessages, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: interruptedRun,
+    });
+
+    expect(next.chat?.active_run?.tool_invocation_id).toBe('inv-sse-1');
+    expect(next.chat?.active_run?.interrupt_tool_id).toBe('tool-search');
+    expect(next.messages).toHaveLength(2);
   });
 
   it('UPDATE_ACTIVE_RUN should leave state unchanged when chat is null', () => {

@@ -1,4 +1,6 @@
 import {
+  AgentRunDTO,
+  AgentRunStateWorking,
   APIError,
   AppCategoryOther,
   AppDTO,
@@ -8,6 +10,10 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  BountySubmissionDTO,
+  ChatMessageStatusPending,
+  ChatMessageStatusQueued,
+  ContextInjection,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -25,11 +31,20 @@ import {
   EntitlementSourceTier,
   EntitlementTypeBoolean,
   EntitlementTypeLimit,
+  ErrorEventData,
   EstimateCostRequest,
   EstimateCostResponse,
+  HookDecisionAllow,
+  HookDecisionDeny,
+  HookDecisionStop,
+  HookEventAgentError,
+  HookEventToolCall,
+  HookEventToolResult,
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  LifecycleHookPayload,
+  LifecycleHookResponse,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -54,12 +69,14 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  ToolCallEventData,
   ToolCallResponse,
   ToolContentTypeAudio,
   ToolContentTypeImage,
   ToolContentTypeResource,
   ToolContentTypeResourceLink,
   ToolContentTypeText,
+  ToolResultEventData,
   VisibilityPrivate,
 } from './types';
 
@@ -1185,5 +1202,242 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('Lifecycle hook payload and response (models v0.7.43)', () => {
+  it('exports HookDecision constants for allow, deny, and stop verdicts', () => {
+    expect(HookDecisionAllow).toBe('allow');
+    expect(HookDecisionDeny).toBe('deny');
+    expect(HookDecisionStop).toBe('stop');
+  });
+
+  it('models LifecycleHookPayload with event context and typed data', () => {
+    const toolData: ToolCallEventData = {
+      tool: 'search',
+      arguments: { query: 'docs' },
+    };
+    const payload: LifecycleHookPayload = {
+      event: HookEventToolCall,
+      timestamp: '2026-08-10T10:00:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      run_id: 'run-1',
+      turn_count: 3,
+      data: toolData,
+    };
+
+    expect(payload.event).toBe('agent.tool_call');
+    expect(payload.turn_count).toBe(3);
+    expect((payload.data as ToolCallEventData).tool).toBe('search');
+    expect((payload.data as ToolCallEventData).arguments?.query).toBe('docs');
+  });
+
+  it('models LifecycleHookResponse with context injection and deny decision', () => {
+    const injection: ContextInjection = {
+      content: 'User prefers concise answers.',
+      role: 'system',
+      ttl_turns: 5,
+      dedup_key: 'user-prefs',
+    };
+    const response: LifecycleHookResponse = {
+      inject: injection,
+      decision: HookDecisionDeny,
+      reason: 'Policy violation',
+      system: 'override system prompt',
+    };
+
+    expect(response.decision).toBe('deny');
+    expect(response.inject?.content).toBe('User prefers concise answers.');
+    expect(response.inject?.dedup_key).toBe('user-prefs');
+    expect(response.reason).toBe('Policy violation');
+    expect(response.system).toBe('override system prompt');
+  });
+
+  it('models ContextInjection with permanent ttl and default role', () => {
+    const injection: ContextInjection = {
+      content: 'Permanent context note',
+      ttl_turns: 0,
+    };
+
+    expect(injection.content).toBe('Permanent context note');
+    expect(injection.role).toBeUndefined();
+    expect(injection.ttl_turns).toBe(0);
+    expect(injection.dedup_key).toBeUndefined();
+  });
+
+  it('models ToolCallEventData and ToolResultEventData for hook event payloads', () => {
+    const toolCall: ToolCallEventData = {
+      tool: 'calculator',
+      arguments: { a: 1, b: 2 },
+    };
+    const toolResult: ToolResultEventData = {
+      tool: 'calculator',
+      status: 'success',
+      result: '3',
+    };
+
+    expect(toolCall.tool).toBe('calculator');
+    expect(toolCall.arguments).toEqual({ a: 1, b: 2 });
+    expect(toolResult.status).toBe('success');
+    expect(toolResult.result).toBe('3');
+  });
+
+  it('models ErrorEventData for agent.error hook payloads', () => {
+    const errorData: ErrorEventData = {
+      error: 'rate limit exceeded',
+    };
+
+    expect(errorData.error).toBe('rate limit exceeded');
+  });
+
+  it('preserves hook payload/response shapes after JSON round-trip', () => {
+    const payload: LifecycleHookPayload = {
+      event: HookEventAgentError,
+      timestamp: '2026-08-10T10:05:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      turn_count: 1,
+      data: { error: 'timeout' } as ErrorEventData,
+    };
+    const response: LifecycleHookResponse = {
+      decision: HookDecisionStop,
+      inject: {
+        content: 'Injected recovery hint',
+        dedup_key: 'recovery',
+      },
+      override: { max_retries: 0 },
+    };
+
+    const parsedPayload = JSON.parse(JSON.stringify(payload)) as LifecycleHookPayload;
+    const parsedResponse = JSON.parse(JSON.stringify(response)) as LifecycleHookResponse;
+
+    expect(parsedPayload.event).toBe('agent.error');
+    expect((parsedPayload.data as ErrorEventData).error).toBe('timeout');
+    expect(parsedResponse.decision).toBe('stop');
+    expect(parsedResponse.inject?.dedup_key).toBe('recovery');
+    expect(parsedResponse.override).toEqual({ max_retries: 0 });
+  });
+});
+
+describe('AgentRunDTO tool_invocation_id (models v0.7.43)', () => {
+  it('links interrupted runs to the active tool invocation', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateWorking,
+      interrupt_tool_id: 'tool-search',
+      tool_invocation_id: 'inv-abc123',
+    };
+
+    expect(run.tool_invocation_id).toBe('inv-abc123');
+    expect(run.interrupt_tool_id).toBe('tool-search');
+  });
+
+  it('allows runs without tool_invocation_id for non-interrupt states', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateWorking,
+    };
+
+    expect(run.tool_invocation_id).toBeUndefined();
+  });
+
+  it('preserves tool_invocation_id after JSON round-trip', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateWorking,
+      tool_invocation_id: 'inv-persist',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(run)) as AgentRunDTO;
+
+    expect(parsed.tool_invocation_id).toBe('inv-persist');
+  });
+});
+
+describe('BountySubmissionDTO resource_id (models v0.7.43)', () => {
+  it('links bounty claims to the rewarded resource', () => {
+    const submission: BountySubmissionDTO = {
+      id: 'sub-1',
+      short_id: 'bs1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      bounty_id: 'bounty-1',
+      resource_id: 'resource-skill-42',
+      proof_id: 'proof-1',
+      proof_ref: 'https://example.com/proof',
+      agent: 'agent-demo',
+      source: 'cli',
+    };
+
+    expect(submission.resource_id).toBe('resource-skill-42');
+    expect(submission.bounty_id).toBe('bounty-1');
+  });
+
+  it('allows submissions without resource_id when reward is not resource-bound', () => {
+    const submission: BountySubmissionDTO = {
+      id: 'sub-1',
+      short_id: 'bs1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      bounty_id: 'bounty-1',
+      proof_id: 'proof-1',
+      proof_ref: 'https://example.com/proof',
+    };
+
+    expect(submission.resource_id).toBeUndefined();
+  });
+
+  it('preserves resource_id after JSON round-trip', () => {
+    const submission: BountySubmissionDTO = {
+      id: 'sub-1',
+      short_id: 'bs1',
+      created_at: '2026-08-10T00:00:00Z',
+      updated_at: '2026-08-10T00:00:00Z',
+      bounty_id: 'bounty-1',
+      resource_id: 'resource-app-7',
+      proof_id: 'proof-1',
+      proof_ref: 'ref-1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(submission)) as BountySubmissionDTO;
+
+    expect(parsed.resource_id).toBe('resource-app-7');
+  });
+});
+
+describe('ChatMessageStatus queued (models v0.7.43)', () => {
+  it('exports ChatMessageStatusQueued for messages awaiting processing', () => {
+    expect(ChatMessageStatusQueued).toBe('queued');
+  });
+
+  it('accepts queued status alongside existing message lifecycle states', () => {
+    const statuses = [
+      ChatMessageStatusPending,
+      ChatMessageStatusQueued,
+      'ready',
+      'failed',
+      'cancelled',
+    ] as const;
+
+    for (const status of statuses) {
+      expect(status).toBeTruthy();
+    }
+    expect(ChatMessageStatusQueued).toBe('queued');
   });
 });
