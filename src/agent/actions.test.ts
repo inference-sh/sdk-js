@@ -134,6 +134,7 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
       uri: 'inf://files/uploaded',
@@ -537,6 +538,30 @@ describe('createActions', () => {
       expect(onChatCreated).toHaveBeenCalledWith('chat-full-id-123');
       expect(StreamableManager).toHaveBeenCalledWith(
         expect.objectContaining({ credentials: 'include' })
+      );
+    });
+
+    it('should dispatch only userMessage from POST (assistant arrives via SSE)', async () => {
+      const userMessage = makeMessage({ id: 'u1', role: 'user', content: 'hello' });
+      mockAgentApi.sendMessage.mockResolvedValueOnce({
+        chatId: 'chat-full-id-123',
+        userMessage,
+      });
+
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.sendMessage('hello');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: userMessage,
+      });
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'UPDATE_MESSAGE',
+          payload: expect.objectContaining({ role: 'assistant' }),
+        })
       );
     });
 
@@ -1164,6 +1189,30 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'allow failed' }));
+    });
+
+    it('cancelMessage should delegate to the API', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.cancelMessage('msg-queued');
+
+      expect(mockAgentApi.cancelMessage).toHaveBeenCalledWith(ctx.client, 'msg-queued');
+    });
+
+    it('cancelMessage should set error state when API fails', async () => {
+      mockAgentApi.cancelMessage.mockRejectedValueOnce(new Error('cancel failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.cancelMessage('msg-queued')).rejects.toThrow('cancel failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'cancel failed',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'cancel failed' }));
     });
   });
 
