@@ -1048,6 +1048,7 @@ export interface PublicAppStoreDTO {
   rank: number /* int */;
   has_approved_version: boolean;
   page_id?: string;
+  pricing_description?: string;
 }
 /**
  * AuthSessionDTO is a safe representation of AuthSession for API responses.
