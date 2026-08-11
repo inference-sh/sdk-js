@@ -11,6 +11,7 @@
 import type {
   ChatDTO,
   ChatMessageDTO,
+  InterruptDTO,
 } from '../types';
 import type { AgentOptions, AgentClient, FileRef } from './types';
 import { isAdHocConfig } from './types';
@@ -207,6 +208,29 @@ export async function alwaysAllowTool(
   await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
     data: { tool_name: toolName }
   });
+}
+
+// =========================================================================
+// Interrupt operations
+// =========================================================================
+
+export async function resolveInterrupt(
+  client: AgentClient,
+  interruptId: string,
+  decision: 'allow' | 'deny'
+): Promise<InterruptDTO> {
+  const resp = await client.http.request<InterruptDTO>('post', `/interrupts/${interruptId}/resolve`, {
+    data: { decision }
+  });
+  return resp.data;
+}
+
+export async function listRunInterrupts(
+  client: AgentClient,
+  runId: string
+): Promise<InterruptDTO[]> {
+  const resp = await client.http.request<InterruptDTO[]>('get', `/agent-runs/${runId}/interrupts`);
+  return resp.data;
 }
 
 // =========================================================================

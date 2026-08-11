@@ -13,6 +13,7 @@ import {
   AgentVersionDTO,
   CreateAgentRequest,
   FileDTO as File,
+  InterruptDTO,
   ToolTypeClient,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -492,6 +493,22 @@ export class AgentsAPI {
   ): Promise<void> {
     const result = typeof resultOrAction === 'string' ? resultOrAction : JSON.stringify(resultOrAction);
     await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
+  }
+
+  /**
+   * Resolve an interrupt gate on an agent run
+   */
+  async resolveInterrupt(interruptId: string, decision: 'allow' | 'deny'): Promise<Response<InterruptDTO>> {
+    return this.http.request<InterruptDTO>('post', `/interrupts/${interruptId}/resolve`, {
+      data: { decision }
+    });
+  }
+
+  /**
+   * List pending interrupts for an agent run
+   */
+  async listRunInterrupts(runId: string): Promise<Response<InterruptDTO[]>> {
+    return this.http.request<InterruptDTO[]>('get', `/agent-runs/${runId}/interrupts`);
   }
 }
 
