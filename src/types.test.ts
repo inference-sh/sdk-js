@@ -35,6 +35,7 @@ import {
   PlanTypeAddon,
   PlanTypeBase,
   PlanVersionDTO,
+  PublicAppStoreDTO,
   RefRouteDTO,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
@@ -146,6 +147,21 @@ function makeApp(overrides: Partial<AppDTO> = {}): AppDTO {
     images: { card: '', thumbnail: '', banner: '' },
     version_id: 'ver-1',
     status: AppStatusActive,
+    ...overrides,
+  };
+}
+
+function makePublicAppStore(overrides: Partial<PublicAppStoreDTO> = {}): PublicAppStoreDTO {
+  return {
+    id: 'store-app-1',
+    category: 'image',
+    namespace: 'acme',
+    name: 'image-gen',
+    description: 'Generate images from prompts',
+    images: { card: 'https://cdn.example.com/card.png', thumbnail: '', banner: '' },
+    is_featured: false,
+    rank: 10,
+    has_approved_version: true,
     ...overrides,
   };
 }
@@ -1050,6 +1066,39 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(parsed.uses).toBe(99);
     expect(parsed.installs).toBe(3);
+  });
+});
+
+describe('PublicAppStoreDTO pricing_description', () => {
+  it('surfaces human-readable pricing on public store listings', () => {
+    const listing = makePublicAppStore({
+      pricing_description: '$0.002 per image',
+      page_id: 'page-hero-1',
+    });
+
+    expect(listing.pricing_description).toBe('$0.002 per image');
+    expect(listing.page_id).toBe('page-hero-1');
+  });
+
+  it('allows store listings without pricing_description when pricing is unavailable', () => {
+    const listing = makePublicAppStore();
+
+    expect(listing.pricing_description).toBeUndefined();
+    expect(listing.has_approved_version).toBe(true);
+  });
+
+  it('preserves pricing_description through JSON round-trip', () => {
+    const listing = makePublicAppStore({
+      pricing_description: 'From $0.001 depending on resolution',
+      subcategory: 'upscale',
+      tags: ['image', 'premium'],
+    });
+
+    const parsed = JSON.parse(JSON.stringify(listing)) as PublicAppStoreDTO;
+
+    expect(parsed.pricing_description).toBe('From $0.001 depending on resolution');
+    expect(parsed.subcategory).toBe('upscale');
+    expect(parsed.tags).toEqual(['image', 'premium']);
   });
 });
 
