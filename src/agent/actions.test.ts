@@ -133,6 +133,11 @@ describe('createActions', () => {
       userMessage: makeMessage({ id: 'u1', role: 'user' }),
     });
     mockAgentApi.submitToolResult.mockResolvedValue(undefined);
+    mockAgentApi.resolveInterrupt.mockResolvedValue({
+      id: 'int-1',
+      status: 'resolved',
+      resolution: 'allow',
+    } as never);
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
@@ -1009,6 +1014,32 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'submit failed' }));
+    });
+
+    it('resolveInterrupt should call API with interrupt id and decision', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.resolveInterrupt('int-42', 'allow');
+
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-42', 'allow');
+    });
+
+    it('resolveInterrupt should set error state when API fails', async () => {
+      mockAgentApi.resolveInterrupt.mockRejectedValueOnce(new Error('resolve failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.resolveInterrupt('int-1', 'deny')).rejects.toThrow(
+        'resolve failed'
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'resolve failed' }));
     });
 
     it('clearError should reset error and connection status to idle', () => {

@@ -1514,3 +1514,62 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
   });
 });
+
+describe('AgentsAPI.resolveInterrupt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should POST /interrupts/{id}/resolve with allow decision', async () => {
+    const interrupt = { id: 'int-1', status: 'resolved', resolution: 'allow' };
+    mockJsonResponse(interrupt);
+
+    const result = await api().resolveInterrupt('int-1', 'allow');
+
+    expect(result.data).toEqual(interrupt);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/interrupts/int-1/resolve');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ decision: 'allow' });
+  });
+
+  it('should POST /interrupts/{id}/resolve with deny decision', async () => {
+    const interrupt = { id: 'int-2', status: 'resolved', resolution: 'deny' };
+    mockJsonResponse(interrupt);
+
+    const result = await api().resolveInterrupt('int-2', 'deny');
+
+    expect(result.data).toEqual(interrupt);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/interrupts/int-2/resolve');
+    expect(JSON.parse(init.body as string)).toEqual({ decision: 'deny' });
+  });
+});
+
+describe('AgentsAPI.listRunInterrupts', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should GET /agent-runs/{runId}/interrupts', async () => {
+    const interrupts = [{ id: 'int-1', status: 'pending' }, { id: 'int-2', status: 'pending' }];
+    mockJsonResponse(interrupts);
+
+    const result = await api().listRunInterrupts('run-abc');
+
+    expect(result.data).toEqual(interrupts);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agent-runs/run-abc/interrupts');
+    expect(init.method).toBe('GET');
+  });
+});

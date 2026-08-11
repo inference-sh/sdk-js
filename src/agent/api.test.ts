@@ -4,6 +4,8 @@ import type { AgentClient } from './types';
 import {
   sendMessage,
   submitToolResult,
+  resolveInterrupt,
+  listRunInterrupts,
   approveTool,
   rejectTool,
   alwaysAllowTool,
@@ -134,6 +136,46 @@ describe('agent/api', () => {
       await submitToolResult(makeClient(), 'inv-2', payload);
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual(payload);
+    });
+  });
+
+  describe('resolveInterrupt', () => {
+    it('should POST allow decision and return interrupt DTO', async () => {
+      const interrupt = { id: 'int-1', status: 'resolved', resolution: 'allow' };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-1', 'allow');
+
+      expect(result).toEqual(interrupt);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/interrupts/int-1/resolve');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'allow' });
+    });
+
+    it('should POST deny decision and return interrupt DTO', async () => {
+      const interrupt = { id: 'int-2', status: 'resolved', resolution: 'deny' };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-2', 'deny');
+
+      expect(result).toEqual(interrupt);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
+    });
+  });
+
+  describe('listRunInterrupts', () => {
+    it('should GET pending interrupts for a run', async () => {
+      const interrupts = [{ id: 'int-1', status: 'pending' }];
+      mockJsonResponse(interrupts);
+
+      const result = await listRunInterrupts(makeClient(), 'run-xyz');
+
+      expect(result).toEqual(interrupts);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/agent-runs/run-xyz/interrupts');
+      expect(init.method).toBe('GET');
     });
   });
 
