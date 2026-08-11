@@ -398,6 +398,19 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     },
 
+    resolveInterrupt: async (interruptId: string, decision: 'allow' | 'deny') => {
+      try {
+        await api.resolveInterrupt(client, interruptId, decision);
+      } catch (error) {
+        console.error('[AgentSDK] Failed to resolve interrupt:', error);
+        const err = error instanceof Error ? error : new Error('Failed to resolve interrupt');
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_ERROR', payload: err.message });
+        callbacks.onError?.(err);
+        throw error;
+      }
+    },
+
     loadOlderMessages: async () => {
       const chatId = getChatId();
       const cursor = getState().messageCursor;

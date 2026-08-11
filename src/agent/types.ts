@@ -163,6 +163,8 @@ export interface AgentChatActions {
   alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
   /** Cancel a queued message before the agent processes it */
   cancelMessage: (messageId: string) => Promise<void>;
+  /** Resolve an interrupt gate (allow or deny) */
+  resolveInterrupt: (interruptId: string, decision: 'allow' | 'deny') => Promise<void>;
   /** Load older messages (scroll-up pagination). Returns true if more exist. */
   loadOlderMessages: () => Promise<boolean>;
   /** Whether there are older messages to load */
