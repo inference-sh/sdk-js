@@ -1850,7 +1850,7 @@ export interface InterruptDTO extends BaseModelDTO, PermissionModelDTO {
   reason: InterruptReason;
   source: string;
   resource_id?: string;
-  resource_type?: string;
+  resource_type?: InterruptResourceType;
   status: InterruptStatus;
   resolution?: InterruptResolution;
   resolved_at?: string /* RFC3339 */;
@@ -3481,6 +3481,12 @@ export const InterruptStatusCancelled: InterruptStatus = "cancelled";
 export type InterruptResolution = string;
 export const InterruptResolutionAllow: InterruptResolution = "allow";
 export const InterruptResolutionDeny: InterruptResolution = "deny";
+/**
+ * InterruptResourceType identifies the kind of resource an interrupt gates.
+ */
+export type InterruptResourceType = string;
+export const InterruptResourceToolInvocation: InterruptResourceType = "tool_invocation";
+export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
 /**
  * HookEvent is a lifecycle event in the agent conversation loop.
  * Events fire at well-defined points in the turn cycle, giving external
