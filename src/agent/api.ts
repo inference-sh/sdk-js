@@ -60,8 +60,9 @@ async function createChat(
   config: AgentOptions,
 ): Promise<ChatDTO> {
   const agentRef = isAdHocConfig(config) ? undefined : config.agent;
+  const context = !isAdHocConfig(config) ? config.context : undefined;
   const resp = await client.http.request<ChatDTO>('post', '/chats', {
-    data: { agent: agentRef || '' },
+    data: { agent: agentRef || '', context },
   });
   return resp.data;
 }
