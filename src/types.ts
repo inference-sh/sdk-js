@@ -1854,6 +1854,7 @@ export interface InterruptDTO extends BaseModelDTO, PermissionModelDTO {
   status: InterruptStatus;
   resolution?: InterruptResolution;
   resolved_at?: string /* RFC3339 */;
+  resolved_data?: any;
   expires_at?: string /* RFC3339 */;
   meta?: any;
 }
@@ -2003,9 +2004,13 @@ export interface SkillStoreListingDTO {
 export interface LifecycleHookConfig {
   event: HookEvent;
   type: HookHandlerType;
-  handler: string;
+  handler?: string;
   async?: boolean;
-  timeout?: number /* int */; // seconds, 0 = default (30s)
+  timeout?: number /* int */; // seconds, 0 = default (30s for webhook, 300s for gate)
+  /**
+   * Gate-specific fields (type: "gate")
+   */
+  default_resolution?: InterruptResolution; // auto-resolve on timeout: "allow" (default) or "deny"
 }
 /**
  * LifecycleHookPayload is sent to hook handlers on lifecycle events.
@@ -3493,18 +3498,28 @@ export const HookEventAgentIdle: HookEvent = "agent.idle";
 export const HookEventPreCompact: HookEvent = "agent.pre_compact";
 export const HookEventPostCompact: HookEvent = "agent.post_compact";
 /**
+ * HookEventDefinition describes a lifecycle hook event and its capabilities.
+ */
+export interface HookEventDefinition {
+  event: HookEvent;
+  description: string;
+  can_gate: boolean;
+}
+/**
  * HookDecision is the handler's verdict on whether execution should continue.
  */
 export type HookDecision = string;
 export const HookDecisionAllow: HookDecision = "allow";
 export const HookDecisionDeny: HookDecision = "deny";
 export const HookDecisionStop: HookDecision = "stop";
+export const HookDecisionSuspend: HookDecision = "suspend";
 /**
  * HookHandlerType distinguishes how a lifecycle hook is executed.
  */
 export type HookHandlerType = string;
 export const HookHandlerWebhook: HookHandlerType = "webhook";
 export const HookHandlerTask: HookHandlerType = "task";
+export const HookHandlerGate: HookHandlerType = "gate";
 /**
  * LLMOutput is the output envelope from an LLM provider task.
  * This is the contract between chat apps (sdk-py) and the agent runtime (go/api).
