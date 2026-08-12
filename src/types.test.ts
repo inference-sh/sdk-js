@@ -61,6 +61,12 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  InterruptDTO,
+  InterruptReasonHookGate,
+  InterruptReasonToolApproval,
+  InterruptResourceHookEvent,
+  InterruptResourceToolInvocation,
+  InterruptStatusPending,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1185,5 +1191,56 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('InterruptResourceType (trigger enhancements)', () => {
+  it('exports resource type constants for tool and hook gate interrupts', () => {
+    expect(InterruptResourceToolInvocation).toBe('tool_invocation');
+    expect(InterruptResourceHookEvent).toBe('hook_event');
+  });
+
+  it('models InterruptDTO with tool_invocation resource_type for tool approval gates', () => {
+    const interrupt: InterruptDTO = {
+      id: 'int-tool',
+      short_id: 'it1',
+      created_at: '2026-08-12T00:00:00Z',
+      updated_at: '2026-08-12T00:00:00Z',
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      reason: InterruptReasonToolApproval,
+      source: 'tool:search',
+      resource_id: 'call-abc',
+      resource_type: InterruptResourceToolInvocation,
+      status: InterruptStatusPending,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(interrupt)) as InterruptDTO;
+
+    expect(parsed.resource_type).toBe('tool_invocation');
+    expect(parsed.resource_id).toBe('call-abc');
+    expect(parsed.reason).toBe('tool_approval');
+  });
+
+  it('models InterruptDTO with hook_event resource_type for lifecycle hook gates', () => {
+    const interrupt: InterruptDTO = {
+      id: 'int-hook',
+      short_id: 'ih1',
+      created_at: '2026-08-12T00:00:00Z',
+      updated_at: '2026-08-12T00:00:00Z',
+      run_id: 'run-2',
+      chat_id: 'chat-2',
+      reason: InterruptReasonHookGate,
+      source: 'agent.tool_call',
+      resource_id: 'evt-xyz',
+      resource_type: InterruptResourceHookEvent,
+      status: InterruptStatusPending,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(interrupt)) as InterruptDTO;
+
+    expect(parsed.resource_type).toBe('hook_event');
+    expect(parsed.source).toBe('agent.tool_call');
+    expect(parsed.reason).toBe('hook_gate');
   });
 });

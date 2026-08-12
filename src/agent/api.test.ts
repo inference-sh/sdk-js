@@ -4,6 +4,8 @@ import type { AgentClient } from './types';
 import {
   sendMessage,
   submitToolResult,
+  resolveInterrupt,
+  listRunInterrupts,
   approveTool,
   rejectTool,
   alwaysAllowTool,
@@ -134,6 +136,64 @@ describe('agent/api', () => {
       await submitToolResult(makeClient(), 'inv-2', payload);
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual(payload);
+    });
+  });
+
+  describe('resolveInterrupt', () => {
+    it('should POST allow decision and preserve tool_invocation resource_type', async () => {
+      const interrupt = {
+        id: 'int-1',
+        status: 'resolved',
+        resolution: 'allow',
+        resource_type: 'tool_invocation',
+        resource_id: 'call-abc',
+      };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-1', 'allow');
+
+      expect(result).toEqual(interrupt);
+      expect(result.resource_type).toBe('tool_invocation');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/interrupts/int-1/resolve');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'allow' });
+    });
+
+    it('should POST deny decision and preserve hook_event resource_type', async () => {
+      const interrupt = {
+        id: 'int-2',
+        status: 'resolved',
+        resolution: 'deny',
+        resource_type: 'hook_event',
+        resource_id: 'evt-xyz',
+      };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-2', 'deny');
+
+      expect(result.resource_type).toBe('hook_event');
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
+    });
+  });
+
+  describe('listRunInterrupts', () => {
+    it('should GET pending interrupts with resource_type discriminators', async () => {
+      const interrupts = [
+        { id: 'int-1', status: 'pending', resource_type: 'tool_invocation' },
+        { id: 'int-2', status: 'pending', resource_type: 'hook_event' },
+      ];
+      mockJsonResponse(interrupts);
+
+      const result = await listRunInterrupts(makeClient(), 'run-xyz');
+
+      expect(result).toEqual(interrupts);
+      expect(result[0].resource_type).toBe('tool_invocation');
+      expect(result[1].resource_type).toBe('hook_event');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/agent-runs/run-xyz/interrupts');
+      expect(init.method).toBe('GET');
     });
   });
 

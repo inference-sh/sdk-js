@@ -1514,3 +1514,94 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
   });
 });
+
+describe('AgentsAPI.resolveInterrupt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should POST /interrupts/{id}/resolve and preserve resource_type on response', async () => {
+    const interrupt = {
+      id: 'int-tool',
+      status: 'resolved',
+      resolution: 'allow',
+      resource_type: 'tool_invocation',
+      resource_id: 'call-abc',
+      reason: 'tool_approval',
+    };
+    mockJsonResponse(interrupt);
+
+    const result = await api().resolveInterrupt('int-tool', 'allow');
+
+    expect(result.data).toEqual(interrupt);
+    expect(result.data.resource_type).toBe('tool_invocation');
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/interrupts/int-tool/resolve');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ decision: 'allow' });
+  });
+
+  it('should POST deny decision for hook_event gate interrupts', async () => {
+    const interrupt = {
+      id: 'int-hook',
+      status: 'resolved',
+      resolution: 'deny',
+      resource_type: 'hook_event',
+      resource_id: 'evt-xyz',
+      reason: 'hook_gate',
+    };
+    mockJsonResponse(interrupt);
+
+    const result = await api().resolveInterrupt('int-hook', 'deny');
+
+    expect(result.data.resource_type).toBe('hook_event');
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/interrupts/int-hook/resolve');
+    expect(JSON.parse(init.body as string)).toEqual({ decision: 'deny' });
+  });
+});
+
+describe('AgentsAPI.listRunInterrupts', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should GET /agent-runs/{runId}/interrupts with resource_type discriminators', async () => {
+    const interrupts = [
+      {
+        id: 'int-1',
+        status: 'pending',
+        resource_type: 'tool_invocation',
+        resource_id: 'call-1',
+        reason: 'tool_approval',
+      },
+      {
+        id: 'int-2',
+        status: 'pending',
+        resource_type: 'hook_event',
+        resource_id: 'evt-1',
+        reason: 'hook_gate',
+      },
+    ];
+    mockJsonResponse(interrupts);
+
+    const result = await api().listRunInterrupts('run-abc');
+
+    expect(result.data).toEqual(interrupts);
+    expect(result.data[0].resource_type).toBe('tool_invocation');
+    expect(result.data[1].resource_type).toBe('hook_event');
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agent-runs/run-abc/interrupts');
+    expect(init.method).toBe('GET');
+  });
+});
