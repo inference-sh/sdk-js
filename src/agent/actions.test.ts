@@ -143,6 +143,7 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
       uri: 'inf://files/uploaded',
@@ -1407,6 +1408,32 @@ describe('createActions', () => {
     });
   });
 
+  describe('cancelMessage', () => {
+    it('should delegate to the API layer', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.cancelMessage('msg-queued');
+
+      expect(mockAgentApi.cancelMessage).toHaveBeenCalledWith(ctx.client, 'msg-queued');
+    });
+
+    it('should set error state when API fails', async () => {
+      mockAgentApi.cancelMessage.mockRejectedValueOnce(new Error('cancel failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.cancelMessage('msg-queued')).rejects.toThrow('cancel failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'cancel failed',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'cancel failed' }));
+    });
+  });
+
   describe('resolveInterrupt', () => {
     it('should call API with interrupt id and decision', async () => {
       const { ctx } = createTestContext();
@@ -1512,6 +1539,59 @@ describe('createActions', () => {
       const { publicActions } = createActions(ctx);
 
       expect(publicActions.hasOlderMessages).toBe(false);
+    });
+
+    it('should return has_next without dispatching when the page has no items', async () => {
+      mockAgentApi.fetchMessagesPage.mockResolvedValueOnce({
+        items: [],
+        next_cursor: 'cursor-end',
+        has_next: false,
+      });
+
+      const { ctx, dispatch } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [makeMessage({ id: 'msg-1', order: 1 })],
+          connectionStatus: 'idle' as const,
+          chat: null,
+          messageCursor: 'cursor-1',
+          hasOlderMessages: true,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(result).toBe(false);
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PREPEND_MESSAGES' })
+      );
+    });
+  });
+
+  describe('streamChat pagination metadata', () => {
+    it('should propagate fetchChat pagination metadata through SET_CHAT', async () => {
+      mockAgentApi.fetchChat.mockResolvedValueOnce({
+        id: 'chat-full-id-123',
+        status: ChatStatusIdle,
+        chat_messages: [makeMessage({ id: 'msg-1', order: 1 })],
+        _messageCursor: 'cursor-page-2',
+        _hasOlderMessages: true,
+      } as unknown as ChatDTO);
+
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      await internalActions.streamChat('chat-full-id-123');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT',
+        payload: expect.objectContaining({
+          id: 'chat-full-id-123',
+          _messageCursor: 'cursor-page-2',
+          _hasOlderMessages: true,
+        }),
+      });
     });
   });
 });
