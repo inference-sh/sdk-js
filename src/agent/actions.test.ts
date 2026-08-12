@@ -123,6 +123,7 @@ describe('createActions', () => {
       chat_messages: [],
     } as unknown as ChatDTO);
     mockAgentApi.fetchMessages.mockResolvedValue([]);
+    mockAgentApi.fetchMessagesPage.mockResolvedValue({ items: [], next_cursor: '', has_next: false });
     mockAgentApi.getChatStreamConfig.mockReturnValue({
       url: 'https://api.test/chats/chat-full-id-123/stream',
       headers: {},
@@ -133,6 +134,12 @@ describe('createActions', () => {
       userMessage: makeMessage({ id: 'u1', role: 'user' }),
     });
     mockAgentApi.submitToolResult.mockResolvedValue(undefined);
+    mockAgentApi.resolveInterrupt.mockResolvedValue({
+      id: 'int-1',
+      status: 'resolved',
+      resolution: 'allow',
+      resource_type: 'tool_invocation',
+    } as never);
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
@@ -1397,6 +1404,114 @@ describe('createActions', () => {
         payload: 'chat-new',
       });
       expect(StreamableManager).toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveInterrupt', () => {
+    it('should call API with interrupt id and decision', async () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.resolveInterrupt('int-42', 'allow');
+
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-42', 'allow');
+    });
+
+    it('should set error state when API fails', async () => {
+      mockAgentApi.resolveInterrupt.mockRejectedValueOnce(new Error('resolve failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.resolveInterrupt('int-1', 'deny')).rejects.toThrow(
+        'resolve failed'
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'resolve failed' }));
+    });
+  });
+
+  describe('loadOlderMessages', () => {
+    it('should return false when chatId or cursor is missing', async () => {
+      const { ctx } = createTestContext({
+        getChatId: () => null,
+        getState: () => ({
+          chatId: null,
+          messages: [],
+          connectionStatus: 'idle' as const,
+          chat: null,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(result).toBe(false);
+      expect(mockAgentApi.fetchMessagesPage).not.toHaveBeenCalled();
+    });
+
+    it('should fetch next page and dispatch PREPEND_MESSAGES', async () => {
+      const olderMessage = makeMessage({ id: 'msg-old', order: 0, role: 'user' });
+      mockAgentApi.fetchMessagesPage.mockResolvedValueOnce({
+        items: [olderMessage],
+        next_cursor: 'cursor-2',
+        has_next: true,
+      });
+
+      const { ctx, dispatch } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [makeMessage({ id: 'msg-1', order: 1 })],
+          connectionStatus: 'idle' as const,
+          chat: null,
+          messageCursor: 'cursor-1',
+          hasOlderMessages: true,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.loadOlderMessages();
+
+      expect(mockAgentApi.fetchMessagesPage).toHaveBeenCalledWith(
+        ctx.client,
+        'chat-short',
+        { cursor: 'cursor-1' }
+      );
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'PREPEND_MESSAGES',
+        payload: {
+          messages: [olderMessage],
+          cursor: 'cursor-2',
+          hasMore: true,
+        },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('hasOlderMessages getter should reflect state', () => {
+      const { ctx } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'idle' as const,
+          chat: null,
+          hasOlderMessages: true,
+        }),
+      });
+      const { publicActions } = createActions(ctx);
+
+      expect(publicActions.hasOlderMessages).toBe(true);
+    });
+
+    it('hasOlderMessages getter should default to false when unset', () => {
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      expect(publicActions.hasOlderMessages).toBe(false);
     });
   });
 });
