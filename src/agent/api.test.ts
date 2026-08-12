@@ -107,15 +107,32 @@ describe('agent/api', () => {
 
       await sendMessage(
         makeClient(),
-        { agent: 'infsh/pricing-agent', context: { version_id: 'v1' } },
+        { agent: 'infsh/pricing-agent', context: { version_id: 'v1', locale: 'en-US' } },
         null,
         'show pricing'
       );
 
-      // Chat created with agent ref
       const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(String(init1.body));
       expect(body.agent).toBe('infsh/pricing-agent');
+      expect(body.context).toEqual({ version_id: 'v1', locale: 'en-US' });
+    });
+
+    it('should omit context when creating chat for ad-hoc agents', async () => {
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(
+        makeClient(),
+        { model: 'gpt-4', system: 'You are helpful' },
+        null,
+        'hello'
+      );
+
+      const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init1.body));
+      expect(body.agent).toBe('');
+      expect(body.context).toBeUndefined();
     });
   });
 
