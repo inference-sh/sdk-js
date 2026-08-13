@@ -76,6 +76,20 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  A2UIButton,
+  A2UIColumn,
+  A2UIForm,
+  A2UIRow,
+  A2UIText,
+  A2UITextField,
+  A2UISurface,
+  InterruptReasonWidget,
+  ToolInvocationDTO,
+  ToolInvocationStatusAwaitingInput,
+  ToolTypeClient,
+  Widget,
+  WidgetNodeTypeButton,
+  WidgetNodeTypeText,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1323,5 +1337,149 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('A2UI widget type contracts (models v0.7.63)', () => {
+  it('exports core and extension A2UI component type constants', () => {
+    expect(A2UIRow).toBe('Row');
+    expect(A2UIColumn).toBe('Column');
+    expect(A2UIText).toBe('Text');
+    expect(A2UIButton).toBe('Button');
+    expect(A2UIForm).toBe('Form');
+  });
+
+  it('models Widget type="a2ui" with flat adjacency-list surface components', () => {
+    const surface: A2UISurface = {
+      version: '1.0',
+      surfaceId: 'surface-1',
+      catalogId: 'inferencesh/v1',
+      dataModel: { greeting: 'Hello' },
+      components: [
+        {
+          id: 'root',
+          component: A2UIRow,
+          children: ['title', 'submit'],
+          gap: 8,
+        },
+        {
+          id: 'title',
+          component: A2UIText,
+          text: { path: '/greeting' },
+          variant: 'heading',
+        },
+        {
+          id: 'submit',
+          component: A2UIButton,
+          child: 'submit-label',
+          primary: true,
+          action: { type: 'submit', payload: { formId: 'demo' } },
+        },
+      ],
+    };
+
+    const widget: Widget = {
+      type: 'a2ui',
+      interactive: true,
+      surface,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(widget)) as Widget;
+
+    expect(parsed.type).toBe('a2ui');
+    expect(parsed.interactive).toBe(true);
+    expect(parsed.surface?.catalogId).toBe('inferencesh/v1');
+    expect(parsed.surface?.components).toHaveLength(3);
+    expect(parsed.surface?.components[0].children).toEqual(['title', 'submit']);
+    expect(parsed.surface?.components[1].text).toEqual({ path: '/greeting' });
+    expect(parsed.surface?.dataModel).toEqual({ greeting: 'Hello' });
+    expect(parsed.children).toBeUndefined();
+    expect(parsed.html).toBeUndefined();
+  });
+
+  it('models legacy Widget type="ui" with nested WidgetNode children', () => {
+    const widget: Widget = {
+      type: 'ui',
+      title: 'Confirm action',
+      interactive: true,
+      children: [
+        {
+          type: WidgetNodeTypeText,
+          text: 'Proceed with deployment?',
+        },
+        {
+          type: WidgetNodeTypeButton,
+          label: 'Confirm',
+          action: { type: 'confirm', payload: { step: 'deploy' } },
+        },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(widget)) as Widget;
+
+    expect(parsed.type).toBe('ui');
+    expect(parsed.title).toBe('Confirm action');
+    expect(parsed.children?.[0].type).toBe('text');
+    expect(parsed.children?.[1].action?.type).toBe('confirm');
+    expect(parsed.surface).toBeUndefined();
+  });
+
+  it('models Widget type="html" with raw HTML content', () => {
+    const widget: Widget = {
+      type: 'html',
+      html: '<p>Legacy widget</p>',
+      json: '{"type":"html"}',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(widget)) as Widget;
+
+    expect(parsed.type).toBe('html');
+    expect(parsed.html).toBe('<p>Legacy widget</p>');
+    expect(parsed.json).toBe('{"type":"html"}');
+    expect(parsed.surface).toBeUndefined();
+    expect(parsed.children).toBeUndefined();
+  });
+
+  it('models ToolInvocationDTO with A2UI widget for client awaiting_input flows', () => {
+    const invocation: ToolInvocationDTO = {
+      id: 'inv-1',
+      short_id: 'i1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      chat_message_id: 'msg-1',
+      tool_invocation_id: 'call-abc',
+      type: ToolTypeClient,
+      function: { name: 'collect_input', arguments: {} },
+      status: ToolInvocationStatusAwaitingInput,
+      widget: {
+        type: 'a2ui',
+        interactive: true,
+        surface: {
+          version: '1.0',
+          surfaceId: 'form-1',
+          catalogId: 'inferencesh/v1',
+          components: [
+            {
+              id: 'field',
+              component: A2UITextField,
+              label: 'Name',
+              value: { path: '/name' },
+              required: true,
+            },
+          ],
+        },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(invocation)) as ToolInvocationDTO;
+
+    expect(parsed.status).toBe('awaiting_input');
+    expect(parsed.type).toBe('client');
+    expect(parsed.widget?.type).toBe('a2ui');
+    expect(parsed.widget?.surface?.components[0].value).toEqual({ path: '/name' });
+  });
+
+  it('exports InterruptReasonWidget for widget-driven agent interrupts', () => {
+    expect(InterruptReasonWidget).toBe('widget');
   });
 });
