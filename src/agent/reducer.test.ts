@@ -125,8 +125,8 @@ describe('chatReducer', () => {
 
   it('SET_CHAT with null should clear chat, messages, and pagination metadata', () => {
     const chat = makeChat();
-    (chat as Record<string, unknown>)._messageCursor = 'cursor-1';
-    (chat as Record<string, unknown>)._hasOlderMessages = true;
+    (chat as unknown as Record<string, unknown>)._messageCursor = 'cursor-1';
+    (chat as unknown as Record<string, unknown>)._hasOlderMessages = true;
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
 
     const next = chatReducer(state, { type: 'SET_CHAT', payload: null });
@@ -140,8 +140,8 @@ describe('chatReducer', () => {
 
   it('SET_CHAT should extract pagination metadata from the chat object', () => {
     const chat = makeChat();
-    (chat as Record<string, unknown>)._messageCursor = 'cursor-xyz';
-    (chat as Record<string, unknown>)._hasOlderMessages = true;
+    (chat as unknown as Record<string, unknown>)._messageCursor = 'cursor-xyz';
+    (chat as unknown as Record<string, unknown>)._hasOlderMessages = true;
 
     const next = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
 

@@ -295,8 +295,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect((result as Record<string, unknown>)._messageCursor).toBe('page-2');
-      expect((result as Record<string, unknown>)._hasOlderMessages).toBe(true);
+      expect((result as unknown as Record<string, unknown>)._messageCursor).toBe('page-2');
+      expect((result as unknown as Record<string, unknown>)._hasOlderMessages).toBe(true);
     });
 
     it('should skip message fetch when chat_messages are already preloaded', async () => {
