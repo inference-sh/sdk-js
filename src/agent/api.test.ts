@@ -4,10 +4,15 @@ import type { AgentClient } from './types';
 import {
   sendMessage,
   submitToolResult,
+  resolveInterrupt,
+  listRunInterrupts,
   approveTool,
   rejectTool,
   alwaysAllowTool,
   fetchChat,
+  fetchMessages,
+  fetchMessagesPage,
+  cancelMessage,
   stopChat,
   getChatStreamConfig,
   uploadFile,
@@ -107,15 +112,36 @@ describe('agent/api', () => {
 
       await sendMessage(
         makeClient(),
-        { agent: 'infsh/pricing-agent', context: { version_id: 'v1' } },
+        { agent: 'infsh/pricing-agent', context: { version_id: 'v1', locale: 'en-US' } },
         null,
         'show pricing'
       );
 
-      // Chat created with agent ref
       const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(String(init1.body));
       expect(body.agent).toBe('infsh/pricing-agent');
+      expect(body.context).toEqual({ version_id: 'v1', locale: 'en-US' });
+    });
+
+    it('should omit context when creating chat for ad-hoc agents', async () => {
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(
+        makeClient(),
+        {
+          core_app: { ref: 'openrouter/claude@abc' },
+          system_prompt: 'Be helpful',
+          name: 'adhoc-bot',
+        },
+        null,
+        'hello'
+      );
+
+      const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init1.body));
+      expect(body.agent).toBe('');
+      expect(body.context).toBeUndefined();
     });
   });
 
@@ -137,18 +163,184 @@ describe('agent/api', () => {
     });
   });
 
-  describe('fetchChat', () => {
-    it('should return chat data on success', async () => {
-      const chat = { id: 'chat-1', status: 'idle' };
-      mockJsonResponse(chat);
-      const result = await fetchChat(makeClient(), 'chat-1');
-      expect(result).toEqual(chat);
+  describe('fetchMessagesPage', () => {
+    it('should GET /chats/{id}/messages without limit when options omitted', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchMessagesPage(makeClient(), 'chat-1');
+
+      expect(result.items).toEqual(messages);
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/messages');
+      expect(url).not.toContain('limit=');
+      expect(url).not.toContain('cursor=');
     });
 
-    it('should return null on failure', async () => {
+    it('should pass cursor when provided in options', async () => {
+      mockJsonResponse({ items: [], next_cursor: 'cursor-abc', has_next: true });
+
+      await fetchMessagesPage(makeClient(), 'chat-1', { cursor: 'cursor-abc' });
+
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('cursor=cursor-abc');
+    });
+
+    it('should return empty page when message fetch fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('messages unavailable'));
+
+      const result = await fetchMessagesPage(makeClient(), 'chat-1');
+
+      expect(result).toEqual({ items: [], next_cursor: '', has_next: false });
+    });
+  });
+
+  describe('fetchMessages', () => {
+    it('should return items from fetchMessagesPage', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse({ items: messages, next_cursor: 'page-2', has_next: true });
+
+      const result = await fetchMessages(makeClient(), 'chat-1', { limit: 25 });
+
+      expect(result).toEqual(messages);
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('limit=25');
+    });
+  });
+
+  describe('resolveInterrupt', () => {
+    it('should POST allow decision and preserve tool_invocation resource_type', async () => {
+      const interrupt = {
+        id: 'int-1',
+        status: 'resolved',
+        resolution: 'allow',
+        resource_type: 'tool_invocation',
+        resource_id: 'call-abc',
+      };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-1', 'allow');
+
+      expect(result).toEqual(interrupt);
+      expect(result.resource_type).toBe('tool_invocation');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/interrupts/int-1/resolve');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'allow' });
+    });
+
+    it('should POST deny decision and preserve hook_event resource_type', async () => {
+      const interrupt = {
+        id: 'int-2',
+        status: 'resolved',
+        resolution: 'deny',
+        resource_type: 'hook_event',
+        resource_id: 'evt-xyz',
+      };
+      mockJsonResponse(interrupt);
+
+      const result = await resolveInterrupt(makeClient(), 'int-2', 'deny');
+
+      expect(result.resource_type).toBe('hook_event');
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
+    });
+  });
+
+  describe('listRunInterrupts', () => {
+    it('should GET pending interrupts with resource_type discriminators', async () => {
+      const interrupts = [
+        { id: 'int-1', status: 'pending', resource_type: 'tool_invocation' },
+        { id: 'int-2', status: 'pending', resource_type: 'hook_event' },
+      ];
+      mockJsonResponse(interrupts);
+
+      const result = await listRunInterrupts(makeClient(), 'run-xyz');
+
+      expect(result).toEqual(interrupts);
+      expect(result[0].resource_type).toBe('tool_invocation');
+      expect(result[1].resource_type).toBe('hook_event');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/agent-runs/run-xyz/interrupts');
+      expect(init.method).toBe('GET');
+    });
+  });
+
+  describe('fetchChat', () => {
+    it('should fetch messages separately when Chat.Get does not preload them', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({
+        ...chat,
+        chat_messages: messages,
+        _messageCursor: '',
+        _hasOlderMessages: false,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [messagesUrl] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(messagesUrl).toContain('/chats/chat-1/messages');
+      expect(messagesUrl).not.toContain('limit=');
+    });
+
+    it('should attach pagination metadata when more message pages exist', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: 'page-2', has_next: true });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect((result as Record<string, unknown>)._messageCursor).toBe('page-2');
+      expect((result as Record<string, unknown>)._hasOlderMessages).toBe(true);
+    });
+
+    it('should skip message fetch when chat_messages are already preloaded', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      const chat = { id: 'chat-1', status: 'idle', chat_messages: messages };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual(chat);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return chat with empty messages when message fetch fails', async () => {
+      const chat = { id: 'chat-1', status: 'idle' };
+      mockJsonResponse(chat);
+      mockFetch.mockRejectedValueOnce(new Error('messages unavailable'));
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result).toEqual({
+        ...chat,
+        chat_messages: [],
+        _messageCursor: '',
+        _hasOlderMessages: false,
+      });
+    });
+
+    it('should return null when chat fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
       const result = await fetchChat(makeClient(), 'chat-1');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('cancelMessage', () => {
+    it('should POST to /chats/messages/{id}/cancel', async () => {
+      mockJsonResponse({ id: 'msg-queued', status: 'cancelled' });
+
+      await cancelMessage(makeClient(), 'msg-queued');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/messages/msg-queued/cancel');
+      expect(init.method).toBe('POST');
     });
   });
 

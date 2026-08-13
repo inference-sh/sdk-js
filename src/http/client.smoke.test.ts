@@ -26,7 +26,11 @@ function getApiKey(): string {
 import { Inference } from '../index';
 
 describeSmoke('Smoke: V3 envelope against live API', () => {
-  const client = new Inference({ apiKey: getApiKey() });
+  let client: Inference;
+
+  beforeAll(() => {
+    client = new Inference({ apiKey: getApiKey() });
+  });
 
   it('GET /me returns user and team', async () => {
     const resp = await client.http.request<{ user: { id: string }; team: { username: string } }>('get', '/me');
