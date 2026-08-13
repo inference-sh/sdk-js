@@ -76,6 +76,8 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  BountyProgramDTO,
+  CountResponse,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1323,5 +1325,46 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('BountyProgramDTO and CountResponse', () => {
+  it('models max_per_user cap on bounty programs', () => {
+    const program: BountyProgramDTO = {
+      id: 'bounty-1',
+      short_id: 'b1',
+      created_at: '2026-08-01T00:00:00Z',
+      updated_at: '2026-08-01T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'Referral bonus',
+      description: 'Earn credits for referrals',
+      amount_microcents: 5000000,
+      grant_type: 'credits',
+      expiry_days: 30,
+      max_per_user: 3,
+      max_per_day: 10,
+      proof_type: 'url',
+      proof_min_length: 20,
+      status: 'active',
+      notice_text: 'Claim your bounty',
+      notice_cooldown_hours: 24,
+      notice_priority: 1,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(program)) as BountyProgramDTO;
+
+    expect(parsed.max_per_user).toBe(3);
+    expect(parsed.max_per_day).toBe(10);
+    expect(parsed.amount_microcents).toBe(5000000);
+  });
+
+  it('models CountResponse for bounty claim count endpoints', () => {
+    const response: CountResponse = { count: 42 };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as CountResponse;
+
+    expect(parsed.count).toBe(42);
   });
 });

@@ -197,7 +197,7 @@ describe('createActions', () => {
 
       const onMessage = streamInstances[0].addEventListener.mock.calls.find(
         ([event]) => event === 'chat_messages'
-      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+      )?.[1] as (msg: ReturnType<typeof makeMessage>, fields?: string[]) => void;
 
       const partialUpdate = makeMessage({ chat_id: undefined, content: 'streaming chunk' });
       onMessage(partialUpdate);
@@ -205,6 +205,31 @@ describe('createActions', () => {
       expect(dispatch).toHaveBeenCalledWith({
         type: 'UPDATE_MESSAGE',
         payload: expect.objectContaining({ content: 'streaming chunk' }),
+      });
+    });
+
+    it('should mark UPDATE_MESSAGE as partial when stream provides changed fields', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>, fields?: string[]) => void;
+
+      const partialUpdate = makeMessage({
+        id: 'msg-stream',
+        chat_id: 'chat-short-full-suffix',
+        content: 'chunk 2',
+      });
+      onMessage(partialUpdate, ['content']);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({ id: 'msg-stream', content: 'chunk 2' }),
+        partial: true,
       });
     });
 

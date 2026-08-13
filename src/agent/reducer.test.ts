@@ -123,6 +123,39 @@ describe('chatReducer', () => {
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
   });
 
+  it('UPDATE_MESSAGE with partial should merge fields into an existing message', () => {
+    const chat = makeChat();
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const partial = makeMessage('msg-1', 1);
+    partial.content = [{ type: 'text', text: 'streaming chunk' }];
+
+    const next = chatReducer(state, {
+      type: 'UPDATE_MESSAGE',
+      payload: partial,
+      partial: true,
+    });
+
+    const updated = next.messages.find((m) => m.id === 'msg-1');
+    expect(updated?.content[0]?.text).toBe('streaming chunk');
+    expect(updated?.order).toBe(1);
+    expect(next.messages).toHaveLength(2);
+  });
+
+  it('UPDATE_MESSAGE with partial should not append unknown message ids', () => {
+    const chat = makeChat({ chat_messages: [makeMessage('msg-1', 1)] });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const next = chatReducer(state, {
+      type: 'UPDATE_MESSAGE',
+      payload: makeMessage('msg-unknown', 99),
+      partial: true,
+    });
+
+    expect(next).toBe(state);
+    expect(next.messages.map((m) => m.id)).toEqual(['msg-1']);
+  });
+
   it('SET_CHAT with null should clear chat, messages, and pagination metadata', () => {
     const chat = makeChat();
     (chat as Record<string, unknown>)._messageCursor = 'cursor-1';
