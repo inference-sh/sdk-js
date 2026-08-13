@@ -3154,18 +3154,197 @@ export interface WidgetSelectOption {
   value: string;
 }
 /**
- * Widget represents an interactive widget for display in chat
- * Type is either "ui" (structured nodes) or "html" (raw HTML)
- * For "ui" widgets, data-bound nodes read values from ToolInvocation.Data
+ * Widget represents an interactive widget for display in chat.
+ * Type determines which fields are populated:
+ *   - "a2ui": Surface contains the A2UI component tree (preferred)
+ *   - "ui": Children contains the legacy nested WidgetNode tree
+ *   - "html": HTML contains raw HTML content
  */
 export interface Widget {
-  type: string; // "ui" | "html"
+  type: string; // "a2ui" | "ui" | "html"
   interactive?: boolean;
+  /**
+   * A2UI format (type="a2ui")
+   */
+  surface?: A2UISurface;
+  /**
+   * Legacy format (type="ui")
+   */
   title?: string;
-  html?: string; // For type="html"
-  json?: string; // Original JSON for reference
   children?: WidgetNode[];
   actions?: WidgetActionButton[];
+  /**
+   * HTML format (type="html")
+   */
+  html?: string;
+  /**
+   * Original JSON for debugging/reference
+   */
+  json?: string;
+}
+export type A2UIComponentType = string;
+export const A2UIRow: A2UIComponentType = "Row";
+export const A2UIColumn: A2UIComponentType = "Column";
+export const A2UIList: A2UIComponentType = "List";
+export const A2UIText: A2UIComponentType = "Text";
+export const A2UIImage: A2UIComponentType = "Image";
+export const A2UIIcon: A2UIComponentType = "Icon";
+export const A2UIDivider: A2UIComponentType = "Divider";
+export const A2UIButton: A2UIComponentType = "Button";
+export const A2UITextField: A2UIComponentType = "TextField";
+export const A2UICheckBox: A2UIComponentType = "CheckBox";
+export const A2UISlider: A2UIComponentType = "Slider";
+export const A2UIDateTimeInput: A2UIComponentType = "DateTimeInput";
+export const A2UIChoicePicker: A2UIComponentType = "ChoicePicker";
+export const A2UICard: A2UIComponentType = "Card";
+export const A2UIModal: A2UIComponentType = "Modal";
+export const A2UITabs: A2UIComponentType = "Tabs";
+/**
+ * Extensions (inferencesh/v1 catalog)
+ */
+export const A2UIBadge: A2UIComponentType = "Badge";
+export const A2UISpacer: A2UIComponentType = "Spacer";
+export const A2UIChart: A2UIComponentType = "Chart";
+export const A2UIForm: A2UIComponentType = "Form";
+export const A2UIHTML: A2UIComponentType = "HTML";
+/**
+ * A2UIComponent is the universal component representation.
+ * Children are string IDs (flat adjacency list), not nested objects.
+ */
+export interface A2UIComponent {
+  id: string;
+  component: A2UIComponentType;
+  /**
+   * Layout
+   */
+  children?: string[];
+  justify?: string;
+  align?: string;
+  direction?: string;
+  gap?: number /* int */;
+  /**
+   * Text
+   */
+  text?: A2UIBoundValue;
+  variant?: string;
+  /**
+   * Image
+   */
+  url?: A2UIBoundValue;
+  fit?: string;
+  /**
+   * Icon
+   */
+  name?: A2UIBoundValue;
+  /**
+   * Divider
+   */
+  axis?: string;
+  /**
+   * Button / Card
+   */
+  child?: string;
+  primary?: boolean;
+  action?: A2UIAction;
+  /**
+   * TextField
+   */
+  label?: string;
+  value?: A2UIBoundValue;
+  textFieldType?: string;
+  validationRegexp?: string;
+  placeholder?: string;
+  rows?: number /* int */;
+  /**
+   * Slider
+   */
+  minValue?: number /* float64 */;
+  maxValue?: number /* float64 */;
+  /**
+   * DateTimeInput
+   */
+  enableDate?: boolean;
+  enableTime?: boolean;
+  /**
+   * ChoicePicker
+   */
+  options?: A2UIChoiceOption[];
+  selections?: A2UIBoundValue;
+  maxAllowedSelections?: number /* int */;
+  /**
+   * Modal
+   */
+  entryPointChild?: string;
+  contentChild?: string;
+  /**
+   * Tabs
+   */
+  tabItems?: A2UITabItem[];
+  /**
+   * Common
+   */
+  accessibility?: A2UIAccessibility;
+  weight?: number /* float64 */;
+  disabled?: boolean;
+  required?: boolean;
+  /**
+   * Extension: Badge
+   */
+  badgeLabel?: string;
+  badgeVariant?: string;
+  /**
+   * Extension: Spacer
+   */
+  minSize?: any;
+  /**
+   * Extension: Chart
+   */
+  chartData?: any;
+  chartSeries?: any;
+  xAxis?: any;
+  showYAxis?: boolean;
+  showLegend?: boolean;
+  showTooltip?: boolean;
+  /**
+   * Extension: Form
+   */
+  onSubmitAction?: A2UIAction;
+  /**
+   * Extension: HTML
+   */
+  htmlContent?: string;
+}
+/**
+ * A2UIBoundValue is either a literal or a data model path reference.
+ */
+export interface A2UIBoundValue {
+  path?: string;
+}
+export interface A2UIAction {
+  type: string;
+  payload?: { [key: string]: any};
+}
+export interface A2UIChoiceOption {
+  label: string;
+  value: string;
+}
+export interface A2UITabItem {
+  title: string;
+  child: string;
+}
+export interface A2UIAccessibility {
+  label?: string;
+  description?: string;
+}
+/**
+ * A2UISurface is the complete renderable state for a widget.
+ */
+export interface A2UISurface {
+  version: string;
+  surfaceId: string;
+  catalogId: string;
+  components: A2UIComponent[];
+  dataModel?: any;
 }
 /**
  * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
