@@ -61,8 +61,15 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  ChatDTO,
+  ChatMessageDTO,
+  ChatStatusIdle,
+  ChatMessageStatusReady,
   InterruptDTO,
   InterruptReasonToolApproval,
+  InterruptReasonClientTool,
+  InterruptReasonAuth,
+  InterruptReasonConfirmation,
   InterruptReasonHookGate,
   InterruptResourceToolInvocation,
   InterruptResourceHookEvent,
@@ -70,6 +77,9 @@ import {
   InterruptStatusResolved,
   InterruptResolutionAllow,
   InterruptResolutionDeny,
+  VisibilityTeam,
+  VisibilityPublic,
+  VisibilityUnlisted,
   LifecycleHookConfig,
   HookEventToolCall,
   HookHandlerGate,
@@ -1332,5 +1342,135 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('PermissionModelDTO embed contract', () => {
+  const permissionFields = {
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityTeam,
+  };
+
+  it('exports Visibility constants for private, team, public, and unlisted resources', () => {
+    expect(VisibilityPrivate).toBe('private');
+    expect(VisibilityTeam).toBe('team');
+    expect(VisibilityPublic).toBe('public');
+    expect(VisibilityUnlisted).toBe('unlisted');
+  });
+
+  it('requires permission embed fields on InterruptDTO responses', () => {
+    const interrupt: InterruptDTO = {
+      id: 'int-1',
+      short_id: 'i1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      ...permissionFields,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      reason: InterruptReasonToolApproval,
+      source: 'tool:search',
+      status: InterruptStatusPending,
+    };
+
+    expect(interrupt.user_id).toBe('user-1');
+    expect(interrupt.team_id).toBe('team-1');
+    expect(interrupt.visibility).toBe('team');
+  });
+
+  it('requires permission embed fields on ChatDTO and ChatMessageDTO responses', () => {
+    const chat: ChatDTO = {
+      id: 'chat-1',
+      short_id: 'c1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      ...permissionFields,
+      status: ChatStatusIdle,
+      name: 'Support',
+      description: '',
+      children: [],
+      chat_messages: [],
+      agent_data: {},
+    };
+
+    const message: ChatMessageDTO = {
+      id: 'msg-1',
+      short_id: 'm1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      ...permissionFields,
+      chat_id: chat.id,
+      order: 1,
+      status: ChatMessageStatusReady,
+      role: 'user',
+      content: [{ type: 'text', text: 'hello' }],
+    };
+
+    expect(chat.visibility).toBe('team');
+    expect(message.user_id).toBe('user-1');
+    expect(message.team_id).toBe('team-1');
+  });
+
+  it('preserves permission embed fields through JSON round-trip on InterruptDTO', () => {
+    const interrupt: InterruptDTO = {
+      id: 'int-1',
+      short_id: 'i1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      user_id: 'user-42',
+      team_id: 'team-99',
+      visibility: VisibilityPublic,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      reason: InterruptReasonHookGate,
+      source: 'agent.tool_call',
+      status: InterruptStatusResolved,
+      resolution: InterruptResolutionAllow,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(interrupt)) as InterruptDTO;
+
+    expect(parsed.user_id).toBe('user-42');
+    expect(parsed.team_id).toBe('team-99');
+    expect(parsed.visibility).toBe('public');
+  });
+});
+
+describe('InterruptReason AG-UI constants', () => {
+  it('exports all interrupt outcome reason constants', () => {
+    expect(InterruptReasonToolApproval).toBe('tool_approval');
+    expect(InterruptReasonClientTool).toBe('client_tool');
+    expect(InterruptReasonAuth).toBe('auth');
+    expect(InterruptReasonConfirmation).toBe('confirmation');
+    expect(InterruptReasonHookGate).toBe('hook_gate');
+  });
+
+  it('accepts each InterruptReason on InterruptDTO responses', () => {
+    const base = {
+      id: 'int-1',
+      short_id: 'i1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityTeam,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      source: 'test',
+      status: InterruptStatusPending,
+    };
+
+    const reasons = [
+      InterruptReasonToolApproval,
+      InterruptReasonClientTool,
+      InterruptReasonAuth,
+      InterruptReasonConfirmation,
+      InterruptReasonHookGate,
+    ] as const;
+
+    for (const reason of reasons) {
+      const interrupt: InterruptDTO = { ...base, reason };
+      expect(interrupt.reason).toBe(reason);
+    }
   });
 });

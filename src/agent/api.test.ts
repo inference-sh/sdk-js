@@ -1,5 +1,17 @@
 import { HttpClient } from '../http/client';
 import { FilesAPI } from '../api/files';
+import type { InterruptDTO } from '../types';
+import {
+  InterruptReasonToolApproval,
+  InterruptReasonHookGate,
+  InterruptResourceHookEvent,
+  InterruptResourceToolInvocation,
+  InterruptStatusPending,
+  InterruptStatusResolved,
+  InterruptResolutionAllow,
+  InterruptResolutionDeny,
+  VisibilityTeam,
+} from '../types';
 import type { AgentClient } from './types';
 import {
   sendMessage,
@@ -27,6 +39,24 @@ function mockJsonResponse(body: unknown) {
     status: 200,
     text: () => Promise.resolve(JSON.stringify(body)),
   });
+}
+
+function makeInterruptFixture(overrides: Partial<InterruptDTO> = {}): InterruptDTO {
+  return {
+    id: 'int-1',
+    short_id: 'i1',
+    created_at: '2026-08-13T00:00:00Z',
+    updated_at: '2026-08-13T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityTeam,
+    run_id: 'run-1',
+    chat_id: 'chat-1',
+    reason: InterruptReasonToolApproval,
+    source: 'tool:search',
+    status: InterruptStatusPending,
+    ...overrides,
+  };
 }
 
 function makeClient(): AgentClient {
@@ -210,19 +240,21 @@ describe('agent/api', () => {
 
   describe('resolveInterrupt', () => {
     it('should POST allow decision and preserve tool_invocation resource_type', async () => {
-      const interrupt = {
+      const interrupt = makeInterruptFixture({
         id: 'int-1',
-        status: 'resolved',
-        resolution: 'allow',
-        resource_type: 'tool_invocation',
+        status: InterruptStatusResolved,
+        resolution: InterruptResolutionAllow,
+        resource_type: InterruptResourceToolInvocation,
         resource_id: 'call-abc',
-      };
+      });
       mockJsonResponse(interrupt);
 
       const result = await resolveInterrupt(makeClient(), 'int-1', 'allow');
 
       expect(result).toEqual(interrupt);
       expect(result.resource_type).toBe('tool_invocation');
+      expect(result.user_id).toBe('user-1');
+      expect(result.visibility).toBe('team');
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/interrupts/int-1/resolve');
       expect(init.method).toBe('POST');
@@ -230,18 +262,21 @@ describe('agent/api', () => {
     });
 
     it('should POST deny decision and preserve hook_event resource_type', async () => {
-      const interrupt = {
+      const interrupt = makeInterruptFixture({
         id: 'int-2',
-        status: 'resolved',
-        resolution: 'deny',
-        resource_type: 'hook_event',
+        reason: InterruptReasonHookGate,
+        source: 'agent.tool_call',
+        status: InterruptStatusResolved,
+        resolution: InterruptResolutionDeny,
+        resource_type: InterruptResourceHookEvent,
         resource_id: 'evt-xyz',
-      };
+      });
       mockJsonResponse(interrupt);
 
       const result = await resolveInterrupt(makeClient(), 'int-2', 'deny');
 
       expect(result.resource_type).toBe('hook_event');
+      expect(result.team_id).toBe('team-1');
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
     });
@@ -249,9 +284,19 @@ describe('agent/api', () => {
 
   describe('listRunInterrupts', () => {
     it('should GET pending interrupts with resource_type discriminators', async () => {
-      const interrupts = [
-        { id: 'int-1', status: 'pending', resource_type: 'tool_invocation' },
-        { id: 'int-2', status: 'pending', resource_type: 'hook_event' },
+      const interrupts: InterruptDTO[] = [
+        makeInterruptFixture({
+          id: 'int-1',
+          status: InterruptStatusPending,
+          resource_type: InterruptResourceToolInvocation,
+        }),
+        makeInterruptFixture({
+          id: 'int-2',
+          reason: InterruptReasonHookGate,
+          source: 'agent.tool_call',
+          status: InterruptStatusPending,
+          resource_type: InterruptResourceHookEvent,
+        }),
       ];
       mockJsonResponse(interrupts);
 
@@ -260,6 +305,8 @@ describe('agent/api', () => {
       expect(result).toEqual(interrupts);
       expect(result[0].resource_type).toBe('tool_invocation');
       expect(result[1].resource_type).toBe('hook_event');
+      expect(result[0].user_id).toBe('user-1');
+      expect(result[1].visibility).toBe('team');
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/agent-runs/run-xyz/interrupts');
       expect(init.method).toBe('GET');
