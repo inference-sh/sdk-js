@@ -76,6 +76,17 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  A2UIButton,
+  A2UIColumn,
+  A2UIForm,
+  A2UIRow,
+  A2UIText,
+  A2UITextField,
+  A2UISurface,
+  Widget,
+  ToolInvocationDTO,
+  ToolTypeClient,
+  ToolInvocationStatusAwaitingInput,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1343,101 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('Widget = A2UISurface type contracts', () => {
+  const permissionFields = {
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+  };
+
+  it('treats Widget as an A2UISurface alias (surface fields at top level)', () => {
+    const surface: A2UISurface = {
+      version: '1.0',
+      surfaceId: 'surface-1',
+      catalogId: 'inferencesh/v1',
+      dataModel: { greeting: 'Hello' },
+      components: [
+        {
+          id: 'root',
+          component: A2UIRow,
+          children: ['title', 'submit'],
+          gap: 8,
+        },
+        {
+          id: 'title',
+          component: A2UIText,
+          text: { path: '/greeting' },
+          variant: 'heading',
+        },
+        {
+          id: 'submit',
+          component: A2UIButton,
+          child: 'submit-label',
+          primary: true,
+          action: { type: 'submit', payload: { formId: 'demo' } },
+        },
+      ],
+    };
+
+    const assignSurfaceToWidget = (value: A2UISurface): Widget => value;
+    const widget = assignSurfaceToWidget(surface);
+    const parsed = JSON.parse(JSON.stringify(widget)) as Widget;
+
+    expect(parsed.version).toBe('1.0');
+    expect(parsed.surfaceId).toBe('surface-1');
+    expect(parsed.catalogId).toBe('inferencesh/v1');
+    expect(parsed.components).toHaveLength(3);
+    expect(parsed.components[0].children).toEqual(['title', 'submit']);
+    expect(parsed.components[1].text).toEqual({ path: '/greeting' });
+    expect(parsed.dataModel).toEqual({ greeting: 'Hello' });
+  });
+
+  it('exports core A2UI component type constants', () => {
+    expect(A2UIRow).toBe('Row');
+    expect(A2UIColumn).toBe('Column');
+    expect(A2UIText).toBe('Text');
+    expect(A2UIButton).toBe('Button');
+    expect(A2UIForm).toBe('Form');
+  });
+
+  it('models ToolInvocationDTO.widget as a top-level A2UISurface for awaiting_input flows', () => {
+    const invocation: ToolInvocationDTO = {
+      id: 'inv-1',
+      short_id: 'i1',
+      created_at: '2026-08-15T00:00:00Z',
+      updated_at: '2026-08-15T00:00:00Z',
+      ...permissionFields,
+      chat_message_id: 'msg-1',
+      tool_invocation_id: 'call-abc',
+      type: ToolTypeClient,
+      function: { name: 'collect_input', arguments: {} },
+      status: ToolInvocationStatusAwaitingInput,
+      widget: {
+        version: '1.0',
+        surfaceId: 'form-1',
+        catalogId: 'inferencesh/v1',
+        dataModel: { name: '' },
+        components: [
+          {
+            id: 'field',
+            component: A2UITextField,
+            label: 'Name',
+            value: { path: '/name' },
+            required: true,
+          },
+        ],
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(invocation)) as ToolInvocationDTO;
+
+    expect(parsed.status).toBe('awaiting_input');
+    expect(parsed.type).toBe('client');
+    expect(parsed.widget?.surfaceId).toBe('form-1');
+    expect(parsed.widget?.components[0].value).toEqual({ path: '/name' });
+    expect(parsed.widget?.components[0].required).toBe(true);
   });
 });
