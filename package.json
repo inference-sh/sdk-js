@@ -29,6 +29,7 @@
     },
     "./proxy/remix": {
       "types": "./dist/proxy/remix.d.ts",
+      "inference-src": "./src/proxy/remix.ts",
       "default": "./dist/proxy/remix.js"
     },
     "./proxy/svelte": {
