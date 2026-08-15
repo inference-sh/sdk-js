@@ -1,4 +1,5 @@
 import {
+  getEnvApiKey,
   INF_TARGET_HEADER,
   INF_TARGET_PARAM,
   headersToRecord,
@@ -54,13 +55,47 @@ describe('headersToRecord', () => {
   });
 });
 
+describe('getEnvApiKey', () => {
+  const originalInferenceApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiKey = process.env.API_KEY;
+
+  afterEach(() => {
+    if (originalInferenceApiKey === undefined) {
+      delete process.env.INFERENCE_API_KEY;
+    } else {
+      process.env.INFERENCE_API_KEY = originalInferenceApiKey;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.API_KEY;
+    } else {
+      process.env.API_KEY = originalApiKey;
+    }
+  });
+
+  it('should prefer INFERENCE_API_KEY over API_KEY', async () => {
+    process.env.INFERENCE_API_KEY = 'inference-key';
+    process.env.API_KEY = 'legacy-key';
+
+    await expect(getEnvApiKey()).resolves.toBe('inference-key');
+  });
+
+  it('should fall back to API_KEY when INFERENCE_API_KEY is unset', async () => {
+    delete process.env.INFERENCE_API_KEY;
+    process.env.API_KEY = 'legacy-key';
+
+    await expect(getEnvApiKey()).resolves.toBe('legacy-key');
+  });
+});
+
 describe('processProxyRequest', () => {
   const originalFetch = global.fetch;
-  const originalApiKey = process.env.INFERENCE_API_KEY;
+  const originalInferenceApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiKey = process.env.API_KEY;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.INFERENCE_API_KEY = 'env-test-key';
+    delete process.env.API_KEY;
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -71,10 +106,15 @@ describe('processProxyRequest', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    if (originalApiKey === undefined) {
+    if (originalInferenceApiKey === undefined) {
       delete process.env.INFERENCE_API_KEY;
     } else {
-      process.env.INFERENCE_API_KEY = originalApiKey;
+      process.env.INFERENCE_API_KEY = originalInferenceApiKey;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.API_KEY;
+    } else {
+      process.env.API_KEY = originalApiKey;
     }
   });
 
@@ -117,6 +157,7 @@ describe('processProxyRequest', () => {
 
   it('should reject when no API key is configured', async () => {
     delete process.env.INFERENCE_API_KEY;
+    delete process.env.API_KEY;
 
     const result = await processProxyRequest(
       createTestAdapter({
@@ -154,8 +195,51 @@ describe('processProxyRequest', () => {
     );
   });
 
+  it('should fall back to API_KEY when INFERENCE_API_KEY is unset', async () => {
+    delete process.env.INFERENCE_API_KEY;
+    process.env.API_KEY = 'legacy-env-key';
+    const target = 'https://api.inference.sh/v1/tasks/1';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer legacy-env-key',
+        }),
+      })
+    );
+  });
+
+  it('should prefer INFERENCE_API_KEY over API_KEY for upstream auth', async () => {
+    process.env.INFERENCE_API_KEY = 'inference-env-key';
+    process.env.API_KEY = 'legacy-env-key';
+    const target = 'https://api.inference.sh/v1/tasks/1';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer inference-env-key',
+        }),
+      })
+    );
+  });
+
   it('should resolve API key from adapter.apiKey when env key is missing', async () => {
     delete process.env.INFERENCE_API_KEY;
+    delete process.env.API_KEY;
     const target = 'https://api.inference.sh/v1/tasks/1';
     const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
 
