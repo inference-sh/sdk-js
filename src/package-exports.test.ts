@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as main from './index';
 import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
+import { createHandler } from './proxy/remix';
 
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf8')
@@ -19,6 +20,20 @@ describe('package export surface', () => {
 
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
+    });
+  });
+
+  describe('proxy remix module (@inferencesh/sdk/proxy/remix)', () => {
+    it('is mapped to src/proxy/remix.ts with inference-src for dev HMR', () => {
+      expect(packageJson.exports['./proxy/remix']).toEqual({
+        types: './dist/proxy/remix.d.ts',
+        'inference-src': './src/proxy/remix.ts',
+        default: './dist/proxy/remix.js',
+      });
+    });
+
+    it('exports createHandler from proxy/remix', () => {
+      expect(createHandler).toEqual(expect.any(Function));
     });
   });
 
