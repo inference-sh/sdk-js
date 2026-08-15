@@ -13,7 +13,10 @@ import {
   DeviceAuthStatusApproved,
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
+  DeviceAuthStatusInvalid,
+  DeviceAuthStatusLoading,
   DeviceAuthStatusPending,
+  DeviceAuthStatusValid,
   CacheScopePrivate,
   CacheScopePublic,
   DeviceTokenKindAPIKey,
@@ -63,7 +66,15 @@ import {
   VisibilityPrivate,
   InterruptDTO,
   InterruptReasonToolApproval,
+  InterruptReasonWidget,
+  InterruptReasonAuth,
   InterruptReasonHookGate,
+  AgentRunDTO,
+  AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
+  BountySubmissionDTO,
+  SubmitBountyRequest,
+  SubmitBountyResponse,
   InterruptResourceToolInvocation,
   InterruptResourceHookEvent,
   InterruptStatusPending,
@@ -993,6 +1004,12 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
     expect(DeviceAuthStatusDenied).toBe('denied');
   });
 
+  it('exports client-side DeviceAuthStatus constants for UI polling states', () => {
+    expect(DeviceAuthStatusValid).toBe('valid');
+    expect(DeviceAuthStatusInvalid).toBe('invalid');
+    expect(DeviceAuthStatusLoading).toBe('loading');
+  });
+
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
@@ -1332,5 +1349,125 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('BountySubmissionDTO and SubmitBounty flow', () => {
+  const permissionFields = {
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+  };
+
+  it('models bounty claim submissions with proof and optional agent attribution', () => {
+    const submission: BountySubmissionDTO = {
+      id: 'sub-1',
+      short_id: 'bs1',
+      created_at: '2026-08-01T00:00:00Z',
+      updated_at: '2026-08-01T00:00:00Z',
+      ...permissionFields,
+      bounty_id: 'bounty-1',
+      proof_id: 'proof-abc',
+      proof_ref: 'https://github.com/acme/repo/pull/42',
+      agent: 'infsh/referral-agent',
+      source: 'cli',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(submission)) as BountySubmissionDTO;
+
+    expect(parsed.bounty_id).toBe('bounty-1');
+    expect(parsed.proof_ref).toBe('https://github.com/acme/repo/pull/42');
+    expect(parsed.agent).toBe('infsh/referral-agent');
+    expect(parsed.source).toBe('cli');
+  });
+
+  it('models SubmitBountyRequest with required proof_id and optional agent/source', () => {
+    const request: SubmitBountyRequest = {
+      bounty_id: 'bounty-1',
+      proof_id: 'proof-xyz',
+      agent: 'infsh/referral-agent',
+      source: 'web',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SubmitBountyRequest;
+
+    expect(parsed.bounty_id).toBe('bounty-1');
+    expect(parsed.proof_id).toBe('proof-xyz');
+    expect(parsed.agent).toBe('infsh/referral-agent');
+  });
+
+  it('models SubmitBountyResponse with granted_amount microcents', () => {
+    const response: SubmitBountyResponse = {
+      submission: {
+        id: 'sub-1',
+        short_id: 'bs1',
+        created_at: '2026-08-01T00:00:00Z',
+        updated_at: '2026-08-01T00:00:00Z',
+        ...permissionFields,
+        bounty_id: 'bounty-1',
+        proof_id: 'proof-abc',
+        proof_ref: 'https://example.com/proof',
+      },
+      granted_amount: 5_000_000,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as SubmitBountyResponse;
+
+    expect(parsed.submission.proof_id).toBe('proof-abc');
+    expect(parsed.granted_amount).toBe(5_000_000);
+  });
+});
+
+describe('InterruptReasonWidget and AgentRunDTO interrupt metadata', () => {
+  it('exports widget interrupt reason for A2UI interactive widget gates', () => {
+    expect(InterruptReasonWidget).toBe('widget');
+  });
+
+  it('models AgentRunDTO with interrupt_reason, interrupt_tool_id, and interrupt_meta', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateInputRequired,
+      interrupt_reason: InterruptReasonWidget,
+      interrupt_tool_id: 'tool-widget-1',
+      interrupt_meta: { widget_id: 'w-42', surface_id: 'surface-1' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(run)) as AgentRunDTO;
+
+    expect(parsed.state).toBe('input_required');
+    expect(parsed.interrupt_reason).toBe('widget');
+    expect(parsed.interrupt_tool_id).toBe('tool-widget-1');
+    expect(parsed.interrupt_meta).toEqual({ widget_id: 'w-42', surface_id: 'surface-1' });
+  });
+
+  it('models auth_required runs with auth interrupt reason', () => {
+    const run: AgentRunDTO = {
+      id: 'run-2',
+      short_id: 'r2',
+      created_at: '2026-08-13T00:00:00Z',
+      updated_at: '2026-08-13T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-2',
+      state: AgentRunStateAuthRequired,
+      interrupt_reason: InterruptReasonAuth,
+      interrupt_meta: { provider: 'github', scopes: ['repo'] },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(run)) as AgentRunDTO;
+
+    expect(parsed.state).toBe('auth_required');
+    expect(parsed.interrupt_reason).toBe('auth');
+    expect(parsed.interrupt_meta?.provider).toBe('github');
   });
 });
