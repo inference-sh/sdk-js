@@ -16,6 +16,7 @@ import {
   stopChat,
   getChatStreamConfig,
   uploadFile,
+  fetchAgentInfo,
 } from './api';
 
 const mockFetch = jest.fn();
@@ -395,6 +396,53 @@ describe('agent/api', () => {
       const result = await uploadFile(client, file);
       expect(result).toEqual(fileRecord);
       uploadSpy.mockRestore();
+    });
+  });
+
+  describe('fetchAgentInfo', () => {
+    it('should GET /agents/{ref} and extract description and example_prompts from version', async () => {
+      mockJsonResponse({
+        data: {
+          namespace: 'acme',
+          name: 'support',
+          version: {
+            description: 'Customer support agent',
+            example_prompts: ['How do I reset my password?', 'Track my order'],
+          },
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'acme/support@latest');
+
+      expect(result).toEqual({
+        description: 'Customer support agent',
+        example_prompts: ['How do I reset my password?', 'Track my order'],
+      });
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/agents/acme/support@latest');
+      expect(init.method).toBe('GET');
+    });
+
+    it('should return null when agent fetch fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('not found'));
+
+      const result = await fetchAgentInfo(makeClient(), 'missing/agent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return undefined fields when version is missing', async () => {
+      mockJsonResponse({
+        data: { namespace: 'acme', name: 'support' },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'acme/support@latest');
+
+      expect(result).toEqual({
+        description: undefined,
+        example_prompts: undefined,
+      });
     });
   });
 });

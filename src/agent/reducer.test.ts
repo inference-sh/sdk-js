@@ -235,6 +235,17 @@ describe('chatReducer', () => {
     expect(errored.error).toBe('stream failed');
   });
 
+  it('SET_AGENT_INFO should store description and example_prompts', () => {
+    const agentInfo = {
+      description: 'Pricing assistant',
+      example_prompts: ['Show enterprise pricing', 'Compare plans'],
+    };
+
+    const next = chatReducer(initialState, { type: 'SET_AGENT_INFO', payload: agentInfo });
+
+    expect(next.agentInfo).toEqual(agentInfo);
+  });
+
   it('should return the same state for unknown action types', () => {
     const state = chatReducer(initialState, { type: 'UNKNOWN' } as never);
     expect(state).toBe(initialState);
