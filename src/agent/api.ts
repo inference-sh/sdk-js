@@ -14,7 +14,7 @@ import type {
   ChatMessageDTO,
   InterruptDTO,
 } from '../types';
-import type { AgentOptions, AgentClient, FileRef } from './types';
+import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types';
 import { isAdHocConfig } from './types';
 
 export interface SendResult {
@@ -111,11 +111,6 @@ export async function sendMessage(
 // =========================================================================
 // Agent info
 // =========================================================================
-
-export interface AgentInfo {
-  description?: string;
-  example_prompts?: string[];
-}
 
 export async function fetchAgentInfo(
   client: AgentClient,
