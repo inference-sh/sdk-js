@@ -66,15 +66,16 @@ describe('isChatBusy', () => {
   const chatWith = (state: string) =>
     ({ active_run: { state } as AgentRunDTO } as unknown as ChatDTO);
 
-  it('should return true for working and submitted', () => {
+  it('should return true for working, submitted, and input_required', () => {
     expect(isChatBusy(chatWith(AgentRunStateWorking))).toBe(true);
     expect(isChatBusy(chatWith(AgentRunStateSubmitted))).toBe(true);
+    // Widget awaiting user input — run is still active (stop button should stay visible)
+    expect(isChatBusy(chatWith(AgentRunStateInputRequired))).toBe(true);
   });
 
-  it('should return false for terminal and interrupted states', () => {
+  it('should return false for terminal states', () => {
     expect(isChatBusy(chatWith(AgentRunStateCompleted))).toBe(false);
     expect(isChatBusy(chatWith(AgentRunStateFailed))).toBe(false);
-    expect(isChatBusy(chatWith(AgentRunStateInputRequired))).toBe(false);
   });
 
   it('should return false when no active run', () => {

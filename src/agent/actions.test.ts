@@ -4,6 +4,7 @@ import {
   ChatStatusIdle,
   AgentRunStateWorking,
   AgentRunStateCompleted,
+  AgentRunStateInputRequired,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -13,6 +14,7 @@ import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
@@ -663,6 +665,52 @@ describe('createActions', () => {
       });
       expect(onStatusChange).toHaveBeenCalledWith('streaming');
     });
+
+    it('should keep streaming status when chats event has input_required active_run', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: inputRequiredRun,
+      } as unknown as ChatDTO);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_CHAT',
+        payload: expect.objectContaining({ active_run: inputRequiredRun }),
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
+
+    it('should keep streaming status when agent_runs event enters input_required', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRun = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'agent_runs'
+      )?.[1] as (run: AgentRunDTO) => void;
+
+      onAgentRun(inputRequiredRun);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_ACTIVE_RUN',
+        payload: inputRequiredRun,
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
   });
 
   describe('pollChat', () => {
@@ -1253,6 +1301,28 @@ describe('createActions', () => {
 
       expect(onTurnEnd).toHaveBeenCalledTimes(1);
       expect(onTurnEnd).toHaveBeenCalledWith(staleBusyChat);
+    });
+
+    it('should not call onTurnEnd when active_run transitions to input_required', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onChat = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats'
+      )?.[1] as (chat: ChatDTO) => void;
+
+      onChat({ id: 'chat-full-id-123', status: ChatStatusBusy, active_run: workingRun } as unknown as ChatDTO);
+      onChat({
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: inputRequiredRun,
+      } as unknown as ChatDTO);
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
     });
 
     it('should not call onTurnEnd when chat goes from idle to busy or stays busy', async () => {

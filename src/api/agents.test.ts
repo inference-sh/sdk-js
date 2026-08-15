@@ -10,6 +10,7 @@ import {
   ToolTypeClient,
   AgentRunStateCompleted,
   AgentRunStateWorking,
+  AgentRunStateInputRequired,
 } from '../types';
 import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
@@ -17,6 +18,7 @@ import { AgentsAPI } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -94,6 +96,46 @@ describe('Agent.sendMessage (polling mode)', () => {
     expect(onChat).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'chat-1', status: ChatStatusIdle })
     );
+  });
+
+  it('should keep waiting when active_run is input_required (widget awaiting input)', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage, assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    // Run paused for widget input — isChatBusy must stay true so sendMessage keeps polling
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: inputRequiredRun,
+      chat_messages: [],
+    });
+    // Status unchanged while user fills widget — pollUntilIdle must not resolve yet
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    const onChat = jest.fn();
+    const result = await agent().sendMessage('hello', { stream: false, onChat });
+
+    expect(result.userMessage).toEqual(userMessage);
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({ active_run: inputRequiredRun })
+    );
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'chat-1', status: ChatStatusIdle })
+    );
+    const statusPolls = mockFetch.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/status')
+    );
+    expect(statusPolls.length).toBeGreaterThan(1);
   });
 
   it('should treat chat as idle when active_run is completed even if status is still busy', async () => {
@@ -469,6 +511,39 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(onChat).toHaveBeenCalledWith(
       expect.objectContaining({ active_run: expect.objectContaining({ output: { answer: 42 } }) })
     );
+  });
+
+  it('should keep streaming until run leaves input_required state', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'agent_runs', data: workingRun })}\n`,
+          `${JSON.stringify({ event: 'agent_runs', data: inputRequiredRun })}\n`,
+          `${JSON.stringify({ event: 'agent_runs', data: completedRun })}\n`,
+        ])
+      );
+    });
+
+    const onChat = jest.fn();
+    await streamingAgent().sendMessage('hello', { onChat });
+
+    expect(onChat).toHaveBeenCalledWith({ active_run: inputRequiredRun });
+    expect(onChat).toHaveBeenCalledWith({ active_run: completedRun });
   });
 
   it('should wait until chat is idle via typed stream events', async () => {
