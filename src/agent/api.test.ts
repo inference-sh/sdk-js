@@ -140,7 +140,7 @@ describe('agent/api', () => {
 
       const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(String(init1.body));
-      expect(body.agent).toBe('');
+      expect(body.agent).toBe('openrouter/claude@abc');
       expect(body.context).toBeUndefined();
     });
   });
