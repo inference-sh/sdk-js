@@ -221,6 +221,17 @@ describe('chatReducer', () => {
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
   });
 
+  it('SET_AGENT_INFO should store description and example_prompts', () => {
+    const agentInfo = {
+      description: 'Pricing assistant',
+      example_prompts: ['Show enterprise pricing', 'Compare plans'],
+    };
+
+    const next = chatReducer(initialState, { type: 'SET_AGENT_INFO', payload: agentInfo });
+
+    expect(next.agentInfo).toEqual(agentInfo);
+  });
+
   it('SET_CONNECTION_STATUS and SET_ERROR should update connection fields', () => {
     const streaming = chatReducer(initialState, {
       type: 'SET_CONNECTION_STATUS',

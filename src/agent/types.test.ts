@@ -1,4 +1,5 @@
 import { ToolTypeClient } from '../types';
+import type { AgentVersionDTO } from '../types';
 import {
   isAdHocConfig,
   isTemplateConfig,
@@ -6,8 +7,27 @@ import {
   extractToolSchemas,
   extractClientToolHandlers,
   type AdHocAgentConfig,
+  type AgentInfo,
   type TemplateAgentConfig,
 } from './types';
+
+describe('AgentInfo type', () => {
+  it('accepts description and example_prompts from AgentVersionDTO', () => {
+    const version: Pick<AgentVersionDTO, 'description' | 'example_prompts'> = {
+      description: 'Customer support agent',
+      example_prompts: ['Reset password', 'Track order'],
+    };
+    const info: AgentInfo = version;
+
+    expect(info.description).toBe('Customer support agent');
+    expect(info.example_prompts).toEqual(['Reset password', 'Track order']);
+  });
+
+  it('allows partial agent metadata', () => {
+    const info: AgentInfo = { description: 'Pricing assistant' };
+    expect(info.example_prompts).toBeUndefined();
+  });
+});
 
 describe('agent/types helpers', () => {
   const adHocConfig: AdHocAgentConfig = {
