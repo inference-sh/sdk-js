@@ -81,6 +81,9 @@ export interface ProxyOptions {
     /** Custom API key (defaults to INFERENCE_API_KEY env var) */
     apiKey?: string;
 
+    /** Override API base URL (defaults to INFERENCE_API_BASE_URL env var) */
+    apiBaseUrl?: string;
+
     /** Allow requests to additional domains (besides *.inference.sh) */
     allowedDomains?: RegExp[];
 }
@@ -141,6 +144,16 @@ export async function processProxyRequest<T>(
         return adapter.error(400, {
             error: `Missing ${INF_TARGET_HEADER} header or ${INF_TARGET_PARAM} query param`,
         });
+    }
+
+    // 1b. Rewrite base URL if INFERENCE_API_BASE_URL is set
+    const overrideBase = options?.apiBaseUrl || process.env.INFERENCE_API_BASE_URL;
+    if (overrideBase) {
+        const parsed = new URL(targetUrl);
+        const override = new URL(overrideBase);
+        parsed.protocol = override.protocol;
+        parsed.host = override.host;
+        targetUrl = parsed.toString();
     }
 
     // 2. Validate target domain
