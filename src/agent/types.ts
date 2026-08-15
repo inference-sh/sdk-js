@@ -7,6 +7,7 @@
 import type { Dispatch } from 'react';
 import type {
   AgentRunDTO,
+  AgentVersionDTO,
   ChatDTO,
   ChatMessageDTO,
   AgentTool,
@@ -115,6 +116,11 @@ export function isTemplateConfig(config: AgentOptions): config is TemplateAgentC
 // =============================================================================
 
 /**
+ * Agent metadata fetched from the backend for template configs
+ */
+export type AgentInfo = Partial<Pick<AgentVersionDTO, 'description' | 'example_prompts'>>;
+
+/**
  * Status of the chat
  */
 export type ChatStatus = 'idle' | 'connecting' | 'streaming' | 'error';
@@ -138,7 +144,7 @@ export interface AgentChatState {
   /** Whether older messages exist beyond the current page */
   hasOlderMessages?: boolean;
   /** Agent info fetched from the backend (description, example_prompts) */
-  agentInfo?: { description?: string; example_prompts?: string[] };
+  agentInfo?: AgentInfo;
 }
 
 /**
@@ -271,7 +277,7 @@ export type ChatAction =
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
   | { type: 'PREPEND_MESSAGES'; payload: { messages: ChatMessageDTO[]; cursor?: string; hasMore: boolean } }
-  | { type: 'SET_AGENT_INFO'; payload: { description?: string; example_prompts?: string[] } }
+  | { type: 'SET_AGENT_INFO'; payload: AgentInfo }
   | { type: 'RESET' };
 
 /**

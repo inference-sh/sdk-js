@@ -135,13 +135,15 @@ export function AgentChatProvider({
   const { publicActions, internalActions } = actionsResultRef.current;
 
   // Fetch agent info for template configs (example_prompts, description)
+  const agentRef = isTemplateConfig(agentConfig) ? agentConfig.agent : null;
   useEffect(() => {
-    if (isTemplateConfig(agentConfig)) {
-      fetchAgentInfo(client, agentConfig.agent).then((info) => {
-        if (info) dispatch({ type: 'SET_AGENT_INFO', payload: info });
-      });
-    }
-  }, [client, agentConfig]);
+    if (!agentRef) return;
+    let stale = false;
+    fetchAgentInfo(client, agentRef).then((info) => {
+      if (info && !stale) dispatch({ type: 'SET_AGENT_INFO', payload: info });
+    });
+    return () => { stale = true; };
+  }, [client, agentRef]);
 
   // Handle initial chatId or chatId changes
   useEffect(() => {
