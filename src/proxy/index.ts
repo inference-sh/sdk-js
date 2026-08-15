@@ -97,7 +97,7 @@ function firstValue(value: HttpHeaderValue): string | undefined {
 
 /** Get API key from environment */
 function envApiKey(): string | undefined {
-    return process.env.INFERENCE_API_KEY ?? process.env.API_KEY;
+    return process.env.INFERENCE_API_KEY;
 }
 
 /** Check if domain is allowed */
