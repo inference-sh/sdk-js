@@ -192,11 +192,38 @@ describe('chatReducer', () => {
     });
   });
 
-  it('RESET should return initial state', () => {
-    const chat = makeChat();
-    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+  it('SET_AGENT_INFO should store agent-level metadata', () => {
+    const agentInfo = {
+      description: 'Pricing assistant',
+      example_prompts: ['Show me plans', 'Compare tiers'],
+    };
 
-    expect(chatReducer(state, { type: 'RESET' })).toEqual(initialState);
+    const next = chatReducer(initialState, { type: 'SET_AGENT_INFO', payload: agentInfo });
+
+    expect(next.agentInfo).toEqual(agentInfo);
+  });
+
+  it('RESET should clear chat state but preserve agentInfo', () => {
+    const chat = makeChat();
+    const agentInfo = {
+      description: 'Template agent',
+      example_prompts: ['Hello'],
+    };
+    let state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+    state = chatReducer(state, { type: 'SET_AGENT_INFO', payload: agentInfo });
+    state = chatReducer(state, {
+      type: 'SET_CONNECTION_STATUS',
+      payload: 'streaming',
+    });
+    state = chatReducer(state, { type: 'SET_ERROR', payload: 'stream failed' });
+
+    const next = chatReducer(state, { type: 'RESET' });
+
+    expect(next).toEqual({ ...initialState, agentInfo });
+    expect(next.chat).toBeNull();
+    expect(next.messages).toEqual([]);
+    expect(next.connectionStatus).toBe('idle');
+    expect(next.error).toBeUndefined();
   });
 
   it('SET_CHAT_ID should update chatId', () => {

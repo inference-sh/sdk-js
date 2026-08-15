@@ -106,6 +106,81 @@ describe('agent/api', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
+    it('should upload multiple files concurrently', async () => {
+      const client = makeClient();
+      const fileA = new File(['a'], 'a.txt', { type: 'text/plain' });
+      const fileB = new File(['b'], 'b.txt', { type: 'text/plain' });
+      const refA = { id: 'fa', uri: 'inf://files/a', filename: 'a.txt', content_type: 'text/plain' };
+      const refB = { id: 'fb', uri: 'inf://files/b', filename: 'b.txt', content_type: 'text/plain' };
+
+      let resolveA!: (value: typeof refA) => void;
+      let resolveB!: (value: typeof refB) => void;
+      const pendingA = new Promise<typeof refA>((resolve) => {
+        resolveA = resolve;
+      });
+      const pendingB = new Promise<typeof refB>((resolve) => {
+        resolveB = resolve;
+      });
+
+      const uploadSpy = jest.spyOn(client.files, 'upload');
+      uploadSpy.mockImplementation((file) => {
+        if (file === fileA) return pendingA;
+        if (file === fileB) return pendingB;
+        throw new Error('unexpected file');
+      });
+
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const sendPromise = sendMessage(client, { agent: 'ns/agent' }, null, 'two files', [fileA, fileB]);
+
+      await Promise.resolve();
+      expect(uploadSpy).toHaveBeenCalledTimes(2);
+
+      resolveA(refA);
+      resolveB(refB);
+      await sendPromise;
+
+      uploadSpy.mockRestore();
+    });
+
+    it('should continue when one file upload fails', async () => {
+      const client = makeClient();
+      const goodFile = new File(['ok'], 'good.txt', { type: 'text/plain' });
+      const badFile = new File(['bad'], 'bad.txt', { type: 'text/plain' });
+      const goodRef = {
+        id: 'good',
+        uri: 'inf://files/good',
+        filename: 'good.txt',
+        content_type: 'text/plain',
+      };
+
+      const uploadSpy = jest.spyOn(client.files, 'upload');
+      uploadSpy.mockImplementation((file) => {
+        if (file === goodFile) return Promise.resolve(goodRef);
+        return Promise.reject(new Error('upload failed'));
+      });
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const result = await sendMessage(
+        client,
+        { agent: 'ns/agent' },
+        null,
+        'partial upload',
+        [goodFile, badFile]
+      );
+
+      expect(result).not.toBeNull();
+      expect(uploadSpy).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      uploadSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
     it('should forward template context values via createChat', async () => {
       mockJsonResponse(chatResponse);
       mockJsonResponse(userMessageResponse);
