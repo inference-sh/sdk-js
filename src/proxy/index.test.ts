@@ -1,4 +1,5 @@
 import {
+  getEnvApiKey,
   INF_TARGET_HEADER,
   INF_TARGET_PARAM,
   headersToRecord,
@@ -54,13 +55,46 @@ describe('headersToRecord', () => {
   });
 });
 
+describe('getEnvApiKey', () => {
+  const originalInferenceApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiKey = process.env.API_KEY;
+
+  afterEach(() => {
+    if (originalInferenceApiKey === undefined) {
+      delete process.env.INFERENCE_API_KEY;
+    } else {
+      process.env.INFERENCE_API_KEY = originalInferenceApiKey;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.API_KEY;
+    } else {
+      process.env.API_KEY = originalApiKey;
+    }
+  });
+
+  it('should resolve INFERENCE_API_KEY from the environment', async () => {
+    process.env.INFERENCE_API_KEY = 'inference-key';
+
+    await expect(getEnvApiKey()).resolves.toBe('inference-key');
+  });
+
+  it('should not fall back to API_KEY when INFERENCE_API_KEY is unset', async () => {
+    delete process.env.INFERENCE_API_KEY;
+    process.env.API_KEY = 'legacy-key';
+
+    await expect(getEnvApiKey()).resolves.toBeUndefined();
+  });
+});
+
 describe('processProxyRequest', () => {
   const originalFetch = global.fetch;
-  const originalApiKey = process.env.INFERENCE_API_KEY;
+  const originalInferenceApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiKey = process.env.API_KEY;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.INFERENCE_API_KEY = 'env-test-key';
+    delete process.env.API_KEY;
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -71,10 +105,15 @@ describe('processProxyRequest', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    if (originalApiKey === undefined) {
+    if (originalInferenceApiKey === undefined) {
       delete process.env.INFERENCE_API_KEY;
     } else {
-      process.env.INFERENCE_API_KEY = originalApiKey;
+      process.env.INFERENCE_API_KEY = originalInferenceApiKey;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.API_KEY;
+    } else {
+      process.env.API_KEY = originalApiKey;
     }
   });
 
@@ -117,6 +156,7 @@ describe('processProxyRequest', () => {
 
   it('should reject when no API key is configured', async () => {
     delete process.env.INFERENCE_API_KEY;
+    delete process.env.API_KEY;
 
     const result = await processProxyRequest(
       createTestAdapter({
@@ -130,6 +170,45 @@ describe('processProxyRequest', () => {
       error: 'Missing INFERENCE_API_KEY environment variable',
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should reject when only API_KEY is set (no INFERENCE_API_KEY fallback)', async () => {
+    delete process.env.INFERENCE_API_KEY;
+    process.env.API_KEY = 'legacy-env-key';
+
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) =>
+          name === INF_TARGET_HEADER ? 'https://api.inference.sh/v1/tasks/1' : undefined,
+      })
+    );
+
+    expect(result.status).toBe(401);
+    expect(result.body).toEqual({
+      error: 'Missing INFERENCE_API_KEY environment variable',
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should use INFERENCE_API_KEY when both env vars are set', async () => {
+    process.env.INFERENCE_API_KEY = 'inference-env-key';
+    process.env.API_KEY = 'legacy-env-key';
+    const target = 'https://api.inference.sh/v1/tasks/1';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer inference-env-key',
+        }),
+      })
+    );
   });
 
   it('should proxy valid inference.sh requests with env API key', async () => {
@@ -156,6 +235,7 @@ describe('processProxyRequest', () => {
 
   it('should resolve API key from adapter.apiKey when env key is missing', async () => {
     delete process.env.INFERENCE_API_KEY;
+    delete process.env.API_KEY;
     const target = 'https://api.inference.sh/v1/tasks/1';
     const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
 
