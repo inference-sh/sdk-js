@@ -37,19 +37,18 @@ function isFileRef(input: FileInput): input is FileRef {
 async function processFiles(client: AgentClient, files?: FileInput[]): Promise<FileRef[] | undefined> {
   if (!files || files.length === 0) return undefined;
 
-  const refs: FileRef[] = [];
-  for (const file of files) {
-    if (isFileRef(file)) {
-      refs.push(file);
-    } else {
+  const results = await Promise.all(
+    files.map(async (file) => {
+      if (isFileRef(file)) return file;
       try {
-        const result = await client.files.upload(file);
-        if (result) refs.push(result);
+        return await client.files.upload(file);
       } catch (error) {
         console.error('[AgentSDK] Failed to upload file:', error);
+        return null;
       }
-    }
-  }
+    })
+  );
+  const refs = results.filter((r): r is FileRef => r !== null);
   return refs.length > 0 ? refs : undefined;
 }
 
