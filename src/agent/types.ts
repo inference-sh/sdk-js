@@ -137,6 +137,8 @@ export interface AgentChatState {
   messageCursor?: string;
   /** Whether older messages exist beyond the current page */
   hasOlderMessages?: boolean;
+  /** Agent info fetched from the backend (description, example_prompts) */
+  agentInfo?: { description?: string; example_prompts?: string[] };
 }
 
 /**
@@ -269,6 +271,7 @@ export type ChatAction =
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
   | { type: 'PREPEND_MESSAGES'; payload: { messages: ChatMessageDTO[]; cursor?: string; hasMore: boolean } }
+  | { type: 'SET_AGENT_INFO'; payload: { description?: string; example_prompts?: string[] } }
   | { type: 'RESET' };
 
 /**

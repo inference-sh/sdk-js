@@ -91,6 +91,9 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'SET_ERROR':
       return { ...state, error: action.payload };
 
+    case 'SET_AGENT_INFO':
+      return { ...state, agentInfo: action.payload };
+
     case 'RESET':
       return initialState;
 

@@ -10,6 +10,7 @@ import type { UpdateManager } from './types';
 import { AgentChatContext, type AgentChatContextValue } from './context';
 import { chatReducer, initialState } from './reducer';
 import { createActions, getClientToolHandlers } from './actions';
+import { fetchAgentInfo } from './api';
 import type { ChatDTO } from '../types';
 import type {
   AgentChatProviderProps,
@@ -19,6 +20,7 @@ import type {
   ActionsContext,
   ActionsResult,
 } from './types';
+import { isTemplateConfig } from './types';
 
 function mergeHandlers(
   base: Map<string, ClientToolHandlerFn>,
@@ -131,6 +133,15 @@ export function AgentChatProvider({
     actionsResultRef.current = createActions(actionsContext);
   }
   const { publicActions, internalActions } = actionsResultRef.current;
+
+  // Fetch agent info for template configs (example_prompts, description)
+  useEffect(() => {
+    if (isTemplateConfig(agentConfig)) {
+      fetchAgentInfo(client, agentConfig.agent).then((info) => {
+        if (info) dispatch({ type: 'SET_AGENT_INFO', payload: info });
+      });
+    }
+  }, [client, agentConfig]);
 
   // Handle initial chatId or chatId changes
   useEffect(() => {
