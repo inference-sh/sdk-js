@@ -123,6 +123,28 @@ describe('agent/api', () => {
       expect(body.context).toEqual({ version_id: 'v1', locale: 'en-US' });
     });
 
+    it('should pass core_app.ref as agent when creating chat for ad-hoc configs', async () => {
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(
+        makeClient(),
+        {
+          core_app: { ref: 'infsh/claude-sonnet-4@latest' },
+          system_prompt: 'Be helpful',
+          name: 'adhoc-bot',
+        },
+        null,
+        'hello'
+      );
+
+      const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(String(init1.body));
+      // Regression: ad-hoc configs previously sent agent: '' — backend needs core_app.ref
+      expect(body.agent).toBe('infsh/claude-sonnet-4@latest');
+      expect(body.agent).not.toBe('');
+    });
+
     it('should omit context when creating chat for ad-hoc agents', async () => {
       mockJsonResponse(chatResponse);
       mockJsonResponse(userMessageResponse);
@@ -140,7 +162,6 @@ describe('agent/api', () => {
 
       const [, init1] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(String(init1.body));
-      expect(body.agent).toBe('openrouter/claude@abc');
       expect(body.context).toBeUndefined();
     });
   });
