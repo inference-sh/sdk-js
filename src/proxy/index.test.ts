@@ -57,10 +57,12 @@ describe('headersToRecord', () => {
 describe('processProxyRequest', () => {
   const originalFetch = global.fetch;
   const originalApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiBaseUrl = process.env.INFERENCE_API_BASE_URL;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.INFERENCE_API_KEY = 'env-test-key';
+    delete process.env.INFERENCE_API_BASE_URL;
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -75,6 +77,11 @@ describe('processProxyRequest', () => {
       delete process.env.INFERENCE_API_KEY;
     } else {
       process.env.INFERENCE_API_KEY = originalApiKey;
+    }
+    if (originalApiBaseUrl === undefined) {
+      delete process.env.INFERENCE_API_BASE_URL;
+    } else {
+      process.env.INFERENCE_API_BASE_URL = originalApiBaseUrl;
     }
   });
 
@@ -336,6 +343,92 @@ describe('processProxyRequest', () => {
         method: 'GET',
         body: undefined,
       })
+    );
+  });
+
+  it('should rewrite target URL host when INFERENCE_API_BASE_URL is set', async () => {
+    process.env.INFERENCE_API_BASE_URL = 'https://staging.inference.sh';
+    const target = 'https://api.inference.sh/v1/tasks/1?stream=true';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://staging.inference.sh/v1/tasks/1?stream=true',
+      expect.any(Object)
+    );
+  });
+
+  it('should rewrite target URL host when options.apiBaseUrl is set', async () => {
+    process.env.INFERENCE_API_BASE_URL = 'https://env.inference.sh';
+    const target = 'https://api.inference.sh/agents/run';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      { apiKey: 'key', apiBaseUrl: 'https://options.inference.sh' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://options.inference.sh/agents/run',
+      expect.any(Object)
+    );
+  });
+
+  it('should rewrite target URL protocol when override uses http', async () => {
+    const target = 'https://api.inference.sh/v1/stream';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      { apiKey: 'key', apiBaseUrl: 'http://local.inference.sh:8080' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://local.inference.sh:8080/v1/stream',
+      expect.any(Object)
+    );
+  });
+
+  it('should validate domain against rewritten URL', async () => {
+    process.env.INFERENCE_API_BASE_URL = 'https://evil.example.com';
+
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) =>
+          name === INF_TARGET_HEADER ? 'https://api.inference.sh/run' : undefined,
+      })
+    );
+
+    expect(result.status).toBe(412);
+    expect(result.body).toEqual({
+      error: 'Target must be an inference.sh domain, got: evil.example.com',
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should allow rewritten non-inference.sh hosts via allowedDomains', async () => {
+    const target = 'https://api.inference.sh/upload';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      {
+        apiKey: 'key',
+        apiBaseUrl: 'https://cdn.custom.example',
+        allowedDomains: [/custom\.example$/],
+      }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cdn.custom.example/upload',
+      expect.any(Object)
     );
   });
 });
