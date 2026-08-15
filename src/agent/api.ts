@@ -9,6 +9,7 @@
  */
 
 import type {
+  AgentDTO,
   ChatDTO,
   ChatMessageDTO,
   InterruptDTO,
@@ -105,6 +106,31 @@ export async function sendMessage(
   // New chat — create it, then send the first message
   const chat = await createChat(client, config);
   return sendChatMessage(client, chat.id, text);
+}
+
+// =========================================================================
+// Agent info
+// =========================================================================
+
+export interface AgentInfo {
+  description?: string;
+  example_prompts?: string[];
+}
+
+export async function fetchAgentInfo(
+  client: AgentClient,
+  agentRef: string,
+): Promise<AgentInfo | null> {
+  try {
+    const resp = await client.http.request<AgentDTO>('get', `/agents/${agentRef}`);
+    const version = resp.data?.version;
+    return {
+      description: version?.description,
+      example_prompts: version?.example_prompts,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // =========================================================================
