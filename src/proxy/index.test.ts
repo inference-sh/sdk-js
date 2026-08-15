@@ -386,13 +386,30 @@ describe('processProxyRequest', () => {
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       }),
-      { apiKey: 'key', apiBaseUrl: 'http://local.inference.sh:8080' }
+      { apiKey: 'key', apiBaseUrl: 'http://staging.inference.sh' }
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://local.inference.sh:8080/v1/stream',
+      'http://staging.inference.sh/v1/stream',
       expect.any(Object)
     );
+  });
+
+  it('should reject rewritten hosts with ports unless allowedDomains covers them', async () => {
+    const target = 'https://api.inference.sh/v1/stream';
+
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      { apiKey: 'key', apiBaseUrl: 'http://local.inference.sh:8080' }
+    );
+
+    expect(result.status).toBe(412);
+    expect(result.body).toEqual({
+      error: 'Target must be an inference.sh domain, got: local.inference.sh:8080',
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('should validate domain against rewritten URL', async () => {
