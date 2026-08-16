@@ -83,6 +83,15 @@ describe('isChatBusy', () => {
     expect(isChatBusy(chatWithStatus('completed'))).toBe(false);
   });
 
+  it('should fall back to chat.status when active_run is explicitly undefined', () => {
+    expect(
+      isChatBusy({ active_run: undefined, status: 'awaiting_input' } as unknown as ChatDTO)
+    ).toBe(true);
+    expect(
+      isChatBusy({ active_run: undefined, status: 'idle' } as unknown as ChatDTO)
+    ).toBe(false);
+  });
+
   it('should return false for null/undefined chat', () => {
     expect(isChatBusy(null)).toBe(false);
     expect(isChatBusy(undefined)).toBe(false);

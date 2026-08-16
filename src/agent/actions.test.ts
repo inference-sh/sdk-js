@@ -3,6 +3,8 @@ import {
   ChatStatusCompleted,
   ChatStatusIdle,
   AgentRunStateWorking,
+  AgentRunStateSubmitted,
+  AgentRunStateInputRequired,
   AgentRunStateCompleted,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -356,6 +358,126 @@ describe('createActions', () => {
         'tool-missing-handler',
         expect.stringContaining('not_available')
       );
+    });
+  });
+
+  describe('agent_runs stream listener', () => {
+    const existingChat = {
+      id: 'chat-full-id-123',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+    } as unknown as ChatDTO;
+
+    async function getOnAgentRun(ctx: ActionsContext) {
+      const { internalActions } = createActions(ctx);
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'agent_runs'
+      )?.[1] as (run: AgentRunDTO) => void;
+    }
+
+    it('should dispatch UPDATE_ACTIVE_RUN and streaming status for active run states', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        callbacks: { onStatusChange },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: existingChat,
+        }),
+      });
+
+      const onAgentRun = await getOnAgentRun(ctx);
+      const inputRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
+
+      onAgentRun(inputRun);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_ACTIVE_RUN',
+        payload: inputRun,
+      });
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+    });
+
+    it('should report idle status when agent run completes', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx } = createTestContext({
+        callbacks: { onStatusChange },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: existingChat,
+        }),
+      });
+
+      const onAgentRun = await getOnAgentRun(ctx);
+      onAgentRun(completedRun);
+
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+    });
+
+    it('should not call onTurnEnd when run enters input_required (still busy for stop button)', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        callbacks: { onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: existingChat,
+        }),
+      });
+
+      const onAgentRun = await getOnAgentRun(ctx);
+      onAgentRun({ state: AgentRunStateInputRequired } as AgentRunDTO);
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('should call onTurnEnd when agent_runs reports completion after a busy run', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        callbacks: { onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: existingChat,
+        }),
+      });
+
+      const onAgentRun = await getOnAgentRun(ctx);
+      onAgentRun(completedRun);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'chat-full-id-123',
+          active_run: completedRun,
+        })
+      );
+    });
+
+    it('should treat submitted runs as streaming for onStatusChange', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx } = createTestContext({
+        callbacks: { onStatusChange },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: existingChat,
+        }),
+      });
+
+      const onAgentRun = await getOnAgentRun(ctx);
+      onAgentRun({ state: AgentRunStateSubmitted } as AgentRunDTO);
+
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
     });
   });
 

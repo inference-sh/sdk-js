@@ -1,5 +1,14 @@
 import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types';
-import { AgentRunStateCompleted, ChatStatusBusy, ChatStatusIdle } from '../types';
+import {
+  AgentRunStateAuthRequired,
+  AgentRunStateCompleted,
+  AgentRunStateInputRequired,
+  AgentRunStateSubmitted,
+  AgentRunStateWorking,
+  ChatStatusAwaitingInput,
+  ChatStatusBusy,
+  ChatStatusIdle,
+} from '../types';
 import { chatReducer, initialState } from './reducer';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
@@ -88,6 +97,51 @@ describe('chatReducer', () => {
     expect(next.chat?.active_run?.output).toEqual({ answer: 42 });
     expect(next.messages).toHaveLength(2);
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+  });
+
+  it('UPDATE_ACTIVE_RUN should derive chat.status busy for working and submitted runs', () => {
+    const chat = makeChat({ status: ChatStatusIdle });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const workingNext = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateWorking } as AgentRunDTO,
+    });
+    expect(workingNext.chat?.status).toBe(ChatStatusBusy);
+
+    const submittedNext = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateSubmitted } as AgentRunDTO,
+    });
+    expect(submittedNext.chat?.status).toBe(ChatStatusBusy);
+  });
+
+  it('UPDATE_ACTIVE_RUN should derive chat.status awaiting_input for input_required and auth_required', () => {
+    const chat = makeChat({ status: ChatStatusBusy });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const inputNext = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateInputRequired } as AgentRunDTO,
+    });
+    expect(inputNext.chat?.status).toBe(ChatStatusAwaitingInput);
+
+    const authNext = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateAuthRequired } as AgentRunDTO,
+    });
+    expect(authNext.chat?.status).toBe(ChatStatusAwaitingInput);
+  });
+
+  it('UPDATE_ACTIVE_RUN should derive chat.status idle for completed runs', () => {
+    const chat = makeChat({ status: ChatStatusBusy });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const next = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateCompleted } as AgentRunDTO,
+    });
+    expect(next.chat?.status).toBe(ChatStatusIdle);
   });
 
   it('UPDATE_ACTIVE_RUN should leave state unchanged when chat is null', () => {
