@@ -21,6 +21,8 @@ import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
+  ChatStatusBusy,
+  ChatStatusAwaitingInput,
 } from './types';
 import type { ChatDTO } from './types';
 
@@ -68,6 +70,9 @@ export function isTerminalStatus(status: number | string | undefined | null): bo
 }
 
 export function isChatBusy(chat: ChatDTO | null | undefined): boolean {
-  const state = chat?.active_run?.state;
-  return state === AgentRunStateWorking || state === AgentRunStateSubmitted || state === AgentRunStateInputRequired;
+  const run = chat?.active_run;
+  if (run) {
+    return run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
+  }
+  return chat?.status === ChatStatusBusy || chat?.status === ChatStatusAwaitingInput;
 }

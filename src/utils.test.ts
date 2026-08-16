@@ -63,22 +63,24 @@ describe('isTerminalStatus', () => {
 });
 
 describe('isChatBusy', () => {
-  const chatWith = (state: string) =>
+  const chatWithRun = (state: string) =>
     ({ active_run: { state } as AgentRunDTO } as unknown as ChatDTO);
+  const chatWithStatus = (status: string) =>
+    ({ status } as unknown as ChatDTO);
 
-  it('should return true for working and submitted', () => {
-    expect(isChatBusy(chatWith(AgentRunStateWorking))).toBe(true);
-    expect(isChatBusy(chatWith(AgentRunStateSubmitted))).toBe(true);
+  it('should prefer active_run.state when present', () => {
+    expect(isChatBusy(chatWithRun(AgentRunStateWorking))).toBe(true);
+    expect(isChatBusy(chatWithRun(AgentRunStateSubmitted))).toBe(true);
+    expect(isChatBusy(chatWithRun(AgentRunStateInputRequired))).toBe(true);
+    expect(isChatBusy(chatWithRun(AgentRunStateCompleted))).toBe(false);
+    expect(isChatBusy(chatWithRun(AgentRunStateFailed))).toBe(false);
   });
 
-  it('should return false for terminal and interrupted states', () => {
-    expect(isChatBusy(chatWith(AgentRunStateCompleted))).toBe(false);
-    expect(isChatBusy(chatWith(AgentRunStateFailed))).toBe(false);
-    expect(isChatBusy(chatWith(AgentRunStateInputRequired))).toBe(false);
-  });
-
-  it('should return false when no active run', () => {
-    expect(isChatBusy({ active_run: undefined } as unknown as ChatDTO)).toBe(false);
+  it('should fall back to chat.status when no active_run', () => {
+    expect(isChatBusy(chatWithStatus('busy'))).toBe(true);
+    expect(isChatBusy(chatWithStatus('awaiting_input'))).toBe(true);
+    expect(isChatBusy(chatWithStatus('idle'))).toBe(false);
+    expect(isChatBusy(chatWithStatus('completed'))).toBe(false);
   });
 
   it('should return false for null/undefined chat', () => {

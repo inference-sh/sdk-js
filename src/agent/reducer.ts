@@ -4,8 +4,16 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { ChatMessageDTO } from '../types';
+import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types';
+import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle, AgentRunStateWorking, AgentRunStateSubmitted } from '../types';
 import type { AgentChatState, ChatAction } from './types';
+
+function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
+  if (!run) return ChatStatusIdle;
+  if (run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted) return ChatStatusBusy;
+  if (run.state === 'input_required' || run.state === 'auth_required') return ChatStatusAwaitingInput;
+  return ChatStatusIdle;
+}
 
 // =============================================================================
 // Initial State
@@ -50,7 +58,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
 
     case 'UPDATE_ACTIVE_RUN': {
       if (!state.chat) return state;
-      return { ...state, chat: { ...state.chat, active_run: action.payload } };
+      return { ...state, chat: { ...state.chat, active_run: action.payload, status: deriveChatStatus(action.payload) } };
     }
 
     case 'SET_MESSAGES':
