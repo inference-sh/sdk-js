@@ -7,6 +7,9 @@
 
 import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ResourceStatusDTO } from '../types';
 import {
+  AgentRunStateWorking,
+  AgentRunStateSubmitted,
+  AgentRunStateInputRequired,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -178,9 +181,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // Listen for AgentRun updates (state transitions, output)
     manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
       dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
-      const asChat = { active_run: run } as ChatDTO;
-      callbacks.onStatusChange?.(isChatBusy(asChat) ? 'streaming' : 'idle');
-      checkTurnEnd(asChat);
+      const isRunActive = run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
+      callbacks.onStatusChange?.(isRunActive ? 'streaming' : 'idle');
+      const currentChat = getState().chat;
+      if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });
     });
 
     setStreamManager(manager);
