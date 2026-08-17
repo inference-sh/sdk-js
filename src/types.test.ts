@@ -76,6 +76,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  InternalToolsConfig,
+  A2UIAction,
+  A2UIButton,
+  A2UISurface,
+  Widget,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1337,63 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('InternalToolsConfig (v0.7.65)', () => {
+  it('models meta toggle alongside existing internal tool flags', () => {
+    const config: InternalToolsConfig = {
+      plan: true,
+      memory: false,
+      widget: true,
+      finish: false,
+      skills: true,
+      host_context: false,
+      meta: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as InternalToolsConfig;
+
+    expect(parsed.meta).toBe(true);
+    expect(parsed.skills).toBe(true);
+    expect(parsed.host_context).toBe(false);
+  });
+});
+
+describe('A2UI widget type contracts (v0.7.65)', () => {
+  it('Widget is an alias for A2UISurface', () => {
+    const surface: A2UISurface = {
+      version: '1.0',
+      surfaceId: 'surface-1',
+      catalogId: 'catalog-1',
+      components: [{ id: 'root', component: A2UIButton }],
+    };
+    const widget: Widget = surface;
+
+    expect(widget.surfaceId).toBe('surface-1');
+    expect(widget.components[0].component).toBe('Button');
+  });
+
+  it('A2UIAction.payload accepts object, array, and scalar payloads', () => {
+    const objectPayload: A2UIAction = {
+      type: 'navigate',
+      payload: { route: '/settings', tab: 'billing' },
+    };
+    const arrayPayload: A2UIAction = {
+      type: 'batch',
+      payload: ['a', 'b'],
+    };
+    const scalarPayload: A2UIAction = {
+      type: 'refresh',
+      payload: 42,
+    };
+
+    const parsedObject = JSON.parse(JSON.stringify(objectPayload)) as A2UIAction;
+    const parsedArray = JSON.parse(JSON.stringify(arrayPayload)) as A2UIAction;
+    const parsedScalar = JSON.parse(JSON.stringify(scalarPayload)) as A2UIAction;
+
+    expect(parsedObject.payload).toEqual({ route: '/settings', tab: 'billing' });
+    expect(parsedArray.payload).toEqual(['a', 'b']);
+    expect(parsedScalar.payload).toBe(42);
   });
 });
