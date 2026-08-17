@@ -13,6 +13,7 @@ export interface InternalToolsConfig {
   finish?: boolean;
   skills?: boolean;
   host_context?: boolean;
+  meta?: boolean;
 }
 /**
  * AgentTool represents a unified tool that can be used by an agent
@@ -3196,7 +3197,7 @@ export interface A2UIBoundValue {
 }
 export interface A2UIAction {
   type: string;
-  payload?: { [key: string]: any};
+  payload?: any;
 }
 export interface A2UIChoiceOption {
   label: string;
