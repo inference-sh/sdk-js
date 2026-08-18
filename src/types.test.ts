@@ -76,6 +76,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  NotificationDTO,
+  NotificationTypeSubscriptionPaymentFailed,
+  NotificationChannelEmail,
+  NotificationPriorityHigh,
+  NotificationStatusFailed,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1337,32 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('NotificationDTO type contracts (v0.7.67)', () => {
+  it('accepts subscription_payment_failed as a billing notification type', () => {
+    const notification: NotificationDTO = {
+      id: 'notif-1',
+      short_id: 'n1',
+      created_at: '2026-08-18T00:00:00Z',
+      updated_at: '2026-08-18T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      type: NotificationTypeSubscriptionPaymentFailed,
+      channel: NotificationChannelEmail,
+      priority: NotificationPriorityHigh,
+      status: NotificationStatusFailed,
+      subject: 'Subscription payment failed',
+      retry_count: 1,
+      error_message: 'card declined',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(notification)) as NotificationDTO;
+
+    expect(parsed.type).toBe('subscription_payment_failed');
+    expect(parsed.status).toBe('failed');
+    expect(parsed.error_message).toBe('card declined');
   });
 });

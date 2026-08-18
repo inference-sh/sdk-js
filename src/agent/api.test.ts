@@ -16,6 +16,8 @@ import {
   stopChat,
   getChatStreamConfig,
   uploadFile,
+  fetchAgentInfo,
+  setAgent,
 } from './api';
 
 const mockFetch = jest.fn();
@@ -121,6 +123,51 @@ describe('agent/api', () => {
       const body = JSON.parse(String(init1.body));
       expect(body.agent).toBe('infsh/pricing-agent');
       expect(body.context).toEqual({ version_id: 'v1', locale: 'en-US' });
+    });
+
+    it('should upload multiple files concurrently when sending a new message', async () => {
+      const client = makeClient();
+      const file1 = new File(['a'], 'a.txt', { type: 'text/plain' });
+      const file2 = new File(['b'], 'b.txt', { type: 'text/plain' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockImplementation(async (file) => ({
+        id: `file-${file.name}`,
+        uri: `inf://files/${file.name}`,
+        filename: file.name,
+        content_type: file.type,
+      }));
+
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, null, 'with files', [file1, file2]);
+
+      expect(uploadSpy).toHaveBeenCalledTimes(2);
+      uploadSpy.mockRestore();
+    });
+
+    it('should continue sending message when some file uploads fail', async () => {
+      const client = makeClient();
+      const file1 = new File(['a'], 'good.txt', { type: 'text/plain' });
+      const file2 = new File(['b'], 'bad.txt', { type: 'text/plain' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockImplementation(async (file) => {
+        if (file.name === 'bad.txt') throw new Error('upload failed');
+        return {
+          id: 'f1',
+          uri: 'inf://files/good',
+          filename: file.name,
+          content_type: file.type,
+        };
+      });
+
+      mockJsonResponse(chatResponse);
+      mockJsonResponse(userMessageResponse);
+
+      const result = await sendMessage(client, { agent: 'ns/agent' }, null, 'partial upload', [file1, file2]);
+
+      expect(result).not.toBeNull();
+      expect(result!.chatId).toBe('chat-1');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      uploadSpy.mockRestore();
     });
 
     it('should omit context when creating chat for ad-hoc agents', async () => {
@@ -382,6 +429,48 @@ describe('agent/api', () => {
     it('should return config for the chat stream path', () => {
       const config = getChatStreamConfig(makeClient(), 'chat-xyz');
       expect(config.url).toContain('/chats/chat-xyz/stream');
+    });
+  });
+
+  describe('fetchAgentInfo', () => {
+    it('should fetch description and example_prompts from agent version', async () => {
+      mockJsonResponse({
+        version: {
+          description: 'A helpful agent',
+          example_prompts: ['What can you do?', 'Help me write code'],
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/my-agent');
+
+      expect(result).toEqual({
+        description: 'A helpful agent',
+        example_prompts: ['What can you do?', 'Help me write code'],
+      });
+      const [url] = mockFetch.mock.calls[0] as [string];
+      expect(url).toContain('/agents/infsh/my-agent');
+    });
+
+    it('should return null when agent fetch fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('not found'));
+
+      const result = await fetchAgentInfo(makeClient(), 'missing/agent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('setAgent', () => {
+    it('should POST agent ref to /chats/{id}/agent', async () => {
+      mockJsonResponse({ id: 'chat-1', status: 'idle' });
+
+      const result = await setAgent(makeClient(), 'chat-1', 'infsh/new-agent');
+
+      expect(result.id).toBe('chat-1');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/agent');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ agent: 'infsh/new-agent' });
     });
   });
 
