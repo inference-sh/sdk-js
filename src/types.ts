@@ -415,6 +415,7 @@ export interface CheckoutCreateRequest {
 export interface AuthResponse {
   user?: UserDTO;
   session_id: string;
+  is_new?: boolean;
   otp_required?: boolean;
   redirect_to?: string;
   provider?: string;
