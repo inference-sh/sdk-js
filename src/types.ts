@@ -1598,6 +1598,14 @@ export const ActionFlowRemoveOutputMapping: FlowActionType = "flow.remove_output
  */
 export const ActionFlowRenameOutputField: FlowActionType = "flow.rename_output_field";
 /**
+ * Flow graph action type constants.
+ */
+export const ActionUndo: FlowActionType = "undo";
+/**
+ * Flow graph action type constants.
+ */
+export const ActionRedo: FlowActionType = "redo";
+/**
  * FlowAction represents a single graph mutation.
  */
 export interface FlowAction {
