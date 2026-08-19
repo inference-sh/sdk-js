@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { IntegrationsAPI } from './integrations';
+import { IntegrationsAPI } from './credentials';
 import { IntegrationProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
@@ -20,7 +20,7 @@ describe('IntegrationsAPI', () => {
 
   const api = () => new IntegrationsAPI(new HttpClient({ apiKey: 'test-key' }));
 
-  it('should POST /integrations/list for list()', async () => {
+  it('should POST /credentials/list for list()', async () => {
     const page = { items: [{ provider: 'slack' }], next_cursor: null };
     mockJsonResponse(page);
 
@@ -28,11 +28,11 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/list');
+    expect(url).toContain('/credentials/list');
     expect(init.method).toBe('POST');
   });
 
-  it('should GET /integrations/available for listAvailable()', async () => {
+  it('should GET /credentials/available for listAvailable()', async () => {
     const available = [{ provider: 'github' }];
     mockJsonResponse(available);
 
@@ -40,11 +40,11 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(available);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/available');
+    expect(url).toContain('/credentials/available');
     expect(init.method).toBe('GET');
   });
 
-  it('should POST /integrations for connect()', async () => {
+  it('should POST /credentials for connect()', async () => {
     const payload = { provider: 'slack', config: { token: 'xoxb-123' } };
     const response = { integration: { provider: 'slack' }, redirect_url: null };
     mockJsonResponse(response);
@@ -53,12 +53,12 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations');
+    expect(url).toContain('/credentials');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
-  it('should GET /integrations/{provider} for get()', async () => {
+  it('should GET /credentials/{provider} for get()', async () => {
     const integration = { provider: 'slack', status: 'connected' };
     mockJsonResponse(integration);
 
@@ -66,21 +66,21 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(integration);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/slack');
+    expect(url).toContain('/credentials/slack');
     expect(init.method).toBe('GET');
   });
 
-  it('should DELETE /integrations/{provider} for disconnect()', async () => {
+  it('should DELETE /credentials/{provider} for disconnect()', async () => {
     mockJsonResponse(null);
 
     await api().disconnect('slack');
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/slack');
+    expect(url).toContain('/credentials/slack');
     expect(init.method).toBe('DELETE');
   });
 
-  it('should GET /integrations/configs for getConfigs()', async () => {
+  it('should GET /credentials/configs for getConfigs()', async () => {
     const configs = [{ provider: 'github', scopes: ['repo'] }];
     mockJsonResponse(configs);
 
@@ -88,11 +88,11 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(configs);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/configs');
+    expect(url).toContain('/credentials/configs');
     expect(init.method).toBe('GET');
   });
 
-  it('should GET /integrations/capabilities for getCapabilities()', async () => {
+  it('should GET /credentials/capabilities for getCapabilities()', async () => {
     const capabilities = { slack: ['post_message'] };
     mockJsonResponse(capabilities);
 
@@ -100,7 +100,7 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(capabilities);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/capabilities');
+    expect(url).toContain('/credentials/capabilities');
     expect(init.method).toBe('GET');
   });
 
@@ -130,7 +130,7 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/integrations/check');
+    expect(url).toContain('/credentials/check');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
