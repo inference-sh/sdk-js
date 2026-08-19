@@ -3082,7 +3082,6 @@ export const A2UIBadge: A2UIComponentType = "Badge";
 export const A2UISpacer: A2UIComponentType = "Spacer";
 export const A2UIChart: A2UIComponentType = "Chart";
 export const A2UIForm: A2UIComponentType = "Form";
-export const A2UIHTML: A2UIComponentType = "HTML";
 /**
  * A2UIComponent is the universal component representation.
  * Children are string IDs (flat adjacency list), not nested objects.
@@ -3185,10 +3184,6 @@ export interface A2UIComponent {
    * Extension: Form
    */
   onSubmitAction?: A2UIAction;
-  /**
-   * Extension: HTML
-   */
-  htmlContent?: string;
 }
 /**
  * A2UIBoundValue is either a literal or a data model path reference.
