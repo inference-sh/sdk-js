@@ -169,6 +169,39 @@ describe('KnowledgeAPI', () => {
     expect(result.data.scope).toEqual(['git:inference-sh/sdk-js', 'lang:typescript']);
   });
 
+  it('should forward version origin provenance in create() body', async () => {
+    const payload = {
+      name: 'session-notes',
+      version: {
+        description: 'Claude session extraction',
+        origin: 'claude:853f9a75-session-abc',
+      },
+    };
+    const entry = { id: 'know-new', name: 'session-notes' };
+    mockJsonResponse(entry);
+
+    await api().create(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should preserve origin on knowledge version responses from getVersion()', async () => {
+    const version = {
+      id: 'ver-1',
+      knowledge_id: 'know-1',
+      content_hash: 'abc123',
+      description: 'Extracted knowledge',
+      tags: ['extraction'],
+      origin: 'claude:853f9a75-session-abc',
+    };
+    mockJsonResponse(version);
+
+    const result = await api().getVersion('know-1', 'ver-1');
+
+    expect(result.data.origin).toBe('claude:853f9a75-session-abc');
+  });
+
   it('should POST visibility for updateVisibility()', async () => {
     const entry = { id: 'know-1', visibility: 'team' };
     mockJsonResponse(entry);

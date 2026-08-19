@@ -30,6 +30,9 @@ import {
   KnowledgeDTO,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  KnowledgeVersionDTO,
+  KnowledgeVersionInput,
+  SuggestRequest,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -1332,5 +1335,82 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('Knowledge version origin provenance (v0.7.74)', () => {
+  it('models extraction provenance on KnowledgeVersionDTO responses', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-19T00:00:00Z',
+      updated_at: '2026-08-19T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'extracted notes' },
+      files: [],
+      content_hash: 'abc123',
+      description: 'Claude session extraction',
+      tags: ['extraction'],
+      origin: 'claude:853f9a75-session-abc',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as KnowledgeVersionDTO;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+  });
+
+  it('allows KnowledgeVersionDTO without origin for legacy versions', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-legacy',
+      short_id: 'vl1',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'manual entry' },
+      files: [],
+      content_hash: 'legacy-hash',
+      description: 'Hand-authored version',
+      tags: [],
+    };
+
+    expect(version.origin).toBeUndefined();
+  });
+
+  it('models origin on KnowledgeVersionInput for create/update payloads', () => {
+    const input: KnowledgeVersionInput = {
+      description: 'Session extraction',
+      origin: 'claude:853f9a75-session-abc',
+      scope: ['git:inference-sh/sdk-js'],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as KnowledgeVersionInput;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+    expect(parsed.scope).toEqual(['git:inference-sh/sdk-js']);
+  });
+});
+
+describe('SuggestRequest origin exclusion (v0.7.74)', () => {
+  it('models caller origin for deduplicating suggest results', () => {
+    const request: SuggestRequest = {
+      query: 'go sdk patterns',
+      scope: ['git:inference-sh/sdk-js', 'lang:go'],
+      origin: 'claude:853f9a75-session-abc',
+      limit: 10,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SuggestRequest;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+    expect(parsed.scope).toEqual(['git:inference-sh/sdk-js', 'lang:go']);
+  });
+
+  it('allows SuggestRequest without origin for callers that do not track provenance', () => {
+    const request: SuggestRequest = {
+      query: 'image generation',
+      limit: 5,
+    };
+
+    expect(request.origin).toBeUndefined();
   });
 });
