@@ -29,7 +29,21 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(page);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/list');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('POST');
+  });
+
+  it('should forward cursor pagination params in list() body', async () => {
+    const page = { items: [], next_cursor: 'cursor-2' };
+    mockJsonResponse(page);
+    const params = { cursor: 'cursor-1', limit: 25 };
+
+    await api().list(params);
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/credentials/list');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
   it('should GET /credentials/available for listAvailable()', async () => {
@@ -41,6 +55,7 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(available);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/available');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
   });
 
@@ -53,7 +68,8 @@ describe('IntegrationsAPI', () => {
 
     expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/credentials');
+    expect(url).toMatch(/\/credentials$/);
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
@@ -67,6 +83,7 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(integration);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/slack');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
   });
 
@@ -77,6 +94,7 @@ describe('IntegrationsAPI', () => {
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/slack');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('DELETE');
   });
 
@@ -89,6 +107,7 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(configs);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/configs');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
   });
 
@@ -101,6 +120,7 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(capabilities);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/capabilities');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
   });
 
@@ -131,6 +151,7 @@ describe('IntegrationsAPI', () => {
     expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/check');
+    expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
