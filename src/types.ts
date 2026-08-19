@@ -1924,6 +1924,7 @@ export interface KnowledgeVersionDTO extends BaseModelDTO {
   tags: string[];
   scope?: string[]; // environment signals for project scoping
   metadata?: { [key: string]: string};
+  origin?: string; // extraction provenance, e.g. "claude:853f9a75-..."
   source_url?: string;
   mutation_type?: string;
   version_notes?: string;
@@ -2454,6 +2455,7 @@ export interface KnowledgeVersionInput {
   tags?: string[];
   scope?: string[]; // environment signals for project scoping
   metadata?: { [key: string]: string};
+  origin?: string; // extraction provenance, e.g. "claude:853f9a75-..."
   source_url?: string;
   mutation_type?: string;
   version_notes?: string;
@@ -2560,6 +2562,7 @@ export interface SuggestRequest {
   category?: string;
   agent?: boolean;
   scope?: string[]; // environment signals for overlap ranking (e.g. "git:user/repo", "lang:go")
+  origin?: string; // caller's origin (e.g. "claude:853f9a75-..."); results from this origin are excluded
 }
 /**
  * SuggestResponse is the output of the suggest endpoint.
