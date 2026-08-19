@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { IntegrationsAPI } from './credentials';
+import { IntegrationsAPI } from './integrations';
 import { IntegrationProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
