@@ -76,6 +76,12 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ActionUndo,
+  ActionRedo,
+  ActionNodeAdd,
+  FlowActionsRequest,
+  FlowActionsResponse,
+  FlowActionError,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1338,80 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('Flow graph undo/redo action types (v0.7.76)', () => {
+  it('exports ActionUndo and ActionRedo constants for history navigation', () => {
+    expect(ActionUndo).toBe('undo');
+    expect(ActionRedo).toBe('redo');
+  });
+
+  it('models undo and redo in FlowActionsRequest with empty payloads', () => {
+    const request: FlowActionsRequest = {
+      actions: [
+        { type: ActionUndo, payload: {} },
+        { type: ActionRedo, payload: {} },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as FlowActionsRequest;
+
+    expect(parsed.actions[0].type).toBe('undo');
+    expect(parsed.actions[1].type).toBe('redo');
+    expect(parsed.actions[0].payload).toEqual({});
+    expect(parsed.actions[1].payload).toEqual({});
+  });
+
+  it('allows mixing graph mutations with undo in a single actions batch', () => {
+    const request: FlowActionsRequest = {
+      actions: [
+        {
+          type: ActionNodeAdd,
+          payload: {
+            id: 'node-1',
+            type: 'task',
+            position: { x: 0, y: 0 },
+            data: { label: 'Start' },
+          },
+        },
+        { type: ActionUndo, payload: {} },
+      ],
+    };
+
+    expect(request.actions).toHaveLength(2);
+    expect(request.actions[0].type).toBe('node.add');
+    expect(request.actions[1].type).toBe('undo');
+  });
+
+  it('models FlowActionsResponse with version bump after undo', () => {
+    const response: FlowActionsResponse = {
+      version: 42,
+      actions: [{ type: ActionUndo, payload: {} }],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as FlowActionsResponse;
+
+    expect(parsed.version).toBe(42);
+    expect(parsed.actions[0].type).toBe('undo');
+    expect(parsed.errors).toBeUndefined();
+  });
+
+  it('models FlowActionError when undo or redo cannot be applied', () => {
+    const error: FlowActionError = {
+      type: 'undo_stack_empty',
+      message: 'Nothing to undo',
+    };
+    const response: FlowActionsResponse = {
+      version: 41,
+      actions: [{ type: ActionUndo, payload: {} }],
+      errors: [error],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as FlowActionsResponse;
+
+    expect(parsed.errors?.[0].type).toBe('undo_stack_empty');
+    expect(parsed.errors?.[0].message).toBe('Nothing to undo');
+    expect(parsed.version).toBe(41);
   });
 });
