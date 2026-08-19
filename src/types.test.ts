@@ -8,12 +8,19 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  AuthResponse,
+  A2UIButton,
+  A2UIChart,
+  A2UIComponent,
+  A2UIForm,
+  A2UISurface,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
   DeviceAuthStatusPending,
+  Widget,
   CacheScopePrivate,
   CacheScopePublic,
   DeviceTokenKindAPIKey,
@@ -1332,5 +1339,99 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('AuthResponse signup is_new field', () => {
+  it('models new-user signup with is_new true for onboarding flows', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-new-user',
+      is_new: true,
+      user: {
+        id: 'user-new',
+        short_id: 'u1',
+        created_at: '2026-08-19T00:00:00Z',
+        updated_at: '2026-08-19T00:00:00Z',
+        default_team_id: 'team-1',
+        role: 'member',
+        email: 'new@example.com',
+        name: 'new',
+        full_name: 'New User',
+        avatar_url: '',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.is_new).toBe(true);
+    expect(parsed.session_id).toBe('sess-new-user');
+    expect(parsed.user?.email).toBe('new@example.com');
+  });
+
+  it('models returning-user login without is_new for legacy client compatibility', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-returning',
+      otp_required: false,
+    };
+
+    expect(response.is_new).toBeUndefined();
+    expect(response.session_id).toBe('sess-returning');
+  });
+
+  it('preserves otp_required and redirect_to alongside is_new', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-otp',
+      is_new: false,
+      otp_required: true,
+      redirect_to: '/verify-otp',
+      provider: 'google',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.is_new).toBe(false);
+    expect(parsed.otp_required).toBe(true);
+    expect(parsed.redirect_to).toBe('/verify-otp');
+    expect(parsed.provider).toBe('google');
+  });
+});
+
+describe('A2UI component types (HTML removal)', () => {
+  it('does not export removed A2UIHTML component type constant', () => {
+    const types = require('./types') as Record<string, unknown>;
+    expect(types.A2UIHTML).toBeUndefined();
+  });
+
+  it('exports Form and Chart component type constants', () => {
+    expect(A2UIForm).toBe('Form');
+    expect(A2UIChart).toBe('Chart');
+  });
+
+  it('models Form component with onSubmitAction and no htmlContent field', () => {
+    const component: A2UIComponent = {
+      id: 'form-1',
+      component: A2UIForm,
+      onSubmitAction: { type: 'submit', payload: { formId: 'billing' } },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+
+    expect(parsed.component).toBe('Form');
+    expect(parsed.onSubmitAction?.type).toBe('submit');
+    expect(parsed.onSubmitAction?.payload).toEqual({ formId: 'billing' });
+    expect('htmlContent' in parsed).toBe(false);
+  });
+
+  it('Widget alias still maps to A2UISurface after HTML component removal', () => {
+    const surface: A2UISurface = {
+      version: '1.0',
+      surfaceId: 'surface-form',
+      catalogId: 'catalog-1',
+      components: [{ id: 'root', component: A2UIButton }],
+    };
+    const widget: Widget = surface;
+
+    expect(widget.surfaceId).toBe('surface-form');
+    expect(widget.components[0].component).toBe('Button');
   });
 });
