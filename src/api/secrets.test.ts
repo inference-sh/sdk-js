@@ -45,6 +45,18 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should include provider in body when creating a secret with provider', async () => {
+    const payload = { key: 'DB_PASSWORD', value: 'secret', provider: 'aws' };
+    const secret = { key: 'DB_PASSWORD' };
+    mockJsonResponse(secret);
+
+    const result = await api().create(payload);
+
+    expect(result.data).toEqual(secret);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).provider).toBe('aws');
+  });
+
   it('should PUT /secrets/{key} for update()', async () => {
     const secret = { key: 'DB_PASSWORD' };
     mockJsonResponse(secret);
