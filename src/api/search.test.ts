@@ -91,6 +91,21 @@ describe('SearchAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward caller origin in suggest() body to exclude self-sourced results', async () => {
+    const payload = {
+      query: 'sdk patterns',
+      scope: ['git:inference-sh/sdk-js'],
+      origin: 'claude:853f9a75-session-abc',
+      limit: 10,
+    };
+    mockJsonResponse({ results: [] });
+
+    await api().suggest(payload);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should POST /search for search()', async () => {
     const payload = { q: 'claude', type: 'apps', limit: 5 };
     const response = { hits: [{ id: 'app-1' }] };

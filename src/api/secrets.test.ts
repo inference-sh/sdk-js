@@ -45,6 +45,22 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward provider in create() body for integration-linked secrets', async () => {
+    const payload = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      description: 'Google service account for Drive integration',
+      provider: 'google',
+    };
+    const secret = { key: 'GOOGLE_SA_JSON', scope: 'internal' };
+    mockJsonResponse(secret);
+
+    await api().create(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should PUT /secrets/{key} for update()', async () => {
     const secret = { key: 'DB_PASSWORD' };
     mockJsonResponse(secret);
@@ -54,6 +70,7 @@ describe('SecretsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets/DB_PASSWORD');
     expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ value: 'new-secret' });
   });
 
   it('should GET /secrets/reveal/{key} for reveal()', async () => {

@@ -28,8 +28,17 @@ import {
   EstimateCostRequest,
   EstimateCostResponse,
   KnowledgeDTO,
+  KnowledgeLifecycleDecay,
+  KnowledgeLifecycleDeprecated,
+  KnowledgeLifecycleDraft,
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
+  KnowledgeVersionDTO,
+  KnowledgeVersionInput,
+  FlowNodeData,
+  InfraPrivate,
+  SelectorConfig,
+  UtilityConfig,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -1332,5 +1341,231 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('Knowledge lifecycle constants (v0.7.86)', () => {
+  it('exports draft and deprecated lifecycle values alongside permanent and decay', () => {
+    expect(KnowledgeLifecyclePermanent).toBe('permanent');
+    expect(KnowledgeLifecycleDecay).toBe('decay');
+    expect(KnowledgeLifecycleDraft).toBe('draft');
+    expect(KnowledgeLifecycleDeprecated).toBe('deprecated');
+  });
+
+  it('models draft and deprecated lifecycle on KnowledgeDTO responses', () => {
+    const draft: KnowledgeDTO = {
+      id: 'know-draft',
+      short_id: 'kd1',
+      created_at: '2026-08-20T00:00:00Z',
+      updated_at: '2026-08-20T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'wip-notes',
+      description: 'Work in progress',
+      type: KnowledgeTypeSkill,
+      lifecycle: KnowledgeLifecycleDraft,
+      version_id: 'ver-1',
+      uses: 0,
+      installs: 0,
+    };
+
+    const deprecated: KnowledgeDTO = {
+      ...draft,
+      id: 'know-old',
+      name: 'legacy-api',
+      lifecycle: KnowledgeLifecycleDeprecated,
+    };
+
+    expect(draft.lifecycle).toBe('draft');
+    expect(deprecated.lifecycle).toBe('deprecated');
+  });
+});
+
+describe('Knowledge version generated_by actor (v0.7.86)', () => {
+  it('models OKF actor on KnowledgeVersionDTO responses', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-20T00:00:00Z',
+      updated_at: '2026-08-20T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'extracted notes' },
+      files: [],
+      content_hash: 'abc123',
+      description: 'Claude session extraction',
+      tags: ['extraction'],
+      origin: 'claude-code:853f9a75-session-abc',
+      generated_by: 'claude-code/opus-4-6',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as KnowledgeVersionDTO;
+
+    expect(parsed.generated_by).toBe('claude-code/opus-4-6');
+    expect(parsed.origin).toBe('claude-code:853f9a75-session-abc');
+  });
+
+  it('allows KnowledgeVersionDTO without generated_by for legacy versions', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-legacy',
+      short_id: 'vl1',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'manual entry' },
+      files: [],
+      content_hash: 'legacy-hash',
+      description: 'Hand-authored version',
+      tags: [],
+    };
+
+    expect(version.generated_by).toBeUndefined();
+  });
+
+  it('models generated_by on KnowledgeVersionInput for create/update payloads', () => {
+    const input: KnowledgeVersionInput = {
+      description: 'Human-authored update',
+      generated_by: 'human:ok@inference.sh',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as KnowledgeVersionInput;
+
+    expect(parsed.generated_by).toBe('human:ok@inference.sh');
+  });
+});
+
+describe('flow utility node type contracts (v0.7.86)', () => {
+  const baseNodeData = (): FlowNodeData => ({
+    app_id: '',
+    app_version_id: '',
+    infra: InfraPrivate,
+    workers: [],
+  });
+
+  it('models SelectorConfig with field, mode, and optional index', () => {
+    const byIndex: SelectorConfig = {
+      field: 'items',
+      mode: 'index',
+      index: 2,
+    };
+    const first: SelectorConfig = {
+      field: 'results',
+      mode: 'first',
+    };
+
+    const parsedByIndex = JSON.parse(JSON.stringify(byIndex)) as SelectorConfig;
+    const parsedFirst = JSON.parse(JSON.stringify(first)) as SelectorConfig;
+
+    expect(parsedByIndex).toEqual({ field: 'items', mode: 'index', index: 2 });
+    expect(parsedFirst).toEqual({ field: 'results', mode: 'first' });
+    expect(parsedFirst.index).toBeUndefined();
+  });
+
+  it('models UtilityConfig gate preset with nested GateCondition', () => {
+    const utility: UtilityConfig = {
+      preset: 'gate',
+      gate: {
+        field: 'approved',
+        operator: 'eq',
+        value: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('gate');
+    expect(parsed.gate).toEqual({
+      field: 'approved',
+      operator: 'eq',
+      value: true,
+    });
+  });
+
+  it('models UtilityConfig selector preset with nested SelectorConfig', () => {
+    const utility: UtilityConfig = {
+      preset: 'selector',
+      selector: {
+        field: 'candidates',
+        mode: 'index',
+        index: 0,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('selector');
+    expect(parsed.selector).toEqual({
+      field: 'candidates',
+      mode: 'index',
+      index: 0,
+    });
+  });
+
+  it('models UtilityConfig merge preset with constant fallback value', () => {
+    const utility: UtilityConfig = {
+      preset: 'merge',
+      constant: { default: 'fallback' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('merge');
+    expect(parsed.constant).toEqual({ default: 'fallback' });
+  });
+
+  it('models UtilityConfig custom preset with CEL expression', () => {
+    const utility: UtilityConfig = {
+      preset: 'custom',
+      expression: 'input.score > 0.8 && input.tier == "pro"',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('custom');
+    expect(parsed.expression).toBe('input.score > 0.8 && input.tier == "pro"');
+  });
+
+  it('models FlowNodeData.utility as unified config alongside legacy fields', () => {
+    const node: FlowNodeData = {
+      ...baseNodeData(),
+      utility: {
+        preset: 'gate',
+        gate: {
+          field: 'status',
+          operator: 'eq',
+          value: 'ready',
+        },
+      },
+      // legacy fields may coexist during migration
+      gate_condition: {
+        field: 'status',
+        operator: 'eq',
+        value: 'ready',
+      },
+      selector_config: {
+        field: 'items',
+        mode: 'first',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(node)) as FlowNodeData;
+
+    expect(parsed.utility?.preset).toBe('gate');
+    expect(parsed.utility?.gate?.value).toBe('ready');
+    expect(parsed.gate_condition?.field).toBe('status');
+    expect(parsed.selector_config?.mode).toBe('first');
+  });
+
+  it('allows FlowNodeData without utility for execution nodes', () => {
+    const node: FlowNodeData = {
+      ...baseNodeData(),
+      app_id: 'app-1',
+      app_version_id: 'v1',
+      function: 'run',
+    };
+
+    expect(node.utility).toBeUndefined();
+    expect(node.selector_config).toBeUndefined();
   });
 });

@@ -10,6 +10,39 @@ const packageJson = JSON.parse(
 };
 
 describe('package export surface', () => {
+  describe('inference-src export conditions', () => {
+    it('maps main barrel, agent, remix proxy, and internal upload to source files', () => {
+      expect(packageJson.exports['.']).toEqual(
+        expect.objectContaining({
+          types: './dist/index.d.ts',
+          'inference-src': './src/index.ts',
+          default: './dist/index.js',
+        })
+      );
+      expect(packageJson.exports['./agent']).toEqual(
+        expect.objectContaining({
+          types: './dist/agent/index.d.ts',
+          'inference-src': './src/agent/index.ts',
+          default: './dist/agent/index.js',
+        })
+      );
+      expect(packageJson.exports['./proxy/remix']).toEqual(
+        expect.objectContaining({
+          types: './dist/proxy/remix.d.ts',
+          'inference-src': './src/proxy/remix.ts',
+          default: './dist/proxy/remix.js',
+        })
+      );
+      expect(packageJson.exports['./internal/upload']).toEqual(
+        expect.objectContaining({
+          types: './dist/api/files.d.ts',
+          'inference-src': './src/api/files.ts',
+          default: './dist/api/files.js',
+        })
+      );
+    });
+  });
+
   describe('main barrel (@inferencesh/sdk)', () => {
     it('does not semver-commit resolveUpload or putToSignedUrl', () => {
       expect(main).not.toHaveProperty('resolveUpload');

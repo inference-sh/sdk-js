@@ -368,6 +368,12 @@ class InternalToolsBuilder {
     return this;
   }
 
+  /** Enable meta tools */
+  meta(enabled = true): this {
+    this.config.meta = enabled;
+    return this;
+  }
+
   /** Enable all internal tools */
   all(): this {
     this.config.plan = true;

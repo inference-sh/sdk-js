@@ -13,6 +13,7 @@ import {
   inference,
   InferenceConfig,
   NotificationTypeDataExport,
+  NotificationTypeSubscriptionPaymentFailed,
   PlanTypeAddon,
   PlanTypeBase,
   RefRouteModeRedirect,
@@ -38,6 +39,10 @@ describe('package type exports', () => {
 
   it('exports NotificationTypeDataExport for data export notifications', () => {
     expect(NotificationTypeDataExport).toBe('data_export');
+  });
+
+  it('exports NotificationTypeSubscriptionPaymentFailed for subscription billing alerts', () => {
+    expect(NotificationTypeSubscriptionPaymentFailed).toBe('subscription_payment_failed');
   });
 
   it('exports PlanType constants for base and add-on plans', () => {
@@ -73,6 +78,11 @@ describe('package type exports', () => {
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
+  });
+
+  it('does not export removed A2UIHTML component type constant', () => {
+    const sdk = require('./index') as Record<string, unknown>;
+    expect(sdk.A2UIHTML).toBeUndefined();
   });
 });
 
