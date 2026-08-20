@@ -76,6 +76,7 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  SecretCreateRequest,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1333,32 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('SecretCreateRequest provider field', () => {
+  it('models optional provider for integration-linked secret creation', () => {
+    const request: SecretCreateRequest = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      description: 'Google service account for Drive integration',
+      provider: 'google',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SecretCreateRequest;
+
+    expect(parsed.key).toBe('GOOGLE_SA_JSON');
+    expect(parsed.provider).toBe('google');
+    expect(parsed.description).toBe('Google service account for Drive integration');
+  });
+
+  it('allows SecretCreateRequest without provider for team-scoped secrets', () => {
+    const request: SecretCreateRequest = {
+      key: 'DB_PASSWORD',
+      value: 'super-secret',
+    };
+
+    expect(request.provider).toBeUndefined();
+    expect(request.description).toBeUndefined();
   });
 });
