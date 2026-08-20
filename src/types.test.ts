@@ -76,6 +76,12 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  AddNodePayload,
+  FlowNodeData,
+  FlowNodeDataMap,
+  FlowNodePosition,
+  GateCondition,
+  InfraPrivate,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1332,5 +1338,126 @@ describe('gate hook type contracts', () => {
 
     expect(hook.handler).toBeUndefined();
     expect(hook.type).toBe('webhook');
+  });
+});
+
+describe('flow gate node type contracts', () => {
+  const baseNodeData = (): FlowNodeData => ({
+    app_id: '',
+    app_version_id: '',
+    infra: InfraPrivate,
+    workers: [],
+  });
+
+  it('models GateCondition with field, operator, and scalar value', () => {
+    const condition: GateCondition = {
+      field: 'status',
+      operator: 'eq',
+      value: 'approved',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(condition)) as GateCondition;
+
+    expect(parsed.field).toBe('status');
+    expect(parsed.operator).toBe('eq');
+    expect(parsed.value).toBe('approved');
+  });
+
+  it('preserves GateCondition value types through JSON round-trip', () => {
+    const cases: GateCondition[] = [
+      { field: 'count', operator: 'gte', value: 3 },
+      { field: 'enabled', operator: 'eq', value: true },
+      { field: 'tags', operator: 'contains', value: ['alpha', 'beta'] },
+      { field: 'meta', operator: 'exists', value: { nested: { ok: true } } },
+    ];
+
+    for (const condition of cases) {
+      const parsed = JSON.parse(JSON.stringify(condition)) as GateCondition;
+      expect(parsed).toEqual(condition);
+    }
+  });
+
+  it('models gate_condition on FlowNodeData for gate nodes only', () => {
+    const gateNode: FlowNodeData = {
+      ...baseNodeData(),
+      gate_condition: {
+        field: 'score',
+        operator: 'gt',
+        value: 0.8,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(gateNode)) as FlowNodeData;
+
+    expect(parsed.gate_condition).toEqual({
+      field: 'score',
+      operator: 'gt',
+      value: 0.8,
+    });
+  });
+
+  it('allows FlowNodeData without gate_condition for non-gate nodes', () => {
+    const executionNode: FlowNodeData = {
+      ...baseNodeData(),
+      app_id: 'app-1',
+      app_version_id: 'v1',
+      function: 'run',
+    };
+
+    expect(executionNode.gate_condition).toBeUndefined();
+  });
+
+  it('models AddNodePayload for inserting a gate node with gate_condition', () => {
+    const position: FlowNodePosition = { x: 120, y: 240 };
+    const payload: AddNodePayload = {
+      id: 'gate-1',
+      type: 'gate',
+      position,
+      data: {
+        ...baseNodeData(),
+        gate_condition: {
+          field: 'approved',
+          operator: 'eq',
+          value: true,
+        },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(payload)) as AddNodePayload;
+
+    expect(parsed.type).toBe('gate');
+    expect(parsed.position).toEqual(position);
+    expect(parsed.data.gate_condition).toEqual({
+      field: 'approved',
+      operator: 'eq',
+      value: true,
+    });
+  });
+
+  it('models FlowNodeDataMap with mixed gate and execution nodes', () => {
+    const nodeData: FlowNodeDataMap = {
+      'exec-1': {
+        ...baseNodeData(),
+        app_id: 'app-1',
+        app_version_id: 'v1',
+      },
+      'gate-1': {
+        ...baseNodeData(),
+        gate_condition: {
+          field: 'tier',
+          operator: 'eq',
+          value: 'pro',
+        },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(nodeData)) as FlowNodeDataMap;
+
+    expect(parsed['exec-1'].gate_condition).toBeUndefined();
+    expect(parsed['gate-1'].gate_condition).toEqual({
+      field: 'tier',
+      operator: 'eq',
+      value: 'pro',
+    });
   });
 });
