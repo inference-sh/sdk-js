@@ -1534,6 +1534,8 @@ export interface FlowRunDTO extends BaseModelDTO, PermissionModelDTO {
   fail_on_error: boolean;
   output: any;
   node_tasks: { [key: string]: NodeTaskDTO | undefined};
+  node_statuses?: { [key: string]: GraphNodeStatus};
+  node_outputs: any;
 }
 /**
  * FlowActionType is the string type for action constants.
@@ -2687,6 +2689,22 @@ export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
   scope?: SecretScope;
 }
 /**
+ * MeStatsResponse is returned by GET /me/stats.
+ */
+export interface MeStatsResponse {
+  knowledge_count: number /* int64 */;
+  skills_count: number /* int64 */;
+  extracted: StatBuckets;
+}
+/**
+ * StatBuckets holds time-windowed counts.
+ */
+export interface StatBuckets {
+  today: number /* int64 */;
+  this_week: number /* int64 */;
+  all_time: number /* int64 */;
+}
+/**
  * SubscriptionDTO for API responses
  */
 export interface SubscriptionDTO extends BaseModelDTO {
@@ -2978,6 +2996,14 @@ export interface TeamInviteDTO {
 export interface TeamInviteCreateRequest {
   email: string;
   role: TeamRole;
+}
+export interface TelemetryReportDTO extends BaseModelDTO, PermissionModelDTO {
+  ip: string;
+  level: number /* int */;
+  payload: { [key: string]: any};
+}
+export interface SubmitTelemetryRequest {
+  payload: { [key: string]: any};
 }
 /**
  * ToolInvocationFunction contains the function details for a tool invocation
