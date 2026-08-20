@@ -1460,9 +1460,14 @@ export interface FlowNodeData {
   task?: TaskDTO;
   task_id?: string;
   /**
-   * Gate node config (type="gate" only)
+   * Primitive node configs (legacy, kept for backward compat)
    */
   gate_condition?: GateCondition;
+  selector_config?: SelectorConfig;
+  /**
+   * Unified utility node config (replaces gate_condition/selector_config)
+   */
+  utility?: UtilityConfig;
 }
 /**
  * FlowNodeDataMap maps node IDs to their data
@@ -1937,7 +1942,8 @@ export interface KnowledgeVersionDTO extends BaseModelDTO {
   tags: string[];
   scope?: string[]; // environment signals for project scoping
   metadata?: { [key: string]: string};
-  origin?: string; // extraction provenance, e.g. "claude:853f9a75-..."
+  origin?: string; // extraction provenance, e.g. "claude-code:853f9a75-..."
+  generated_by?: string; // OKF actor: "claude-code/opus-4-6", "human:ok@inference.sh"
   source_url?: string;
   mutation_type?: string;
   version_notes?: string;
@@ -2468,7 +2474,8 @@ export interface KnowledgeVersionInput {
   tags?: string[];
   scope?: string[]; // environment signals for project scoping
   metadata?: { [key: string]: string};
-  origin?: string; // extraction provenance, e.g. "claude:853f9a75-..."
+  origin?: string; // extraction provenance
+  generated_by?: string; // OKF actor convention
   source_url?: string;
   mutation_type?: string;
   version_notes?: string;
@@ -3496,6 +3503,14 @@ export interface GateCondition {
   operator: string;
   value: any;
 }
+/**
+ * SelectorConfig defines how to pick element(s) from an array.
+ */
+export interface SelectorConfig {
+  field: string;
+  mode: string;
+  index?: number /* int */;
+}
 export type GraphNodeType = string;
 export const GraphNodeTypeUnknown: GraphNodeType = "unknown";
 export const GraphNodeTypeJoin: GraphNodeType = "join";
@@ -3830,6 +3845,8 @@ export const KnowledgeTypeAgentConfig: KnowledgeType = "agent-config";
 export type KnowledgeLifecycle = string;
 export const KnowledgeLifecyclePermanent: KnowledgeLifecycle = "permanent";
 export const KnowledgeLifecycleDecay: KnowledgeLifecycle = "decay";
+export const KnowledgeLifecycleDraft: KnowledgeLifecycle = "draft";
+export const KnowledgeLifecycleDeprecated: KnowledgeLifecycle = "deprecated";
 export type FilterOperator = string;
 export const OpEqual: FilterOperator = "eq";
 export const OpNotEqual: FilterOperator = "neq";
@@ -4212,3 +4229,13 @@ export const RoleGuest: Role = "guest";
 export const RoleUser: Role = "user";
 export const RoleAdmin: Role = "admin";
 export const RoleSystem: Role = "system";
+/**
+ * UtilityConfig defines a flow utility node — gate, selector, merge, or custom CEL.
+ */
+export interface UtilityConfig {
+  preset: string;
+  expression?: string;
+  gate?: GateCondition;
+  selector?: SelectorConfig;
+  constant?: any;
+}
