@@ -106,6 +106,36 @@ describe('agent/api', () => {
 
       // 2 calls: create chat + send message (no upload call)
       expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init2.body));
+      expect(messageBody).toEqual({ message: 'see image' });
+      expect(messageBody.files).toBeUndefined();
+      expect(messageBody.attachments).toBeUndefined();
+    });
+
+    it('should upload files but not yet attach URIs to the message POST body', async () => {
+      const client = makeClient();
+      const file = new File(['data'], 'notes.txt', { type: 'text/plain' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue({
+        id: 'file-notes',
+        uri: 'inf://files/notes',
+        filename: 'notes.txt',
+        content_type: 'text/plain',
+      });
+
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, 'chat-1', 'with attachment', [file]);
+
+      expect(uploadSpy).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init.body));
+      expect(messageBody).toEqual({ message: 'with attachment' });
+      expect(messageBody.files).toBeUndefined();
+
+      uploadSpy.mockRestore();
     });
 
     it('should forward template context values via createChat', async () => {
