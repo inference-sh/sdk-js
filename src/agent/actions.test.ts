@@ -3,6 +3,8 @@ import {
   ChatStatusCompleted,
   ChatStatusIdle,
   AgentRunStateWorking,
+  AgentRunStateSubmitted,
+  AgentRunStateInputRequired,
   AgentRunStateCompleted,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -12,6 +14,8 @@ import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
+const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
+const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
@@ -1366,6 +1370,109 @@ describe('createActions', () => {
       expect(onTurnEnd).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'chat-full-id-123', status: ChatStatusIdle })
       );
+    });
+  });
+
+  describe('agent_runs SSE events', () => {
+    function getAgentRunsListener() {
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'agent_runs'
+      )?.[1] as (run: AgentRunDTO) => void;
+    }
+
+    it('should dispatch UPDATE_ACTIVE_RUN when agent_runs event is received', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      getAgentRunsListener()(workingRun);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_ACTIVE_RUN',
+        payload: workingRun,
+      });
+    });
+
+    it('should call onStatusChange with streaming for active run states', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      onStatusChange.mockClear();
+
+      const onAgentRun = getAgentRunsListener();
+      onAgentRun(workingRun);
+      onAgentRun(submittedRun);
+      onAgentRun(inputRequiredRun);
+
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+      expect(onStatusChange).toHaveBeenCalledTimes(3);
+    });
+
+    it('should call onStatusChange with idle when agent run completes', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      onStatusChange.mockClear();
+
+      getAgentRunsListener()(completedRun);
+
+      expect(onStatusChange).toHaveBeenCalledWith('idle');
+      expect(onStatusChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onTurnEnd when agent run completes via agent_runs SSE', async () => {
+      const onTurnEnd = jest.fn();
+      const busyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      const { ctx } = createTestContext({
+        callbacks: { onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'idle' as const,
+          chat: busyChat,
+        }),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRun = getAgentRunsListener();
+      onAgentRun(workingRun);
+      onAgentRun(completedRun);
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith({
+        ...busyChat,
+        active_run: completedRun,
+      });
+    });
+
+    it('should not call onTurnEnd from agent_runs when chat is not loaded', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      getAgentRunsListener()(completedRun);
+
+      expect(onTurnEnd).not.toHaveBeenCalled();
     });
   });
 
