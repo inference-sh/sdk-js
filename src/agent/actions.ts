@@ -10,6 +10,7 @@ import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -181,7 +182,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // Listen for AgentRun updates (state transitions, output)
     manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
       dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
-      const isRunActive = run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
+      const isRunActive = run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired || run.state === AgentRunStateAuthRequired;
       callbacks.onStatusChange?.(isRunActive ? 'streaming' : 'idle');
       const currentChat = getState().chat;
       if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });
@@ -421,12 +422,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       if (!chatId || !cursor) return false;
 
       const page = await api.fetchMessagesPage(client, chatId, { cursor });
-      if (page.items.length > 0) {
-        dispatch({
-          type: 'PREPEND_MESSAGES',
-          payload: { messages: page.items, cursor: page.next_cursor, hasMore: page.has_next },
-        });
-      }
+      dispatch({
+        type: 'PREPEND_MESSAGES',
+        payload: { messages: page.items, cursor: page.next_cursor, hasMore: page.has_next },
+      });
       return page.has_next;
     },
 

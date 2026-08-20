@@ -9,6 +9,7 @@ import {
   AgentRunStateCompleted,
   AgentRunStateFailed,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
 } from './types';
 import type { ChatDTO, AgentRunDTO } from './types';
 import { isTerminalStatus, parseStatus, isChatBusy } from './utils';
@@ -72,6 +73,7 @@ describe('isChatBusy', () => {
     expect(isChatBusy(chatWithRun(AgentRunStateWorking))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateSubmitted))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateInputRequired))).toBe(true);
+    expect(isChatBusy(chatWithRun(AgentRunStateAuthRequired))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateCompleted))).toBe(false);
     expect(isChatBusy(chatWithRun(AgentRunStateFailed))).toBe(false);
   });

@@ -1541,7 +1541,7 @@ describe('createActions', () => {
       expect(publicActions.hasOlderMessages).toBe(false);
     });
 
-    it('should return has_next without dispatching when the page has no items', async () => {
+    it('should update pagination metadata when the page has no items', async () => {
       mockAgentApi.fetchMessagesPage.mockResolvedValueOnce({
         items: [],
         next_cursor: 'cursor-end',
@@ -1563,9 +1563,14 @@ describe('createActions', () => {
       const result = await publicActions.loadOlderMessages();
 
       expect(result).toBe(false);
-      expect(dispatch).not.toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'PREPEND_MESSAGES' })
-      );
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'PREPEND_MESSAGES',
+        payload: {
+          messages: [],
+          cursor: 'cursor-end',
+          hasMore: false,
+        },
+      });
     });
   });
 

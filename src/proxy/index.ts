@@ -149,11 +149,15 @@ export async function processProxyRequest<T>(
     // 1b. Rewrite base URL if INFERENCE_API_BASE_URL is set
     const overrideBase = options?.apiBaseUrl || process.env.INFERENCE_API_BASE_URL;
     if (overrideBase) {
-        const parsed = new URL(targetUrl);
-        const override = new URL(overrideBase);
-        parsed.protocol = override.protocol;
-        parsed.host = override.host;
-        targetUrl = parsed.toString();
+        try {
+            const parsed = new URL(targetUrl);
+            const override = new URL(overrideBase);
+            parsed.protocol = override.protocol;
+            parsed.host = override.host;
+            targetUrl = parsed.toString();
+        } catch {
+            return adapter.error(400, { error: "Invalid target URL" });
+        }
     }
 
     // 2. Validate target domain
