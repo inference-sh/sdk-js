@@ -509,6 +509,11 @@ describe('InternalToolsBuilder (internalTools)', () => {
     expect(config).toEqual({ finish: true });
   });
 
+  it('enables meta tools', () => {
+    const config = internalTools().meta().build();
+    expect(config).toEqual({ meta: true });
+  });
+
   it('chains multiple tool enables', () => {
     const config = internalTools().plan().memory().widget().build();
     expect(config).toEqual({ plan: true, memory: true, widget: true });

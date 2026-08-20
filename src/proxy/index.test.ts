@@ -57,10 +57,12 @@ describe('headersToRecord', () => {
 describe('processProxyRequest', () => {
   const originalFetch = global.fetch;
   const originalApiKey = process.env.INFERENCE_API_KEY;
+  const originalApiBaseUrl = process.env.INFERENCE_API_BASE_URL;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.INFERENCE_API_KEY = 'env-test-key';
+    delete process.env.INFERENCE_API_BASE_URL;
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -75,6 +77,11 @@ describe('processProxyRequest', () => {
       delete process.env.INFERENCE_API_KEY;
     } else {
       process.env.INFERENCE_API_KEY = originalApiKey;
+    }
+    if (originalApiBaseUrl === undefined) {
+      delete process.env.INFERENCE_API_BASE_URL;
+    } else {
+      process.env.INFERENCE_API_BASE_URL = originalApiBaseUrl;
     }
   });
 
@@ -336,6 +343,55 @@ describe('processProxyRequest', () => {
         method: 'GET',
         body: undefined,
       })
+    );
+  });
+
+  it('should rewrite target host when INFERENCE_API_BASE_URL env is set', async () => {
+    process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
+    const target = 'https://api.inference.sh/v1/tasks/1';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://staging-api.inference.sh/v1/tasks/1',
+      expect.any(Object)
+    );
+  });
+
+  it('should prefer options.apiBaseUrl over INFERENCE_API_BASE_URL env', async () => {
+    process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
+    const target = 'https://api.inference.sh/agents/run';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      { apiBaseUrl: 'https://preview-api.inference.sh' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://preview-api.inference.sh/agents/run',
+      expect.any(Object)
+    );
+  });
+
+  it('should preserve path and query when rewriting base URL', async () => {
+    const target = 'https://api.inference.sh/v1/chats?limit=50&cursor=abc';
+
+    await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      }),
+      { apiBaseUrl: 'https://dev-api.inference.sh' }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://dev-api.inference.sh/v1/chats?limit=50&cursor=abc',
+      expect.any(Object)
     );
   });
 });
