@@ -107,6 +107,14 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  FlowRunDTO,
+  GraphNodeStatusCompleted,
+  GraphNodeStatusFailed,
+  GraphNodeStatusRunning,
+  MeStatsResponse,
+  StatBuckets,
+  SubmitTelemetryRequest,
+  TelemetryReportDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1999,5 +2007,121 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('FlowRunDTO per-node status and outputs (v0.7.97)', () => {
+  const baseFlowRun = (): FlowRunDTO => ({
+    id: 'fr-1',
+    short_id: 'fr1',
+    created_at: '2026-08-20T00:00:00Z',
+    updated_at: '2026-08-20T00:00:00Z',
+    flow_id: 'flow-1',
+    flow_version_id: 'fv-1',
+    status: 'completed',
+    input: {},
+    fail_on_error: true,
+    output: { result: 'done' },
+    node_tasks: {},
+    node_outputs: {},
+  });
+
+  it('models optional node_statuses map keyed by graph node id', () => {
+    const flowRun: FlowRunDTO = {
+      ...baseFlowRun(),
+      node_statuses: {
+        'node-a': GraphNodeStatusRunning,
+        'node-b': GraphNodeStatusCompleted,
+        'node-c': GraphNodeStatusFailed,
+      },
+      node_outputs: {
+        'node-b': { answer: 42 },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(flowRun)) as FlowRunDTO;
+
+    expect(parsed.node_statuses?.['node-a']).toBe('running');
+    expect(parsed.node_statuses?.['node-b']).toBe('completed');
+    expect(parsed.node_statuses?.['node-c']).toBe('failed');
+    expect(parsed.node_outputs['node-b']).toEqual({ answer: 42 });
+  });
+
+  it('allows FlowRunDTO without node_statuses for legacy responses', () => {
+    const flowRun = baseFlowRun();
+
+    expect(flowRun.node_statuses).toBeUndefined();
+    expect(flowRun.node_outputs).toEqual({});
+  });
+});
+
+describe('MeStatsResponse and StatBuckets (v0.7.97)', () => {
+  it('models GET /me/stats aggregate counts with time-window buckets', () => {
+    const extracted: StatBuckets = {
+      today: 3,
+      this_week: 12,
+      all_time: 87,
+    };
+    const stats: MeStatsResponse = {
+      knowledge_count: 15,
+      skills_count: 4,
+      extracted,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(stats)) as MeStatsResponse;
+
+    expect(parsed.knowledge_count).toBe(15);
+    expect(parsed.skills_count).toBe(4);
+    expect(parsed.extracted.today).toBe(3);
+    expect(parsed.extracted.this_week).toBe(12);
+    expect(parsed.extracted.all_time).toBe(87);
+  });
+
+  it('preserves zero-valued StatBuckets through JSON round-trip', () => {
+    const buckets: StatBuckets = { today: 0, this_week: 0, all_time: 0 };
+
+    const parsed = JSON.parse(JSON.stringify(buckets)) as StatBuckets;
+
+    expect(parsed).toEqual({ today: 0, this_week: 0, all_time: 0 });
+  });
+});
+
+describe('TelemetryReportDTO and SubmitTelemetryRequest (v0.7.97)', () => {
+  it('models telemetry report DTO with level and arbitrary payload', () => {
+    const report: TelemetryReportDTO = {
+      id: 'tel-1',
+      short_id: 't1',
+      created_at: '2026-08-20T12:00:00Z',
+      updated_at: '2026-08-20T12:00:00Z',
+      ip: '203.0.113.10',
+      level: 2,
+      payload: {
+        event: 'sdk_error',
+        sdk_version: '1.2.3',
+        message: 'stream reconnect failed',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(report)) as TelemetryReportDTO;
+
+    expect(parsed.ip).toBe('203.0.113.10');
+    expect(parsed.level).toBe(2);
+    expect(parsed.payload.sdk_version).toBe('1.2.3');
+  });
+
+  it('models SubmitTelemetryRequest with client payload only', () => {
+    const request: SubmitTelemetryRequest = {
+      payload: {
+        feature: 'agent_chat',
+        duration_ms: 1523,
+        success: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SubmitTelemetryRequest;
+
+    expect(parsed.payload.feature).toBe('agent_chat');
+    expect(parsed.payload.duration_ms).toBe(1523);
+    expect(parsed.payload.success).toBe(true);
   });
 });
