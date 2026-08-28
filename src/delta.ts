@@ -1,9 +1,6 @@
-import type { LLMDelta, LLMOutput, ToolCallDelta, StringEncodedMap } from './types';
+import type { LLMDelta, LLMDeltaEvent, LLMOutput, StringEncodedMap } from './types';
 
-export interface DeltaEvent {
-  delta: LLMDelta;
-  seq: number;
-}
+export type { LLMDeltaEvent as DeltaEvent } from './types';
 
 export class DeltaAccumulator {
   private response = '';

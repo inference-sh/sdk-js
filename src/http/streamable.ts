@@ -4,7 +4,7 @@
  * the browser's ~6 connection limit per domain.
  */
 
-import type { LLMDelta } from '../types';
+import type { LLMDelta, LLMDeltaEvent } from '../types';
 
 export interface StreamableOptions {
   /** Additional headers to include */
@@ -203,7 +203,7 @@ export class StreamableManager<T> {
 
         // Handle delta events
         if (wrapper.event === 'delta' && this.options.onDelta) {
-          const payload = wrapper.data as unknown as { delta: LLMDelta; seq: number };
+          const payload = wrapper.data as unknown as LLMDeltaEvent;
           if (payload && payload.delta) {
             this.options.onDelta(payload.delta, payload.seq);
           }
