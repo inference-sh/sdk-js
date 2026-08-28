@@ -306,6 +306,118 @@ describe('chatReducer', () => {
     expect(errored.error).toBe('stream failed');
   });
 
+  describe('DELTA_TOKEN', () => {
+    it('should update the text block of the last assistant message', () => {
+      const chat = makeChat({
+        chat_messages: [
+          makeMessage('msg-user', 1, 'chat-1'),
+          {
+            ...makeMessage('msg-asst', 2, 'chat-1'),
+            role: 'assistant' as const,
+            content: [{ type: 'text', text: 'partial' }],
+          },
+        ],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hello world' },
+      });
+
+      const assistantMsg = next.messages.find((m) => m.id === 'msg-asst');
+      expect(assistantMsg?.content[0]).toEqual({ type: 'text', text: 'Hello world' });
+    });
+
+    it('should prepend a text block when the assistant message has no existing text block', () => {
+      const assistantMsg = {
+        ...makeMessage('msg-asst', 2, 'chat-1'),
+        role: 'assistant' as const,
+        content: [] as ReturnType<typeof makeMessage>['content'],
+      };
+      const chat = makeChat({ chat_messages: [assistantMsg] });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Streamed' },
+      });
+
+      const msg = next.messages.find((m) => m.id === 'msg-asst');
+      expect(msg?.content[0]).toEqual({ type: 'text', text: 'Streamed' });
+    });
+
+    it('should not crash when the assistant message has no content array (undefined)', () => {
+      const assistantMsg = {
+        ...makeMessage('msg-asst', 2, 'chat-1'),
+        role: 'assistant' as const,
+        content: undefined as unknown as ReturnType<typeof makeMessage>['content'],
+      };
+      const chat = makeChat({ chat_messages: [assistantMsg] });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      expect(() =>
+        chatReducer(state, { type: 'DELTA_TOKEN', payload: { response: 'safe' } })
+      ).not.toThrow();
+    });
+
+    it('should return state unchanged when there is no assistant message', () => {
+      const chat = makeChat({
+        chat_messages: [makeMessage('msg-user', 1, 'chat-1')],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'ignored' },
+      });
+
+      expect(next).toBe(state);
+    });
+
+    it('should target the last assistant message when multiple exist', () => {
+      const chat = makeChat({
+        chat_messages: [
+          { ...makeMessage('msg-asst-1', 1, 'chat-1'), role: 'assistant' as const, content: [{ type: 'text', text: 'first' }] },
+          { ...makeMessage('msg-asst-2', 2, 'chat-1'), role: 'assistant' as const, content: [{ type: 'text', text: 'second' }] },
+        ],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'updated' },
+      });
+
+      expect(next.messages.find((m) => m.id === 'msg-asst-1')?.content[0]).toEqual({ type: 'text', text: 'first' });
+      expect(next.messages.find((m) => m.id === 'msg-asst-2')?.content[0]).toEqual({ type: 'text', text: 'updated' });
+    });
+
+    it('should preserve non-text content blocks when updating the text block', () => {
+      const imageBlock = { type: 'image', url: 'https://example.com/img.png' };
+      const assistantMsg = {
+        ...makeMessage('msg-asst', 1, 'chat-1'),
+        role: 'assistant' as const,
+        content: [
+          imageBlock,
+          { type: 'text', text: 'old text' },
+        ] as ReturnType<typeof makeMessage>['content'],
+      };
+      const chat = makeChat({ chat_messages: [assistantMsg] });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'new text' },
+      });
+
+      const msg = next.messages.find((m) => m.id === 'msg-asst');
+      expect(msg?.content).toHaveLength(2);
+      expect(msg?.content[0]).toEqual(imageBlock);
+      expect(msg?.content[1]).toEqual({ type: 'text', text: 'new text' });
+    });
+  });
+
   it('should return the same state for unknown action types', () => {
     const state = chatReducer(initialState, { type: 'UNKNOWN' } as never);
     expect(state).toBe(initialState);

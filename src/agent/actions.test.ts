@@ -411,6 +411,47 @@ describe('createActions', () => {
       });
       expect(onStatusChange).toHaveBeenCalledWith('streaming');
     });
+
+    it('should dispatch DELTA_TOKEN when a delta event is received', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]: [string]) => event === 'delta'
+      )?.[1] as (evt: { delta: { response: string } }) => void;
+
+      expect(onDelta).toBeDefined();
+
+      onDelta({ delta: { response: 'Hello' } });
+      onDelta({ delta: { response: ', world' } });
+
+      // Should have dispatched two DELTA_TOKEN actions, each with the accumulated text
+      const deltaCalls = dispatch.mock.calls.filter(([a]) => a.type === 'DELTA_TOKEN');
+      expect(deltaCalls).toHaveLength(2);
+      expect(deltaCalls[0][0]).toEqual({ type: 'DELTA_TOKEN', payload: { response: 'Hello' } });
+      expect(deltaCalls[1][0]).toEqual({ type: 'DELTA_TOKEN', payload: { response: 'Hello, world' } });
+    });
+
+    it('should ignore delta events with no delta payload', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]: [string]) => event === 'delta'
+      )?.[1] as (evt: unknown) => void;
+
+      onDelta(null);
+      onDelta({ delta: null });
+
+      const deltaCalls = dispatch.mock.calls.filter(([a]) => a.type === 'DELTA_TOKEN');
+      expect(deltaCalls).toHaveLength(0);
+    });
   });
 
   describe('stopStream', () => {
