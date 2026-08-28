@@ -101,7 +101,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const textBlock = lastAssistant.content?.find(c => c.type === 'text');
       const newContent = textBlock
         ? lastAssistant.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
-        : [{ type: 'text' as const, text: output.response }, ...lastAssistant.content];
+        : [{ type: 'text' as const, text: output.response }, ...(lastAssistant.content ?? [])];
       const newMessages = msgs.map(m => m.id === lastAssistant.id ? { ...lastAssistant, content: newContent } : m);
       return { ...state, messages: newMessages };
     }
