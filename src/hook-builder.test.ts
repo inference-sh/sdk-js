@@ -1,4 +1,4 @@
-import { lifecycleHook, LifecycleHookBuilder } from './hook-builder';
+import { lifecycleHook } from './hook-builder';
 import {
   HookEventAgentStart,
   HookEventTurnComplete,
