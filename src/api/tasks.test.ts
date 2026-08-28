@@ -367,6 +367,32 @@ describe('TasksAPI.run (streaming mode)', () => {
       ['status', 'output']
     );
   });
+
+  it('should forward delta events to onDelta during streaming', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        event: 'delta',
+        data: { delta: { response: 'tok' }, seq: 1 },
+      })}\n`,
+      `${JSON.stringify({
+        event: 'delta',
+        data: { delta: { response: 'en' }, seq: 2 },
+      })}\n`,
+      `${JSON.stringify({ status: TaskStatusCompleted, id: 'task-1', output: { response: 'token' } })}\n`,
+    ]);
+
+    const onDelta = jest.fn();
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      {},
+      { wait: true, onDelta }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(onDelta).toHaveBeenCalledTimes(2);
+    expect(onDelta).toHaveBeenNthCalledWith(1, { response: 'tok' }, 1);
+    expect(onDelta).toHaveBeenNthCalledWith(2, { response: 'en' }, 2);
+  });
 });
 
 describe('TasksAPI.run (HTTP contract)', () => {
