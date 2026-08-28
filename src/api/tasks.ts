@@ -13,6 +13,7 @@ import {
   TaskStatusCancelled,
   CursorListRequest,
   CursorListResponse,
+  LLMDelta,
 } from '../types';
 import { parseStatus } from '../utils';
 
@@ -29,6 +30,8 @@ export interface RunOptions {
   stream?: boolean;
   /** Polling interval in ms when stream is false. Overrides client default. */
   pollIntervalMs?: number;
+  /** Callback for streaming delta events (token-by-token updates) */
+  onDelta?: (delta: LLMDelta, seq: number) => void;
 }
 
 //TODO: This is ugly...
@@ -112,6 +115,7 @@ export class TasksAPI {
     const {
       onUpdate,
       onPartialUpdate,
+      onDelta,
       wait = true,
     } = options;
 
@@ -144,6 +148,7 @@ export class TasksAPI {
         url,
         headers,
         credentials,
+        onDelta,
         onData: (data) => {
           // Merge new data, preserving existing fields if not in update
           accumulatedTask = { ...accumulatedTask, ...data };

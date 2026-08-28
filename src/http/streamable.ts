@@ -4,6 +4,8 @@
  * the browser's ~6 connection limit per domain.
  */
 
+import type { LLMDelta } from '../types';
+
 export interface StreamableOptions {
   /** Additional headers to include */
   headers?: Record<string, string>;
@@ -145,6 +147,8 @@ export interface StreamableManagerOptions<T> {
   onStart?: () => void;
   /** Called when stream ends */
   onEnd?: () => void;
+  /** Called for delta events (streaming token deltas) */
+  onDelta?: (delta: LLMDelta, seq: number) => void;
 }
 
 export class StreamableManager<T> {
@@ -196,6 +200,15 @@ export class StreamableManager<T> {
         if (!this.isRunning) break;
 
         const wrapper = message as StreamableMessage<T>;
+
+        // Handle delta events
+        if (wrapper.event === 'delta' && this.options.onDelta) {
+          const payload = wrapper.data as unknown as { delta: LLMDelta; seq: number };
+          if (payload && payload.delta) {
+            this.options.onDelta(payload.delta, payload.seq);
+          }
+          continue;
+        }
 
         // Handle typed events ({"event": "...", "data": ...})
         if (wrapper.event && this.eventListeners.has(wrapper.event)) {
