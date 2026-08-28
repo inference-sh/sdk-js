@@ -3675,6 +3675,13 @@ export interface ToolCallDelta {
   function?: ToolCallFunctionDelta;
 }
 /**
+ * LLMDeltaEvent is the streaming envelope for a delta on the NDJSON wire.
+ */
+export interface LLMDeltaEvent {
+  delta: LLMDelta;
+  seq: number /* int64 */;
+}
+/**
  * ToolCallFunctionDelta carries partial tool call function data.
  * Arguments is a raw JSON string fragment — concatenate by index, parse on completion.
  */
