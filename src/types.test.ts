@@ -85,6 +85,14 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  LLMDelta,
+  LLMDeltaEvent,
+  LLMOutput,
+  LLMUsage,
+  ToolCall,
+  ToolCallDelta,
+  ToolCallFunctionDelta,
+  ToolTypeFunction,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1575,161 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('LLM output and streaming delta type contracts', () => {
+  const sampleUsage = (): LLMUsage => ({
+    stop_reason: 'end_turn',
+    time_to_first_token: 0.12,
+    tokens_per_second: 42.5,
+    prompt_tokens: 100,
+    completion_tokens: 25,
+    total_tokens: 125,
+    reasoning_tokens: 10,
+    reasoning_time: 0.8,
+  });
+
+  it('models LLMOutput with response, reasoning, tool_calls, and usage', () => {
+    const output: LLMOutput = {
+      response: 'The weather is sunny.',
+      reasoning: 'Checked forecast data.',
+      tool_calls: [
+        {
+          id: 'call_abc',
+          type: ToolTypeFunction,
+          function: { name: 'search', arguments: { query: 'weather' } },
+        },
+      ],
+      usage: sampleUsage(),
+    };
+
+    const parsed = JSON.parse(JSON.stringify(output)) as LLMOutput;
+
+    expect(parsed.response).toBe('The weather is sunny.');
+    expect(parsed.reasoning).toBe('Checked forecast data.');
+    expect(parsed.tool_calls?.[0].function.arguments).toEqual({ query: 'weather' });
+    expect(parsed.usage?.total_tokens).toBe(125);
+  });
+
+  it('models LLMDelta with required response and optional streaming fields', () => {
+    const delta: LLMDelta = {
+      response: 'Hel',
+      reasoning: 'think',
+      tool_calls: [
+        {
+          index: 0,
+          id: 'call_1',
+          type: ToolTypeFunction,
+          function: { name: 'lookup', arguments: '{"q":' },
+        },
+      ],
+      usage: sampleUsage(),
+    };
+
+    const parsed = JSON.parse(JSON.stringify(delta)) as LLMDelta;
+
+    expect(parsed.response).toBe('Hel');
+    expect(parsed.reasoning).toBe('think');
+    expect(parsed.tool_calls?.[0].index).toBe(0);
+    expect(parsed.tool_calls?.[0].function?.arguments).toBe('{"q":');
+  });
+
+  it('models ToolCallDelta index-based partial updates with argument fragments', () => {
+    const first: ToolCallDelta = {
+      index: 1,
+      id: 'call_b',
+      type: ToolTypeFunction,
+      function: { name: 'run', arguments: '{"x":' },
+    };
+    const continuation: ToolCallDelta = {
+      index: 1,
+      function: { arguments: '42}' },
+    };
+
+    const parsedFirst = JSON.parse(JSON.stringify(first)) as ToolCallDelta;
+    const parsedContinuation = JSON.parse(JSON.stringify(continuation)) as ToolCallDelta;
+
+    expect(parsedFirst.index).toBe(1);
+    expect(parsedFirst.id).toBe('call_b');
+    expect(parsedFirst.function?.name).toBe('run');
+    expect(parsedContinuation.index).toBe(1);
+    expect(parsedContinuation.id).toBeUndefined();
+    expect(parsedContinuation.function?.name).toBeUndefined();
+    expect(parsedContinuation.function?.arguments).toBe('42}');
+  });
+
+  it('models ToolCallFunctionDelta as optional name and raw JSON argument fragments', () => {
+    const fnDelta: ToolCallFunctionDelta = {
+      name: 'search',
+      arguments: '"partial"',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(fnDelta)) as ToolCallFunctionDelta;
+
+    expect(parsed.name).toBe('search');
+    expect(parsed.arguments).toBe('"partial"');
+  });
+
+  it('models LLMDeltaEvent as the NDJSON wire envelope (v0.7.104)', () => {
+    const event: LLMDeltaEvent = {
+      delta: { response: 'lo' },
+      seq: 7,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as LLMDeltaEvent;
+
+    expect(parsed.delta.response).toBe('lo');
+    expect(parsed.seq).toBe(7);
+  });
+
+  it('round-trips a multi-index tool call delta sequence through LLMDeltaEvent envelopes', () => {
+    const events: LLMDeltaEvent[] = [
+      {
+        seq: 1,
+        delta: {
+          response: '',
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_a',
+              type: ToolTypeFunction,
+              function: { name: 'first', arguments: '{}' },
+            },
+            {
+              index: 1,
+              id: 'call_b',
+              type: ToolTypeFunction,
+              function: { name: 'second', arguments: '{"n":' },
+            },
+          ],
+        },
+      },
+      {
+        seq: 2,
+        delta: {
+          response: 'done',
+          tool_calls: [{ index: 1, function: { arguments: '1}' } }],
+        },
+      },
+    ];
+
+    const parsed = JSON.parse(JSON.stringify(events)) as LLMDeltaEvent[];
+
+    expect(parsed[0].delta.tool_calls?.map(tc => tc.index)).toEqual([0, 1]);
+    expect(parsed[1].delta.response).toBe('done');
+    expect(parsed[1].delta.tool_calls?.[0].function?.arguments).toBe('1}');
+  });
+
+  it('distinguishes completed ToolCall arguments map from delta argument fragments', () => {
+    const completed: ToolCall = {
+      id: 'call_done',
+      type: ToolTypeFunction,
+      function: { name: 'fn', arguments: { ready: true } },
+    };
+    const fragment: ToolCallFunctionDelta = { arguments: '{"ready":' };
+
+    expect(completed.function.arguments).toEqual({ ready: true });
+    expect(fragment.arguments).toBe('{"ready":');
   });
 });
