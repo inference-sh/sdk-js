@@ -1,4 +1,4 @@
-import type { LLMDelta, LLMOutput, ToolCallDelta, StringEncodedMap } from './types';
+import type { LLMDelta, LLMOutput, StringEncodedMap } from './types';
 
 export interface DeltaEvent {
   delta: LLMDelta;
