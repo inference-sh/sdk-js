@@ -93,6 +93,19 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
         messages: [...state.messages, action.payload].sort((a, b) => a.order - b.order),
       };
 
+    case 'DELTA_TOKEN': {
+      const output = action.payload;
+      const msgs = state.messages;
+      const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant');
+      if (!lastAssistant) return state;
+      const textBlock = lastAssistant.content?.find(c => c.type === 'text');
+      const newContent = textBlock
+        ? lastAssistant.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
+        : [{ type: 'text' as const, text: output.response }, ...lastAssistant.content];
+      const newMessages = msgs.map(m => m.id === lastAssistant.id ? { ...lastAssistant, content: newContent } : m);
+      return { ...state, messages: newMessages };
+    }
+
     case 'SET_CONNECTION_STATUS':
       return { ...state, connectionStatus: action.payload };
 

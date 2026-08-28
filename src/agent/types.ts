@@ -14,6 +14,7 @@ import type {
   AgentConfigInput as GeneratedAgentConfig,
   CoreAppConfigInput as CoreAppConfig,
   FileRef,
+  LLMOutput,
 } from '../types';
 import type { HttpClient } from '../http/client';
 import type { StreamableManager } from '../http/streamable';
@@ -274,6 +275,7 @@ export type ChatAction =
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
   | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO; partial?: boolean }
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }
+  | { type: 'DELTA_TOKEN'; payload: LLMOutput }
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
   | { type: 'PREPEND_MESSAGES'; payload: { messages: ChatMessageDTO[]; cursor?: string; hasMore: boolean } }
