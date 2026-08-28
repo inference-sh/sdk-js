@@ -762,4 +762,77 @@ describe('StreamableManager', () => {
       expect.objectContaining({ credentials: 'include' })
     );
   });
+
+  it('should route delta events to onDelta without calling onData', async () => {
+    global.fetch = mockFetch([
+      JSON.stringify({
+        event: 'delta',
+        data: { delta: { response: 'Hel' }, seq: 1 },
+      }) + '\n',
+      JSON.stringify({
+        event: 'delta',
+        data: { delta: { response: 'lo' }, seq: 2 },
+      }) + '\n',
+      '{"id":1}\n',
+    ]) as typeof fetch;
+
+    const onDelta = jest.fn();
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onDelta,
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onDelta).toHaveBeenCalledTimes(2);
+    expect(onDelta).toHaveBeenNthCalledWith(1, { response: 'Hel' }, 1);
+    expect(onDelta).toHaveBeenNthCalledWith(2, { response: 'lo' }, 2);
+    expect(onData).toHaveBeenCalledTimes(1);
+    expect(onData).toHaveBeenCalledWith({ id: 1 });
+  });
+
+  it('should skip delta events when onDelta is not provided', async () => {
+    global.fetch = mockFetch([
+      JSON.stringify({
+        event: 'delta',
+        data: { delta: { response: 'ignored' }, seq: 1 },
+      }) + '\n',
+      '{"id":2}\n',
+    ]) as typeof fetch;
+
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onData).toHaveBeenCalledTimes(2);
+    expect(onData).toHaveBeenNthCalledWith(1, { delta: { response: 'ignored' }, seq: 1 });
+    expect(onData).toHaveBeenNthCalledWith(2, { id: 2 });
+  });
+
+  it('should ignore delta events with missing payload.delta', async () => {
+    global.fetch = mockFetch([
+      JSON.stringify({ event: 'delta', data: { seq: 1 } }) + '\n',
+      '{"id":3}\n',
+    ]) as typeof fetch;
+
+    const onDelta = jest.fn();
+    const onData = jest.fn();
+    const manager = new StreamableManager({
+      url: 'http://test.com/stream',
+      onDelta,
+      onData,
+    });
+
+    await manager.start();
+
+    expect(onDelta).not.toHaveBeenCalled();
+    expect(onData).toHaveBeenCalledTimes(1);
+    expect(onData).toHaveBeenCalledWith({ id: 3 });
+  });
 });
