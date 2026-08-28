@@ -310,4 +310,84 @@ describe('chatReducer', () => {
     const state = chatReducer(initialState, { type: 'UNKNOWN' } as never);
     expect(state).toBe(initialState);
   });
+
+  describe('DELTA_TOKEN', () => {
+    function makeAssistantMessage(id: string, order: number, text = ''): ChatMessageDTO {
+      return {
+        ...makeMessage(id, order),
+        role: 'assistant',
+        content: text ? [{ type: 'text', text }] : [{ type: 'tool_use', id: 'tool-1' }],
+      } as ChatMessageDTO;
+    }
+
+    it('should update the text block on the last assistant message', () => {
+      const chat = makeChat({
+        chat_messages: [
+          makeMessage('msg-1', 1),
+          makeAssistantMessage('msg-2', 2, 'Hel'),
+        ],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hello world' },
+      });
+
+      const assistant = next.messages.find((m) => m.id === 'msg-2');
+      expect(assistant?.content?.find((c) => c.type === 'text')?.text).toBe('Hello world');
+      expect(next.messages.find((m) => m.id === 'msg-1')?.content[0]?.text).toBe('message msg-1');
+    });
+
+    it('should prepend a text block when the last assistant message has no text content', () => {
+      const chat = makeChat({
+        chat_messages: [makeMessage('msg-1', 1), makeAssistantMessage('msg-2', 2)],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'streaming' },
+      });
+
+      const assistant = next.messages.find((m) => m.id === 'msg-2');
+      expect(assistant?.content?.[0]).toEqual({ type: 'text', text: 'streaming' });
+      expect(assistant?.content?.[1]).toEqual({ type: 'tool_use', id: 'tool-1' });
+    });
+
+    it('should target the last assistant message when multiple assistant messages exist', () => {
+      const chat = makeChat({
+        chat_messages: [
+          makeAssistantMessage('msg-1', 1, 'first'),
+          makeMessage('msg-2', 2),
+          makeAssistantMessage('msg-3', 3, 'sec'),
+        ],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'second reply' },
+      });
+
+      expect(next.messages.find((m) => m.id === 'msg-1')?.content[0]?.text).toBe('first');
+      expect(next.messages.find((m) => m.id === 'msg-3')?.content?.find((c) => c.type === 'text')?.text).toBe(
+        'second reply'
+      );
+    });
+
+    it('should leave state unchanged when there is no assistant message', () => {
+      const chat = makeChat({
+        chat_messages: [makeMessage('msg-1', 1), makeMessage('msg-2', 2)],
+      });
+      const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+      const next = chatReducer(state, {
+        type: 'DELTA_TOKEN',
+        payload: { response: 'orphan tokens' },
+      });
+
+      expect(next).toBe(state);
+    });
+  });
 });

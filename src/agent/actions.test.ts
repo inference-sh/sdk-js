@@ -626,6 +626,54 @@ describe('createActions', () => {
     });
   });
 
+  describe('delta stream listener', () => {
+    it('should register a delta listener and dispatch accumulated DELTA_TOKEN actions', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(streamInstances[0].addEventListener).toHaveBeenCalledWith('delta', expect.any(Function));
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: { delta: { response?: string }; seq: number }) => void;
+
+      onDelta({ delta: { response: 'Hel' }, seq: 1 });
+      onDelta({ delta: { response: 'lo' }, seq: 2 });
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hel' },
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hello' },
+      });
+    });
+
+    it('should ignore delta events without a delta payload', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: unknown) => void;
+
+      onDelta(null);
+      onDelta({ seq: 1 });
+      onDelta({ delta: null, seq: 2 });
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'DELTA_TOKEN' })
+      );
+    });
+  });
+
   describe('streamChat error handling', () => {
     it('should reset to idle when initial fetchChat fails', async () => {
       mockAgentApi.fetchChat.mockRejectedValueOnce(new Error('fetch failed'));
