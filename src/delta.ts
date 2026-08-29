@@ -7,6 +7,11 @@ export class DeltaAccumulator {
   private reasoning = '';
   private toolCalls: Map<number, { id?: string; type?: string; name?: string; arguments: string }> = new Map();
 
+  seed(output: { response?: string; reasoning?: string }): void {
+    if (output.response != null) this.response = output.response;
+    if (output.reasoning != null) this.reasoning = output.reasoning;
+  }
+
   apply(delta: LLMDelta): void {
     this.response += delta.response || '';
     if (delta.reasoning) this.reasoning += delta.reasoning;
