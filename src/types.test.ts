@@ -59,6 +59,8 @@ import {
   ScopeGroupApps,
   ScopePreset,
   ScopesResponse,
+  SuggestResponse,
+  SuggestResult,
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
@@ -1567,5 +1569,54 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('SuggestResponse impression_id (analytics tracking)', () => {
+  const makeResult = (overrides: Partial<SuggestResult> = {}): SuggestResult => ({
+    type: 'skill',
+    name: 'Usage summary',
+    description: 'Show subscription usage stats',
+    command: '/usage',
+    score: 0.92,
+    ...overrides,
+  });
+
+  it('models impression_id for telemetry correlation on suggest responses', () => {
+    const response: SuggestResponse = {
+      query: 'billing',
+      impression_id: 'imp_7f3a2b1c',
+      results: [makeResult({ tag: 'subscription_stats' })],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as SuggestResponse;
+
+    expect(parsed.impression_id).toBe('imp_7f3a2b1c');
+    expect(parsed.query).toBe('billing');
+    expect(parsed.results).toHaveLength(1);
+    expect(parsed.results[0]?.tag).toBe('subscription_stats');
+  });
+
+  it('allows legacy suggest responses without impression_id', () => {
+    const response: SuggestResponse = {
+      query: 'image gen',
+      results: [makeResult({ type: 'app', name: 'Flux', command: 'flux', score: 0.8 })],
+    };
+
+    expect(response.impression_id).toBeUndefined();
+    expect(response.results[0]?.type).toBe('app');
+  });
+
+  it('preserves impression_id alongside empty results for zero-hit queries', () => {
+    const response: SuggestResponse = {
+      query: 'nonexistent-command-xyz',
+      impression_id: 'imp_empty_result',
+      results: [],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as SuggestResponse;
+
+    expect(parsed.impression_id).toBe('imp_empty_result');
+    expect(parsed.results).toEqual([]);
   });
 });

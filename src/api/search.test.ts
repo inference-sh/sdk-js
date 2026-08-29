@@ -106,6 +106,29 @@ describe('SearchAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should preserve impression_id in suggest() responses for analytics correlation', async () => {
+    const response = {
+      query: 'billing',
+      impression_id: 'imp_7f3a2b1c',
+      results: [
+        {
+          type: 'skill',
+          tag: 'subscription_stats',
+          name: 'Usage summary',
+          description: 'Show subscription usage stats',
+          command: '/usage',
+          score: 0.92,
+        },
+      ],
+    };
+    mockJsonResponse(response);
+
+    const result = await api().suggest({ query: 'billing' });
+
+    expect(result.data).toEqual(response);
+    expect(result.data.impression_id).toBe('imp_7f3a2b1c');
+  });
+
   it('should POST /search for search()', async () => {
     const payload = { q: 'claude', type: 'apps', limit: 5 };
     const response = { hits: [{ id: 'app-1' }] };
