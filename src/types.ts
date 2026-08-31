@@ -3650,6 +3650,7 @@ export type MergeStrategy = string;
 export const MergeStrategyConcat: MergeStrategy = "concat";
 export const MergeStrategyReplace: MergeStrategy = "replace";
 export const MergeStrategyIndexed: MergeStrategy = "indexed";
+export const MergeStrategyNested: MergeStrategy = "nested";
 /**
  * StreamDelta is the marker base for all streaming delta types.
  * Types embedding StreamDelta are routed through the delta channel.
@@ -3693,6 +3694,12 @@ export interface ToolCallDelta {
   type?: ToolCallType;
   function?: ToolCallFunctionDelta;
 }
+export const ToolCallDelta_fieldTags = {
+  id: {merge: "replace"},
+  type: {merge: "replace"},
+  function: {merge: "nested"},
+} as const;
+
 /**
  * DeltaEvent is the generic streaming envelope on the NDJSON wire.
  * Delta is raw bytes — consumers parse based on context.
@@ -3713,6 +3720,11 @@ export interface ToolCallFunctionDelta {
   name?: string;
   arguments?: string;
 }
+export const ToolCallFunctionDelta_fieldTags = {
+  name: {merge: "replace"},
+  arguments: {merge: "concat"},
+} as const;
+
 /**
  * ModelSettings groups sampling and generation parameters as a passable unit.
  */
