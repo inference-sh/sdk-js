@@ -3644,6 +3644,12 @@ export const HookHandlerWebhook: HookHandlerType = "webhook";
 export const HookHandlerTask: HookHandlerType = "task";
 export const HookHandlerGate: HookHandlerType = "gate";
 /**
+ * StreamDelta is the marker base for all streaming delta types.
+ * Types embedding StreamDelta are routed through the delta channel.
+ */
+export interface StreamDelta {
+}
+/**
  * LLMOutput is the output envelope from an LLM provider task.
  * This is the contract between chat apps (sdk-py) and the agent runtime (go/api).
  */
@@ -3654,15 +3660,21 @@ export interface LLMOutput {
   usage?: LLMUsage;
 }
 /**
- * LLMDelta is a streaming delta for LLMOutput with append semantics.
- * response/reasoning: concatenate. tool_calls: index-based, arguments append.
+ * LLMDelta is a streaming delta for LLMOutput.
  */
-export interface LLMDelta {
+export interface LLMDelta extends StreamDelta {
   response: string;
   reasoning?: string;
   tool_calls?: ToolCallDelta[];
   usage?: LLMUsage;
 }
+export const LLMDelta_fieldTags = {
+  response: {merge: "concat"},
+  reasoning: {merge: "concat"},
+  tool_calls: {merge: "indexed"},
+  usage: {merge: "replace"},
+} as const;
+
 /**
  * ToolCallDelta is an incremental update to a tool call, identified by index.
  * First delta for an index carries ID, Type, and Function.Name.
@@ -3675,12 +3687,17 @@ export interface ToolCallDelta {
   function?: ToolCallFunctionDelta;
 }
 /**
- * LLMDeltaEvent is the streaming envelope for a delta on the NDJSON wire.
+ * DeltaEvent is the generic streaming envelope on the NDJSON wire.
+ * Delta is raw bytes — consumers parse based on context.
  */
-export interface LLMDeltaEvent {
-  delta: LLMDelta;
+export interface DeltaEvent {
+  delta: any;
   seq: number /* int64 */;
 }
+/**
+ * LLMDeltaEvent is a typed alias for backward compatibility.
+ */
+export type LLMDeltaEvent = DeltaEvent;
 /**
  * ToolCallFunctionDelta carries partial tool call function data.
  * Arguments is a raw JSON string fragment — concatenate by index, parse on completion.
