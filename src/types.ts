@@ -417,6 +417,7 @@ export interface AuthResponse {
   session_id: string;
   is_new?: boolean;
   otp_required?: boolean;
+  otp_method?: string; // "email" or "totp"
   redirect_to?: string;
   provider?: string;
 }
@@ -3079,6 +3080,7 @@ export interface UserDTO extends BaseModelDTO {
   avatar_url: string;
   banned_at?: string /* RFC3339 */;
   ban_note?: string;
+  totp_enabled: boolean;
   metadata?: UserMetadataDTO;
 }
 /**
