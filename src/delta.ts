@@ -1,4 +1,4 @@
-import type { LLMDelta, LLMDeltaEvent, LLMOutput, StringEncodedMap } from './types';
+import type { LLMDelta, LLMDeltaEvent, LLMOutput, LLMUsage, StringEncodedMap } from './types';
 
 export type { LLMDeltaEvent as DeltaEvent } from './types';
 
@@ -6,6 +6,7 @@ export class DeltaAccumulator {
   private response = '';
   private reasoning = '';
   private toolCalls: Map<number, { id?: string; type?: string; name?: string; arguments: string }> = new Map();
+  private usage: LLMUsage | null = null;
 
   seed(output: { response?: string; reasoning?: string }): void {
     if (output.response != null) this.response = output.response;
@@ -25,11 +26,13 @@ export class DeltaAccumulator {
         this.toolCalls.set(tc.index, existing);
       }
     }
+    if (delta.usage) this.usage = delta.usage;
   }
 
   toOutput(): LLMOutput {
     const output: LLMOutput = { response: this.response };
     if (this.reasoning) output.reasoning = this.reasoning;
+    if (this.usage) output.usage = this.usage;
     if (this.toolCalls.size > 0) {
       output.tool_calls = Array.from(this.toolCalls.entries())
         .sort(([a], [b]) => a - b)
