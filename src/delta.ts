@@ -1,6 +1,6 @@
-import type { LLMDelta, LLMDeltaEvent, LLMOutput, StringEncodedMap } from './types';
+import type { LLMDelta, LLMOutput, StringEncodedMap } from './types';
 
-export type { LLMDeltaEvent as DeltaEvent } from './types';
+export type { DeltaEvent } from './types';
 
 export class DeltaAccumulator {
   private response = '';
