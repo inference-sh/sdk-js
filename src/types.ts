@@ -3644,6 +3644,13 @@ export const HookHandlerWebhook: HookHandlerType = "webhook";
 export const HookHandlerTask: HookHandlerType = "task";
 export const HookHandlerGate: HookHandlerType = "gate";
 /**
+ * MergeStrategy defines how a delta field should be merged by consumers.
+ */
+export type MergeStrategy = string;
+export const MergeStrategyConcat: MergeStrategy = "concat";
+export const MergeStrategyReplace: MergeStrategy = "replace";
+export const MergeStrategyIndexed: MergeStrategy = "indexed";
+/**
  * StreamDelta is the marker base for all streaming delta types.
  * Types embedding StreamDelta are routed through the delta channel.
  */
