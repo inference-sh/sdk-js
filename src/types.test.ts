@@ -85,7 +85,16 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  MergeStrategy,
+  MergeStrategyConcat,
+  MergeStrategyIndexed,
+  MergeStrategyNested,
+  MergeStrategyReplace,
+  ToolCallDelta_fieldTags,
+  ToolCallFunctionDelta_fieldTags,
+  ToolTypeFunction,
 } from './types';
+import { DeltaAccumulator } from './delta';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
   return {
@@ -1567,5 +1576,85 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('nested merge strategy type contracts', () => {
+  it('exports MergeStrategyNested for nested object delta fields', () => {
+    expect(MergeStrategyNested).toBe('nested');
+  });
+
+  it('documents ToolCallDelta_fieldTags with replace and nested merge strategies', () => {
+    expect(ToolCallDelta_fieldTags).toEqual({
+      id: { merge: 'replace' },
+      type: { merge: 'replace' },
+      function: { merge: 'nested' },
+    });
+  });
+
+  it('documents ToolCallFunctionDelta_fieldTags with replace name and concat arguments', () => {
+    expect(ToolCallFunctionDelta_fieldTags).toEqual({
+      name: { merge: 'replace' },
+      arguments: { merge: 'concat' },
+    });
+  });
+
+  it('aligns nested field tag merge values with MergeStrategy constants', () => {
+    expect(ToolCallDelta_fieldTags.id.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallDelta_fieldTags.type.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallDelta_fieldTags.function.merge).toBe(MergeStrategyNested);
+    expect(ToolCallFunctionDelta_fieldTags.name.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallFunctionDelta_fieldTags.arguments.merge).toBe(MergeStrategyConcat);
+  });
+
+  it('types nested field tag merge metadata as MergeStrategy values', () => {
+    const strategies: MergeStrategy[] = [
+      ToolCallDelta_fieldTags.id.merge,
+      ToolCallDelta_fieldTags.type.merge,
+      ToolCallDelta_fieldTags.function.merge,
+      ToolCallFunctionDelta_fieldTags.name.merge,
+      ToolCallFunctionDelta_fieldTags.arguments.merge,
+    ];
+
+    expect(strategies).toEqual([
+      MergeStrategyReplace,
+      MergeStrategyReplace,
+      MergeStrategyNested,
+      MergeStrategyReplace,
+      MergeStrategyConcat,
+    ]);
+  });
+
+  it('implements nested merge in DeltaAccumulator: replace function.name, concat arguments', () => {
+    const acc = new DeltaAccumulator();
+
+    acc.apply({
+      response: '',
+      tool_calls: [
+        {
+          index: 0,
+          id: 'call_1',
+          type: ToolTypeFunction,
+          function: { name: 'lookup', arguments: '{"q":' },
+        },
+      ],
+    });
+    acc.apply({
+      response: '',
+      tool_calls: [
+        {
+          index: 0,
+          function: { name: 'renamed', arguments: '"x"}' },
+        },
+      ],
+    });
+
+    expect(acc.toOutput().tool_calls).toEqual([
+      {
+        id: 'call_1',
+        type: ToolTypeFunction,
+        function: { name: 'renamed', arguments: { q: 'x' } },
+      },
+    ]);
   });
 });
