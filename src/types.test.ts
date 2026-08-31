@@ -85,6 +85,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  MergeStrategy,
+  MergeStrategyConcat,
+  MergeStrategyIndexed,
+  MergeStrategyReplace,
+  LLMDelta_fieldTags,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1572,50 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('MergeStrategy type contracts', () => {
+  it('exports merge strategy constants for streaming delta field metadata', () => {
+    expect(MergeStrategyConcat).toBe('concat');
+    expect(MergeStrategyReplace).toBe('replace');
+    expect(MergeStrategyIndexed).toBe('indexed');
+  });
+
+  it('aligns LLMDelta_fieldTags merge values with MergeStrategy constants', () => {
+    expect(LLMDelta_fieldTags.response.merge).toBe(MergeStrategyConcat);
+    expect(LLMDelta_fieldTags.reasoning.merge).toBe(MergeStrategyConcat);
+    expect(LLMDelta_fieldTags.tool_calls.merge).toBe(MergeStrategyIndexed);
+    expect(LLMDelta_fieldTags.usage.merge).toBe(MergeStrategyReplace);
+  });
+
+  it('types LLMDelta_fieldTags merge metadata as MergeStrategy values', () => {
+    const strategies: MergeStrategy[] = [
+      LLMDelta_fieldTags.response.merge,
+      LLMDelta_fieldTags.reasoning.merge,
+      LLMDelta_fieldTags.tool_calls.merge,
+      LLMDelta_fieldTags.usage.merge,
+    ];
+
+    expect(strategies).toEqual([
+      MergeStrategyConcat,
+      MergeStrategyConcat,
+      MergeStrategyIndexed,
+      MergeStrategyReplace,
+    ]);
+  });
+
+  it('documents distinct merge strategies per LLMOutput field shape', () => {
+    const byStrategy = new Map<MergeStrategy, string[]>();
+
+    for (const [field, tag] of Object.entries(LLMDelta_fieldTags)) {
+      const list = byStrategy.get(tag.merge) ?? [];
+      list.push(field);
+      byStrategy.set(tag.merge, list);
+    }
+
+    expect(byStrategy.get(MergeStrategyConcat)).toEqual(['response', 'reasoning']);
+    expect(byStrategy.get(MergeStrategyIndexed)).toEqual(['tool_calls']);
+    expect(byStrategy.get(MergeStrategyReplace)).toEqual(['usage']);
   });
 });
