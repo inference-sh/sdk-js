@@ -85,7 +85,19 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  DeltaEvent,
+  LLMDelta,
+  LLMDelta_fieldTags,
+  LLMDeltaEvent,
+  LLMOutput,
+  LLMUsage,
+  StreamDelta,
+  ToolCall,
+  ToolCallDelta,
+  ToolCallFunctionDelta,
+  ToolTypeFunction,
 } from './types';
+import { DeltaAccumulator, type DeltaEvent as BarrelDeltaEvent } from './delta';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
   return {
@@ -1567,5 +1579,157 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('StreamDelta, field tags, and DeltaEvent type contracts', () => {
+  const sampleUsage = (): LLMUsage => ({
+    stop_reason: 'end_turn',
+    prompt_tokens: 10,
+    completion_tokens: 5,
+    total_tokens: 15,
+  });
+
+  it('models LLMDelta as extending the StreamDelta routing marker', () => {
+    const delta: LLMDelta = { response: 'tok' };
+    const routed: StreamDelta = delta;
+
+    expect(routed).toBe(delta);
+    expect(delta.response).toBe('tok');
+  });
+
+  it('documents LLMDelta_fieldTags merge strategies for streaming consumers', () => {
+    expect(LLMDelta_fieldTags).toEqual({
+      response: { merge: 'concat' },
+      reasoning: { merge: 'concat' },
+      tool_calls: { merge: 'indexed' },
+      usage: { merge: 'replace' },
+    });
+  });
+
+  it('aligns concat and indexed field tags with DeltaAccumulator merge semantics', () => {
+    const acc = new DeltaAccumulator();
+
+    acc.apply({ response: 'Hel', reasoning: 'think ' });
+    acc.apply({ response: 'lo', reasoning: 'more' });
+    acc.apply({
+      response: '',
+      tool_calls: [
+        {
+          index: 0,
+          id: 'call_1',
+          type: ToolTypeFunction,
+          function: { name: 'lookup', arguments: '{"q":' },
+        },
+      ],
+    });
+    acc.apply({
+      response: '',
+      tool_calls: [{ index: 0, function: { arguments: '"x"}' } }],
+    });
+
+    expect(acc.toOutput()).toEqual({
+      response: 'Hello',
+      reasoning: 'think more',
+      tool_calls: [
+        {
+          id: 'call_1',
+          type: ToolTypeFunction,
+          function: { name: 'lookup', arguments: { q: 'x' } },
+        },
+      ],
+    });
+  });
+
+  it('models DeltaEvent as a generic NDJSON envelope with opaque delta payload', () => {
+    const llmEnvelope: DeltaEvent = {
+      delta: { response: 'chunk' },
+      seq: 1,
+    };
+    const opaqueEnvelope: DeltaEvent = {
+      delta: { custom_stream: { part: 1 } },
+      seq: 2,
+    };
+
+    const parsedLlm = JSON.parse(JSON.stringify(llmEnvelope)) as DeltaEvent;
+    const parsedOpaque = JSON.parse(JSON.stringify(opaqueEnvelope)) as DeltaEvent;
+
+    expect(parsedLlm.delta.response).toBe('chunk');
+    expect(parsedLlm.seq).toBe(1);
+    expect(parsedOpaque.delta.custom_stream).toEqual({ part: 1 });
+    expect(parsedOpaque.seq).toBe(2);
+  });
+
+  it('treats LLMDeltaEvent as a backward-compatible alias for DeltaEvent', () => {
+    const viaAlias: LLMDeltaEvent = {
+      delta: { response: 'legacy' },
+      seq: 99,
+    };
+    const viaPrimary: DeltaEvent = viaAlias;
+
+    const parsed = JSON.parse(JSON.stringify(viaPrimary)) as LLMDeltaEvent;
+
+    expect(parsed.delta.response).toBe('legacy');
+    expect(parsed.seq).toBe(99);
+  });
+
+  it('round-trips LLMOutput and LLMDelta field shapes used inside DeltaEvent payloads', () => {
+    const output: LLMOutput = {
+      response: 'done',
+      reasoning: 'because',
+      tool_calls: [
+        {
+          id: 'call_done',
+          type: ToolTypeFunction,
+          function: { name: 'fn', arguments: { ok: true } },
+        },
+      ],
+      usage: sampleUsage(),
+    };
+    const delta: LLMDelta = {
+      response: 'partial',
+      tool_calls: [
+        {
+          index: 0,
+          function: { arguments: '{"ok":' },
+        },
+      ],
+    };
+    const event: DeltaEvent = { delta, seq: 3 };
+
+    const parsedOutput = JSON.parse(JSON.stringify(output)) as LLMOutput;
+    const parsedEvent = JSON.parse(JSON.stringify(event)) as DeltaEvent;
+
+    expect(parsedOutput.tool_calls?.[0].function.arguments).toEqual({ ok: true });
+    expect((parsedEvent.delta as LLMDelta).response).toBe('partial');
+    expect((parsedEvent.delta as LLMDelta).tool_calls?.[0].function?.arguments).toBe('{"ok":');
+  });
+
+  it('exports DeltaEvent from the delta barrel as the regenerated wire envelope', () => {
+    const event: BarrelDeltaEvent = {
+      delta: { response: 'from-barrel' },
+      seq: 7,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as DeltaEvent;
+
+    expect(parsed.delta.response).toBe('from-barrel');
+    expect(parsed.seq).toBe(7);
+  });
+
+  it('distinguishes completed ToolCall arguments from delta argument fragments', () => {
+    const completed: ToolCall = {
+      id: 'call_done',
+      type: ToolTypeFunction,
+      function: { name: 'fn', arguments: { ready: true } },
+    };
+    const fragment: ToolCallFunctionDelta = { arguments: '{"ready":' };
+    const indexed: ToolCallDelta = {
+      index: 0,
+      function: fragment,
+    };
+
+    expect(completed.function.arguments).toEqual({ ready: true });
+    expect(indexed.function?.arguments).toBe('{"ready":');
   });
 });
