@@ -1,4 +1,4 @@
-import type { LLMDelta, LLMDeltaEvent, LLMOutput, StringEncodedMap, ToolCallDelta } from './types';
+import type { LLMDelta, LLMOutput, StringEncodedMap } from './types';
 import {
   LLMDelta_fieldTags,
   ToolCallDelta_fieldTags,
