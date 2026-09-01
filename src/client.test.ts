@@ -1,3 +1,4 @@
+import * as sdkModule from './index';
 import {
   AppStatusActive,
   AppStatusDeprecated,
@@ -81,7 +82,7 @@ describe('package type exports', () => {
   });
 
   it('does not export removed A2UIHTML component type constant', () => {
-    const sdk = require('./index') as Record<string, unknown>;
+    const sdk = sdkModule as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
   });
 });
