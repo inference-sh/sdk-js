@@ -79,7 +79,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.6.43', ...config.headers };
     this.credentials = config.credentials || 'include';
     this.onError = config.onError;
     this.onMessage = config.onMessage;
