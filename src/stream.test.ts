@@ -320,6 +320,45 @@ describe('StreamManager', () => {
       jest.useRealTimers();
     });
 
+    it('should stop reconnecting after maxReconnects when createEventSource always fails (never connected)', async () => {
+      jest.useFakeTimers();
+      const onError = jest.fn();
+      let callCount = 0;
+      const createEventSource = jest.fn().mockImplementation(async () => {
+        callCount++;
+        throw new Error('connection refused');
+      });
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: true,
+        maxReconnects: 2,
+        reconnectDelayMs: 100,
+        onError,
+      });
+
+      // Initial attempt fails immediately
+      await manager.connect();
+      expect(createEventSource).toHaveBeenCalledTimes(1);
+
+      // First retry
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(2);
+
+      // Second retry
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      // No further retries — maxReconnects (2) exhausted
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
+    });
+
     it('should call onError and stop when createEventSource throws', async () => {
       jest.useFakeTimers();
       const onError = jest.fn();
