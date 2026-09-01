@@ -60,7 +60,6 @@ function mergeObject(current: any, incoming: any, tags: FieldTags): any {
   for (const [key, value] of Object.entries(incoming)) {
     if (value == null) continue;
     const strategy = tags[key]?.merge ?? MergeStrategyConcat;
-    if (strategy === MergeStrategyReplace && key in result && !value) continue;
     result[key] = mergeField(result[key], value, strategy);
   }
   return result;
