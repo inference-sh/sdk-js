@@ -37,8 +37,7 @@ export class StreamManager<T> {
   private eventSource: EventSource | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private stopTimeout: ReturnType<typeof setTimeout> | null = null;
-  private initialConnectionAttempts = 0;
-  private consecutiveErrors = 0;
+  private reconnectAttempts = 0;
   private isConnected = false;
   private isStopped = false;
   private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
@@ -150,20 +149,13 @@ export class StreamManager<T> {
 
     const maxReconnects = this.options.maxReconnects ?? 5;
 
-    if (!this.isConnected && this.initialConnectionAttempts >= maxReconnects) {
-      return false;
-    }
-
-    if (this.isConnected && this.consecutiveErrors >= maxReconnects) {
+    if (this.reconnectAttempts >= maxReconnects) {
       return false;
     }
 
     this.reconnectTimeout = setTimeout(() => {
       if (!this.isStopped) {
-        if (!this.isConnected) {
-          this.initialConnectionAttempts++;
-        }
-        this.consecutiveErrors++;
+        this.reconnectAttempts++;
         this.connect();
       }
     }, this.options.reconnectDelayMs);
@@ -175,7 +167,6 @@ export class StreamManager<T> {
     if (this.isStopped) return;
 
     this.cleanup();
-    this.isStopped = false;
 
     try {
       const source = await this.options.createEventSource();
@@ -190,7 +181,6 @@ export class StreamManager<T> {
 
       source.onmessage = (e: MessageEvent) => {
         if (this.isStopped) return;
-        this.consecutiveErrors = 0;
         try {
           const parsed = JSON.parse(e.data);
 
