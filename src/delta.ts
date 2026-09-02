@@ -1,4 +1,3 @@
-import type { LLMDelta, LLMDeltaEvent, LLMOutput, StringEncodedMap, ToolCallDelta } from './types';
 import {
   LLMDelta_fieldTags,
   ToolCallDelta_fieldTags,
@@ -9,28 +8,28 @@ import {
   MergeStrategyReplace,
 } from './types';
 
-export type { LLMDeltaEvent as DeltaEvent } from './types';
+export type { DeltaEvent } from './types';
 
-type FieldTags = Record<string, { merge: string }>;
+export type FieldTags = Record<string, { merge: string }>;
+export type FieldTagsRegistry = Map<FieldTags, FieldTags>;
 
-function mergeField(current: any, incoming: any, strategy: string): any {
+function mergeField(current: any, incoming: any, strategy: string, childTags: FieldTags, registry?: FieldTagsRegistry): any {
   if (incoming == null) return current;
-  if (strategy === MergeStrategyConcat) {
-    return (current ?? '') + incoming;
+  switch (strategy) {
+    case MergeStrategyConcat:
+      return (current ?? '') + incoming;
+    case MergeStrategyReplace:
+      return incoming;
+    case MergeStrategyIndexed:
+      return mergeIndexed(current, incoming, childTags, registry);
+    case MergeStrategyNested:
+      return mergeNested(current, incoming, childTags, registry);
+    default:
+      return incoming;
   }
-  if (strategy === MergeStrategyReplace) {
-    return incoming;
-  }
-  if (strategy === MergeStrategyIndexed) {
-    return mergeIndexed(current, incoming);
-  }
-  if (strategy === MergeStrategyNested) {
-    return mergeNested(current, incoming);
-  }
-  return incoming;
 }
 
-function mergeIndexed(current: any[] | undefined, incoming: any[]): any[] {
+function mergeIndexed(current: any[] | undefined, incoming: any[], itemTags: FieldTags, registry?: FieldTagsRegistry): any[] {
   const byIndex = new Map<number, any>();
   if (current) {
     for (const item of current) byIndex.set(item.index ?? 0, item);
@@ -41,7 +40,7 @@ function mergeIndexed(current: any[] | undefined, incoming: any[]): any[] {
     if (!existing) {
       byIndex.set(idx, { ...item });
     } else {
-      byIndex.set(idx, mergeObject(existing, item, ToolCallDelta_fieldTags));
+      byIndex.set(idx, mergeObject(existing, item, itemTags, registry));
     }
   }
   return Array.from(byIndex.entries())
@@ -49,64 +48,55 @@ function mergeIndexed(current: any[] | undefined, incoming: any[]): any[] {
     .map(([_, v]) => v);
 }
 
-function mergeNested(current: any, incoming: any): any {
+function mergeNested(current: any, incoming: any, nestedTags: FieldTags, registry?: FieldTagsRegistry): any {
   if (current == null) return { ...incoming };
-  const tags = ToolCallFunctionDelta_fieldTags as FieldTags;
-  return mergeObject(current, incoming, tags);
+  return mergeObject(current, incoming, nestedTags, registry);
 }
 
-function mergeObject(current: any, incoming: any, tags: FieldTags): any {
+function mergeObject(current: any, incoming: any, tags: FieldTags, registry?: FieldTagsRegistry): any {
   const result = { ...current };
   for (const [key, value] of Object.entries(incoming)) {
     if (value == null) continue;
-    const strategy = tags[key]?.merge ?? MergeStrategyConcat;
-    if (strategy === MergeStrategyReplace && key in result && !value) continue;
-    result[key] = mergeField(result[key], value, strategy);
+    const strategy = tags[key]?.merge ?? MergeStrategyReplace;
+    const childTags = registry?.get(tags) ?? {};
+    result[key] = mergeField(result[key], value, strategy, childTags, registry);
   }
   return result;
 }
 
 export class DeltaAccumulator {
   private state: Record<string, any> = {};
+  private tags: FieldTags;
+  private registry: FieldTagsRegistry | undefined;
 
-  seed(output: { response?: string; reasoning?: string }): void {
-    if (output.response != null) this.state.response = output.response;
-    if (output.reasoning != null) this.state.reasoning = output.reasoning;
+  constructor(tags: FieldTags, registry?: FieldTagsRegistry) {
+    this.tags = tags;
+    this.registry = registry;
   }
 
-  apply(delta: LLMDelta): void {
-    const tags = LLMDelta_fieldTags as FieldTags;
+  seed(output: Record<string, any>): void {
+    for (const [key, value] of Object.entries(output)) {
+      if (value != null) this.state[key] = value;
+    }
+  }
+
+  apply(delta: Record<string, any>): void {
     for (const [key, value] of Object.entries(delta)) {
       if (value == null) continue;
-      const strategy = tags[key]?.merge ?? MergeStrategyConcat;
-      if (strategy === MergeStrategyIndexed) {
-        this.state[key] = mergeIndexed(this.state[key], value);
-      } else {
-        this.state[key] = mergeField(this.state[key], value, strategy);
-      }
+      const strategy = this.tags[key]?.merge ?? MergeStrategyReplace;
+      const childTags = this.registry?.get(this.tags) ?? {};
+      this.state[key] = mergeField(this.state[key], value, strategy, childTags, this.registry);
     }
   }
 
-  toOutput(): LLMOutput {
-    const output: LLMOutput = { response: this.state.response ?? '' };
-    if (this.state.reasoning) output.reasoning = this.state.reasoning;
-    if (this.state.tool_calls?.length > 0) {
-      output.tool_calls = this.state.tool_calls.map((tc: any) => {
-        let args: StringEncodedMap = {};
-        const rawArgs = tc.function?.arguments ?? '';
-        try {
-          args = JSON.parse(rawArgs) as StringEncodedMap;
-        } catch {
-          // arguments not yet valid JSON — leave empty
-        }
-        return {
-          id: tc.id || '',
-          type: tc.type || 'function',
-          function: { name: tc.function?.name || '', arguments: args },
-        };
-      });
-    }
-    if (this.state.usage) output.usage = this.state.usage;
-    return output;
+  toOutput(): Record<string, any> {
+    return { ...this.state };
   }
+}
+
+export function createLLMDeltaAccumulator(): DeltaAccumulator {
+  const registry: FieldTagsRegistry = new Map();
+  registry.set(LLMDelta_fieldTags as FieldTags, ToolCallDelta_fieldTags as FieldTags);
+  registry.set(ToolCallDelta_fieldTags as FieldTags, ToolCallFunctionDelta_fieldTags as FieldTags);
+  return new DeltaAccumulator(LLMDelta_fieldTags as FieldTags, registry);
 }

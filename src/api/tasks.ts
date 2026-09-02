@@ -13,7 +13,6 @@ import {
   TaskStatusCancelled,
   CursorListRequest,
   CursorListResponse,
-  LLMDelta,
 } from '../types';
 import { parseStatus } from '../utils';
 
@@ -31,7 +30,7 @@ export interface RunOptions {
   /** Polling interval in ms when stream is false. Overrides client default. */
   pollIntervalMs?: number;
   /** Callback for streaming delta events (token-by-token updates) */
-  onDelta?: (delta: LLMDelta, seq: number) => void;
+  onDelta?: (delta: Record<string, any>, seq: number) => void;
 }
 
 //TODO: This is ugly...

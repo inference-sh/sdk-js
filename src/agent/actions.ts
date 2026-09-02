@@ -5,7 +5,7 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO, LLMDeltaEvent, ResourceStatusDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, DeltaEvent, ResourceStatusDTO } from '../types';
 import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
@@ -17,7 +17,7 @@ import {
 import { isChatBusy } from '../utils';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
-import { DeltaAccumulator } from '../delta';
+import { createLLMDeltaAccumulator } from '../delta';
 import type {
   AgentChatActions,
   ActionsContext,
@@ -189,8 +189,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     // Listen for LLM delta events (token-by-token streaming)
-    const deltaAccum = new DeltaAccumulator();
-    manager.addEventListener<LLMDeltaEvent>('delta', (evt) => {
+    const deltaAccum = createLLMDeltaAccumulator();
+    manager.addEventListener<DeltaEvent>('delta', (evt) => {
       if (evt && evt.delta) {
         deltaAccum.apply(evt.delta);
         dispatch({ type: 'DELTA_TOKEN', payload: deltaAccum.toOutput() });
