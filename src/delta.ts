@@ -55,10 +55,10 @@ function mergeNested(current: any, incoming: any, nestedTags: FieldTags, registr
 
 function mergeObject(current: any, incoming: any, tags: FieldTags, registry?: FieldTagsRegistry): any {
   const result = { ...current };
+  const childTags = registry?.get(tags) ?? {};
   for (const [key, value] of Object.entries(incoming)) {
     if (value == null) continue;
     const strategy = tags[key]?.merge ?? MergeStrategyReplace;
-    const childTags = registry?.get(tags) ?? {};
     result[key] = mergeField(result[key], value, strategy, childTags, registry);
   }
   return result;
@@ -81,10 +81,10 @@ export class DeltaAccumulator {
   }
 
   apply(delta: Record<string, any>): void {
+    const childTags = this.registry?.get(this.tags) ?? {};
     for (const [key, value] of Object.entries(delta)) {
       if (value == null) continue;
       const strategy = this.tags[key]?.merge ?? MergeStrategyReplace;
-      const childTags = this.registry?.get(this.tags) ?? {};
       this.state[key] = mergeField(this.state[key], value, strategy, childTags, this.registry);
     }
   }
