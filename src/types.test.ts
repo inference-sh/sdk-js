@@ -57,8 +57,22 @@ import {
   ScopeAppsRead,
   ScopeAppsWrite,
   ScopeGroupApps,
+  ScopeGroupKnowledge,
+  ScopeKnowledgeRead,
+  ScopeKnowledgeWrite,
   ScopePreset,
   ScopesResponse,
+  ChatMessageRoleUser,
+  LLMInput,
+  ResponseFormat,
+  ResponseFormatTypeJSONObject,
+  ResponseFormatTypeJSONSchema,
+  ResponseFormatTypeText,
+  ToolChoice,
+  ToolChoiceModeAuto,
+  ToolChoiceModeFunction,
+  ToolChoiceModeNone,
+  ToolChoiceModeRequired,
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
@@ -1567,5 +1581,169 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Knowledge API key scopes (v0.8.3)', () => {
+  it('exports knowledge read and write scope constants', () => {
+    expect(ScopeKnowledgeRead).toBe('knowledge:read');
+    expect(ScopeKnowledgeWrite).toBe('knowledge:write');
+    expect(ScopeGroupKnowledge).toBe('knowledge');
+  });
+
+  it('groups knowledge scopes in ScopesResponse for API key permission UIs', () => {
+    const response: ScopesResponse = {
+      scopes: [
+        {
+          value: ScopeKnowledgeRead,
+          label: 'Read knowledge',
+          description: 'View knowledge bases and skills',
+          group: ScopeGroupKnowledge,
+        },
+        {
+          value: ScopeKnowledgeWrite,
+          label: 'Write knowledge',
+          description: 'Create and update knowledge bases and skills',
+          group: ScopeGroupKnowledge,
+        },
+      ],
+      groups: [
+        {
+          id: ScopeGroupKnowledge,
+          label: 'Knowledge',
+          description: 'Knowledge bases and skills',
+        },
+      ],
+      presets: [],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as ScopesResponse;
+
+    expect(parsed.scopes.map((scope) => scope.value)).toEqual([
+      'knowledge:read',
+      'knowledge:write',
+    ]);
+    expect(parsed.groups[0].id).toBe('knowledge');
+  });
+});
+
+describe('ToolChoice type contracts (v0.8.3)', () => {
+  it('exports ToolChoiceMode constants for provider translation', () => {
+    expect(ToolChoiceModeNone).toBe('none');
+    expect(ToolChoiceModeAuto).toBe('auto');
+    expect(ToolChoiceModeRequired).toBe('required');
+    expect(ToolChoiceModeFunction).toBe('function');
+  });
+
+  it('models auto and required tool choice modes without a function name', () => {
+    const auto: ToolChoice = { mode: ToolChoiceModeAuto };
+    const required: ToolChoice = { mode: ToolChoiceModeRequired };
+
+    expect(auto.mode).toBe('auto');
+    expect(auto.name).toBeUndefined();
+    expect(required.mode).toBe('required');
+  });
+
+  it('models function mode with a required tool name', () => {
+    const choice: ToolChoice = {
+      mode: ToolChoiceModeFunction,
+      name: 'search_knowledge',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(choice)) as ToolChoice;
+
+    expect(parsed.mode).toBe('function');
+    expect(parsed.name).toBe('search_knowledge');
+  });
+});
+
+describe('ResponseFormat type contracts (v0.8.3)', () => {
+  it('exports ResponseFormatType constants for output constraints', () => {
+    expect(ResponseFormatTypeText).toBe('text');
+    expect(ResponseFormatTypeJSONObject).toBe('json_object');
+    expect(ResponseFormatTypeJSONSchema).toBe('json_schema');
+  });
+
+  it('models plain text and json_object response formats', () => {
+    const text: ResponseFormat = { type: ResponseFormatTypeText };
+    const jsonObject: ResponseFormat = { type: ResponseFormatTypeJSONObject };
+
+    expect(text.type).toBe('text');
+    expect(jsonObject.type).toBe('json_object');
+    expect(text.json_schema).toBeUndefined();
+  });
+
+  it('models json_schema response format with schema metadata', () => {
+    const schema = {
+      type: 'object',
+      properties: { answer: { type: 'string' } },
+      required: ['answer'],
+    };
+    const format: ResponseFormat = {
+      type: ResponseFormatTypeJSONSchema,
+      name: 'AnswerSchema',
+      json_schema: schema,
+      strict: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(format)) as ResponseFormat;
+
+    expect(parsed.type).toBe('json_schema');
+    expect(parsed.name).toBe('AnswerSchema');
+    expect(parsed.json_schema).toEqual(schema);
+    expect(parsed.strict).toBe(true);
+  });
+});
+
+describe('LLMInput tool_choice and response_format (v0.8.3)', () => {
+  const baseInput = (): LLMInput => ({
+    context_size: 8192,
+    system_prompt: 'You are a helpful assistant.',
+    context: [{ role: ChatMessageRoleUser, text: 'Summarize this document.' }],
+  });
+
+  it('allows LLMInput without tool_choice or response_format for legacy callers', () => {
+    const input = baseInput();
+
+    expect(input.tool_choice).toBeUndefined();
+    expect(input.response_format).toBeUndefined();
+  });
+
+  it('models tool_choice and response_format on LLMInput for provider tasks', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      model: 'gpt-4.1',
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: {
+        type: ResponseFormatTypeJSONSchema,
+        name: 'Summary',
+        json_schema: { type: 'object', properties: { summary: { type: 'string' } } },
+        strict: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.tool_choice?.mode).toBe('required');
+    expect(parsed.response_format?.type).toBe('json_schema');
+    expect(parsed.response_format?.name).toBe('Summary');
+    expect(parsed.response_format?.strict).toBe(true);
+  });
+
+  it('preserves function tool_choice with name after JSON round-trip', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      tool_choice: {
+        mode: ToolChoiceModeFunction,
+        name: 'fetch_weather',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.tool_choice).toEqual({
+      mode: 'function',
+      name: 'fetch_weather',
+    });
   });
 });
