@@ -85,6 +85,42 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ChatDTO,
+  ChatStatusBusy,
+  AgentEventRunStarted,
+  AgentEventRunStateChanged,
+  AgentEventTurnStarted,
+  AgentEventTurnCompleted,
+  AgentEventContentDelta,
+  AgentEventToolStarted,
+  AgentEventToolCompleted,
+  AgentEventApprovalRequired,
+  AgentEventApprovalResolved,
+  AgentEventHookExecuted,
+  AgentEventUsageUpdated,
+  AgentEventContextCompacted,
+  AgentEventError,
+  AgentEvent,
+  RunStartedPayload,
+  RunStateChangedPayload,
+  TurnStartedPayload,
+  TurnCompletedPayload,
+  ContentDeltaPayload,
+  ContentDeltaText,
+  ContentDeltaReasoning,
+  ToolStartedPayload,
+  ToolCompletedPayload,
+  ApprovalRequiredPayload,
+  ApprovalResolvedPayload,
+  HookExecutedPayload,
+  UsageUpdatedPayload,
+  ContextCompactedPayload,
+  ErrorPayload,
+  AgentRunStateWorking,
+  AgentRunStateInputRequired,
+  ToolInvocationStatusCompleted,
+  ToolTypeApp,
+  HookDecisionAllow,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1603,280 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function baseChatDTO(overrides: Partial<ChatDTO> = {}): ChatDTO {
+  return {
+    id: 'chat-1',
+    short_id: 'c1',
+    created_at: '2026-09-04T00:00:00Z',
+    updated_at: '2026-09-04T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    status: ChatStatusBusy,
+    name: 'Support chat',
+    description: 'Customer support session',
+    children: [],
+    chat_messages: [],
+    agent_data: {
+      plan_steps: [],
+      memory: {},
+      always_allowed_tools: [],
+    },
+    ...overrides,
+  };
+}
+
+describe('ChatDTO pending_interrupts (v0.8.4)', () => {
+  it('allows ChatDTO without pending_interrupts for legacy API responses', () => {
+    const chat = baseChatDTO();
+
+    expect(chat.pending_interrupts).toBeUndefined();
+  });
+
+  it('models pending_interrupts with tool approval gates on active chats', () => {
+    const pendingInterrupt: InterruptDTO = {
+      id: 'int-pending',
+      short_id: 'ip1',
+      created_at: '2026-09-04T00:00:00Z',
+      updated_at: '2026-09-04T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      reason: InterruptReasonToolApproval,
+      source: 'tool:delete_record',
+      resource_id: 'call-del-1',
+      resource_type: InterruptResourceToolInvocation,
+      status: InterruptStatusPending,
+    };
+
+    const chat: ChatDTO = baseChatDTO({
+      pending_interrupts: [pendingInterrupt],
+    });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.pending_interrupts).toHaveLength(1);
+    expect(parsed.pending_interrupts?.[0].reason).toBe('tool_approval');
+    expect(parsed.pending_interrupts?.[0].status).toBe('pending');
+    expect(parsed.pending_interrupts?.[0].resource_type).toBe('tool_invocation');
+  });
+
+  it('preserves empty pending_interrupts array after JSON round-trip', () => {
+    const chat = baseChatDTO({ pending_interrupts: [] });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.pending_interrupts).toEqual([]);
+  });
+});
+
+describe('AgentEvent backbone protocol (v0.8.4)', () => {
+  it('exports AgentEventType constants for run, turn, tool, and approval lifecycle', () => {
+    expect(AgentEventRunStarted).toBe('run.started');
+    expect(AgentEventRunStateChanged).toBe('run.state_changed');
+    expect(AgentEventTurnStarted).toBe('turn.started');
+    expect(AgentEventTurnCompleted).toBe('turn.completed');
+    expect(AgentEventContentDelta).toBe('content.delta');
+    expect(AgentEventToolStarted).toBe('tool.started');
+    expect(AgentEventToolCompleted).toBe('tool.completed');
+    expect(AgentEventApprovalRequired).toBe('approval.required');
+    expect(AgentEventApprovalResolved).toBe('approval.resolved');
+    expect(AgentEventHookExecuted).toBe('hook.executed');
+    expect(AgentEventUsageUpdated).toBe('usage.updated');
+    expect(AgentEventContextCompacted).toBe('context.compacted');
+    expect(AgentEventError).toBe('error');
+  });
+
+  it('exports ContentDeltaKind constants for structural content streaming', () => {
+    expect(ContentDeltaText).toBe('text');
+    expect(ContentDeltaReasoning).toBe('reasoning');
+  });
+
+  it('models AgentEvent envelope with run.started payload', () => {
+    const payload: RunStartedPayload = {
+      agent_id: 'agent-1',
+      agent_version_id: 'ver-2',
+      user_message_id: 'msg-42',
+    };
+    const event: AgentEvent = {
+      id: 'evt-run-start',
+      type: AgentEventRunStarted,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      agent_id: 'agent-1',
+      timestamp: '2026-09-04T12:00:00Z',
+      payload,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as AgentEvent;
+
+    expect(parsed.type).toBe('run.started');
+    expect((parsed.payload as RunStartedPayload).agent_version_id).toBe('ver-2');
+    expect((parsed.payload as RunStartedPayload).user_message_id).toBe('msg-42');
+  });
+
+  it('models run.state_changed with AgentRunState transitions', () => {
+    const payload: RunStateChangedPayload = {
+      from_state: AgentRunStateWorking,
+      to_state: AgentRunStateInputRequired,
+      error: undefined,
+    };
+    const event: AgentEvent = {
+      id: 'evt-state',
+      type: AgentEventRunStateChanged,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      timestamp: '2026-09-04T12:01:00Z',
+      payload,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as AgentEvent;
+    const statePayload = parsed.payload as RunStateChangedPayload;
+
+    expect(parsed.type).toBe('run.state_changed');
+    expect(statePayload.from_state).toBe('working');
+    expect(statePayload.to_state).toBe('input_required');
+  });
+
+  it('models turn lifecycle payloads with tool counts and stop reason', () => {
+    const started: TurnStartedPayload = { turn_index: 2, model: 'gpt-4.1' };
+    const completed: TurnCompletedPayload = {
+      turn_index: 2,
+      tool_count: 1,
+      has_output: true,
+      stop_reason: 'tool_calls',
+    };
+
+    expect(started.turn_index).toBe(2);
+    expect(completed.tool_count).toBe(1);
+    expect(completed.has_output).toBe(true);
+    expect(completed.stop_reason).toBe('tool_calls');
+  });
+
+  it('models content.delta structural wrapper separate from DeltaEvent channel', () => {
+    const payload: ContentDeltaPayload = {
+      kind: ContentDeltaReasoning,
+      delta: 'Let me think...',
+    };
+    const event: AgentEvent = {
+      id: 'evt-content',
+      type: AgentEventContentDelta,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      timestamp: '2026-09-04T12:02:00Z',
+      payload,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as AgentEvent;
+    const deltaPayload = parsed.payload as ContentDeltaPayload;
+
+    expect(parsed.type).toBe('content.delta');
+    expect(deltaPayload.kind).toBe('reasoning');
+    expect(deltaPayload.delta).toBe('Let me think...');
+  });
+
+  it('models tool lifecycle and approval payloads for interrupt UX', () => {
+    const toolStarted: ToolStartedPayload = {
+      tool_invocation_id: 'call-1',
+      tool_name: 'search_knowledge',
+      tool_type: ToolTypeApp,
+      display_name: 'Search knowledge',
+      arguments: { query: 'refund policy' },
+    };
+    const toolCompleted: ToolCompletedPayload = {
+      tool_invocation_id: 'call-1',
+      tool_name: 'search_knowledge',
+      status: ToolInvocationStatusCompleted,
+      result: '{"matches":2}',
+      duration_ms: 420,
+    };
+    const approvalRequired: ApprovalRequiredPayload = {
+      tool_invocation_id: 'call-2',
+      tool_name: 'delete_record',
+      arguments: { id: 'rec-9' },
+      reason: InterruptReasonToolApproval,
+    };
+    const approvalResolved: ApprovalResolvedPayload = {
+      tool_invocation_id: 'call-2',
+      tool_name: 'delete_record',
+      decision: 'allow',
+      reason: 'User confirmed in UI',
+    };
+
+    expect(toolStarted.tool_type).toBe('app');
+    expect(toolCompleted.status).toBe('completed');
+    expect(approvalRequired.reason).toBe('tool_approval');
+    expect(approvalResolved.decision).toBe('allow');
+  });
+
+  it('models hook, usage, context compaction, and error payloads', () => {
+    const hookExecuted: HookExecutedPayload = {
+      hook_event: HookEventToolCall,
+      decision: HookDecisionAllow,
+      reason: 'policy check passed',
+      duration_ms: 12,
+    };
+    const usageUpdated: UsageUpdatedPayload = {
+      prompt_tokens: 1200,
+      completion_tokens: 340,
+      total_tokens: 1540,
+      reasoning_tokens: 80,
+      cost_usd: 0.0042,
+    };
+    const contextCompacted: ContextCompactedPayload = {
+      before_tokens: 32000,
+      after_tokens: 12000,
+    };
+    const error: ErrorPayload = {
+      message: 'Provider rate limit exceeded',
+      code: 'rate_limit',
+    };
+
+    const events: AgentEvent[] = [
+      {
+        id: 'evt-hook',
+        type: AgentEventHookExecuted,
+        run_id: 'run-1',
+        chat_id: 'chat-1',
+        timestamp: '2026-09-04T12:03:00Z',
+        payload: hookExecuted,
+      },
+      {
+        id: 'evt-usage',
+        type: AgentEventUsageUpdated,
+        run_id: 'run-1',
+        chat_id: 'chat-1',
+        timestamp: '2026-09-04T12:04:00Z',
+        payload: usageUpdated,
+      },
+      {
+        id: 'evt-compact',
+        type: AgentEventContextCompacted,
+        run_id: 'run-1',
+        chat_id: 'chat-1',
+        timestamp: '2026-09-04T12:05:00Z',
+        payload: contextCompacted,
+      },
+      {
+        id: 'evt-error',
+        type: AgentEventError,
+        run_id: 'run-1',
+        chat_id: 'chat-1',
+        timestamp: '2026-09-04T12:06:00Z',
+        payload: error,
+      },
+    ];
+
+    const parsed = JSON.parse(JSON.stringify(events)) as AgentEvent[];
+
+    expect((parsed[0].payload as HookExecutedPayload).decision).toBe('allow');
+    expect((parsed[1].payload as UsageUpdatedPayload).reasoning_tokens).toBe(80);
+    expect((parsed[2].payload as ContextCompactedPayload).after_tokens).toBe(12000);
+    expect((parsed[3].payload as ErrorPayload).code).toBe('rate_limit');
   });
 });
