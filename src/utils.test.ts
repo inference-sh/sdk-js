@@ -10,8 +10,65 @@ import {
   AgentRunStateFailed,
   AgentRunStateInputRequired,
 } from './types';
-import type { ChatDTO, AgentRunDTO } from './types';
-import { isTerminalStatus, parseStatus, isChatBusy } from './utils';
+import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types';
+import {
+  InterruptReasonToolApproval,
+  InterruptReasonWidget,
+  InterruptStatusPending,
+  InterruptStatusResolved,
+} from './types';
+import { isTerminalStatus, parseStatus, isChatBusy, pendingApprovals } from './utils';
+
+describe('pendingApprovals', () => {
+  const interrupt = (overrides: Partial<InterruptDTO>): InterruptDTO =>
+    ({
+      id: 'int-1',
+      chat_id: 'chat-1',
+      run_id: 'run-1',
+      reason: InterruptReasonToolApproval,
+      status: InterruptStatusPending,
+      resource_id: 'inv-1',
+      meta: { tool_invocation_id: 'inv-1', tool_name: 'deploy', arguments: { env: 'prod' }, reason: InterruptReasonToolApproval },
+      ...overrides,
+    }) as unknown as InterruptDTO;
+
+  it('projects pending tool-approval interrupts', () => {
+    const chat = { id: 'chat-1', pending_interrupts: [interrupt({})] } as unknown as ChatDTO;
+    expect(pendingApprovals(chat)).toEqual([
+      { interruptId: 'int-1', toolInvocationId: 'inv-1', chatId: 'chat-1', toolName: 'deploy', arguments: { env: 'prod' } },
+    ]);
+  });
+
+  it('ignores resolved interrupts and non-approval reasons', () => {
+    const chat = {
+      id: 'chat-1',
+      pending_interrupts: [
+        interrupt({ id: 'int-r', status: InterruptStatusResolved }),
+        interrupt({ id: 'int-w', reason: InterruptReasonWidget }),
+      ],
+    } as unknown as ChatDTO;
+    expect(pendingApprovals(chat)).toEqual([]);
+  });
+
+  it('handles string-encoded meta and missing meta', () => {
+    const chat = {
+      id: 'chat-1',
+      pending_interrupts: [
+        interrupt({ id: 'int-s', meta: JSON.stringify({ tool_name: 'charge', arguments: { amount: 9 } }) as unknown as InterruptDTO['meta'] }),
+        interrupt({ id: 'int-n', resource_id: 'inv-n', meta: undefined }),
+      ],
+    } as unknown as ChatDTO;
+    const got = pendingApprovals(chat);
+    expect(got[0].toolName).toBe('charge');
+    expect(got[0].arguments).toEqual({ amount: 9 });
+    expect(got[1]).toMatchObject({ toolInvocationId: 'inv-n', toolName: '', arguments: {} });
+  });
+
+  it('returns empty for null chat or no interrupts', () => {
+    expect(pendingApprovals(null)).toEqual([]);
+    expect(pendingApprovals({ id: 'c' } as unknown as ChatDTO)).toEqual([]);
+  });
+});
 
 describe('parseStatus', () => {
   it('should return TaskStatusUnknown for null and undefined', () => {
