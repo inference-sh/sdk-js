@@ -53,6 +53,10 @@ describe('package export surface', () => {
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
     });
+
+    it('exports pendingApprovals for chat approval-gate UX', () => {
+      expect(main.pendingApprovals).toEqual(expect.any(Function));
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

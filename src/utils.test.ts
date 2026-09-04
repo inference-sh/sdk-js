@@ -64,9 +64,83 @@ describe('pendingApprovals', () => {
     expect(got[1]).toMatchObject({ toolInvocationId: 'inv-n', toolName: '', arguments: {} });
   });
 
-  it('returns empty for null chat or no interrupts', () => {
+  it('returns empty for null/undefined chat or no interrupts', () => {
     expect(pendingApprovals(null)).toEqual([]);
+    expect(pendingApprovals(undefined)).toEqual([]);
     expect(pendingApprovals({ id: 'c' } as unknown as ChatDTO)).toEqual([]);
+    expect(pendingApprovals({ id: 'c', pending_interrupts: [] } as unknown as ChatDTO)).toEqual([]);
+  });
+
+  it('falls back chatId and toolInvocationId when interrupt fields are sparse', () => {
+    const chat = {
+      id: 'chat-fallback',
+      pending_interrupts: [
+        interrupt({
+          id: 'int-f',
+          chat_id: '',
+          resource_id: undefined,
+          meta: { tool_invocation_id: 'inv-meta', tool_name: 'audit', arguments: {} },
+        }),
+      ],
+    } as unknown as ChatDTO;
+    expect(pendingApprovals(chat)).toEqual([
+      {
+        interruptId: 'int-f',
+        toolInvocationId: 'inv-meta',
+        chatId: 'chat-fallback',
+        toolName: 'audit',
+        arguments: {},
+      },
+    ]);
+  });
+
+  it('prefers resource_id over meta.tool_invocation_id', () => {
+    const chat = {
+      id: 'chat-1',
+      pending_interrupts: [
+        interrupt({
+          id: 'int-p',
+          resource_id: 'inv-resource',
+          meta: { tool_invocation_id: 'inv-meta', tool_name: 'deploy', arguments: {} },
+        }),
+      ],
+    } as unknown as ChatDTO;
+    expect(pendingApprovals(chat)[0].toolInvocationId).toBe('inv-resource');
+  });
+
+  it('treats malformed string meta as empty approval metadata', () => {
+    const chat = {
+      id: 'chat-1',
+      pending_interrupts: [
+        interrupt({
+          id: 'int-bad',
+          resource_id: 'inv-bad',
+          meta: '{not-json' as unknown as InterruptDTO['meta'],
+        }),
+      ],
+    } as unknown as ChatDTO;
+    expect(pendingApprovals(chat)).toEqual([
+      {
+        interruptId: 'int-bad',
+        toolInvocationId: 'inv-bad',
+        chatId: 'chat-1',
+        toolName: '',
+        arguments: {},
+      },
+    ]);
+  });
+
+  it('preserves order and filters mixed interrupt lists', () => {
+    const chat = {
+      id: 'chat-1',
+      pending_interrupts: [
+        interrupt({ id: 'int-a', meta: { tool_invocation_id: 'inv-a', tool_name: 'alpha', arguments: { n: 1 } } }),
+        interrupt({ id: 'int-r', status: InterruptStatusResolved }),
+        interrupt({ id: 'int-b', meta: { tool_invocation_id: 'inv-b', tool_name: 'beta', arguments: { n: 2 } } }),
+        interrupt({ id: 'int-w', reason: InterruptReasonWidget }),
+      ],
+    } as unknown as ChatDTO;
+    expect(pendingApprovals(chat).map((a) => a.interruptId)).toEqual(['int-a', 'int-b']);
   });
 });
 
