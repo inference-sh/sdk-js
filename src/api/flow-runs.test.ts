@@ -82,12 +82,18 @@ describe('FlowRunsAPI', () => {
   });
 
   it('should GET /flowruns/{id} for get()', async () => {
-    const flowRun = { id: 'fr-1' };
+    const flowRun = {
+      id: 'fr-1',
+      node_statuses: { 'node-1': 'completed', 'node-2': 'failed' },
+      node_outputs: { 'node-1': { text: 'hello' } },
+    };
     mockJsonResponse(flowRun);
 
     const result = await api().get('fr-1');
 
     expect(result.data).toEqual(flowRun);
+    expect(result.data.node_statuses?.['node-1']).toBe('completed');
+    expect(result.data.node_outputs['node-1']).toEqual({ text: 'hello' });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/flowruns/fr-1');
     expect(init.method).toBe('GET');
