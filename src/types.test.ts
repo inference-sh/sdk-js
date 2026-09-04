@@ -7,13 +7,49 @@ import {
   AppStatusDeprecated,
   AppStatusMaintenance,
   AppStatusRetired,
+  AddNodePayload,
   AppStoreListingDTO,
+  AuthResponse,
+  A2UIButton,
+  A2UIChart,
+  A2UIComponent,
+  A2UIForm,
+  A2UISurface,
+  ActionNodeAdd,
+  ActionRedo,
+  ActionUndo,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
   DeviceAuthStatusDenied,
   DeviceAuthStatusExpired,
+  DeviceAuthStatusInvalid,
+  DeviceAuthStatusLoading,
   DeviceAuthStatusPending,
+  DeviceAuthStatusValid,
+  FlowActionError,
+  FlowActionsRequest,
+  FlowActionsResponse,
+  FlowNodeDataMap,
+  FlowNodePosition,
+  GateCondition,
+  MergeStrategy,
+  MergeStrategyConcat,
+  MergeStrategyNested,
+  MergeStrategyReplace,
+  SecretCreateRequest,
+  SuggestRequest,
+  ToolCallDelta_fieldTags,
+  ToolCallFunctionDelta_fieldTags,
+  Widget,
+  FlowRunDTO,
+  GraphNodeStatusCompleted,
+  GraphNodeStatusFailed,
+  GraphNodeStatusRunning,
+  MeStatsResponse,
+  StatBuckets,
+  SubmitTelemetryRequest,
+  TelemetryReportDTO,
   CacheScopePrivate,
   CacheScopePublic,
   DeviceTokenKindAPIKey,
@@ -1002,6 +1038,22 @@ describe('DeviceAuthInitRequest PKCE and poll responses', () => {
     expect(DeviceAuthStatusDenied).toBe('denied');
   });
 
+  it('exports DeviceAuthStatus constants for client-side validation states', () => {
+    expect(DeviceAuthStatusValid).toBe('valid');
+    expect(DeviceAuthStatusInvalid).toBe('invalid');
+    expect(DeviceAuthStatusLoading).toBe('loading');
+  });
+
+  it('models client-side validation states on poll responses', () => {
+    const loading: DeviceAuthPollResponse = { status: DeviceAuthStatusLoading };
+    const valid: DeviceAuthPollResponse = { status: DeviceAuthStatusValid };
+    const invalid: DeviceAuthPollResponse = { status: DeviceAuthStatusInvalid };
+
+    expect(loading.status).toBe('loading');
+    expect(valid.status).toBe('valid');
+    expect(invalid.status).toBe('invalid');
+  });
+
   it('exports DeviceTokenKind constants for session and legacy API key flows', () => {
     expect(DeviceTokenKindSession).toBe('session');
     expect(DeviceTokenKindAPIKey).toBe('api_key');
@@ -1567,5 +1619,787 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+describe('AuthResponse signup is_new field', () => {
+  it('models new-user signup with is_new true for onboarding flows', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-new-user',
+      is_new: true,
+      user: {
+        id: 'user-new',
+        short_id: 'u1',
+        created_at: '2026-08-19T00:00:00Z',
+        updated_at: '2026-08-19T00:00:00Z',
+        default_team_id: 'team-1',
+        role: 'member',
+        email: 'new@example.com',
+        name: 'new',
+        full_name: 'New User',
+        avatar_url: '',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.is_new).toBe(true);
+    expect(parsed.session_id).toBe('sess-new-user');
+    expect(parsed.user?.email).toBe('new@example.com');
+  });
+
+  it('models returning-user login without is_new for legacy client compatibility', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-returning',
+      otp_required: false,
+    };
+
+    expect(response.is_new).toBeUndefined();
+    expect(response.session_id).toBe('sess-returning');
+  });
+
+  it('preserves otp_required and redirect_to alongside is_new', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-otp',
+      is_new: false,
+      otp_required: true,
+      redirect_to: '/verify-otp',
+      provider: 'google',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.is_new).toBe(false);
+    expect(parsed.otp_required).toBe(true);
+    expect(parsed.redirect_to).toBe('/verify-otp');
+    expect(parsed.provider).toBe('google');
+  });
+});
+
+describe('A2UI component types (HTML removal)', () => {
+  it('does not export removed A2UIHTML component type constant', () => {
+    const types = require('./types') as Record<string, unknown>;
+    expect(types.A2UIHTML).toBeUndefined();
+  });
+
+  it('exports Form and Chart component type constants', () => {
+    expect(A2UIForm).toBe('Form');
+    expect(A2UIChart).toBe('Chart');
+  });
+
+  it('models Form component with onSubmitAction and no htmlContent field', () => {
+    const component: A2UIComponent = {
+      id: 'form-1',
+      component: A2UIForm,
+      onSubmitAction: { type: 'submit', payload: { formId: 'billing' } },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+
+    expect(parsed.component).toBe('Form');
+    expect(parsed.onSubmitAction?.type).toBe('submit');
+    expect(parsed.onSubmitAction?.payload).toEqual({ formId: 'billing' });
+    expect('htmlContent' in parsed).toBe(false);
+  });
+
+  it('Widget alias still maps to A2UISurface after HTML component removal', () => {
+    const surface: A2UISurface = {
+      version: '1.0',
+      surfaceId: 'surface-form',
+      catalogId: 'catalog-1',
+      components: [{ id: 'root', component: A2UIButton }],
+    };
+    const widget: Widget = surface;
+
+    expect(widget.surfaceId).toBe('surface-form');
+    expect(widget.components[0].component).toBe('Button');
+  });
+});
+
+describe('Knowledge version origin provenance (v0.7.74)', () => {
+  it('models extraction provenance on KnowledgeVersionDTO responses', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-19T00:00:00Z',
+      updated_at: '2026-08-19T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'extracted notes' },
+      files: [],
+      content_hash: 'abc123',
+      description: 'Claude session extraction',
+      tags: ['extraction'],
+      origin: 'claude:853f9a75-session-abc',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as KnowledgeVersionDTO;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+  });
+
+  it('allows KnowledgeVersionDTO without origin for legacy versions', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-legacy',
+      short_id: 'vl1',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'manual entry' },
+      files: [],
+      content_hash: 'legacy-hash',
+      description: 'Hand-authored version',
+      tags: [],
+    };
+
+    expect(version.origin).toBeUndefined();
+  });
+
+  it('models origin on KnowledgeVersionInput for create/update payloads', () => {
+    const input: KnowledgeVersionInput = {
+      description: 'Session extraction',
+      origin: 'claude:853f9a75-session-abc',
+      scope: ['git:inference-sh/sdk-js'],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as KnowledgeVersionInput;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+    expect(parsed.scope).toEqual(['git:inference-sh/sdk-js']);
+  });
+});
+
+describe('SuggestRequest origin exclusion (v0.7.74)', () => {
+  it('models caller origin for deduplicating suggest results', () => {
+    const request: SuggestRequest = {
+      query: 'go sdk patterns',
+      scope: ['git:inference-sh/sdk-js', 'lang:go'],
+      origin: 'claude:853f9a75-session-abc',
+      limit: 10,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SuggestRequest;
+
+    expect(parsed.origin).toBe('claude:853f9a75-session-abc');
+    expect(parsed.scope).toEqual(['git:inference-sh/sdk-js', 'lang:go']);
+  });
+
+  it('allows SuggestRequest without origin for callers that do not track provenance', () => {
+    const request: SuggestRequest = {
+      query: 'image generation',
+      limit: 5,
+    };
+
+    expect(request.origin).toBeUndefined();
+  });
+});
+
+describe('Flow graph undo/redo action types (v0.7.76)', () => {
+  it('exports ActionUndo and ActionRedo constants for history navigation', () => {
+    expect(ActionUndo).toBe('undo');
+    expect(ActionRedo).toBe('redo');
+  });
+
+  it('models undo and redo in FlowActionsRequest with empty payloads', () => {
+    const request: FlowActionsRequest = {
+      actions: [
+        { type: ActionUndo, payload: {} },
+        { type: ActionRedo, payload: {} },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as FlowActionsRequest;
+
+    expect(parsed.actions[0].type).toBe('undo');
+    expect(parsed.actions[1].type).toBe('redo');
+    expect(parsed.actions[0].payload).toEqual({});
+    expect(parsed.actions[1].payload).toEqual({});
+  });
+
+  it('allows mixing graph mutations with undo in a single actions batch', () => {
+    const request: FlowActionsRequest = {
+      actions: [
+        {
+          type: ActionNodeAdd,
+          payload: {
+            id: 'node-1',
+            type: 'task',
+            position: { x: 0, y: 0 },
+            data: { label: 'Start' },
+          },
+        },
+        { type: ActionUndo, payload: {} },
+      ],
+    };
+
+    expect(request.actions).toHaveLength(2);
+    expect(request.actions[0].type).toBe('node.add');
+    expect(request.actions[1].type).toBe('undo');
+  });
+
+  it('models FlowActionsResponse with version bump after undo', () => {
+    const response: FlowActionsResponse = {
+      version: 42,
+      actions: [{ type: ActionUndo, payload: {} }],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as FlowActionsResponse;
+
+    expect(parsed.version).toBe(42);
+    expect(parsed.actions[0].type).toBe('undo');
+    expect(parsed.errors).toBeUndefined();
+  });
+
+  it('models FlowActionError when undo or redo cannot be applied', () => {
+    const error: FlowActionError = {
+      type: 'undo_stack_empty',
+      message: 'Nothing to undo',
+    };
+    const response: FlowActionsResponse = {
+      version: 41,
+      actions: [{ type: ActionUndo, payload: {} }],
+      errors: [error],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as FlowActionsResponse;
+
+    expect(parsed.errors?.[0].type).toBe('undo_stack_empty');
+    expect(parsed.errors?.[0].message).toBe('Nothing to undo');
+    expect(parsed.version).toBe(41);
+  });
+});
+
+describe('SecretCreateRequest provider field', () => {
+  it('models optional provider for integration-linked secret creation', () => {
+    const request: SecretCreateRequest = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      description: 'Google service account for Drive integration',
+      provider: 'google',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SecretCreateRequest;
+
+    expect(parsed.key).toBe('GOOGLE_SA_JSON');
+    expect(parsed.provider).toBe('google');
+    expect(parsed.description).toBe('Google service account for Drive integration');
+  });
+
+  it('allows SecretCreateRequest without provider for team-scoped secrets', () => {
+    const request: SecretCreateRequest = {
+      key: 'DB_PASSWORD',
+      value: 'super-secret',
+    };
+
+    expect(request.provider).toBeUndefined();
+    expect(request.description).toBeUndefined();
+  });
+});
+
+describe('flow gate node type contracts', () => {
+  const baseNodeData = (): FlowNodeData => ({
+    app_id: '',
+    app_version_id: '',
+    infra: InfraPrivate,
+    workers: [],
+  });
+
+  it('models GateCondition with field, operator, and scalar value', () => {
+    const condition: GateCondition = {
+      field: 'status',
+      operator: 'eq',
+      value: 'approved',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(condition)) as GateCondition;
+
+    expect(parsed.field).toBe('status');
+    expect(parsed.operator).toBe('eq');
+    expect(parsed.value).toBe('approved');
+  });
+
+  it('preserves GateCondition value types through JSON round-trip', () => {
+    const cases: GateCondition[] = [
+      { field: 'count', operator: 'gte', value: 3 },
+      { field: 'enabled', operator: 'eq', value: true },
+      { field: 'tags', operator: 'contains', value: ['alpha', 'beta'] },
+      { field: 'meta', operator: 'exists', value: { nested: { ok: true } } },
+    ];
+
+    for (const condition of cases) {
+      const parsed = JSON.parse(JSON.stringify(condition)) as GateCondition;
+      expect(parsed).toEqual(condition);
+    }
+  });
+
+  it('models gate_condition on FlowNodeData for gate nodes only', () => {
+    const gateNode: FlowNodeData = {
+      ...baseNodeData(),
+      gate_condition: {
+        field: 'score',
+        operator: 'gt',
+        value: 0.8,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(gateNode)) as FlowNodeData;
+
+    expect(parsed.gate_condition).toEqual({
+      field: 'score',
+      operator: 'gt',
+      value: 0.8,
+    });
+  });
+
+  it('allows FlowNodeData without gate_condition for non-gate nodes', () => {
+    const executionNode: FlowNodeData = {
+      ...baseNodeData(),
+      app_id: 'app-1',
+      app_version_id: 'v1',
+      function: 'run',
+    };
+
+    expect(executionNode.gate_condition).toBeUndefined();
+  });
+
+  it('models AddNodePayload for inserting a gate node with gate_condition', () => {
+    const position: FlowNodePosition = { x: 120, y: 240 };
+    const payload: AddNodePayload = {
+      id: 'gate-1',
+      type: 'gate',
+      position,
+      data: {
+        ...baseNodeData(),
+        gate_condition: {
+          field: 'approved',
+          operator: 'eq',
+          value: true,
+        },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(payload)) as AddNodePayload;
+
+    expect(parsed.type).toBe('gate');
+    expect(parsed.position).toEqual(position);
+    expect(parsed.data.gate_condition).toEqual({
+      field: 'approved',
+      operator: 'eq',
+      value: true,
+    });
+  });
+
+  it('models FlowNodeDataMap with mixed gate and execution nodes', () => {
+    const nodeData: FlowNodeDataMap = {
+      'exec-1': {
+        ...baseNodeData(),
+        app_id: 'app-1',
+        app_version_id: 'v1',
+      },
+      'gate-1': {
+        ...baseNodeData(),
+        gate_condition: {
+          field: 'tier',
+          operator: 'eq',
+          value: 'pro',
+        },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(nodeData)) as FlowNodeDataMap;
+
+    expect(parsed['exec-1'].gate_condition).toBeUndefined();
+    expect(parsed['gate-1'].gate_condition).toEqual({
+      field: 'tier',
+      operator: 'eq',
+      value: 'pro',
+    });
+  });
+});
+
+describe('Knowledge lifecycle constants (v0.7.86)', () => {
+  it('exports draft and deprecated lifecycle values alongside permanent and decay', () => {
+    expect(KnowledgeLifecyclePermanent).toBe('permanent');
+    expect(KnowledgeLifecycleDecay).toBe('decay');
+    expect(KnowledgeLifecycleDraft).toBe('draft');
+    expect(KnowledgeLifecycleDeprecated).toBe('deprecated');
+  });
+
+  it('models draft and deprecated lifecycle on KnowledgeDTO responses', () => {
+    const draft: KnowledgeDTO = {
+      id: 'know-draft',
+      short_id: 'kd1',
+      created_at: '2026-08-20T00:00:00Z',
+      updated_at: '2026-08-20T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'wip-notes',
+      description: 'Work in progress',
+      type: KnowledgeTypeSkill,
+      lifecycle: KnowledgeLifecycleDraft,
+      version_id: 'ver-1',
+      uses: 0,
+      installs: 0,
+    };
+
+    const deprecated: KnowledgeDTO = {
+      ...draft,
+      id: 'know-old',
+      name: 'legacy-api',
+      lifecycle: KnowledgeLifecycleDeprecated,
+    };
+
+    expect(draft.lifecycle).toBe('draft');
+    expect(deprecated.lifecycle).toBe('deprecated');
+  });
+});
+
+describe('Knowledge version generated_by actor (v0.7.86)', () => {
+  it('models OKF actor on KnowledgeVersionDTO responses', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-08-20T00:00:00Z',
+      updated_at: '2026-08-20T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'extracted notes' },
+      files: [],
+      content_hash: 'abc123',
+      description: 'Claude session extraction',
+      tags: ['extraction'],
+      origin: 'claude-code:853f9a75-session-abc',
+      generated_by: 'claude-code/opus-4-6',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as KnowledgeVersionDTO;
+
+    expect(parsed.generated_by).toBe('claude-code/opus-4-6');
+    expect(parsed.origin).toBe('claude-code:853f9a75-session-abc');
+  });
+
+  it('allows KnowledgeVersionDTO without generated_by for legacy versions', () => {
+    const version: KnowledgeVersionDTO = {
+      id: 'ver-legacy',
+      short_id: 'vl1',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+      knowledge_id: 'know-1',
+      content: { content: 'manual entry' },
+      files: [],
+      content_hash: 'legacy-hash',
+      description: 'Hand-authored version',
+      tags: [],
+    };
+
+    expect(version.generated_by).toBeUndefined();
+  });
+
+  it('models generated_by on KnowledgeVersionInput for create/update payloads', () => {
+    const input: KnowledgeVersionInput = {
+      description: 'Human-authored update',
+      generated_by: 'human:ok@inference.sh',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as KnowledgeVersionInput;
+
+    expect(parsed.generated_by).toBe('human:ok@inference.sh');
+  });
+});
+
+describe('flow utility node type contracts (v0.7.86)', () => {
+  const baseNodeData = (): FlowNodeData => ({
+    app_id: '',
+    app_version_id: '',
+    infra: InfraPrivate,
+    workers: [],
+  });
+
+  it('models SelectorConfig with field, mode, and optional index', () => {
+    const byIndex: SelectorConfig = {
+      field: 'items',
+      mode: 'index',
+      index: 2,
+    };
+    const first: SelectorConfig = {
+      field: 'results',
+      mode: 'first',
+    };
+
+    const parsedByIndex = JSON.parse(JSON.stringify(byIndex)) as SelectorConfig;
+    const parsedFirst = JSON.parse(JSON.stringify(first)) as SelectorConfig;
+
+    expect(parsedByIndex).toEqual({ field: 'items', mode: 'index', index: 2 });
+    expect(parsedFirst).toEqual({ field: 'results', mode: 'first' });
+    expect(parsedFirst.index).toBeUndefined();
+  });
+
+  it('models UtilityConfig gate preset with nested GateCondition', () => {
+    const utility: UtilityConfig = {
+      preset: 'gate',
+      gate: {
+        field: 'approved',
+        operator: 'eq',
+        value: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('gate');
+    expect(parsed.gate).toEqual({
+      field: 'approved',
+      operator: 'eq',
+      value: true,
+    });
+  });
+
+  it('models UtilityConfig selector preset with nested SelectorConfig', () => {
+    const utility: UtilityConfig = {
+      preset: 'selector',
+      selector: {
+        field: 'candidates',
+        mode: 'index',
+        index: 0,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('selector');
+    expect(parsed.selector).toEqual({
+      field: 'candidates',
+      mode: 'index',
+      index: 0,
+    });
+  });
+
+  it('models UtilityConfig merge preset with constant fallback value', () => {
+    const utility: UtilityConfig = {
+      preset: 'merge',
+      constant: { default: 'fallback' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('merge');
+    expect(parsed.constant).toEqual({ default: 'fallback' });
+  });
+
+  it('models UtilityConfig custom preset with CEL expression', () => {
+    const utility: UtilityConfig = {
+      preset: 'custom',
+      expression: 'input.score > 0.8 && input.tier == "pro"',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.preset).toBe('custom');
+    expect(parsed.expression).toBe('input.score > 0.8 && input.tier == "pro"');
+  });
+
+  it('models FlowNodeData.utility as unified config alongside legacy fields', () => {
+    const node: FlowNodeData = {
+      ...baseNodeData(),
+      utility: {
+        preset: 'gate',
+        gate: {
+          field: 'status',
+          operator: 'eq',
+          value: 'ready',
+        },
+      },
+      // legacy fields may coexist during migration
+      gate_condition: {
+        field: 'status',
+        operator: 'eq',
+        value: 'ready',
+      },
+      selector_config: {
+        field: 'items',
+        mode: 'first',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(node)) as FlowNodeData;
+
+    expect(parsed.utility?.preset).toBe('gate');
+    expect(parsed.utility?.gate?.value).toBe('ready');
+    expect(parsed.gate_condition?.field).toBe('status');
+    expect(parsed.selector_config?.mode).toBe('first');
+  });
+
+  it('allows FlowNodeData without utility for execution nodes', () => {
+    const node: FlowNodeData = {
+      ...baseNodeData(),
+      app_id: 'app-1',
+      app_version_id: 'v1',
+      function: 'run',
+    };
+
+    expect(node.utility).toBeUndefined();
+    expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('FlowRunDTO per-node status and outputs (v0.7.97)', () => {
+  const baseFlowRun = (): FlowRunDTO => ({
+    id: 'fr-1',
+    short_id: 'fr1',
+    created_at: '2026-08-20T00:00:00Z',
+    updated_at: '2026-08-20T00:00:00Z',
+    flow_id: 'flow-1',
+    flow_version_id: 'fv-1',
+    status: 'completed',
+    input: {},
+    fail_on_error: true,
+    output: { result: 'done' },
+    node_tasks: {},
+    node_outputs: {},
+  });
+
+  it('models optional node_statuses map keyed by graph node id', () => {
+    const flowRun: FlowRunDTO = {
+      ...baseFlowRun(),
+      node_statuses: {
+        'node-a': GraphNodeStatusRunning,
+        'node-b': GraphNodeStatusCompleted,
+        'node-c': GraphNodeStatusFailed,
+      },
+      node_outputs: {
+        'node-b': { answer: 42 },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(flowRun)) as FlowRunDTO;
+
+    expect(parsed.node_statuses?.['node-a']).toBe('running');
+    expect(parsed.node_statuses?.['node-b']).toBe('completed');
+    expect(parsed.node_statuses?.['node-c']).toBe('failed');
+    expect(parsed.node_outputs['node-b']).toEqual({ answer: 42 });
+  });
+
+  it('allows FlowRunDTO without node_statuses for legacy responses', () => {
+    const flowRun = baseFlowRun();
+
+    expect(flowRun.node_statuses).toBeUndefined();
+    expect(flowRun.node_outputs).toEqual({});
+  });
+});
+
+describe('MeStatsResponse and StatBuckets (v0.7.97)', () => {
+  it('models GET /me/stats aggregate counts with time-window buckets', () => {
+    const extracted: StatBuckets = {
+      today: 3,
+      this_week: 12,
+      all_time: 87,
+    };
+    const stats: MeStatsResponse = {
+      knowledge_count: 15,
+      skills_count: 4,
+      extracted,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(stats)) as MeStatsResponse;
+
+    expect(parsed.knowledge_count).toBe(15);
+    expect(parsed.skills_count).toBe(4);
+    expect(parsed.extracted.today).toBe(3);
+    expect(parsed.extracted.this_week).toBe(12);
+    expect(parsed.extracted.all_time).toBe(87);
+  });
+
+  it('preserves zero-valued StatBuckets through JSON round-trip', () => {
+    const buckets: StatBuckets = { today: 0, this_week: 0, all_time: 0 };
+
+    const parsed = JSON.parse(JSON.stringify(buckets)) as StatBuckets;
+
+    expect(parsed).toEqual({ today: 0, this_week: 0, all_time: 0 });
+  });
+});
+
+describe('TelemetryReportDTO and SubmitTelemetryRequest (v0.7.97)', () => {
+  it('models telemetry report DTO with level and arbitrary payload', () => {
+    const report: TelemetryReportDTO = {
+      id: 'tel-1',
+      short_id: 't1',
+      created_at: '2026-08-20T12:00:00Z',
+      updated_at: '2026-08-20T12:00:00Z',
+      ip: '203.0.113.10',
+      level: 2,
+      payload: {
+        event: 'sdk_error',
+        sdk_version: '1.2.3',
+        message: 'stream reconnect failed',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(report)) as TelemetryReportDTO;
+
+    expect(parsed.ip).toBe('203.0.113.10');
+    expect(parsed.level).toBe(2);
+    expect(parsed.payload.sdk_version).toBe('1.2.3');
+  });
+
+  it('models SubmitTelemetryRequest with client payload only', () => {
+    const request: SubmitTelemetryRequest = {
+      payload: {
+        feature: 'agent_chat',
+        duration_ms: 1523,
+        success: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SubmitTelemetryRequest;
+
+    expect(parsed.payload.feature).toBe('agent_chat');
+    expect(parsed.payload.duration_ms).toBe(1523);
+    expect(parsed.payload.success).toBe(true);
+  });
+});
+
+describe('nested merge strategy type contracts', () => {
+  it('exports MergeStrategyNested for nested object delta fields', () => {
+    expect(MergeStrategyNested).toBe('nested');
+  });
+
+  it('documents ToolCallDelta_fieldTags with replace and nested merge strategies', () => {
+    expect(ToolCallDelta_fieldTags).toEqual({
+      id: { merge: 'replace' },
+      type: { merge: 'replace' },
+      function: { merge: 'nested' },
+    });
+  });
+
+  it('documents ToolCallFunctionDelta_fieldTags with replace name and concat arguments', () => {
+    expect(ToolCallFunctionDelta_fieldTags).toEqual({
+      name: { merge: 'replace' },
+      arguments: { merge: 'concat' },
+    });
+  });
+
+  it('aligns nested field tag merge values with MergeStrategy constants', () => {
+    expect(ToolCallDelta_fieldTags.id.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallDelta_fieldTags.type.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallDelta_fieldTags.function.merge).toBe(MergeStrategyNested);
+    expect(ToolCallFunctionDelta_fieldTags.name.merge).toBe(MergeStrategyReplace);
+    expect(ToolCallFunctionDelta_fieldTags.arguments.merge).toBe(MergeStrategyConcat);
+  });
+
+  it('types nested field tag merge metadata as MergeStrategy values', () => {
+    const strategies: MergeStrategy[] = [
+      ToolCallDelta_fieldTags.id.merge,
+      ToolCallDelta_fieldTags.type.merge,
+      ToolCallDelta_fieldTags.function.merge,
+      ToolCallFunctionDelta_fieldTags.name.merge,
+      ToolCallFunctionDelta_fieldTags.arguments.merge,
+    ];
+
+    expect(strategies).toEqual([
+      MergeStrategyReplace,
+      MergeStrategyReplace,
+      MergeStrategyNested,
+      MergeStrategyReplace,
+      MergeStrategyConcat,
+    ]);
   });
 });
