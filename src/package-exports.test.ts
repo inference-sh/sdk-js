@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as main from './index';
 import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
+import { DeltaAccumulator } from './delta';
 
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf8')
@@ -52,6 +53,10 @@ describe('package export surface', () => {
 
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
+    });
+
+    it('exports DeltaAccumulator for streaming LLM output assembly', () => {
+      expect(main.DeltaAccumulator).toBe(DeltaAccumulator);
     });
   });
 
