@@ -779,6 +779,16 @@ export const ScopeApiKeysRead: Scope = "apikeys:read";
  */
 export const ScopeApiKeysWrite: Scope = "apikeys:write";
 /**
+ * Action-level scopes for Knowledge (includes skills)
+ */
+export const ScopeKnowledgeRead: Scope = "knowledge:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeKnowledgeWrite: Scope = "knowledge:write";
+/**
  * Action-level scopes for User profile
  */
 export const ScopeUserRead: Scope = "user:read";
@@ -815,6 +825,7 @@ export const ScopeGroupSecrets: ScopeGroup = "secrets";
 export const ScopeGroupIntegrations: ScopeGroup = "integrations";
 export const ScopeGroupEngines: ScopeGroup = "engines";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
+export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupUser: ScopeGroup = "user";
 export const ScopeGroupSettings: ScopeGroup = "settings";
 /**
@@ -3728,6 +3739,40 @@ export const ToolCallFunctionDelta_fieldTags = {
 } as const;
 
 /**
+ * ToolChoiceMode controls whether the model must call a tool this turn.
+ */
+export type ToolChoiceMode = string;
+export const ToolChoiceModeNone: ToolChoiceMode = "none";
+export const ToolChoiceModeAuto: ToolChoiceMode = "auto";
+export const ToolChoiceModeRequired: ToolChoiceMode = "required";
+export const ToolChoiceModeFunction: ToolChoiceMode = "function";
+/**
+ * ToolChoice constrains tool calling for a turn. Providers spell this
+ * differently (OpenAI tool_choice, Anthropic tool_choice.type any/tool,
+ * Gemini functionCallingConfig); apps translate at the provider boundary.
+ */
+export interface ToolChoice {
+  mode: ToolChoiceMode;
+  name?: string; // required when Mode is function
+}
+/**
+ * ResponseFormatType selects how the model's output is constrained.
+ */
+export type ResponseFormatType = string;
+export const ResponseFormatTypeText: ResponseFormatType = "text";
+export const ResponseFormatTypeJSONObject: ResponseFormatType = "json_object";
+export const ResponseFormatTypeJSONSchema: ResponseFormatType = "json_schema";
+/**
+ * ResponseFormat constrains the shape of the model's response.
+ * JSONSchema is required when Type is json_schema.
+ */
+export interface ResponseFormat {
+  type: ResponseFormatType;
+  name?: string; // schema name, where the provider wants one
+  json_schema?: any; // JSON Schema
+  strict?: boolean; // provider-enforced adherence, where supported
+}
+/**
  * ModelSettings groups sampling and generation parameters as a passable unit.
  */
 export interface ModelSettings {
@@ -3771,6 +3816,8 @@ export interface LLMInput {
   images?: string[];
   files?: string[];
   tools?: Tool[];
+  tool_choice?: ToolChoice;
+  response_format?: ResponseFormat;
   tool_call_id?: string;
 }
 /**
