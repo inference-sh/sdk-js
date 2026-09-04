@@ -3,6 +3,9 @@
  * Provides future compatibility when API migrates from int to string status.
  */
 
+import { InterruptReasonToolApproval, InterruptStatusPending } from './types';
+import type { ApprovalRequiredPayload, InterruptDTO } from './types';
+
 import {
   TaskStatus,
   TaskStatusUnknown,
@@ -75,4 +78,49 @@ export function isChatBusy(chat: ChatDTO | null | undefined): boolean {
     return run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
   }
   return chat?.status === ChatStatusBusy || chat?.status === ChatStatusAwaitingInput;
+}
+
+/** A tool invocation gated on human approval, projected from the chat's pending interrupts. */
+export type PendingApproval = {
+  interruptId: string;
+  toolInvocationId: string;
+  chatId: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+};
+
+function parseApprovalMeta(interrupt: InterruptDTO): Partial<ApprovalRequiredPayload> {
+  const meta = interrupt.meta as unknown;
+  if (!meta) return {};
+  if (typeof meta === 'string') {
+    try {
+      return JSON.parse(meta) as ApprovalRequiredPayload;
+    } catch {
+      return {};
+    }
+  }
+  return meta as ApprovalRequiredPayload;
+}
+
+/**
+ * Tool approvals the chat is currently waiting on. Reads `chat.pending_interrupts`,
+ * which the API projects onto the chat, so no message scan is needed.
+ */
+export function pendingApprovals(chat: ChatDTO | null | undefined): PendingApproval[] {
+  const interrupts = chat?.pending_interrupts ?? [];
+  const out: PendingApproval[] = [];
+  for (const interrupt of interrupts) {
+    if (interrupt.reason !== InterruptReasonToolApproval || interrupt.status !== InterruptStatusPending) {
+      continue;
+    }
+    const meta = parseApprovalMeta(interrupt);
+    out.push({
+      interruptId: interrupt.id,
+      toolInvocationId: interrupt.resource_id ?? meta.tool_invocation_id ?? '',
+      chatId: interrupt.chat_id || chat?.id || '',
+      toolName: meta.tool_name ?? '',
+      arguments: (meta.arguments as Record<string, unknown>) ?? {},
+    });
+  }
+  return out;
 }
