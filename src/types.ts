@@ -1200,6 +1200,7 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   chat_messages: ChatMessageDTO[];
   agent_data: ChatData;
   active_run?: AgentRunDTO;
+  pending_interrupts?: InterruptDTO[];
 }
 /**
  * ChatMessageDTO for API responses
@@ -3280,6 +3281,140 @@ export interface A2UISurface {
   catalogId: string;
   components: A2UIComponent[];
   dataModel?: any;
+}
+/**
+ * AgentEventType identifies what happened in an agent run.
+ * These are the backbone protocol events — every consumer (A2A, SDK, frontend)
+ * projects from this set.
+ */
+export type AgentEventType = string;
+/**
+ * Run lifecycle
+ */
+export const AgentEventRunStarted: AgentEventType = "run.started";
+export const AgentEventRunStateChanged: AgentEventType = "run.state_changed";
+/**
+ * Turn lifecycle
+ */
+export const AgentEventTurnStarted: AgentEventType = "turn.started";
+export const AgentEventTurnCompleted: AgentEventType = "turn.completed";
+/**
+ * Content streaming — structural wrapper; high-frequency token deltas
+ * still flow via the existing DeltaEvent channel for efficiency.
+ */
+export const AgentEventContentDelta: AgentEventType = "content.delta";
+/**
+ * Tool lifecycle
+ */
+export const AgentEventToolStarted: AgentEventType = "tool.started";
+export const AgentEventToolCompleted: AgentEventType = "tool.completed";
+/**
+ * Approval flow
+ */
+export const AgentEventApprovalRequired: AgentEventType = "approval.required";
+export const AgentEventApprovalResolved: AgentEventType = "approval.resolved";
+/**
+ * Hook lifecycle
+ */
+export const AgentEventHookExecuted: AgentEventType = "hook.executed";
+/**
+ * Usage
+ */
+export const AgentEventUsageUpdated: AgentEventType = "usage.updated";
+/**
+ * Context management
+ */
+export const AgentEventContextCompacted: AgentEventType = "context.compacted";
+/**
+ * Errors
+ */
+export const AgentEventError: AgentEventType = "error";
+/**
+ * AgentEvent is the backbone protocol event for agent runs.
+ * Published to "runs:<runID>" and "chats:<chatID>" keys on the event bus.
+ */
+export interface AgentEvent {
+  id: string;
+  type: AgentEventType;
+  run_id: string;
+  chat_id: string;
+  agent_id?: string;
+  timestamp: string /* RFC3339 */;
+  payload?: any;
+}
+export interface RunStartedPayload {
+  agent_id: string;
+  agent_version_id?: string;
+  user_message_id?: string;
+}
+export interface RunStateChangedPayload {
+  from_state: AgentRunState;
+  to_state: AgentRunState;
+  error?: string;
+}
+export interface TurnStartedPayload {
+  turn_index: number /* int */;
+  model?: string;
+}
+export interface TurnCompletedPayload {
+  turn_index: number /* int */;
+  tool_count: number /* int */;
+  has_output: boolean;
+  stop_reason?: string;
+}
+export interface ContentDeltaPayload {
+  kind: ContentDeltaKind;
+  delta: string;
+}
+export type ContentDeltaKind = string;
+export const ContentDeltaText: ContentDeltaKind = "text";
+export const ContentDeltaReasoning: ContentDeltaKind = "reasoning";
+export interface ToolStartedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  tool_type?: ToolType;
+  display_name?: string;
+  arguments?: StringEncodedMap;
+}
+export interface ToolCompletedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  status: ToolInvocationStatus;
+  result?: string;
+  duration_ms?: number /* int64 */;
+}
+export interface ApprovalRequiredPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  arguments?: StringEncodedMap;
+  reason: InterruptReason;
+}
+export interface ApprovalResolvedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  decision: string; // "allow", "deny"
+  reason?: string;
+}
+export interface HookExecutedPayload {
+  hook_event: HookEvent;
+  decision: HookDecision;
+  reason?: string;
+  duration_ms?: number /* int64 */;
+}
+export interface UsageUpdatedPayload {
+  prompt_tokens: number /* int */;
+  completion_tokens: number /* int */;
+  total_tokens: number /* int */;
+  reasoning_tokens?: number /* int */;
+  cost_usd?: number /* float64 */;
+}
+export interface ContextCompactedPayload {
+  before_tokens: number /* int */;
+  after_tokens: number /* int */;
+}
+export interface ErrorPayload {
+  message: string;
+  code?: string;
 }
 /**
  * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
