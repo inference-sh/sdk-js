@@ -1,5 +1,6 @@
 import {
   APIError,
+  AuthResponse,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -69,6 +70,7 @@ import {
   ToolContentTypeResource,
   ToolContentTypeResourceLink,
   ToolContentTypeText,
+  UserDTO,
   VisibilityPrivate,
   InterruptDTO,
   InterruptReasonToolApproval,
@@ -1567,5 +1569,82 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('AuthResponse otp_method (TOTP support)', () => {
+  it('models email OTP challenge with otp_method email', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-email-otp',
+      otp_required: true,
+      otp_method: 'email',
+    };
+
+    expect(response.otp_required).toBe(true);
+    expect(response.otp_method).toBe('email');
+  });
+
+  it('models TOTP challenge with otp_method totp', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-totp',
+      otp_required: true,
+      otp_method: 'totp',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.otp_method).toBe('totp');
+    expect(parsed.otp_required).toBe(true);
+  });
+
+  it('allows legacy auth responses without otp_method', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-legacy',
+      otp_required: true,
+    };
+
+    expect(response.otp_method).toBeUndefined();
+    expect(response.session_id).toBe('sess-legacy');
+  });
+});
+
+describe('UserDTO totp_enabled', () => {
+  it('models users with TOTP enabled for security settings UI', () => {
+    const user: UserDTO = {
+      id: 'user-1',
+      short_id: 'u1',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+      default_team_id: 'team-1',
+      role: 'member',
+      email: 'user@example.com',
+      name: 'user',
+      full_name: 'Example User',
+      avatar_url: '',
+      totp_enabled: true,
+    };
+
+    expect(user.totp_enabled).toBe(true);
+  });
+
+  it('models users without TOTP for onboarding and legacy clients', () => {
+    const user: UserDTO = {
+      id: 'user-2',
+      short_id: 'u2',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+      default_team_id: 'team-1',
+      role: 'member',
+      email: 'legacy@example.com',
+      name: 'legacy',
+      full_name: 'Legacy User',
+      avatar_url: '',
+      totp_enabled: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(user)) as UserDTO;
+
+    expect(parsed.totp_enabled).toBe(false);
+    expect(parsed.email).toBe('legacy@example.com');
   });
 });

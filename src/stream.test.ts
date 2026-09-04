@@ -285,6 +285,87 @@ describe('StreamManager', () => {
       expect(createEventSource).toHaveBeenCalledTimes(1);
     });
 
+    it('should cap reconnects for a previously-connected stream after maxReconnects errors', async () => {
+      jest.useFakeTimers();
+      let currentMock = mockEventSource;
+      const createEventSource = jest.fn().mockImplementation(async () => {
+        currentMock = {
+          onmessage: null,
+          onerror: null,
+          close: jest.fn(),
+        };
+        return currentMock as unknown as EventSource;
+      });
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: true,
+        maxReconnects: 2,
+        reconnectDelayMs: 100,
+      });
+
+      await manager.connect();
+      expect(createEventSource).toHaveBeenCalledTimes(1);
+
+      // Prove the stream was live before the first disconnect.
+      currentMock.onmessage?.({ data: '{"status":"running"}' } as MessageEvent);
+
+      currentMock.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(2);
+
+      currentMock.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      currentMock.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
+    });
+
+    it('should allow reconnects after message receipt resets consecutive error budget', async () => {
+      jest.useFakeTimers();
+      let currentMock = mockEventSource;
+      const createEventSource = jest.fn().mockImplementation(async () => {
+        currentMock = {
+          onmessage: null,
+          onerror: null,
+          close: jest.fn(),
+        };
+        return currentMock as unknown as EventSource;
+      });
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: true,
+        maxReconnects: 2,
+        reconnectDelayMs: 100,
+      });
+
+      await manager.connect();
+
+      // First disconnect/reconnect cycle.
+      currentMock.onmessage?.({ data: '{"tick":1}' } as MessageEvent);
+      currentMock.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(2);
+
+      // Message on the reconnected stream resets the consecutive error counter.
+      currentMock.onmessage?.({ data: '{"tick":2}' } as MessageEvent);
+      currentMock.onerror?.({} as Event);
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
+    });
+
     it('should stop reconnecting after maxReconnects initial failures', async () => {
       jest.useFakeTimers();
       const onError = jest.fn();
