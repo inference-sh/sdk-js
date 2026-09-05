@@ -418,6 +418,7 @@ export interface AuthResponse {
   is_new?: boolean;
   otp_required?: boolean;
   otp_method?: string; // "email" or "totp"
+  challenge_token?: string; // pre-session 2FA token
   redirect_to?: string;
   provider?: string;
 }
@@ -2262,7 +2263,11 @@ export type StringSlice = string[];
  */
 export interface MCPServerDTO {
   id: string;
-  PermissionModelDTO: PermissionModelDTO;
+  user_id: string;
+  user: UserRelationDTO;
+  team_id: string;
+  team: TeamRelationDTO;
+  visibility: Visibility;
   slug: string;
   name: string;
   description: string;
@@ -3925,9 +3930,13 @@ export interface ModelSettings {
   reasoning_max_tokens?: number /* int */;
 }
 /**
- * LLMInput is the input envelope for an LLM provider task.
+ * LLMSettings is everything that configures a generation independent of the
+ * conversation: model, sampling, system prompt, tools and output constraints.
+ * Embedded by both BaseLLMInput (an agent's stored configuration) and
+ * LLMInput (a single call), so a field added here reaches both and the call
+ * is built from the configuration by one assignment.
  */
-export interface LLMInput {
+export interface LLMSettings {
   model?: string;
   context_size: number /* int */;
   temperature?: number /* float64 */;
@@ -3943,6 +3952,33 @@ export interface LLMInput {
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
   system_prompt: string;
+  tools?: Tool[];
+  tool_choice?: ToolChoice;
+  response_format?: ResponseFormat;
+}
+/**
+ * LLMInput is the input envelope for an LLM provider task: the settings plus
+ * the conversation, with the current turn split out of the context.
+ */
+export interface LLMInput {
+  model: string;
+  context_size: number /* int */;
+  temperature?: number /* float64 */;
+  top_p?: number /* float64 */;
+  top_k?: number /* int */;
+  min_p?: number /* float64 */;
+  frequency_penalty?: number /* float64 */;
+  presence_penalty?: number /* float64 */;
+  repetition_penalty?: number /* float64 */;
+  seed?: number /* int */;
+  stop?: string[];
+  max_tokens?: number /* int */;
+  reasoning_effort?: string;
+  reasoning_max_tokens?: number /* int */;
+  system_prompt: string;
+  tools?: Tool[];
+  tool_choice?: ToolChoice;
+  response_format?: ResponseFormat;
   context: LLMContextMessage[];
   role?: ChatMessageRole;
   text?: string;
@@ -3950,9 +3986,6 @@ export interface LLMInput {
   attachments?: FileRef[];
   images?: string[];
   files?: string[];
-  tools?: Tool[];
-  tool_choice?: ToolChoice;
-  response_format?: ResponseFormat;
   tool_call_id?: string;
 }
 /**
