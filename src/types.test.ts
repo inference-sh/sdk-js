@@ -85,6 +85,21 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  AuthResponse,
+  MCPServerDTO,
+  MCPServerAuthOAuth,
+  MCPServerAuthAPIKey,
+  MCPServerAuthNone,
+  LLMSettings,
+  LLMInput,
+  ChatMessageRoleUser,
+  ToolChoiceModeRequired,
+  ResponseFormatTypeJSONObject,
+  ToolTypeFunction,
+  UserRelationDTO,
+  TeamRelationDTO,
+  TeamTypeTeam,
+  RoleUser,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1582,181 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('AuthResponse challenge_token (v0.8.6)', () => {
+  it('models pre-session 2FA challenge_token when otp_required', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-pending',
+      otp_required: true,
+      otp_method: 'totp',
+      challenge_token: 'ch_abc123',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.otp_required).toBe(true);
+    expect(parsed.otp_method).toBe('totp');
+    expect(parsed.challenge_token).toBe('ch_abc123');
+    expect(parsed.user).toBeUndefined();
+  });
+
+  it('allows AuthResponse without challenge_token for completed logins', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-complete',
+      user: {
+        id: 'user-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        email: 'user@example.com',
+        name: 'User',
+        totp_enabled: false,
+      },
+    };
+
+    expect(response.challenge_token).toBeUndefined();
+    expect(response.otp_required).toBeUndefined();
+  });
+});
+
+describe('MCPServerDTO ownership shape (v0.8.6)', () => {
+  const relationUser = (): UserRelationDTO => ({
+    id: 'user-1',
+    created_at: '2026-07-25T00:00:00Z',
+    updated_at: '2026-07-25T00:00:00Z',
+    role: RoleUser,
+    avatar_url: 'https://example.com/avatar.png',
+  });
+
+  const relationTeam = (): TeamRelationDTO => ({
+    id: 'team-1',
+    created_at: '2026-07-25T00:00:00Z',
+    updated_at: '2026-07-25T00:00:00Z',
+    type: TeamTypeTeam,
+    username: 'acme',
+    avatar_url: 'https://example.com/team.png',
+    setup_completed: true,
+  });
+
+  it('exports MCPServerAuthType constants for server auth modes', () => {
+    expect(MCPServerAuthOAuth).toBe('oauth');
+    expect(MCPServerAuthAPIKey).toBe('api_key');
+    expect(MCPServerAuthNone).toBe('none');
+  });
+
+  it('models flat ownership fields instead of nested PermissionModelDTO', () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      user: relationUser(),
+      team_id: 'team-1',
+      team: relationTeam(),
+      visibility: VisibilityPrivate,
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Local filesystem access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com/filesystem',
+      auth_type: MCPServerAuthOAuth,
+      oauth_client_id: 'client-abc',
+      default_scopes: ['read', 'write'],
+      documentation_url: 'https://docs.example.com/mcp',
+      connection_status: 'connected',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.user_id).toBe('user-1');
+    expect(parsed.user.id).toBe('user-1');
+    expect(parsed.team_id).toBe('team-1');
+    expect(parsed.team.username).toBe('acme');
+    expect(parsed.visibility).toBe('private');
+    expect(parsed.auth_type).toBe('oauth');
+    expect(parsed.default_scopes).toEqual(['read', 'write']);
+  });
+});
+
+describe('LLMSettings (v0.8.6)', () => {
+  it('models generation settings with optional model for stored agent configuration', () => {
+    const settings: LLMSettings = {
+      context_size: 16384,
+      system_prompt: 'You are a research assistant.',
+      temperature: 0.2,
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: {
+            name: 'search',
+            description: 'Search knowledge base',
+          },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+    };
+
+    expect(settings.model).toBeUndefined();
+    expect(settings.tools).toHaveLength(1);
+    expect(settings.tool_choice?.mode).toBe('required');
+    expect(settings.response_format?.type).toBe('json_object');
+  });
+
+  it('preserves LLMSettings after JSON round-trip', () => {
+    const settings: LLMSettings = {
+      model: 'gpt-4.1',
+      context_size: 8192,
+      system_prompt: 'Be concise.',
+      max_tokens: 1024,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(settings)) as LLMSettings;
+
+    expect(parsed.model).toBe('gpt-4.1');
+    expect(parsed.context_size).toBe(8192);
+    expect(parsed.max_tokens).toBe(1024);
+  });
+});
+
+describe('LLMInput required model (v0.8.6)', () => {
+  const baseInput = (): LLMInput => ({
+    model: 'gpt-4.1',
+    context_size: 8192,
+    system_prompt: 'You are a helpful assistant.',
+    context: [{ role: ChatMessageRoleUser, text: 'Summarize this document.' }],
+  });
+
+  it('requires model on LLMInput for provider task envelopes', () => {
+    const input = baseInput();
+
+    expect(input.model).toBe('gpt-4.1');
+    expect(input.context).toHaveLength(1);
+    expect(input.context[0].role).toBe('user');
+  });
+
+  it('carries tools and output constraints on LLMInput alongside conversation context', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: {
+            name: 'summarize',
+            description: 'Summarize text',
+          },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+      text: 'Here is the document...',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.model).toBe('gpt-4.1');
+    expect(parsed.tools?.[0].function.name).toBe('summarize');
+    expect(parsed.tool_choice?.mode).toBe('required');
+    expect(parsed.response_format?.type).toBe('json_object');
+    expect(parsed.text).toBe('Here is the document...');
   });
 });
