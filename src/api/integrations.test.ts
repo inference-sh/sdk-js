@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import { IntegrationsAPI } from './integrations';
-import { IntegrationProviderGoogleSA } from '../types';
+import { CredentialScopeUser, IntegrationProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -71,6 +71,23 @@ describe('IntegrationsAPI', () => {
     expect(url).toMatch(/\/credentials$/);
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward connection_scope separately from OAuth scopes in connect()', async () => {
+    const payload = {
+      provider: 'github',
+      type: 'oauth',
+      scopes: ['repo'],
+      connection_scope: CredentialScopeUser,
+    };
+    const response = { auth_url: 'https://github.com/login/oauth/authorize' };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload);
+
+    expect(result.data).toEqual(response);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
