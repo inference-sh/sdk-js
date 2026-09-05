@@ -70,6 +70,12 @@ import {
   ToolContentTypeResourceLink,
   ToolContentTypeText,
   VisibilityPrivate,
+  VisibilityOrg,
+  VisibilityTeam,
+  VisibilityPublic,
+  MCPServerDTO,
+  MCPServerAuthOAuth,
+  PermissionModelDTO,
   InterruptDTO,
   InterruptReasonToolApproval,
   InterruptReasonHookGate,
@@ -1567,5 +1573,86 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('VisibilityOrg constant (INF-795 Phase 2)', () => {
+  it('exports VisibilityOrg between team and public visibility tiers', () => {
+    expect(VisibilityOrg).toBe('org');
+    expect(VisibilityPrivate).toBe('private');
+    expect(VisibilityTeam).toBe('team');
+    expect(VisibilityPublic).toBe('public');
+  });
+
+  it('accepts org visibility on PermissionModelDTO with optional org_id', () => {
+    const permission: PermissionModelDTO = {
+      user_id: 'user-1',
+      team_id: 'team-1',
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(permission)) as PermissionModelDTO;
+
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.visibility).toBe('org');
+  });
+});
+
+describe('MCPServerDTO org ownership (INF-795 Phase 2)', () => {
+  const baseServer = (): MCPServerDTO => ({
+    id: 'mcp-1',
+    user_id: 'user-1',
+    user: {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: 'user',
+      avatar_url: 'https://example.com/avatar.png',
+    },
+    team_id: 'team-1',
+    team: {
+      id: 'team-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      type: 'team',
+      username: 'acme',
+      avatar_url: 'https://example.com/team.png',
+      setup_completed: true,
+    },
+    visibility: VisibilityPrivate,
+    slug: 'filesystem',
+    name: 'Filesystem MCP',
+    description: 'Local filesystem access',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/filesystem',
+    auth_type: MCPServerAuthOAuth,
+    default_scopes: ['read'],
+    documentation_url: 'https://docs.example.com/mcp',
+  });
+
+  it('accepts optional org_id and org visibility on MCPServerDTO', () => {
+    const server: MCPServerDTO = {
+      ...baseServer(),
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    expect(server.org_id).toBe('org-1');
+    expect(server.visibility).toBe(VisibilityOrg);
+  });
+
+  it('preserves org_id and org visibility after JSON round-trip', () => {
+    const server: MCPServerDTO = {
+      ...baseServer(),
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.visibility).toBe('org');
+    expect(parsed.team.username).toBe('acme');
   });
 });
