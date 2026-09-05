@@ -3,6 +3,7 @@
   "version": "0.6.47",
   "description": "Official JavaScript/TypeScript SDK for inference.sh - Run AI models with a simple API",
   "type": "module",
+  "packageManager": "pnpm@11.24.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -145,11 +146,5 @@
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
-  ],
-  "overrides": {
-    "postcss": "^8.5.10",
-    "cookie": "^0.7.0",
-    "svelte": "^5.55.7",
-    "devalue": "^5.8.1"
-  }
+  ]
 }
