@@ -25,6 +25,38 @@ describe('MCPServersAPI', () => {
 
   const api = () => new MCPServersAPI(new HttpClient({ apiKey: 'test-key' }));
 
+  const v086Server = (overrides: Record<string, unknown> = {}) => ({
+    id: 'mcp-1',
+    user_id: 'user-1',
+    user: {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: 'user',
+      avatar_url: 'https://example.com/avatar.png',
+    },
+    team_id: 'team-1',
+    team: {
+      id: 'team-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      type: 'team',
+      username: 'acme',
+      avatar_url: 'https://example.com/team.png',
+      setup_completed: true,
+    },
+    visibility: 'private',
+    slug: 'filesystem',
+    name: 'Filesystem MCP',
+    description: 'Local filesystem access',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/filesystem',
+    auth_type: 'oauth',
+    default_scopes: ['read'],
+    documentation_url: 'https://docs.example.com/mcp',
+    ...overrides,
+  });
+
   it('should POST /mcps/list for list()', async () => {
     const page = { items: [{ slug: 'filesystem' }], next_cursor: null };
     mockJsonResponse(page);
@@ -141,36 +173,7 @@ describe('MCPServersAPI', () => {
   });
 
   it('should GET /mcps/{slug} for get()', async () => {
-    const server = {
-      id: 'mcp-1',
-      user_id: 'user-1',
-      user: {
-        id: 'user-1',
-        created_at: '2026-07-25T00:00:00Z',
-        updated_at: '2026-07-25T00:00:00Z',
-        role: 'user',
-        avatar_url: 'https://example.com/avatar.png',
-      },
-      team_id: 'team-1',
-      team: {
-        id: 'team-1',
-        created_at: '2026-07-25T00:00:00Z',
-        updated_at: '2026-07-25T00:00:00Z',
-        type: 'team',
-        username: 'acme',
-        avatar_url: 'https://example.com/team.png',
-        setup_completed: true,
-      },
-      visibility: 'private',
-      slug: 'filesystem',
-      name: 'Filesystem MCP',
-      description: 'Local filesystem access',
-      icon_url: 'https://example.com/icon.png',
-      server_url: 'https://mcp.example.com/filesystem',
-      auth_type: 'oauth',
-      default_scopes: ['read'],
-      documentation_url: 'https://docs.example.com/mcp',
-    };
+    const server = v086Server();
     mockJsonResponse(server);
 
     const result = await api().get('filesystem');
@@ -185,24 +188,31 @@ describe('MCPServersAPI', () => {
   });
 
   it('should POST /mcp-servers/list for listOwned()', async () => {
-    const page = { items: [{ id: 'mcp-1' }], next_cursor: null };
+    const server = v086Server({ slug: 'my-mcp', name: 'My MCP' });
+    const page = { items: [server], next_cursor: null };
     mockJsonResponse(page);
 
     const result = await api().listOwned({ limit: 5 });
 
-    expect(result.data).toEqual(page);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0]?.user_id).toBe('user-1');
+    expect(result.data.items[0]?.team.username).toBe('acme');
+    expect(result.data.items[0]?.visibility).toBe('private');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/list');
     expect(init.method).toBe('POST');
   });
 
   it('should GET /mcp-servers/{id} for getOwned()', async () => {
-    const server = { id: 'mcp-1', name: 'My MCP' };
+    const server = v086Server({ slug: 'my-mcp', name: 'My MCP' });
     mockJsonResponse(server);
 
     const result = await api().getOwned('mcp-1');
 
     expect(result.data).toEqual(server);
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team_id).toBe('team-1');
+    expect(result.data?.visibility).toBe('private');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('GET');
