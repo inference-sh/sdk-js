@@ -141,12 +141,44 @@ describe('MCPServersAPI', () => {
   });
 
   it('should GET /mcps/{slug} for get()', async () => {
-    const server = { slug: 'filesystem', name: 'Filesystem MCP' };
+    const server = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      user: {
+        id: 'user-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        role: 'user',
+        avatar_url: 'https://example.com/avatar.png',
+      },
+      team_id: 'team-1',
+      team: {
+        id: 'team-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        type: 'team',
+        username: 'acme',
+        avatar_url: 'https://example.com/team.png',
+        setup_completed: true,
+      },
+      visibility: 'private',
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Local filesystem access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com/filesystem',
+      auth_type: 'oauth',
+      default_scopes: ['read'],
+      documentation_url: 'https://docs.example.com/mcp',
+    };
     mockJsonResponse(server);
 
     const result = await api().get('filesystem');
 
     expect(result.data).toEqual(server);
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team.username).toBe('acme');
+    expect(result.data?.visibility).toBe('private');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');
