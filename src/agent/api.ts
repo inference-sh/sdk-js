@@ -74,9 +74,14 @@ async function sendChatMessage(
   client: AgentClient,
   chatId: string,
   text: string,
+  attachments?: FileRef[],
 ): Promise<SendResult> {
+  const data: { message: string; attachments?: FileRef[] } = { message: text };
+  if (attachments && attachments.length > 0) {
+    data.attachments = attachments;
+  }
   const resp = await client.http.request<ChatMessageDTO>('post', `/chats/${chatId}/messages`, {
-    data: { message: text },
+    data,
   });
 
   return {
@@ -95,16 +100,16 @@ export async function sendMessage(
   text: string,
   files?: FileInput[]
 ): Promise<SendResult | null> {
-  await processFiles(client, files);
+  const attachments = await processFiles(client, files);
 
   // Existing chat — just send the message
   if (chatId) {
-    return sendChatMessage(client, chatId, text);
+    return sendChatMessage(client, chatId, text, attachments);
   }
 
   // New chat — create it, then send the first message
   const chat = await createChat(client, config);
-  return sendChatMessage(client, chat.id, text);
+  return sendChatMessage(client, chat.id, text, attachments);
 }
 
 // =========================================================================

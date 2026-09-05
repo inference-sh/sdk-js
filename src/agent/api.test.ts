@@ -106,6 +106,10 @@ describe('agent/api', () => {
 
       // 2 calls: create chat + send message (no upload call)
       expect(mockFetch).toHaveBeenCalledTimes(2);
+      // Verify the file ref was included in the message body
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const body = JSON.parse(String(init2.body));
+      expect(body.attachments).toEqual([fileRef]);
     });
 
     it('should forward template context values via createChat', async () => {
@@ -145,6 +149,13 @@ describe('agent/api', () => {
       await sendMessage(client, { agent: 'ns/agent' }, null, 'with files', [file1, file2]);
 
       expect(uploadSpy).toHaveBeenCalledTimes(2);
+      // Verify uploaded file refs appear in the message body
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const body = JSON.parse(String(init2.body));
+      expect(body.attachments).toEqual([
+        { id: 'file-a.txt', uri: 'inf://files/a.txt', filename: 'a.txt', content_type: 'text/plain' },
+        { id: 'file-b.txt', uri: 'inf://files/b.txt', filename: 'b.txt', content_type: 'text/plain' },
+      ]);
       uploadSpy.mockRestore();
     });
 
