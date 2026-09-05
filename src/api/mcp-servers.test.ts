@@ -152,6 +152,47 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize org-scoped MCPServerDTO from get()', async () => {
+    const server = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      user: {
+        id: 'user-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        role: 'user',
+        avatar_url: 'https://example.com/avatar.png',
+      },
+      team_id: 'team-1',
+      team: {
+        id: 'team-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        type: 'team',
+        username: 'acme',
+        avatar_url: 'https://example.com/team.png',
+        setup_completed: true,
+      },
+      org_id: 'org-1',
+      visibility: 'org',
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Org-shared filesystem access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com/filesystem',
+      auth_type: 'oauth',
+      default_scopes: ['read'],
+      documentation_url: 'https://docs.example.com/mcp',
+    };
+    mockJsonResponse(server);
+
+    const result = await api().get('filesystem');
+
+    expect(result.data?.org_id).toBe('org-1');
+    expect(result.data?.visibility).toBe('org');
+    expect(result.data?.team.username).toBe('acme');
+  });
+
   it('should POST /mcp-servers/list for listOwned()', async () => {
     const page = { items: [{ id: 'mcp-1' }], next_cursor: null };
     mockJsonResponse(page);
