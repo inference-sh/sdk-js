@@ -77,9 +77,14 @@ endif
 # platform deps differently, and `npm ci` then fails with
 #   npm error EUSAGE ... Missing: @emnapi/runtime@x.y.z from lock file
 # even though it passed locally. Use this target after changing dependencies.
+# Generates in a clean temp dir: inside the pnpm workspace, npm reads pnpm's
+# node_modules layout and writes a lockfile with only the direct deps, which
+# then fails `npm ci` in CI.
 relock:
 	mise install
-	mise exec -- npm install --package-lock-only || mise exec -- npm install
+	@tmp=$$(mktemp -d) && cp package.json .mise.toml "$$tmp/" && cd "$$tmp" && \
+		mise trust -q && mise exec -- npm install --package-lock-only --ignore-scripts && \
+		cp package-lock.json "$(CURDIR)/package-lock.json" && rm -rf "$$tmp"
 	@echo "Lockfile regenerated with $$(mise exec -- node -v)"
 
 patch:
