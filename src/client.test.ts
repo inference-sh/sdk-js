@@ -5,6 +5,9 @@ import {
   AppStatusRetired,
   DeviceAuthStatusApproved,
   DeviceTokenKindSession,
+  MCPServerAuthAPIKey,
+  MCPServerAuthNone,
+  MCPServerAuthOAuth,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -78,6 +81,12 @@ describe('package type exports', () => {
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
+  });
+
+  it('exports MCPServerAuthType constants for v0.8.6 MCP server auth modes', () => {
+    expect(MCPServerAuthOAuth).toBe('oauth');
+    expect(MCPServerAuthAPIKey).toBe('api_key');
+    expect(MCPServerAuthNone).toBe('none');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
