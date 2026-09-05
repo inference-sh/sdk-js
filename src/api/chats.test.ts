@@ -10,7 +10,10 @@ import {
   GraphNodeStatusCompleted,
   GraphNodeTypeResource,
   InterruptReasonToolApproval,
+  InterruptResourceToolInvocation,
+  InterruptStatusPending,
 } from '../types';
+import { pendingApprovals } from '../utils';
 import { ChatsAPI } from './chats';
 
 const mockFetch = jest.fn();
@@ -213,6 +216,45 @@ describe('ChatsAPI', () => {
     expect(result.data.active_run?.state).toBe(AgentRunStateInputRequired);
     expect(result.data.active_run?.interrupt_reason).toBe(InterruptReasonToolApproval);
     expect(result.data.active_run?.interrupt_tool_id).toBe('tool-call-7');
+  });
+
+  it('should preserve pending_interrupts in get() responses for approval-gate UX', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      pending_interrupts: [
+        {
+          id: 'int-1',
+          chat_id: 'chat-1',
+          run_id: 'run-1',
+          reason: InterruptReasonToolApproval,
+          status: InterruptStatusPending,
+          resource_id: 'call-del-1',
+          resource_type: InterruptResourceToolInvocation,
+          meta: {
+            tool_invocation_id: 'call-del-1',
+            tool_name: 'delete_record',
+            arguments: { id: 'rec-9' },
+          },
+        },
+      ],
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.pending_interrupts).toHaveLength(1);
+    expect(result.data.pending_interrupts?.[0].reason).toBe(InterruptReasonToolApproval);
+    expect(result.data.pending_interrupts?.[0].status).toBe(InterruptStatusPending);
+    expect(pendingApprovals(result.data)).toEqual([
+      {
+        interruptId: 'int-1',
+        toolInvocationId: 'call-del-1',
+        chatId: 'chat-1',
+        toolName: 'delete_record',
+        arguments: { id: 'rec-9' },
+      },
+    ]);
   });
 
   it('should preserve agent_run_id on chat messages in get() responses', async () => {
