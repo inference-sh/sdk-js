@@ -77,15 +77,15 @@ endif
 # platform deps differently, and `npm ci` then fails with
 #   npm error EUSAGE ... Missing: @emnapi/runtime@x.y.z from lock file
 # even though it passed locally. Use this target after changing dependencies.
-# Generates in a clean temp dir: inside the pnpm workspace, npm reads pnpm's
-# node_modules layout and writes a lockfile with only the direct deps, which
-# then fails `npm ci` in CI.
+# This package's pnpm-lock.yaml is for standalone clones (CI, publish). Inside the
+# monorepo the workspace's shared lockfile wins, so generate in a temp dir with
+# only package.json — otherwise pnpm resolves against the workspace and writes
+# the root lock instead.
 relock:
-	mise install
-	@tmp=$$(mktemp -d) && cp package.json .mise.toml "$$tmp/" && cd "$$tmp" && \
-		mise trust -q && mise exec -- npm install --package-lock-only --ignore-scripts && \
-		cp package-lock.json "$(CURDIR)/package-lock.json" && rm -rf "$$tmp"
-	@echo "Lockfile regenerated with $$(mise exec -- node -v)"
+	@tmp=$$(mktemp -d) && cp package.json "$$tmp/" && cd "$$tmp" && \
+		pnpm install --lockfile-only --ignore-scripts && \
+		cp pnpm-lock.yaml "$(CURDIR)/pnpm-lock.yaml" && rm -rf "$$tmp"
+	@echo "Lockfile regenerated with pnpm $$(pnpm -v)"
 
 patch:
 	@./scripts/bump.sh patch
