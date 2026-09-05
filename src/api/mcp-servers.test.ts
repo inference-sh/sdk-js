@@ -1,10 +1,16 @@
 import { HttpClient } from '../http/client';
 import {
+  MCPServerAuthOAuth,
   ResultTypeComplete,
   ResultTypeInputRequired,
+  RoleUser,
+  TeamTypeTeam,
   ToolCallResponse,
   ToolContentTypeText,
+  VisibilityOrg,
+  VisibilityPrivate,
 } from '../types';
+import type { MCPServerDTO } from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
 const mockFetch = jest.fn();
@@ -16,6 +22,41 @@ function mockJsonResponse(body: unknown) {
     status: 200,
     text: () => Promise.resolve(JSON.stringify(body)),
   });
+}
+
+/** v0.8.6 MCPServerDTO with flat ownership fields (replaces nested PermissionModelDTO). */
+function v086OwnedServer(overrides: Partial<MCPServerDTO> = {}): MCPServerDTO {
+  return {
+    id: 'mcp-1',
+    user_id: 'user-1',
+    user: {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: RoleUser,
+      avatar_url: 'https://example.com/avatar.png',
+    },
+    team_id: 'team-1',
+    team: {
+      id: 'team-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      type: TeamTypeTeam,
+      username: 'acme',
+      avatar_url: 'https://example.com/team.png',
+      setup_completed: true,
+    },
+    visibility: VisibilityPrivate,
+    slug: 'my-mcp',
+    name: 'My MCP',
+    description: 'Custom MCP server',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/my-mcp',
+    auth_type: MCPServerAuthOAuth,
+    default_scopes: ['read'],
+    documentation_url: 'https://docs.example.com/mcp',
+    ...overrides,
+  };
 }
 
 describe('MCPServersAPI', () => {
@@ -138,6 +179,37 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('PUT');
+  });
+
+  it('should deserialize v0.8.6 flat ownership from update()', async () => {
+    const server = v086OwnedServer({ name: 'Updated MCP' });
+    mockJsonResponse(server);
+
+    const result = await api().update('mcp-1', { name: 'Updated MCP' });
+
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team_id).toBe('team-1');
+    expect(result.data?.team.username).toBe('acme');
+    expect(result.data?.auth_type).toBe('oauth');
+    expect(result.data?.name).toBe('Updated MCP');
+  });
+
+  it('should deserialize org-scoped MCPServerDTO from update()', async () => {
+    const server = v086OwnedServer({
+      name: 'Org MCP',
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    });
+    mockJsonResponse(server);
+
+    const result = await api().update('mcp-1', {
+      name: 'Org MCP',
+      visibility: VisibilityOrg,
+    });
+
+    expect(result.data?.org_id).toBe('org-1');
+    expect(result.data?.visibility).toBe('org');
+    expect(result.data?.name).toBe('Org MCP');
   });
 
   it('should GET /mcps/{slug} for get()', async () => {
