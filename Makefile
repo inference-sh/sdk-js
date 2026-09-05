@@ -78,13 +78,10 @@ endif
 #   npm error EUSAGE ... Missing: @emnapi/runtime@x.y.z from lock file
 # even though it passed locally. Use this target after changing dependencies.
 # This package's pnpm-lock.yaml is for standalone clones (CI, publish). Inside the
-# monorepo the workspace's shared lockfile wins, so generate in a temp dir with
-# only package.json — otherwise pnpm resolves against the workspace and writes
-# the root lock instead.
+# monorepo a plain `pnpm install` updates the workspace's shared lock instead, so
+# run this after any dependency change or the next release fails on lockfile drift.
 relock:
-	@tmp=$$(mktemp -d) && cp package.json "$$tmp/" && cd "$$tmp" && \
-		pnpm install --lockfile-only --ignore-scripts && \
-		cp pnpm-lock.yaml "$(CURDIR)/pnpm-lock.yaml" && rm -rf "$$tmp"
+	pnpm install --lockfile-only --ignore-workspace --ignore-scripts
 	@echo "Lockfile regenerated with pnpm $$(pnpm -v)"
 
 patch:
