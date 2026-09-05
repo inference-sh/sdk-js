@@ -484,6 +484,13 @@ export interface IntegrationConnectRequest {
   scopes?: string[];
   api_key?: string;
   metadata?: { [key: string]: any};
+  /**
+   * ConnectionScope is who the resulting credential belongs to:
+   * "user" (just me) or "team" (shared with the team — requires team
+   * admin). Empty = the provider's default. Distinct from Scopes, which
+   * are OAuth permission scopes.
+   */
+  connection_scope?: CredentialScope;
 }
 export interface IntegrationCompleteOAuthRequest {
   provider: string;
@@ -3936,21 +3943,9 @@ export interface ModelSettings {
  * LLMInput (a single call), so a field added here reaches both and the call
  * is built from the configuration by one assignment.
  */
-export interface LLMSettings {
+export interface LLMSettings extends ModelSettings {
   model?: string;
   context_size: number /* int */;
-  temperature?: number /* float64 */;
-  top_p?: number /* float64 */;
-  top_k?: number /* int */;
-  min_p?: number /* float64 */;
-  frequency_penalty?: number /* float64 */;
-  presence_penalty?: number /* float64 */;
-  repetition_penalty?: number /* float64 */;
-  seed?: number /* int */;
-  stop?: string[];
-  max_tokens?: number /* int */;
-  reasoning_effort?: string;
-  reasoning_max_tokens?: number /* int */;
   system_prompt: string;
   tools?: Tool[];
   tool_choice?: ToolChoice;
@@ -3960,25 +3955,7 @@ export interface LLMSettings {
  * LLMInput is the input envelope for an LLM provider task: the settings plus
  * the conversation, with the current turn split out of the context.
  */
-export interface LLMInput {
-  model: string;
-  context_size: number /* int */;
-  temperature?: number /* float64 */;
-  top_p?: number /* float64 */;
-  top_k?: number /* int */;
-  min_p?: number /* float64 */;
-  frequency_penalty?: number /* float64 */;
-  presence_penalty?: number /* float64 */;
-  repetition_penalty?: number /* float64 */;
-  seed?: number /* int */;
-  stop?: string[];
-  max_tokens?: number /* int */;
-  reasoning_effort?: string;
-  reasoning_max_tokens?: number /* int */;
-  system_prompt: string;
-  tools?: Tool[];
-  tool_choice?: ToolChoice;
-  response_format?: ResponseFormat;
+export interface LLMInput extends LLMSettings {
   context: LLMContextMessage[];
   role?: ChatMessageRole;
   text?: string;
@@ -4297,6 +4274,14 @@ export const IntegrationGrantCredentials: IntegrationGrant = "credentials";
  * IntegrationGrantToken provides ready-to-use access (token, API key, etc.).
  */
 export const IntegrationGrantToken: IntegrationGrant = "token";
+/**
+ * CredentialScope controls resolution priority and ownership.
+ */
+export type CredentialScope = string;
+export const CredentialScopePlatform: CredentialScope = "platform";
+export const CredentialScopeTeam: CredentialScope = "team";
+export const CredentialScopeUser: CredentialScope = "user";
+export const CredentialScopeAgent: CredentialScope = "agent";
 /**
  * NotificationChannel represents a delivery channel
  */
