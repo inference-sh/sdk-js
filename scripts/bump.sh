@@ -24,17 +24,11 @@ fi
 
 new_version="${new_tag#v}"
 
-# Update package.json AND package-lock.json.
-#
-# npm version updates both (it does not run an install, so the dependency
-# tree is untouched — only the version fields change). Writing package.json
-# alone leaves the lockfile on the previous version, and `npm ci` refuses to
-# run when the two disagree:
-#   npm error EUSAGE ... package.json and package-lock.json are not in sync
-# which fails the publish workflow on every release.
+# Only package.json carries the version; pnpm-lock.yaml does not record it, so
+# there is nothing else to keep in sync.
 npm version "$new_version" --no-git-tag-version --allow-same-version >/dev/null
 
-git add package.json package-lock.json
+git add package.json
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"
