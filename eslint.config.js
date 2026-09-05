@@ -73,11 +73,8 @@ export default [
     },
   },
 
-  // Override specific rules
+  // Global ignores — standalone object so ESLint skips these paths entirely
   {
     ignores: ['dist/**/*'],
-    rules: {
-      // Add any custom rule overrides here
-    },
   },
 ]; 
