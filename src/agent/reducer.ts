@@ -4,7 +4,7 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types';
+import type { AgentRunDTO, ChatStatus } from '../types';
 import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle, AgentRunStateWorking, AgentRunStateSubmitted } from '../types';
 import type { AgentChatState, ChatAction } from './types';
 

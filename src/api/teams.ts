@@ -8,8 +8,6 @@ import {
   TeamCreateRequest,
   TeamMemberAddRequest,
   TeamInviteCreateRequest,
-  CursorListRequest,
-  CursorListResponse,
   AvailabilityResponse,
 } from '../types';
 

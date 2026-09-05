@@ -80,8 +80,8 @@ describe('package type exports', () => {
     expect(DeviceTokenKindSession).toBe('session');
   });
 
-  it('does not export removed A2UIHTML component type constant', () => {
-    const sdk = require('./index') as Record<string, unknown>;
+  it('does not export removed A2UIHTML component type constant', async () => {
+    const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
   });
 });
