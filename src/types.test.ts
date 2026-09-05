@@ -85,6 +85,15 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialScopeAgent,
+  CredentialScopeOrg,
+  CredentialScopePlatform,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+  IntegrationConnectRequest,
+  LLMSettings,
+  LLMInput,
+  ChatMessageRoleUser,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1576,84 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('CredentialScope constants (v0.8.7+)', () => {
+  it('exports CredentialScope constants for credential ownership resolution', () => {
+    expect(CredentialScopePlatform).toBe('platform');
+    expect(CredentialScopeOrg).toBe('org');
+    expect(CredentialScopeTeam).toBe('team');
+    expect(CredentialScopeUser).toBe('user');
+    expect(CredentialScopeAgent).toBe('agent');
+  });
+});
+
+describe('IntegrationConnectRequest connection_scope (v0.8.7)', () => {
+  it('models connection_scope separately from OAuth scopes', () => {
+    const request: IntegrationConnectRequest = {
+      provider: 'github',
+      type: 'oauth',
+      scopes: ['repo', 'read:org'],
+      connection_scope: CredentialScopeTeam,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as IntegrationConnectRequest;
+
+    expect(parsed.scopes).toEqual(['repo', 'read:org']);
+    expect(parsed.connection_scope).toBe('team');
+  });
+
+  it('allows IntegrationConnectRequest without connection_scope for provider defaults', () => {
+    const request: IntegrationConnectRequest = {
+      provider: 'slack',
+      type: 'oauth',
+      scopes: ['chat:write'],
+    };
+
+    expect(request.connection_scope).toBeUndefined();
+  });
+});
+
+describe('LLMSettings flattened contract (v0.8.8)', () => {
+  it('models sampling and generation parameters directly on LLMSettings', () => {
+    const settings: LLMSettings = {
+      context_size: 8192,
+      system_prompt: 'Be precise.',
+      temperature: 0.7,
+      top_p: 0.9,
+      max_tokens: 512,
+      stop: ['END'],
+      reasoning_effort: 'high',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(settings)) as LLMSettings;
+
+    expect(parsed.temperature).toBe(0.7);
+    expect(parsed.top_p).toBe(0.9);
+    expect(parsed.max_tokens).toBe(512);
+    expect(parsed.stop).toEqual(['END']);
+    expect(parsed.reasoning_effort).toBe('high');
+    expect(parsed.context_size).toBe(8192);
+  });
+
+  it('inherits LLMSettings fields on LLMInput via extends', () => {
+    const input: LLMInput = {
+      model: 'gpt-4.1',
+      context_size: 16384,
+      system_prompt: 'You are a helpful assistant.',
+      temperature: 0.2,
+      max_tokens: 2048,
+      context: [{ role: ChatMessageRoleUser, text: 'Hello' }],
+      text: 'Hello',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.model).toBe('gpt-4.1');
+    expect(parsed.temperature).toBe(0.2);
+    expect(parsed.max_tokens).toBe(2048);
+    expect(parsed.context).toHaveLength(1);
+    expect(parsed.text).toBe('Hello');
   });
 });
