@@ -1111,6 +1111,7 @@ export interface PermissionModelDTO {
   user?: UserRelationDTO;
   team_id: string;
   team?: TeamRelationDTO;
+  org_id?: string;
   visibility: Visibility;
 }
 /**
@@ -2274,6 +2275,7 @@ export interface MCPServerDTO {
   user: UserRelationDTO;
   team_id: string;
   team: TeamRelationDTO;
+  org_id?: string;
   visibility: Visibility;
   slug: string;
   name: string;
@@ -3479,6 +3481,11 @@ export const GPUTypeApple: GPUType = "apple";
 export type Visibility = string;
 export const VisibilityPrivate: Visibility = "private";
 export const VisibilityTeam: Visibility = "team";
+/**
+ * VisibilityOrg sits between team and public: visible to every member of
+ * every team in the owning team's org (INF-795 Phase 2).
+ */
+export const VisibilityOrg: Visibility = "org";
 export const VisibilityPublic: Visibility = "public";
 export const VisibilityUnlisted: Visibility = "unlisted";
 /**
