@@ -3920,9 +3920,16 @@ export interface ResponseFormat {
   strict?: boolean; // provider-enforced adherence, where supported
 }
 /**
- * ModelSettings groups sampling and generation parameters as a passable unit.
+ * LLMSettings is everything that configures a generation independent of the
+ * conversation: model, context, sampling, system prompt, tools and output
+ * constraints. Embedded (tstype extends) by BaseLLMInput — an agent's stored
+ * configuration — and LLMInput — a single call — so a field added here
+ * reaches both, and the call is built from the configuration by one
+ * assignment.
  */
-export interface ModelSettings {
+export interface LLMSettings {
+  model?: string;
+  context_size: number /* int */;
   temperature?: number /* float64 */;
   top_p?: number /* float64 */;
   top_k?: number /* int */;
@@ -3935,17 +3942,6 @@ export interface ModelSettings {
   max_tokens?: number /* int */;
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
-}
-/**
- * LLMSettings is everything that configures a generation independent of the
- * conversation: model, sampling, system prompt, tools and output constraints.
- * Embedded by both BaseLLMInput (an agent's stored configuration) and
- * LLMInput (a single call), so a field added here reaches both and the call
- * is built from the configuration by one assignment.
- */
-export interface LLMSettings extends ModelSettings {
-  model?: string;
-  context_size: number /* int */;
   system_prompt: string;
   tools?: Tool[];
   tool_choice?: ToolChoice;
@@ -4279,6 +4275,13 @@ export const IntegrationGrantToken: IntegrationGrant = "token";
  */
 export type CredentialScope = string;
 export const CredentialScopePlatform: CredentialScope = "platform";
+/**
+ * CredentialScopeOrg: shared across all teams of an org. In the enum for
+ * end-to-end typing (connect-level pickers); connects with it are refused
+ * until the org domain lands (INF-795 Phase 2). Resolution order once
+ * live: agent > user > team > org > platform.
+ */
+export const CredentialScopeOrg: CredentialScope = "org";
 export const CredentialScopeTeam: CredentialScope = "team";
 export const CredentialScopeUser: CredentialScope = "user";
 export const CredentialScopeAgent: CredentialScope = "agent";
