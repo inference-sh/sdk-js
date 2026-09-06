@@ -1156,6 +1156,12 @@ export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
   max_per_day: number /* int */;
   proof_type: string;
   proof_min_length: number /* int */;
+  /**
+   * RequiresPaymentMethod withholds the reward until the claimant's team has
+   * a saved payment method. The claim itself is refused with 402
+   * payment_method_required (survey answers are still recorded).
+   */
+  requires_payment_method: boolean;
   status: string;
   notice_text: string;
   notice_cooldown_hours: number /* int */;
@@ -1415,7 +1421,10 @@ export interface WorkerRAM {
  * EntitlementDTO for API responses
  */
 export interface EntitlementDTO extends BaseModelDTO {
+  scope: EntitlementScope;
   team_id: string;
+  org_id?: string;
+  user_id?: string;
   resource: EntitlementResource;
   type: EntitlementType;
   enabled: boolean;
@@ -2749,6 +2758,37 @@ export interface SubscriptionDTO extends BaseModelDTO {
   credits_per_period: number /* int64 */;
 }
 /**
+ * SurveyResponseDTO is the API representation of a survey response.
+ */
+export interface SurveyResponseDTO extends BaseModelDTO, PermissionModelDTO {
+  question_id: string;
+  response: string;
+  agent?: string;
+  source?: string;
+  context?: string;
+}
+/**
+ * SubmitSurveyResponse is returned when submitting a survey answer.
+ * GrantedAmount is the credit reward in microcents (0 if no reward was earned).
+ * RewardBlockedReason is set when the answer was recorded but the reward was
+ * withheld by policy (see RewardBlockedPaymentMethodRequired).
+ */
+export interface SubmitSurveyResponse {
+  response: SurveyResponseDTO;
+  granted_amount?: number /* int64 */;
+  reward_blocked_reason?: string;
+}
+/**
+ * SubmitSurveyRequest is used to submit a single survey answer.
+ */
+export interface SubmitSurveyRequest {
+  question_id: string;
+  response: string;
+  agent?: string;
+  source?: string;
+  context?: string;
+}
+/**
  * Hardware/System related types
  */
 export interface SystemInfo {
@@ -3100,6 +3140,11 @@ export interface UsageEventDTO extends BaseModelDTO, PermissionModelDTO {
 export interface UserDTO extends BaseModelDTO {
   default_team_id: string;
   role: Role;
+  /**
+   * ManagedByOrgID: set for enterprise-managed accounts (no personal team,
+   * cannot create teams/orgs).
+   */
+  managed_by_org_id?: string;
   email: string;
   name: string;
   full_name: string;
@@ -3515,6 +3560,16 @@ export const EntitlementSourceAddon: EntitlementSource = "addon";
 export type EntitlementType = string;
 export const EntitlementTypeBoolean: EntitlementType = "boolean";
 export const EntitlementTypeLimit: EntitlementType = "limit";
+/**
+ * EntitlementScope is who an entitlement row applies to (INF-799). The scope's
+ * owner columns (team_id / org_id / user_id) identify the owner, mirroring the
+ * ownership pattern used across the codebase; resolution matches all scopes
+ * visible from an AuthContext in one query and mergeEntitlements arbitrates.
+ */
+export type EntitlementScope = string;
+export const EntitlementScopeOrg: EntitlementScope = "org";
+export const EntitlementScopeTeam: EntitlementScope = "team";
+export const EntitlementScopeMember: EntitlementScope = "member";
 export type EnforcementMode = string;
 export const EnforcementBlock: EnforcementMode = "block";
 export const EnforcementWarn: EnforcementMode = "warn";
