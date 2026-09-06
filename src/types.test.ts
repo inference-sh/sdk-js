@@ -19,12 +19,21 @@ import {
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
+  BountyProgramDTO,
   EntitlementDTO,
   EntitlementErrorMeta,
+  EntitlementScopeMember,
+  EntitlementScopeOrg,
+  EntitlementScopeTeam,
   EntitlementSourceAddon,
   EntitlementSourceTier,
   EntitlementTypeBoolean,
   EntitlementTypeLimit,
+  SubmitSurveyRequest,
+  SubmitSurveyResponse,
+  SurveyResponseDTO,
+  UserDTO,
+  RoleUser,
   EstimateCostRequest,
   EstimateCostResponse,
   KnowledgeDTO,
@@ -141,6 +150,7 @@ function makeEntitlement(overrides: Partial<EntitlementDTO> = {}): EntitlementDT
     short_id: 'e1',
     created_at: '2026-07-22T00:00:00Z',
     updated_at: '2026-07-22T00:00:00Z',
+    scope: EntitlementScopeTeam,
     team_id: 'team-1',
     resource: ResourceSeats,
     type: EntitlementTypeLimit,
@@ -1567,5 +1577,217 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('EntitlementScope constants (v0.8.14, INF-799)', () => {
+  it('exports org, team, and member scope tiers', () => {
+    expect(EntitlementScopeOrg).toBe('org');
+    expect(EntitlementScopeTeam).toBe('team');
+    expect(EntitlementScopeMember).toBe('member');
+  });
+
+  it('models team-scoped entitlements with team_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeTeam,
+      team_id: 'team-1',
+      limit: 10,
+    });
+
+    expect(entitlement.scope).toBe('team');
+    expect(entitlement.team_id).toBe('team-1');
+    expect(entitlement.org_id).toBeUndefined();
+    expect(entitlement.user_id).toBeUndefined();
+  });
+
+  it('models org-scoped entitlements with org_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeOrg,
+      org_id: 'org-1',
+      team_id: 'team-1',
+      resource: ResourceSeats,
+      limit: 50,
+    });
+
+    expect(entitlement.scope).toBe('org');
+    expect(entitlement.org_id).toBe('org-1');
+    expect(entitlement.team_id).toBe('team-1');
+  });
+
+  it('models member-scoped entitlements with user_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeMember,
+      user_id: 'user-1',
+      team_id: 'team-1',
+      resource: ResourceSeats,
+      limit: 1,
+    });
+
+    expect(entitlement.scope).toBe('member');
+    expect(entitlement.user_id).toBe('user-1');
+  });
+
+  it('preserves scope and owner columns after JSON round-trip', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeOrg,
+      org_id: 'org-1',
+      team_id: 'team-1',
+      user_id: 'user-1',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(entitlement)) as EntitlementDTO;
+
+    expect(parsed.scope).toBe('org');
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.user_id).toBe('user-1');
+    expect(parsed.team_id).toBe('team-1');
+  });
+});
+
+describe('BountyProgramDTO requires_payment_method (v0.8.14)', () => {
+  function makeBountyProgram(overrides: Partial<BountyProgramDTO> = {}): BountyProgramDTO {
+    return {
+      id: 'bounty-1',
+      short_id: 'b1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'Referral bounty',
+      description: 'Earn credits for referrals',
+      amount_microcents: 1_000_000,
+      grant_type: 'credits',
+      expiry_days: 30,
+      max_per_user: 1,
+      max_per_day: 10,
+      proof_type: 'url',
+      proof_min_length: 10,
+      requires_payment_method: false,
+      status: 'active',
+      notice_text: 'Complete your profile to claim',
+      notice_cooldown_hours: 24,
+      notice_priority: 1,
+      ...overrides,
+    };
+  }
+
+  it('declares requires_payment_method for payment-gated bounty programs', () => {
+    const gated = makeBountyProgram({ requires_payment_method: true });
+    const open = makeBountyProgram({ requires_payment_method: false });
+
+    expect(gated.requires_payment_method).toBe(true);
+    expect(open.requires_payment_method).toBe(false);
+  });
+
+  it('preserves requires_payment_method after JSON round-trip', () => {
+    const program = makeBountyProgram({ requires_payment_method: true });
+
+    const parsed = JSON.parse(JSON.stringify(program)) as BountyProgramDTO;
+
+    expect(parsed.requires_payment_method).toBe(true);
+    expect(parsed.name).toBe('Referral bounty');
+  });
+});
+
+describe('Survey response types (v0.8.14)', () => {
+  function makeSurveyResponse(overrides: Partial<SurveyResponseDTO> = {}): SurveyResponseDTO {
+    return {
+      id: 'survey-resp-1',
+      short_id: 'sr1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      question_id: 'q-onboarding',
+      response: 'Great product!',
+      ...overrides,
+    };
+  }
+
+  it('models SubmitSurveyRequest with optional agent, source, and context', () => {
+    const request: SubmitSurveyRequest = {
+      question_id: 'q-onboarding',
+      response: 'Great product!',
+      agent: 'onboarding-bot',
+      source: 'web',
+      context: 'post-signup',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SubmitSurveyRequest;
+
+    expect(parsed.question_id).toBe('q-onboarding');
+    expect(parsed.agent).toBe('onboarding-bot');
+    expect(parsed.source).toBe('web');
+    expect(parsed.context).toBe('post-signup');
+  });
+
+  it('models SubmitSurveyResponse with granted credit reward', () => {
+    const result: SubmitSurveyResponse = {
+      response: makeSurveyResponse(),
+      granted_amount: 500_000,
+    };
+
+    expect(result.granted_amount).toBe(500_000);
+    expect(result.reward_blocked_reason).toBeUndefined();
+    expect(result.response.question_id).toBe('q-onboarding');
+  });
+
+  it('models SubmitSurveyResponse when reward is withheld for missing payment method', () => {
+    const result: SubmitSurveyResponse = {
+      response: makeSurveyResponse(),
+      granted_amount: 0,
+      reward_blocked_reason: 'payment_method_required',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(result)) as SubmitSurveyResponse;
+
+    expect(parsed.granted_amount).toBe(0);
+    expect(parsed.reward_blocked_reason).toBe('payment_method_required');
+    expect(parsed.response.response).toBe('Great product!');
+  });
+});
+
+describe('UserDTO managed_by_org_id (v0.8.14)', () => {
+  function makeUser(overrides: Partial<UserDTO> = {}): UserDTO {
+    return {
+      id: 'user-1',
+      short_id: 'u1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      default_team_id: 'team-1',
+      role: RoleUser,
+      email: 'user@example.com',
+      name: 'user',
+      full_name: 'Example User',
+      avatar_url: 'https://example.com/avatar.png',
+      totp_enabled: false,
+      ...overrides,
+    };
+  }
+
+  it('allows self-managed users without managed_by_org_id', () => {
+    const user = makeUser();
+
+    expect(user.managed_by_org_id).toBeUndefined();
+    expect(user.default_team_id).toBe('team-1');
+  });
+
+  it('marks enterprise-managed accounts with managed_by_org_id', () => {
+    const user = makeUser({
+      managed_by_org_id: 'org-enterprise',
+    });
+
+    expect(user.managed_by_org_id).toBe('org-enterprise');
+  });
+
+  it('preserves managed_by_org_id after JSON round-trip', () => {
+    const user = makeUser({ managed_by_org_id: 'org-enterprise' });
+
+    const parsed = JSON.parse(JSON.stringify(user)) as UserDTO;
+
+    expect(parsed.managed_by_org_id).toBe('org-enterprise');
+    expect(parsed.email).toBe('user@example.com');
   });
 });

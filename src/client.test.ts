@@ -5,6 +5,9 @@ import {
   AppStatusRetired,
   DeviceAuthStatusApproved,
   DeviceTokenKindSession,
+  EntitlementScopeMember,
+  EntitlementScopeOrg,
+  EntitlementScopeTeam,
   EntitlementSourceAddon,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
@@ -52,6 +55,12 @@ describe('package type exports', () => {
 
   it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
     expect(EntitlementSourceAddon).toBe('addon');
+  });
+
+  it('exports EntitlementScope constants for scoped entitlement rows (v0.8.14)', () => {
+    expect(EntitlementScopeOrg).toBe('org');
+    expect(EntitlementScopeTeam).toBe('team');
+    expect(EntitlementScopeMember).toBe('member');
   });
 
   it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
