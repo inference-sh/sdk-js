@@ -92,7 +92,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "eventsource": "^4.0.0"
+    "eventsource": "^5.1.1"
   },
   "devDependencies": {
     "@sveltejs/kit": "^2.60.1",
