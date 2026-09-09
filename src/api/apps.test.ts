@@ -100,6 +100,29 @@ describe('AppsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize AppFunction.capabilities from version on get()', async () => {
+    const app = {
+      id: 'app-1',
+      name: 'llm-app',
+      version: {
+        id: 'ver-1',
+        functions: {
+          run: {
+            name: 'run',
+            input_schema: { type: 'object' },
+            output_schema: { type: 'object' },
+            capabilities: ['llm'],
+          },
+        },
+      },
+    };
+    mockJsonResponse(app);
+
+    const result = await api().get('app-1');
+
+    expect(result.data.version?.functions?.run.capabilities).toEqual(['llm']);
+  });
+
   it('should GET versioned app for getByVersionId()', async () => {
     const app = { id: 'app-1', version_id: 'ver-1' };
     mockJsonResponse(app);

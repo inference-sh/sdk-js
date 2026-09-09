@@ -80,6 +80,11 @@ describe('package type exports', () => {
     expect(DeviceTokenKindSession).toBe('session');
   });
 
+  it('exports PermUse for execute-intent permission checks (INF-808)', async () => {
+    const { PermUse } = await import('./index');
+    expect(PermUse).toBe('use');
+  });
+
   it('does not export removed A2UIHTML component type constant', async () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
