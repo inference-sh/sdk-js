@@ -1,7 +1,15 @@
 import {
   APIError,
+  A2UIArtifact,
   AppCategoryOther,
   AppDTO,
+  ArtifactContentResponse,
+  ArtifactCreateRequest,
+  ArtifactDTO,
+  ArtifactPublishRequest,
+  ArtifactTypeHTML,
+  ArtifactTypeMarkdown,
+  ArtifactVersionDTO,
   AppPricing,
   AppStatusActive,
   AppStatusDeprecated,
@@ -56,7 +64,11 @@ import {
   ScopeAgentsRead,
   ScopeAppsRead,
   ScopeAppsWrite,
+  ScopeArtifacts,
+  ScopeArtifactsRead,
+  ScopeArtifactsWrite,
   ScopeGroupApps,
+  ScopeGroupArtifacts,
   ScopePreset,
   ScopesResponse,
   SkillDTO,
@@ -1568,5 +1580,113 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Artifact type contracts', () => {
+  it('exports artifact scopes and scope group constants', () => {
+    expect(ScopeArtifacts).toBe('artifacts');
+    expect(ScopeArtifactsRead).toBe('artifacts:read');
+    expect(ScopeArtifactsWrite).toBe('artifacts:write');
+    expect(ScopeGroupArtifacts).toBe('artifacts');
+  });
+
+  it('exports html and markdown artifact type constants', () => {
+    expect(ArtifactTypeHTML).toBe('html');
+    expect(ArtifactTypeMarkdown).toBe('markdown');
+  });
+
+  it('exports A2UIArtifact for sandboxed page components', () => {
+    expect(A2UIArtifact).toBe('Artifact');
+  });
+
+  it('models ArtifactDTO with namespace, version, and shared pin', () => {
+    const artifact: ArtifactDTO = {
+      id: 'art-1',
+      short_id: 'a1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'deploy-failures',
+      title: 'Deploy failures',
+      description: 'Last 24h deploy failures',
+      favicon: '🚨',
+      type: ArtifactTypeHTML,
+      version_id: 'ver-2',
+      shared_version_id: 'ver-1',
+      views: 128,
+      url: 'https://inference.sh/acme/deploy-failures',
+      version: {
+        id: 'ver-2',
+        short_id: 'v2',
+        created_at: '2026-09-09T00:00:00Z',
+        updated_at: '2026-09-09T00:00:00Z',
+        artifact_id: 'art-1',
+        number: 2,
+        content: { uri: 'inf://artifacts/ver-2' },
+        content_hash: 'hash-2',
+        md5: 'd41d8cd98f00b204e9800998ecf8427e',
+        size_bytes: 512,
+        label: 'stable',
+        origin: 'api',
+        generated_by: 'human:ok@inference.sh',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(artifact)) as ArtifactDTO;
+
+    expect(parsed.namespace).toBe('acme');
+    expect(parsed.shared_version_id).toBe('ver-1');
+    expect(parsed.version?.md5).toBe('d41d8cd98f00b204e9800998ecf8427e');
+    expect(parsed.version?.generated_by).toBe('human:ok@inference.sh');
+  });
+
+  it('models publish requests with optional base64 content_encoding', () => {
+    const create: ArtifactCreateRequest = {
+      title: 'Runbook',
+      content: 'PGh0bWw+PC9odG1sPg==',
+      content_encoding: 'base64',
+      type: ArtifactTypeMarkdown,
+      label: 'initial',
+      origin: 'chat:chat-1',
+      generated_by: 'agent:agent-1',
+    };
+    const publish: ArtifactPublishRequest = {
+      content: 'PG1kPjI8L21kPg==',
+      content_encoding: 'base64',
+      title: 'Runbook v2',
+      notes: 'Added troubleshooting',
+    };
+
+    const parsedCreate = JSON.parse(JSON.stringify(create)) as ArtifactCreateRequest;
+    const parsedPublish = JSON.parse(JSON.stringify(publish)) as ArtifactPublishRequest;
+
+    expect(parsedCreate.content_encoding).toBe('base64');
+    expect(parsedCreate.type).toBe('markdown');
+    expect(parsedPublish.content_encoding).toBe('base64');
+    expect(parsedPublish.notes).toBe('Added troubleshooting');
+  });
+
+  it('models ArtifactContentResponse for /content reads', () => {
+    const content: ArtifactContentResponse = {
+      artifact_id: 'art-1',
+      version_id: 'ver-1',
+      number: 1,
+      type: ArtifactTypeHTML,
+      title: 'Deploy failures',
+      content: '<h1>Failures</h1>',
+      content_hash: 'hash-1',
+      md5: 'abc123',
+      size_bytes: 24,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(content)) as ArtifactContentResponse;
+
+    expect(parsed.type).toBe('html');
+    expect(parsed.content).toContain('<h1>');
+    expect(parsed.size_bytes).toBe(24);
   });
 });
