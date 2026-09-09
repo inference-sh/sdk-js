@@ -417,8 +417,6 @@ export interface AuthResponse {
   session_id: string;
   is_new?: boolean;
   otp_required?: boolean;
-  otp_method?: string; // "email" or "totp"
-  challenge_token?: string; // pre-session 2FA token
   redirect_to?: string;
   provider?: string;
 }
@@ -484,13 +482,6 @@ export interface IntegrationConnectRequest {
   scopes?: string[];
   api_key?: string;
   metadata?: { [key: string]: any};
-  /**
-   * ConnectionScope is who the resulting credential belongs to:
-   * "user" (just me) or "team" (shared with the team — requires team
-   * admin). Empty = the provider's default. Distinct from Scopes, which
-   * are OAuth permission scopes.
-   */
-  connection_scope?: CredentialScope;
 }
 export interface IntegrationCompleteOAuthRequest {
   provider: string;
@@ -787,16 +778,6 @@ export const ScopeApiKeysRead: Scope = "apikeys:read";
  */
 export const ScopeApiKeysWrite: Scope = "apikeys:write";
 /**
- * Action-level scopes for Knowledge (includes skills)
- */
-export const ScopeKnowledgeRead: Scope = "knowledge:read";
-/**
- * API Key Scopes - hierarchical permission system.
- * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
- * Empty scopes = full access (for backwards compatibility with existing keys).
- */
-export const ScopeKnowledgeWrite: Scope = "knowledge:write";
-/**
  * Action-level scopes for User profile
  */
 export const ScopeUserRead: Scope = "user:read";
@@ -833,7 +814,6 @@ export const ScopeGroupSecrets: ScopeGroup = "secrets";
 export const ScopeGroupIntegrations: ScopeGroup = "integrations";
 export const ScopeGroupEngines: ScopeGroup = "engines";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
-export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupUser: ScopeGroup = "user";
 export const ScopeGroupSettings: ScopeGroup = "settings";
 /**
@@ -919,13 +899,6 @@ export interface AppFunction {
   description?: string;
   input_schema: any;
   output_schema: any;
-  /**
-   * Capabilities implied by the function's declared types, derived by
-   * engine discovery at deploy (e.g. "llm" when the function takes an
-   * LLMInput and returns an LLMOutput). Promoted onto the version's
-   * metadata by AppVersion.DeriveCapabilities.
-   */
-  capabilities?: string[];
 }
 /**
  * AppImages holds developer-provided images for the app.
@@ -1118,7 +1091,6 @@ export interface PermissionModelDTO {
   user?: UserRelationDTO;
   team_id: string;
   team?: TeamRelationDTO;
-  org_id?: string;
   visibility: Visibility;
 }
 /**
@@ -1163,12 +1135,6 @@ export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
   max_per_day: number /* int */;
   proof_type: string;
   proof_min_length: number /* int */;
-  /**
-   * RequiresPaymentMethod withholds the reward until the claimant's team has
-   * a saved payment method. The claim itself is refused with 402
-   * payment_method_required (survey answers are still recorded).
-   */
-  requires_payment_method: boolean;
   status: string;
   notice_text: string;
   notice_cooldown_hours: number /* int */;
@@ -1222,7 +1188,6 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   chat_messages: ChatMessageDTO[];
   agent_data: ChatData;
   active_run?: AgentRunDTO;
-  pending_interrupts?: InterruptDTO[];
 }
 /**
  * ChatMessageDTO for API responses
@@ -1428,10 +1393,7 @@ export interface WorkerRAM {
  * EntitlementDTO for API responses
  */
 export interface EntitlementDTO extends BaseModelDTO {
-  scope: EntitlementScope;
   team_id: string;
-  org_id?: string;
-  user_id?: string;
   resource: EntitlementResource;
   type: EntitlementType;
   enabled: boolean;
@@ -2287,12 +2249,7 @@ export type StringSlice = string[];
  */
 export interface MCPServerDTO {
   id: string;
-  user_id: string;
-  user: UserRelationDTO;
-  team_id: string;
-  team: TeamRelationDTO;
-  org_id?: string;
-  visibility: Visibility;
+  PermissionModelDTO: PermissionModelDTO;
   slug: string;
   name: string;
   description: string;
@@ -2765,37 +2722,6 @@ export interface SubscriptionDTO extends BaseModelDTO {
   credits_per_period: number /* int64 */;
 }
 /**
- * SurveyResponseDTO is the API representation of a survey response.
- */
-export interface SurveyResponseDTO extends BaseModelDTO, PermissionModelDTO {
-  question_id: string;
-  response: string;
-  agent?: string;
-  source?: string;
-  context?: string;
-}
-/**
- * SubmitSurveyResponse is returned when submitting a survey answer.
- * GrantedAmount is the credit reward in microcents (0 if no reward was earned).
- * RewardBlockedReason is set when the answer was recorded but the reward was
- * withheld by policy (see RewardBlockedPaymentMethodRequired).
- */
-export interface SubmitSurveyResponse {
-  response: SurveyResponseDTO;
-  granted_amount?: number /* int64 */;
-  reward_blocked_reason?: string;
-}
-/**
- * SubmitSurveyRequest is used to submit a single survey answer.
- */
-export interface SubmitSurveyRequest {
-  question_id: string;
-  response: string;
-  agent?: string;
-  source?: string;
-  context?: string;
-}
-/**
  * Hardware/System related types
  */
 export interface SystemInfo {
@@ -3147,18 +3073,12 @@ export interface UsageEventDTO extends BaseModelDTO, PermissionModelDTO {
 export interface UserDTO extends BaseModelDTO {
   default_team_id: string;
   role: Role;
-  /**
-   * ManagedByOrgID: set for enterprise-managed accounts (no personal team,
-   * cannot create teams/orgs).
-   */
-  managed_by_org_id?: string;
   email: string;
   name: string;
   full_name: string;
   avatar_url: string;
   banned_at?: string /* RFC3339 */;
   ban_note?: string;
-  totp_enabled: boolean;
   metadata?: UserMetadataDTO;
 }
 /**
@@ -3231,17 +3151,17 @@ export interface A2UIComponent {
   /**
    * Text
    */
-  text?: A2UIBound;
+  text?: A2UIBoundValue;
   variant?: string;
   /**
    * Image
    */
-  url?: A2UIBound;
+  url?: A2UIBoundValue;
   fit?: string;
   /**
    * Icon
    */
-  name?: A2UIBound;
+  name?: A2UIBoundValue;
   /**
    * Divider
    */
@@ -3256,7 +3176,7 @@ export interface A2UIComponent {
    * TextField
    */
   label?: string;
-  value?: A2UIBound;
+  value?: A2UIBoundValue;
   textFieldType?: string;
   validationRegexp?: string;
   placeholder?: string;
@@ -3275,7 +3195,7 @@ export interface A2UIComponent {
    * ChoicePicker
    */
   options?: A2UIChoiceOption[];
-  selections?: A2UIBound;
+  selections?: A2UIBoundValue;
   maxAllowedSelections?: number /* int */;
   /**
    * Modal
@@ -3316,7 +3236,6 @@ export interface A2UIComponent {
    */
   onSubmitAction?: A2UIAction;
 }
-export type A2UIBound = string | number | boolean | A2UIBoundValue;
 /**
  * A2UIBoundValue is either a literal or a data model path reference.
  */
@@ -3348,140 +3267,6 @@ export interface A2UISurface {
   catalogId: string;
   components: A2UIComponent[];
   dataModel?: any;
-}
-/**
- * AgentEventType identifies what happened in an agent run.
- * These are the backbone protocol events — every consumer (A2A, SDK, frontend)
- * projects from this set.
- */
-export type AgentEventType = string;
-/**
- * Run lifecycle
- */
-export const AgentEventRunStarted: AgentEventType = "run.started";
-export const AgentEventRunStateChanged: AgentEventType = "run.state_changed";
-/**
- * Turn lifecycle
- */
-export const AgentEventTurnStarted: AgentEventType = "turn.started";
-export const AgentEventTurnCompleted: AgentEventType = "turn.completed";
-/**
- * Content streaming — structural wrapper; high-frequency token deltas
- * still flow via the existing DeltaEvent channel for efficiency.
- */
-export const AgentEventContentDelta: AgentEventType = "content.delta";
-/**
- * Tool lifecycle
- */
-export const AgentEventToolStarted: AgentEventType = "tool.started";
-export const AgentEventToolCompleted: AgentEventType = "tool.completed";
-/**
- * Approval flow
- */
-export const AgentEventApprovalRequired: AgentEventType = "approval.required";
-export const AgentEventApprovalResolved: AgentEventType = "approval.resolved";
-/**
- * Hook lifecycle
- */
-export const AgentEventHookExecuted: AgentEventType = "hook.executed";
-/**
- * Usage
- */
-export const AgentEventUsageUpdated: AgentEventType = "usage.updated";
-/**
- * Context management
- */
-export const AgentEventContextCompacted: AgentEventType = "context.compacted";
-/**
- * Errors
- */
-export const AgentEventError: AgentEventType = "error";
-/**
- * AgentEvent is the backbone protocol event for agent runs.
- * Published to "runs:<runID>" and "chats:<chatID>" keys on the event bus.
- */
-export interface AgentEvent {
-  id: string;
-  type: AgentEventType;
-  run_id: string;
-  chat_id: string;
-  agent_id?: string;
-  timestamp: string /* RFC3339 */;
-  payload?: any;
-}
-export interface RunStartedPayload {
-  agent_id: string;
-  agent_version_id?: string;
-  user_message_id?: string;
-}
-export interface RunStateChangedPayload {
-  from_state: AgentRunState;
-  to_state: AgentRunState;
-  error?: string;
-}
-export interface TurnStartedPayload {
-  turn_index: number /* int */;
-  model?: string;
-}
-export interface TurnCompletedPayload {
-  turn_index: number /* int */;
-  tool_count: number /* int */;
-  has_output: boolean;
-  stop_reason?: string;
-}
-export interface ContentDeltaPayload {
-  kind: ContentDeltaKind;
-  delta: string;
-}
-export type ContentDeltaKind = string;
-export const ContentDeltaText: ContentDeltaKind = "text";
-export const ContentDeltaReasoning: ContentDeltaKind = "reasoning";
-export interface ToolStartedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  tool_type?: ToolType;
-  display_name?: string;
-  arguments?: StringEncodedMap;
-}
-export interface ToolCompletedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  status: ToolInvocationStatus;
-  result?: string;
-  duration_ms?: number /* int64 */;
-}
-export interface ApprovalRequiredPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  arguments?: StringEncodedMap;
-  reason: InterruptReason;
-}
-export interface ApprovalResolvedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  decision: string; // "allow", "deny"
-  reason?: string;
-}
-export interface HookExecutedPayload {
-  hook_event: HookEvent;
-  decision: HookDecision;
-  reason?: string;
-  duration_ms?: number /* int64 */;
-}
-export interface UsageUpdatedPayload {
-  prompt_tokens: number /* int */;
-  completion_tokens: number /* int */;
-  total_tokens: number /* int */;
-  reasoning_tokens?: number /* int */;
-  cost_usd?: number /* float64 */;
-}
-export interface ContextCompactedPayload {
-  before_tokens: number /* int */;
-  after_tokens: number /* int */;
-}
-export interface ErrorPayload {
-  message: string;
-  code?: string;
 }
 /**
  * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
@@ -3534,11 +3319,6 @@ export const GPUTypeApple: GPUType = "apple";
 export type Visibility = string;
 export const VisibilityPrivate: Visibility = "private";
 export const VisibilityTeam: Visibility = "team";
-/**
- * VisibilityOrg sits between team and public: visible to every member of
- * every team in the owning team's org (INF-795 Phase 2).
- */
-export const VisibilityOrg: Visibility = "org";
 export const VisibilityPublic: Visibility = "public";
 export const VisibilityUnlisted: Visibility = "unlisted";
 /**
@@ -3547,13 +3327,6 @@ export const VisibilityUnlisted: Visibility = "unlisted";
 export type Permission = string;
 export const PermRead: Permission = "read";
 export const PermWrite: Permission = "write";
-/**
- * PermUse is execute intent: run an app, load a skill/knowledge into an
- * agent context, invoke an MCP tool. Distinct from read — a public
- * resource is readable by everyone, but whether this caller may USE it is
- * governed by their team/org usage policy (reach, INF-808).
- */
-export const PermUse: Permission = "use";
 export type SubscriptionStatus = string;
 export const SubscriptionStatusTrialing: SubscriptionStatus = "trialing";
 export const SubscriptionStatusActive: SubscriptionStatus = "active";
@@ -3575,16 +3348,6 @@ export const EntitlementSourceAddon: EntitlementSource = "addon";
 export type EntitlementType = string;
 export const EntitlementTypeBoolean: EntitlementType = "boolean";
 export const EntitlementTypeLimit: EntitlementType = "limit";
-/**
- * EntitlementScope is who an entitlement row applies to (INF-799). The scope's
- * owner columns (team_id / org_id / user_id) identify the owner, mirroring the
- * ownership pattern used across the codebase; resolution matches all scopes
- * visible from an AuthContext in one query and mergeEntitlements arbitrates.
- */
-export type EntitlementScope = string;
-export const EntitlementScopeOrg: EntitlementScope = "org";
-export const EntitlementScopeTeam: EntitlementScope = "team";
-export const EntitlementScopeMember: EntitlementScope = "member";
 export type EnforcementMode = string;
 export const EnforcementBlock: EnforcementMode = "block";
 export const EnforcementWarn: EnforcementMode = "warn";
@@ -3881,20 +3644,6 @@ export const HookHandlerWebhook: HookHandlerType = "webhook";
 export const HookHandlerTask: HookHandlerType = "task";
 export const HookHandlerGate: HookHandlerType = "gate";
 /**
- * MergeStrategy defines how a delta field should be merged by consumers.
- */
-export type MergeStrategy = string;
-export const MergeStrategyConcat: MergeStrategy = "concat";
-export const MergeStrategyReplace: MergeStrategy = "replace";
-export const MergeStrategyIndexed: MergeStrategy = "indexed";
-export const MergeStrategyNested: MergeStrategy = "nested";
-/**
- * StreamDelta is the marker base for all streaming delta types.
- * Types embedding StreamDelta are routed through the delta channel.
- */
-export interface StreamDelta {
-}
-/**
  * LLMOutput is the output envelope from an LLM provider task.
  * This is the contract between chat apps (sdk-py) and the agent runtime (go/api).
  */
@@ -3905,21 +3654,15 @@ export interface LLMOutput {
   usage?: LLMUsage;
 }
 /**
- * LLMDelta is a streaming delta for LLMOutput.
+ * LLMDelta is a streaming delta for LLMOutput with append semantics.
+ * response/reasoning: concatenate. tool_calls: index-based, arguments append.
  */
-export interface LLMDelta extends StreamDelta {
+export interface LLMDelta {
   response: string;
   reasoning?: string;
   tool_calls?: ToolCallDelta[];
   usage?: LLMUsage;
 }
-export const LLMDelta_fieldTags = {
-  response: {merge: "concat"},
-  reasoning: {merge: "concat"},
-  tool_calls: {merge: "indexed"},
-  usage: {merge: "replace"},
-} as const;
-
 /**
  * ToolCallDelta is an incremental update to a tool call, identified by index.
  * First delta for an index carries ID, Type, and Function.Name.
@@ -3931,24 +3674,13 @@ export interface ToolCallDelta {
   type?: ToolCallType;
   function?: ToolCallFunctionDelta;
 }
-export const ToolCallDelta_fieldTags = {
-  id: {merge: "replace"},
-  type: {merge: "replace"},
-  function: {merge: "nested"},
-} as const;
-
 /**
- * DeltaEvent is the generic streaming envelope on the NDJSON wire.
- * Delta is raw bytes — consumers parse based on context.
+ * LLMDeltaEvent is the streaming envelope for a delta on the NDJSON wire.
  */
-export interface DeltaEvent {
-  delta: any;
+export interface LLMDeltaEvent {
+  delta: LLMDelta;
   seq: number /* int64 */;
 }
-/**
- * LLMDeltaEvent is a typed alias for backward compatibility.
- */
-export type LLMDeltaEvent = DeltaEvent;
 /**
  * ToolCallFunctionDelta carries partial tool call function data.
  * Arguments is a raw JSON string fragment — concatenate by index, parse on completion.
@@ -3957,54 +3689,27 @@ export interface ToolCallFunctionDelta {
   name?: string;
   arguments?: string;
 }
-export const ToolCallFunctionDelta_fieldTags = {
-  name: {merge: "replace"},
-  arguments: {merge: "concat"},
-} as const;
-
 /**
- * ToolChoiceMode controls whether the model must call a tool this turn.
+ * ModelSettings groups sampling and generation parameters as a passable unit.
  */
-export type ToolChoiceMode = string;
-export const ToolChoiceModeNone: ToolChoiceMode = "none";
-export const ToolChoiceModeAuto: ToolChoiceMode = "auto";
-export const ToolChoiceModeRequired: ToolChoiceMode = "required";
-export const ToolChoiceModeFunction: ToolChoiceMode = "function";
-/**
- * ToolChoice constrains tool calling for a turn. Providers spell this
- * differently (OpenAI tool_choice, Anthropic tool_choice.type any/tool,
- * Gemini functionCallingConfig); apps translate at the provider boundary.
- */
-export interface ToolChoice {
-  mode: ToolChoiceMode;
-  name?: string; // required when Mode is function
+export interface ModelSettings {
+  temperature?: number /* float64 */;
+  top_p?: number /* float64 */;
+  top_k?: number /* int */;
+  min_p?: number /* float64 */;
+  frequency_penalty?: number /* float64 */;
+  presence_penalty?: number /* float64 */;
+  repetition_penalty?: number /* float64 */;
+  seed?: number /* int */;
+  stop?: string[];
+  max_tokens?: number /* int */;
+  reasoning_effort?: string;
+  reasoning_max_tokens?: number /* int */;
 }
 /**
- * ResponseFormatType selects how the model's output is constrained.
+ * LLMInput is the input envelope for an LLM provider task.
  */
-export type ResponseFormatType = string;
-export const ResponseFormatTypeText: ResponseFormatType = "text";
-export const ResponseFormatTypeJSONObject: ResponseFormatType = "json_object";
-export const ResponseFormatTypeJSONSchema: ResponseFormatType = "json_schema";
-/**
- * ResponseFormat constrains the shape of the model's response.
- * JSONSchema is required when Type is json_schema.
- */
-export interface ResponseFormat {
-  type: ResponseFormatType;
-  name?: string; // schema name, where the provider wants one
-  json_schema?: any; // JSON Schema
-  strict?: boolean; // provider-enforced adherence, where supported
-}
-/**
- * LLMSettings is everything that configures a generation independent of the
- * conversation: model, context, sampling, system prompt, tools and output
- * constraints. Embedded (tstype extends) by BaseLLMInput — an agent's stored
- * configuration — and LLMInput — a single call — so a field added here
- * reaches both, and the call is built from the configuration by one
- * assignment.
- */
-export interface LLMSettings {
+export interface LLMInput {
   model?: string;
   context_size: number /* int */;
   temperature?: number /* float64 */;
@@ -4020,15 +3725,6 @@ export interface LLMSettings {
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
   system_prompt: string;
-  tools?: Tool[];
-  tool_choice?: ToolChoice;
-  response_format?: ResponseFormat;
-}
-/**
- * LLMInput is the input envelope for an LLM provider task: the settings plus
- * the conversation, with the current turn split out of the context.
- */
-export interface LLMInput extends LLMSettings {
   context: LLMContextMessage[];
   role?: ChatMessageRole;
   text?: string;
@@ -4036,6 +3732,7 @@ export interface LLMInput extends LLMSettings {
   attachments?: FileRef[];
   images?: string[];
   files?: string[];
+  tools?: Tool[];
   tool_call_id?: string;
 }
 /**
@@ -4347,21 +4044,6 @@ export const IntegrationGrantCredentials: IntegrationGrant = "credentials";
  * IntegrationGrantToken provides ready-to-use access (token, API key, etc.).
  */
 export const IntegrationGrantToken: IntegrationGrant = "token";
-/**
- * CredentialScope controls resolution priority and ownership.
- */
-export type CredentialScope = string;
-export const CredentialScopePlatform: CredentialScope = "platform";
-/**
- * CredentialScopeOrg: shared across all teams of an org. In the enum for
- * end-to-end typing (connect-level pickers); connects with it are refused
- * until the org domain lands (INF-795 Phase 2). Resolution order once
- * live: agent > user > team > org > platform.
- */
-export const CredentialScopeOrg: CredentialScope = "org";
-export const CredentialScopeTeam: CredentialScope = "team";
-export const CredentialScopeUser: CredentialScope = "user";
-export const CredentialScopeAgent: CredentialScope = "agent";
 /**
  * NotificationChannel represents a delivery channel
  */
