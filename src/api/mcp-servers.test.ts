@@ -1,9 +1,12 @@
 import { HttpClient } from '../http/client';
 import {
+  MCPServerAuthNone,
+  MCPServerDTO,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ToolCallResponse,
   ToolContentTypeText,
+  VisibilityTeam,
 } from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
@@ -150,6 +153,35 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize MCPServerDTO with nested PermissionModelDTO from get()', async () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-1',
+      PermissionModelDTO: {
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: VisibilityTeam,
+      },
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Local file access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com',
+      auth_type: MCPServerAuthNone,
+      default_scopes: [],
+      documentation_url: 'https://docs.example.com',
+      connection_status: 'connected',
+    };
+    mockJsonResponse(server);
+
+    const result = await api().get('filesystem');
+    const dto = result.data as MCPServerDTO;
+
+    expect(dto.PermissionModelDTO.user_id).toBe('user-1');
+    expect(dto.PermissionModelDTO.visibility).toBe('team');
+    expect(dto.slug).toBe('filesystem');
+    expect(dto.connection_status).toBe('connected');
   });
 
   it('should POST /mcp-servers/list for listOwned()', async () => {

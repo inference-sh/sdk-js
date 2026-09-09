@@ -85,6 +85,20 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  A2UIBoundValue,
+  A2UIComponent,
+  A2UITextField,
+  ChatMessageRoleUser,
+  LLMDelta,
+  LLMDeltaEvent,
+  LLMInput,
+  MCPServerAuthNone,
+  MCPServerDTO,
+  ModelSettings,
+  PermissionModelDTO,
+  ToolCallDelta,
+  ToolTypeFunction,
+  VisibilityTeam,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -142,7 +156,6 @@ function makeEntitlement(overrides: Partial<EntitlementDTO> = {}): EntitlementDT
     created_at: '2026-07-22T00:00:00Z',
     updated_at: '2026-07-22T00:00:00Z',
     team_id: 'team-1',
-    scope: 'team',
     resource: ResourceSeats,
     type: EntitlementTypeLimit,
     enabled: true,
@@ -1568,5 +1581,192 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('ModelSettings (v0.7.103)', () => {
+  it('groups sampling and generation parameters as a passable unit', () => {
+    const settings: ModelSettings = {
+      temperature: 0.7,
+      top_p: 0.9,
+      top_k: 40,
+      min_p: 0.05,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.2,
+      repetition_penalty: 1.1,
+      seed: 42,
+      stop: ['END'],
+      max_tokens: 2048,
+      reasoning_effort: 'medium',
+      reasoning_max_tokens: 512,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(settings)) as ModelSettings;
+
+    expect(parsed.temperature).toBe(0.7);
+    expect(parsed.stop).toEqual(['END']);
+    expect(parsed.reasoning_effort).toBe('medium');
+  });
+
+  it('allows partial ModelSettings for defaults-only overrides', () => {
+    const settings: ModelSettings = {
+      temperature: 0,
+      max_tokens: 256,
+    };
+
+    expect(settings.top_p).toBeUndefined();
+    expect(settings.seed).toBeUndefined();
+  });
+});
+
+describe('LLMInput standalone envelope (v0.7.103)', () => {
+  it('models the full LLM provider input without LLMSettings inheritance', () => {
+    const input: LLMInput = {
+      model: 'gpt-4o',
+      context_size: 8192,
+      temperature: 0.5,
+      system_prompt: 'You are helpful.',
+      context: [{ role: ChatMessageRoleUser, text: 'Hello' }],
+      role: ChatMessageRoleUser,
+      text: 'Hello',
+      tools: [],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.model).toBe('gpt-4o');
+    expect(parsed.context_size).toBe(8192);
+    expect(parsed.system_prompt).toBe('You are helpful.');
+    expect(parsed.context[0].text).toBe('Hello');
+    expect(parsed.tools).toEqual([]);
+  });
+
+  it('allows optional generation fields and attachments on LLMInput', () => {
+    const input: LLMInput = {
+      context_size: 4096,
+      system_prompt: 'Summarize.',
+      context: [],
+      reasoning: 'thinking...',
+      images: ['img-1'],
+      files: ['file-1'],
+      tool_call_id: 'call-1',
+    };
+
+    expect(input.model).toBeUndefined();
+    expect(input.reasoning).toBe('thinking...');
+    expect(input.tool_call_id).toBe('call-1');
+  });
+});
+
+describe('LLMDeltaEvent streaming envelope (v0.7.103)', () => {
+  it('wraps typed LLMDelta with sequence number on the NDJSON wire', () => {
+    const event: LLMDeltaEvent = {
+      seq: 3,
+      delta: {
+        response: 'Hello',
+        reasoning: 'planning',
+        tool_calls: [
+          {
+            index: 0,
+            id: 'call-1',
+            type: ToolTypeFunction,
+            function: { name: 'search', arguments: '{"q":' },
+          },
+        ],
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as LLMDeltaEvent;
+
+    expect(parsed.seq).toBe(3);
+    expect(parsed.delta.response).toBe('Hello');
+    expect(parsed.delta.tool_calls?.[0].function?.arguments).toBe('{"q":');
+  });
+
+  it('allows incremental LLMDelta fragments for append semantics', () => {
+    const first: LLMDelta = { response: 'Hel' };
+    const second: LLMDelta = { response: 'lo' };
+
+    expect(first.response + second.response).toBe('Hello');
+    expect(first.tool_calls).toBeUndefined();
+  });
+});
+
+describe('A2UIBoundValue path bindings (v0.7.103)', () => {
+  it('binds A2UI component fields via data model path references', () => {
+    const component: A2UIComponent = {
+      id: 'name-field',
+      component: A2UITextField,
+      label: 'Name',
+      value: { path: '/form/name' },
+      text: { path: '/form/title' },
+      selections: { path: '/form/choices' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+
+    expect(parsed.value?.path).toBe('/form/name');
+    expect(parsed.text?.path).toBe('/form/title');
+    expect(parsed.selections?.path).toBe('/form/choices');
+  });
+
+  it('allows A2UIBoundValue without path for unset bindings', () => {
+    const bound: A2UIBoundValue = {};
+
+    expect(bound.path).toBeUndefined();
+  });
+});
+
+describe('MCPServerDTO nested PermissionModelDTO (v0.7.103)', () => {
+  function makePermissionModel(
+    overrides: Partial<PermissionModelDTO> = {},
+  ): PermissionModelDTO {
+    return {
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityTeam,
+      ...overrides,
+    };
+  }
+
+  function makeMCPServer(overrides: Partial<MCPServerDTO> = {}): MCPServerDTO {
+    return {
+      id: 'mcp-1',
+      PermissionModelDTO: makePermissionModel(),
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Local file access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com',
+      auth_type: MCPServerAuthNone,
+      default_scopes: [],
+      documentation_url: 'https://docs.example.com',
+      ...overrides,
+    };
+  }
+
+  it('nests permission fields under PermissionModelDTO instead of flat embedding', () => {
+    const server = makeMCPServer({
+      PermissionModelDTO: makePermissionModel({
+        user_id: 'user-42',
+        team_id: 'team-99',
+        visibility: VisibilityPrivate,
+      }),
+    });
+
+    expect(server.PermissionModelDTO.user_id).toBe('user-42');
+    expect(server.PermissionModelDTO.team_id).toBe('team-99');
+    expect(server.PermissionModelDTO.visibility).toBe('private');
+    expect((server as MCPServerDTO & { user_id?: string }).user_id).toBeUndefined();
+  });
+
+  it('preserves nested PermissionModelDTO after JSON round-trip', () => {
+    const server = makeMCPServer();
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.PermissionModelDTO.user_id).toBe('user-1');
+    expect(parsed.slug).toBe('filesystem');
+    expect(parsed.auth_type).toBe('none');
   });
 });
