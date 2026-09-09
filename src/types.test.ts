@@ -1,8 +1,14 @@
 import {
+  A2UIButton,
+  A2UIComponent,
+  A2UIText,
+  A2UIBoundValue,
   APIError,
   AppCategoryOther,
   AppDTO,
+  AppFunction,
   AppPricing,
+  AppVersionDTO,
   AppStatusActive,
   AppStatusDeprecated,
   AppStatusMaintenance,
@@ -85,6 +91,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  PermRead,
+  PermUse,
+  PermWrite,
+  ResourceShareDTO,
+  ShareRequest,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1567,5 +1578,91 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('v0.8.19 type contracts (PermUse, AppFunction capabilities, A2UI bindings)', () => {
+  it('exports PermRead, PermWrite, and PermUse permission constants', () => {
+    expect(PermRead).toBe('read');
+    expect(PermWrite).toBe('write');
+    expect(PermUse).toBe('use');
+  });
+
+  it('accepts PermUse on ResourceShareDTO and ShareRequest for execute intent (INF-808)', () => {
+    const share: ResourceShareDTO = {
+      id: 'share-1',
+      short_id: 'sh1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      resource_id: 'app-1',
+      resource_type: 'app',
+      user_id: 'user-2',
+      permission: PermUse,
+    };
+
+    const request: ShareRequest = {
+      user_id: 'user-2',
+      permission: PermUse,
+    };
+
+    expect(share.permission).toBe('use');
+    expect(request.permission).toBe('use');
+  });
+
+  it('preserves AppFunction.capabilities through JSON round-trip on AppVersionDTO', () => {
+    const run: AppFunction = {
+      name: 'run',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+      capabilities: ['llm'],
+    };
+
+    const version: AppVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      app_id: 'app-1',
+      functions: { run },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AppVersionDTO;
+
+    expect(parsed.functions?.run.capabilities).toEqual(['llm']);
+  });
+
+  it('allows AppFunction without capabilities for non-LLM entry points', () => {
+    const transform: AppFunction = {
+      name: 'transform',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+    };
+
+    expect(transform.capabilities).toBeUndefined();
+  });
+
+  it('preserves A2UI path-bound fields through JSON round-trip', () => {
+    const bound: A2UIBoundValue = { path: '/model/title' };
+
+    const component: A2UIComponent = {
+      id: 'title',
+      component: A2UIText,
+      text: bound,
+    };
+
+    const button: A2UIComponent = {
+      id: 'submit',
+      component: A2UIButton,
+      child: 'label',
+      value: { path: '/form/submitted' },
+      selections: { path: '/form/choices' },
+    };
+
+    const parsedText = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+    const parsedButton = JSON.parse(JSON.stringify(button)) as A2UIComponent;
+
+    expect(parsedText.text).toEqual({ path: '/model/title' });
+    expect(parsedButton.value).toEqual({ path: '/form/submitted' });
+    expect(parsedButton.selections).toEqual({ path: '/form/choices' });
   });
 });
