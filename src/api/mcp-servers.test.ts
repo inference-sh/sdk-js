@@ -1,10 +1,16 @@
 import { HttpClient } from '../http/client';
 import {
+  MCPServerAuthOAuth,
   ResultTypeComplete,
   ResultTypeInputRequired,
+  RoleUser,
+  TeamTypeTeam,
   ToolCallResponse,
   ToolContentTypeText,
+  VisibilityOrg,
+  VisibilityPrivate,
 } from '../types';
+import type { MCPServerDTO } from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
 const mockFetch = jest.fn();
@@ -18,6 +24,41 @@ function mockJsonResponse(body: unknown) {
   });
 }
 
+/** v0.8.6 MCPServerDTO with flat ownership fields (replaces nested PermissionModelDTO). */
+function v086OwnedServer(overrides: Partial<MCPServerDTO> = {}): MCPServerDTO {
+  return {
+    id: 'mcp-1',
+    user_id: 'user-1',
+    user: {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: RoleUser,
+      avatar_url: 'https://example.com/avatar.png',
+    },
+    team_id: 'team-1',
+    team: {
+      id: 'team-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      type: TeamTypeTeam,
+      username: 'acme',
+      avatar_url: 'https://example.com/team.png',
+      setup_completed: true,
+    },
+    visibility: VisibilityPrivate,
+    slug: 'my-mcp',
+    name: 'My MCP',
+    description: 'Custom MCP server',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/my-mcp',
+    auth_type: MCPServerAuthOAuth,
+    default_scopes: ['read'],
+    documentation_url: 'https://docs.example.com/mcp',
+    ...overrides,
+  };
+}
+
 describe('MCPServersAPI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -25,16 +66,22 @@ describe('MCPServersAPI', () => {
 
   const api = () => new MCPServersAPI(new HttpClient({ apiKey: 'test-key' }));
 
-  it('should POST /mcps/list for list()', async () => {
-    const page = { items: [{ slug: 'filesystem' }], next_cursor: null };
+  it('should POST /mcps/list and deserialize v0.8.6 marketplace servers', async () => {
+    const server = v086OwnedServer({ slug: 'filesystem', visibility: 'public' });
+    const page = { items: [server], next_cursor: 'cursor-2' };
     mockJsonResponse(page);
 
-    const result = await api().list();
+    const result = await api().list({ limit: 10 });
 
-    expect(result.data).toEqual(page);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0]?.user_id).toBe('user-1');
+    expect(result.data.items[0]?.team.username).toBe('acme');
+    expect(result.data.items[0]?.visibility).toBe('public');
+    expect(result.data.next_cursor).toBe('cursor-2');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/list');
     expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 10 });
   });
 
   it('should GET /mcps/{slug}/tools for listTools()', async () => {
@@ -138,6 +185,37 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('PUT');
+  });
+
+  it('should deserialize v0.8.6 flat ownership from update()', async () => {
+    const server = v086OwnedServer({ name: 'Updated MCP' });
+    mockJsonResponse(server);
+
+    const result = await api().update('mcp-1', { name: 'Updated MCP' });
+
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team_id).toBe('team-1');
+    expect(result.data?.team.username).toBe('acme');
+    expect(result.data?.auth_type).toBe('oauth');
+    expect(result.data?.name).toBe('Updated MCP');
+  });
+
+  it('should deserialize org-scoped MCPServerDTO from update()', async () => {
+    const server = v086OwnedServer({
+      name: 'Org MCP',
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    });
+    mockJsonResponse(server);
+
+    const result = await api().update('mcp-1', {
+      name: 'Org MCP',
+      visibility: VisibilityOrg,
+    });
+
+    expect(result.data?.org_id).toBe('org-1');
+    expect(result.data?.visibility).toBe('org');
+    expect(result.data?.name).toBe('Org MCP');
   });
 
   it('should GET /mcps/{slug} for get()', async () => {
