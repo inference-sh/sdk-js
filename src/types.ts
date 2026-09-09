@@ -1099,6 +1099,18 @@ export interface PublicAppStoreDTO {
   pricing_description?: string;
 }
 /**
+ * ResourceImages is the display-image set every listable resource carries:
+ * a card image for grids, a thumbnail for dense rows, a banner for headers.
+ * AppImages and AgentImages predate this and hold the same three fields;
+ * they should collapse onto this type, but aliasing them changes what
+ * gotypegen emits for existing consumers, so that migration is separate.
+ */
+export interface ResourceImages {
+  card: string;
+  thumbnail: string;
+  banner: string;
+}
+/**
  * ArtifactDTO is the API shape of an artifact entry.
  */
 export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
@@ -1112,8 +1124,13 @@ export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   title: string;
   description?: string;
-  favicon?: string; // one or two emoji
+  favicon?: string; // one or two emoji, browser-tab icon only
   type: ArtifactType;
+  /**
+   * Images are the cover images shown in galleries and headers, same as
+   * apps and agents. The favicon stays the rendered page's tab icon.
+   */
+  images: ResourceImages;
   /**
    * VersionID points at the latest published version.
    */
@@ -1180,6 +1197,7 @@ export interface ArtifactCreateRequest {
   description?: string;
   favicon?: string;
   type?: ArtifactType; // default html
+  images?: ResourceImages;
   /**
    * Content is the page source (HTML body/document or Markdown).
    */
@@ -1203,6 +1221,10 @@ export interface ArtifactUpdateRequest {
   title?: string;
   description?: string;
   favicon?: string;
+  /**
+   * Images replaces the whole cover-image set when present.
+   */
+  images?: ResourceImages;
   /**
    * SharedVersionID pins the version viewers see. Pass "" to share latest.
    */
@@ -1228,6 +1250,7 @@ export interface ArtifactPublishRequest {
   title?: string;
   description?: string;
   favicon?: string;
+  images?: ResourceImages;
 }
 /**
  * ArtifactContentResponse is the JSON form of an artifact version body.
@@ -2574,6 +2597,56 @@ export interface PageDTO extends BaseModelDTO, PermissionModelDTO {
    * Surfaced here so a reader does not have to reach into the metadata blob.
    */
   publish_at?: string /* RFC3339 */;
+}
+/**
+ * CommentDTO for API responses
+ */
+export interface CommentDTO extends BaseModelDTO, PermissionModelDTO {
+  /**
+   * ResourceType and ResourceID address what is commented on ("artifacts",
+   * "pages"). PageID stays for the page comment API that predates them.
+   */
+  resource_type: string;
+  resource_id: string;
+  page_id: string;
+  content: string;
+  parent_comment_id?: string;
+  children: CommentDTO[];
+  status: CommentStatus;
+  resolved_at?: string /* RFC3339 */;
+  resolved_by_user_id?: string;
+  /**
+   * AgentActivated reports whether an agent may reply to or resolve this
+   * thread. Reading is always allowed to anyone who can read the resource.
+   */
+  agent_activated: boolean;
+  agent_activated_by_user_id?: string;
+  /**
+   * AuthorAgentID attributes a reply written by an agent on a person's
+   * behalf; clients render it as "agent, via <user>".
+   */
+  author_agent_id?: string;
+}
+/**
+ * ArtifactCommentCreateRequest posts a thread or a reply on an artifact.
+ */
+export interface ArtifactCommentCreateRequest {
+  content: string;
+  /**
+   * ParentCommentID replies into an existing thread; omit to start one.
+   */
+  parent_comment_id?: string;
+  /**
+   * SendToAgent activates the thread for agents in the same call, which is
+   * what a "send to agent" affordance does.
+   */
+  send_to_agent?: boolean;
+}
+/**
+ * ArtifactCommentThreadDTO is one thread: its root plus replies in order.
+ */
+export interface ArtifactCommentThreadDTO extends CommentDTO {
+  replies: CommentDTO[];
 }
 /**
  * MenuDTO for API responses
@@ -4257,6 +4330,11 @@ export const PageTypeDoc: PageType = "doc";
 export const PageTypeBlog: PageType = "blog";
 export const PageTypePage: PageType = "page";
 export const PageTypeAnnouncement: PageType = "announcement";
+export type CommentStatus = number /* int */;
+export const CommentStatusUnknown: CommentStatus = 0;
+export const CommentStatusDraft: CommentStatus = 1;
+export const CommentStatusPublished: CommentStatus = 2;
+export const CommentStatusArchived: CommentStatus = 3;
 /**
  * ToolInvocationStatus represents the execution status of a tool invocation
  */
