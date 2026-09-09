@@ -42,7 +42,7 @@ describe('ArtifactsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toMatch(/\/artifacts$/);
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual(payload);
+    expect(JSON.parse(init.body as string)).toEqual({ ...payload, content: Buffer.from(payload.content).toString('base64'), content_encoding: 'base64' });
   });
 
   it('should POST /artifacts/{id}/versions for publishVersion()', async () => {
