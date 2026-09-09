@@ -46,13 +46,15 @@ describe('ArtifactsAPI', () => {
   });
 
   it('should POST /artifacts/{id}/versions for publishVersion()', async () => {
+    const payload = { content: '<p>v2</p>', label: 'draft' };
     mockJsonResponse({ id: 'art-1', version_id: 'v2' });
 
-    await api().publishVersion('art-1', { content: '<p>v2</p>', label: 'draft' });
+    await api().publishVersion('art-1', payload);
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/artifacts/art-1/versions');
     expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ ...payload, content: Buffer.from(payload.content).toString('base64'), content_encoding: 'base64' });
   });
 
   it('should GET the viewer-facing content without a version', async () => {
