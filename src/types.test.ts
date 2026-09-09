@@ -142,6 +142,7 @@ function makeEntitlement(overrides: Partial<EntitlementDTO> = {}): EntitlementDT
     created_at: '2026-07-22T00:00:00Z',
     updated_at: '2026-07-22T00:00:00Z',
     team_id: 'team-1',
+    scope: 'team',
     resource: ResourceSeats,
     type: EntitlementTypeLimit,
     enabled: true,
