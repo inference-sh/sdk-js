@@ -3316,6 +3316,7 @@ export interface A2UIComponent {
    */
   onSubmitAction?: A2UIAction;
 }
+export type A2UIBound = string | number | boolean | A2UIBoundValue;
 /**
  * A2UIBoundValue is either a literal or a data model path reference.
  */
