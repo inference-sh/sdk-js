@@ -3,10 +3,13 @@ import {
   A2UIArtifact,
   AppCategoryOther,
   AppDTO,
+  ArtifactCommentCreateRequest,
+  ArtifactCommentThreadDTO,
   ArtifactContentResponse,
   ArtifactCreateRequest,
   ArtifactDTO,
   ArtifactPublishRequest,
+  ArtifactUpdateRequest,
   ArtifactTypeHTML,
   ArtifactTypeMarkdown,
   ArtifactVersionDTO,
@@ -24,6 +27,11 @@ import {
   DeviceAuthStatusPending,
   CacheScopePrivate,
   CacheScopePublic,
+  CommentDTO,
+  CommentStatusArchived,
+  CommentStatusDraft,
+  CommentStatusPublished,
+  CommentStatusUnknown,
   DeviceTokenKindAPIKey,
   DeviceTokenKindSession,
   EnforcementBlock,
@@ -57,6 +65,7 @@ import {
   RefRouteModeRewrite,
   RefRouteTypeApp,
   ResourceFeatureSeedance,
+  ResourceImages,
   ResourceSeats,
   ResultMeta,
   ResultTypeComplete,
@@ -1583,6 +1592,12 @@ describe('flow utility node type contracts (v0.7.86)', () => {
   });
 });
 
+const sampleResourceImages = (): ResourceImages => ({
+  card: 'https://cdn.test/artifacts/card.png',
+  thumbnail: 'https://cdn.test/artifacts/thumb.png',
+  banner: 'https://cdn.test/artifacts/banner.png',
+});
+
 describe('Artifact type contracts', () => {
   it('exports artifact scopes and scope group constants', () => {
     expect(ScopeArtifacts).toBe('artifacts');
@@ -1615,6 +1630,7 @@ describe('Artifact type contracts', () => {
       description: 'Last 24h deploy failures',
       favicon: '🚨',
       type: ArtifactTypeHTML,
+      images: sampleResourceImages(),
       version_id: 'ver-2',
       shared_version_id: 'ver-1',
       views: 128,
@@ -1640,8 +1656,18 @@ describe('Artifact type contracts', () => {
 
     expect(parsed.namespace).toBe('acme');
     expect(parsed.shared_version_id).toBe('ver-1');
+    expect(parsed.images.card).toContain('/card.png');
     expect(parsed.version?.md5).toBe('d41d8cd98f00b204e9800998ecf8427e');
     expect(parsed.version?.generated_by).toBe('human:ok@inference.sh');
+  });
+
+  it('models ResourceImages for gallery and header covers', () => {
+    const images = sampleResourceImages();
+    const parsed = JSON.parse(JSON.stringify(images)) as ResourceImages;
+
+    expect(parsed.card).toBe(images.card);
+    expect(parsed.thumbnail).toBe(images.thumbnail);
+    expect(parsed.banner).toBe(images.banner);
   });
 
   it('models publish requests with optional base64 content_encoding', () => {
@@ -1670,6 +1696,28 @@ describe('Artifact type contracts', () => {
     expect(parsedPublish.notes).toBe('Added troubleshooting');
   });
 
+  it('models optional images on create, update, and publish requests', () => {
+    const images = sampleResourceImages();
+    const create: ArtifactCreateRequest = {
+      title: 'Gallery page',
+      content: '<html></html>',
+      images,
+    };
+    const update: ArtifactUpdateRequest = { images };
+    const publish: ArtifactPublishRequest = {
+      content: '<html>v2</html>',
+      images,
+    };
+
+    const parsedCreate = JSON.parse(JSON.stringify(create)) as ArtifactCreateRequest;
+    const parsedUpdate = JSON.parse(JSON.stringify(update)) as ArtifactUpdateRequest;
+    const parsedPublish = JSON.parse(JSON.stringify(publish)) as ArtifactPublishRequest;
+
+    expect(parsedCreate.images?.banner).toBe(images.banner);
+    expect(parsedUpdate.images?.thumbnail).toBe(images.thumbnail);
+    expect(parsedPublish.images?.card).toBe(images.card);
+  });
+
   it('models ArtifactContentResponse for /content reads', () => {
     const content: ArtifactContentResponse = {
       artifact_id: 'art-1',
@@ -1688,5 +1736,103 @@ describe('Artifact type contracts', () => {
     expect(parsed.type).toBe('html');
     expect(parsed.content).toContain('<h1>');
     expect(parsed.size_bytes).toBe(24);
+  });
+});
+
+describe('Artifact comment type contracts', () => {
+  it('exports CommentStatus lifecycle constants', () => {
+    expect(CommentStatusUnknown).toBe(0);
+    expect(CommentStatusDraft).toBe(1);
+    expect(CommentStatusPublished).toBe(2);
+    expect(CommentStatusArchived).toBe(3);
+  });
+
+  it('models CommentDTO with resource addressing and agent activation', () => {
+    const comment: CommentDTO = {
+      id: 'cmt-1',
+      short_id: 'c1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      resource_type: 'artifacts',
+      resource_id: 'art-1',
+      page_id: 'page-legacy',
+      content: 'Can we pin the shared version?',
+      children: [],
+      status: CommentStatusPublished,
+      agent_activated: true,
+      agent_activated_by_user_id: 'user-1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(comment)) as CommentDTO;
+
+    expect(parsed.resource_type).toBe('artifacts');
+    expect(parsed.resource_id).toBe('art-1');
+    expect(parsed.agent_activated).toBe(true);
+    expect(parsed.status).toBe(CommentStatusPublished);
+  });
+
+  it('models ArtifactCommentCreateRequest for threads, replies, and send-to-agent', () => {
+    const thread: ArtifactCommentCreateRequest = {
+      content: 'Please review this artifact',
+      send_to_agent: true,
+    };
+    const reply: ArtifactCommentCreateRequest = {
+      content: 'Looks good to me',
+      parent_comment_id: 'cmt-root',
+    };
+
+    const parsedThread = JSON.parse(JSON.stringify(thread)) as ArtifactCommentCreateRequest;
+    const parsedReply = JSON.parse(JSON.stringify(reply)) as ArtifactCommentCreateRequest;
+
+    expect(parsedThread.send_to_agent).toBe(true);
+    expect(parsedThread.parent_comment_id).toBeUndefined();
+    expect(parsedReply.parent_comment_id).toBe('cmt-root');
+    expect(parsedReply.send_to_agent).toBeUndefined();
+  });
+
+  it('models ArtifactCommentThreadDTO with ordered replies and agent attribution', () => {
+    const reply: CommentDTO = {
+      id: 'cmt-reply',
+      short_id: 'cr1',
+      created_at: '2026-09-09T00:05:00Z',
+      updated_at: '2026-09-09T00:05:00Z',
+      user_id: 'user-2',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      resource_type: 'artifacts',
+      resource_id: 'art-1',
+      page_id: 'page-legacy',
+      content: 'Pinned to ver-1',
+      children: [],
+      status: CommentStatusPublished,
+      agent_activated: false,
+      author_agent_id: 'agent-9',
+    };
+    const thread: ArtifactCommentThreadDTO = {
+      id: 'cmt-root',
+      short_id: 'c0',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      resource_type: 'artifacts',
+      resource_id: 'art-1',
+      page_id: 'page-legacy',
+      content: 'Which version should viewers see?',
+      children: [reply],
+      status: CommentStatusPublished,
+      agent_activated: true,
+      replies: [reply],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(thread)) as ArtifactCommentThreadDTO;
+
+    expect(parsed.replies).toHaveLength(1);
+    expect(parsed.replies[0].author_agent_id).toBe('agent-9');
+    expect(parsed.children[0].content).toBe('Pinned to ver-1');
   });
 });

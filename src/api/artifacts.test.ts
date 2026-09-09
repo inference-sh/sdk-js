@@ -45,6 +45,36 @@ describe('ArtifactsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ ...payload, content: Buffer.from(payload.content).toString('base64'), content_encoding: 'base64' });
   });
 
+  it('should pass cover images through publish() without encoding them', async () => {
+    const images = {
+      card: 'https://cdn.test/card.png',
+      thumbnail: 'https://cdn.test/thumb.png',
+      banner: 'https://cdn.test/banner.png',
+    };
+    const payload = { title: 'Gallery', content: '<h1>hi</h1>', images };
+    mockJsonResponse({ id: 'art-gallery' });
+
+    await api().publish(payload);
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.images).toEqual(images);
+    expect(body.content_encoding).toBe('base64');
+  });
+
+  it('should pass cover images through update() unchanged', async () => {
+    const images = {
+      card: 'https://cdn.test/new-card.png',
+      thumbnail: 'https://cdn.test/new-thumb.png',
+      banner: 'https://cdn.test/new-banner.png',
+    };
+    mockJsonResponse({ id: 'art-1', images });
+
+    await api().update('art-1', { images, title: 'Renamed' });
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toEqual({ images, title: 'Renamed' });
+  });
+
   it('should base64-encode script tags in publish() so firewalls accept the JSON body', async () => {
     const content = '<html><script>alert("x")</script><body>ok</body></html>';
     mockJsonResponse({ id: 'art-script' });
