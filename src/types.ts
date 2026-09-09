@@ -919,6 +919,13 @@ export interface AppFunction {
   description?: string;
   input_schema: any;
   output_schema: any;
+  /**
+   * Capabilities implied by the function's declared types, derived by
+   * engine discovery at deploy (e.g. "llm" when the function takes an
+   * LLMInput and returns an LLMOutput). Promoted onto the version's
+   * metadata by AppVersion.DeriveCapabilities.
+   */
+  capabilities?: string[];
 }
 /**
  * AppImages holds developer-provided images for the app.
@@ -3224,17 +3231,17 @@ export interface A2UIComponent {
   /**
    * Text
    */
-  text?: A2UIBoundValue;
+  text?: A2UIBound;
   variant?: string;
   /**
    * Image
    */
-  url?: A2UIBoundValue;
+  url?: A2UIBound;
   fit?: string;
   /**
    * Icon
    */
-  name?: A2UIBoundValue;
+  name?: A2UIBound;
   /**
    * Divider
    */
@@ -3249,7 +3256,7 @@ export interface A2UIComponent {
    * TextField
    */
   label?: string;
-  value?: A2UIBoundValue;
+  value?: A2UIBound;
   textFieldType?: string;
   validationRegexp?: string;
   placeholder?: string;
@@ -3268,7 +3275,7 @@ export interface A2UIComponent {
    * ChoicePicker
    */
   options?: A2UIChoiceOption[];
-  selections?: A2UIBoundValue;
+  selections?: A2UIBound;
   maxAllowedSelections?: number /* int */;
   /**
    * Modal
@@ -3539,6 +3546,13 @@ export const VisibilityUnlisted: Visibility = "unlisted";
 export type Permission = string;
 export const PermRead: Permission = "read";
 export const PermWrite: Permission = "write";
+/**
+ * PermUse is execute intent: run an app, load a skill/knowledge into an
+ * agent context, invoke an MCP tool. Distinct from read — a public
+ * resource is readable by everyone, but whether this caller may USE it is
+ * governed by their team/org usage policy (reach, INF-808).
+ */
+export const PermUse: Permission = "use";
 export type SubscriptionStatus = string;
 export const SubscriptionStatusTrialing: SubscriptionStatus = "trialing";
 export const SubscriptionStatusActive: SubscriptionStatus = "active";
