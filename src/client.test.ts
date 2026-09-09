@@ -536,6 +536,18 @@ describe('namespaced APIs', () => {
     });
   });
 
+  describe('client.artifacts', () => {
+    it('should have artifacts namespace with publish and content helpers', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.artifacts).toBeDefined();
+      expect(typeof client.artifacts.list).toBe('function');
+      expect(typeof client.artifacts.publish).toBe('function');
+      expect(typeof client.artifacts.publishVersion).toBe('function');
+      expect(typeof client.artifacts.getContent).toBe('function');
+      expect(typeof client.artifacts.renderUrl).toBe('function');
+    });
+  });
+
   describe('client.agents', () => {
     it('should have agents namespace', () => {
       const client = new Inference({ apiKey: 'test-api-key' });
