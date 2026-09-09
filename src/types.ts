@@ -1184,6 +1184,11 @@ export interface ArtifactCreateRequest {
    * Content is the page source (HTML body/document or Markdown).
    */
   content: string;
+  /**
+   * ContentEncoding is "base64" when Content is base64-encoded UTF-8. Use it
+   * from browsers and CLIs: edge firewalls reject raw <script> in JSON bodies.
+   */
+  content_encoding?: string;
   label?: string;
   notes?: string;
   origin?: string;
@@ -1208,6 +1213,10 @@ export interface ArtifactUpdateRequest {
  */
 export interface ArtifactPublishRequest {
   content: string;
+  /**
+   * ContentEncoding is "base64" when Content is base64-encoded UTF-8.
+   */
+  content_encoding?: string;
   label?: string;
   notes?: string;
   origin?: string;

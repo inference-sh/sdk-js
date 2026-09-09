@@ -11,6 +11,19 @@ import {
   CursorListResponse,
 } from '../types';
 
+/** Encode UTF-8 page source as base64 so edge firewalls accept <script> in JSON bodies. */
+function encodeContent(content: string): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(content, 'utf8').toString('base64');
+  }
+  const bytes = new TextEncoder().encode(content);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
 /**
  * Artifacts API — small self-contained HTML/Markdown pages published to a
  * URL, versioned, permissioned, and shareable.
@@ -44,7 +57,8 @@ export class ArtifactsAPI {
    * artifact with the same name already exists in your namespace.
    */
   async publish(data: ArtifactCreateRequest): Promise<Response<ArtifactDTO>> {
-    return this.http.request<ArtifactDTO>('post', '/artifacts', { data });
+    const body: ArtifactCreateRequest = { ...data, content: encodeContent(data.content), content_encoding: 'base64' };
+    return this.http.request<ArtifactDTO>('post', '/artifacts', { data: body });
   }
 
   /**
@@ -58,7 +72,8 @@ export class ArtifactsAPI {
    * Publish a new version of an existing artifact
    */
   async publishVersion(id: string, data: ArtifactPublishRequest): Promise<Response<ArtifactDTO>> {
-    return this.http.request<ArtifactDTO>('post', `/artifacts/${id}/versions`, { data });
+    const body: ArtifactPublishRequest = { ...data, content: encodeContent(data.content), content_encoding: 'base64' };
+    return this.http.request<ArtifactDTO>('post', `/artifacts/${id}/versions`, { data: body });
   }
 
   /**
