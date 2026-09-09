@@ -1,13 +1,23 @@
 import {
+  A2UIButton,
+  A2UIBound,
+  A2UIBoundValue,
+  A2UIComponent,
+  A2UIText,
   APIError,
   AppCategoryOther,
   AppDTO,
+  AppFunction,
   AppPricing,
+  AppVersionDTO,
   AppStatusActive,
   AppStatusDeprecated,
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  AuthResponse,
+  BountyProgramDTO,
+  ChatMessageRoleUser,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -21,12 +31,17 @@ import {
   EnforcementBlock,
   EntitlementDTO,
   EntitlementErrorMeta,
+  EntitlementScopeMember,
+  EntitlementScopeOrg,
+  EntitlementScopeTeam,
   EntitlementSourceAddon,
   EntitlementSourceTier,
   EntitlementTypeBoolean,
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  LLMInput,
+  LLMSettings,
   KnowledgeDTO,
   KnowledgeLifecycleDecay,
   KnowledgeLifecycleDeprecated,
@@ -44,13 +59,21 @@ import {
   PlanTypeAddon,
   PlanTypeBase,
   PlanVersionDTO,
+  PermissionModelDTO,
+  MCPServerAuthAPIKey,
+  MCPServerAuthNone,
+  MCPServerAuthOAuth,
+  MCPServerDTO,
   RefRouteDTO,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   RefRouteTypeApp,
   ResourceFeatureSeedance,
   ResourceSeats,
+  ResourceShareDTO,
+  ResponseFormatTypeJSONObject,
   ResultMeta,
+  RoleUser,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ScopeAgentsRead,
@@ -59,17 +82,30 @@ import {
   ScopeGroupApps,
   ScopePreset,
   ScopesResponse,
+  ShareRequest,
+  SubmitSurveyRequest,
+  SubmitSurveyResponse,
+  SurveyResponseDTO,
   SkillDTO,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  TeamRelationDTO,
+  TeamTypeTeam,
   ToolCallResponse,
+  ToolChoiceModeRequired,
+  ToolTypeFunction,
   ToolContentTypeAudio,
   ToolContentTypeImage,
   ToolContentTypeResource,
   ToolContentTypeResourceLink,
   ToolContentTypeText,
+  UserDTO,
+  UserRelationDTO,
+  VisibilityOrg,
   VisibilityPrivate,
+  VisibilityPublic,
+  VisibilityTeam,
   InterruptDTO,
   InterruptReasonToolApproval,
   InterruptReasonHookGate,
@@ -85,6 +121,9 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  PermRead,
+  PermUse,
+  PermWrite,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1607,576 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('AuthResponse challenge_token (v0.8.6)', () => {
+  it('models pre-session 2FA challenge_token when otp_required', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-pending',
+      otp_required: true,
+      otp_method: 'totp',
+      challenge_token: 'ch_abc123',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as AuthResponse;
+
+    expect(parsed.otp_required).toBe(true);
+    expect(parsed.otp_method).toBe('totp');
+    expect(parsed.challenge_token).toBe('ch_abc123');
+    expect(parsed.user).toBeUndefined();
+  });
+
+  it('allows AuthResponse without challenge_token for completed logins', () => {
+    const response: AuthResponse = {
+      session_id: 'sess-complete',
+      user: {
+        id: 'user-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        email: 'user@example.com',
+        name: 'User',
+        totp_enabled: false,
+      },
+    };
+
+    expect(response.challenge_token).toBeUndefined();
+    expect(response.otp_required).toBeUndefined();
+  });
+});
+
+describe('MCPServerDTO ownership shape (v0.8.6)', () => {
+  const relationUser = (): UserRelationDTO => ({
+    id: 'user-1',
+    created_at: '2026-07-25T00:00:00Z',
+    updated_at: '2026-07-25T00:00:00Z',
+    role: RoleUser,
+    avatar_url: 'https://example.com/avatar.png',
+  });
+
+  const relationTeam = (): TeamRelationDTO => ({
+    id: 'team-1',
+    created_at: '2026-07-25T00:00:00Z',
+    updated_at: '2026-07-25T00:00:00Z',
+    type: TeamTypeTeam,
+    username: 'acme',
+    avatar_url: 'https://example.com/team.png',
+    setup_completed: true,
+  });
+
+  it('exports MCPServerAuthType constants for server auth modes', () => {
+    expect(MCPServerAuthOAuth).toBe('oauth');
+    expect(MCPServerAuthAPIKey).toBe('api_key');
+    expect(MCPServerAuthNone).toBe('none');
+  });
+
+  it('models flat ownership fields instead of nested PermissionModelDTO', () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      user: relationUser(),
+      team_id: 'team-1',
+      team: relationTeam(),
+      visibility: VisibilityPrivate,
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      description: 'Local filesystem access',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com/filesystem',
+      auth_type: MCPServerAuthOAuth,
+      oauth_client_id: 'client-abc',
+      default_scopes: ['read', 'write'],
+      documentation_url: 'https://docs.example.com/mcp',
+      connection_status: 'connected',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.user_id).toBe('user-1');
+    expect(parsed.user.id).toBe('user-1');
+    expect(parsed.team_id).toBe('team-1');
+    expect(parsed.team.username).toBe('acme');
+    expect(parsed.visibility).toBe('private');
+    expect(parsed.auth_type).toBe('oauth');
+    expect(parsed.default_scopes).toEqual(['read', 'write']);
+  });
+});
+
+describe('LLMSettings (v0.8.6)', () => {
+  it('models generation settings with optional model for stored agent configuration', () => {
+    const settings: LLMSettings = {
+      context_size: 16384,
+      system_prompt: 'You are a research assistant.',
+      temperature: 0.2,
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: {
+            name: 'search',
+            description: 'Search knowledge base',
+          },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+    };
+
+    expect(settings.model).toBeUndefined();
+    expect(settings.tools).toHaveLength(1);
+    expect(settings.tool_choice?.mode).toBe('required');
+    expect(settings.response_format?.type).toBe('json_object');
+  });
+
+  it('preserves LLMSettings after JSON round-trip', () => {
+    const settings: LLMSettings = {
+      model: 'gpt-4.1',
+      context_size: 8192,
+      system_prompt: 'Be concise.',
+      max_tokens: 1024,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(settings)) as LLMSettings;
+
+    expect(parsed.model).toBe('gpt-4.1');
+    expect(parsed.context_size).toBe(8192);
+    expect(parsed.max_tokens).toBe(1024);
+  });
+});
+
+describe('LLMInput required model (v0.8.6)', () => {
+  const baseInput = (): LLMInput => ({
+    model: 'gpt-4.1',
+    context_size: 8192,
+    system_prompt: 'You are a helpful assistant.',
+    context: [{ role: ChatMessageRoleUser, text: 'Summarize this document.' }],
+  });
+
+  it('requires model on LLMInput for provider task envelopes', () => {
+    const input = baseInput();
+
+    expect(input.model).toBe('gpt-4.1');
+    expect(input.context).toHaveLength(1);
+    expect(input.context[0].role).toBe('user');
+  });
+
+  it('carries tools and output constraints on LLMInput alongside conversation context', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: {
+            name: 'summarize',
+            description: 'Summarize text',
+          },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+      text: 'Here is the document...',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed.model).toBe('gpt-4.1');
+    expect(parsed.tools?.[0].function.name).toBe('summarize');
+    expect(parsed.tool_choice?.mode).toBe('required');
+    expect(parsed.response_format?.type).toBe('json_object');
+    expect(parsed.text).toBe('Here is the document...');
+  });
+});
+
+describe('EntitlementScope constants (v0.8.14, INF-799)', () => {
+  it('exports org, team, and member scope tiers', () => {
+    expect(EntitlementScopeOrg).toBe('org');
+    expect(EntitlementScopeTeam).toBe('team');
+    expect(EntitlementScopeMember).toBe('member');
+  });
+
+  it('models team-scoped entitlements with team_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeTeam,
+      team_id: 'team-1',
+      limit: 10,
+    });
+
+    expect(entitlement.scope).toBe('team');
+    expect(entitlement.team_id).toBe('team-1');
+    expect(entitlement.org_id).toBeUndefined();
+    expect(entitlement.user_id).toBeUndefined();
+  });
+
+  it('models org-scoped entitlements with org_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeOrg,
+      org_id: 'org-1',
+      team_id: 'team-1',
+      resource: ResourceSeats,
+      limit: 50,
+    });
+
+    expect(entitlement.scope).toBe('org');
+    expect(entitlement.org_id).toBe('org-1');
+    expect(entitlement.team_id).toBe('team-1');
+  });
+
+  it('models member-scoped entitlements with user_id', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeMember,
+      user_id: 'user-1',
+      team_id: 'team-1',
+      resource: ResourceSeats,
+      limit: 1,
+    });
+
+    expect(entitlement.scope).toBe('member');
+    expect(entitlement.user_id).toBe('user-1');
+  });
+
+  it('preserves scope and owner columns after JSON round-trip', () => {
+    const entitlement = makeEntitlement({
+      scope: EntitlementScopeOrg,
+      org_id: 'org-1',
+      team_id: 'team-1',
+      user_id: 'user-1',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(entitlement)) as EntitlementDTO;
+
+    expect(parsed.scope).toBe('org');
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.user_id).toBe('user-1');
+    expect(parsed.team_id).toBe('team-1');
+  });
+});
+
+describe('BountyProgramDTO requires_payment_method (v0.8.14)', () => {
+  function makeBountyProgram(overrides: Partial<BountyProgramDTO> = {}): BountyProgramDTO {
+    return {
+      id: 'bounty-1',
+      short_id: 'b1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'Referral bounty',
+      description: 'Earn credits for referrals',
+      amount_microcents: 1_000_000,
+      grant_type: 'credits',
+      expiry_days: 30,
+      max_per_user: 1,
+      max_per_day: 10,
+      proof_type: 'url',
+      proof_min_length: 10,
+      requires_payment_method: false,
+      status: 'active',
+      notice_text: 'Complete your profile to claim',
+      notice_cooldown_hours: 24,
+      notice_priority: 1,
+      ...overrides,
+    };
+  }
+
+  it('declares requires_payment_method for payment-gated bounty programs', () => {
+    const gated = makeBountyProgram({ requires_payment_method: true });
+    const open = makeBountyProgram({ requires_payment_method: false });
+
+    expect(gated.requires_payment_method).toBe(true);
+    expect(open.requires_payment_method).toBe(false);
+  });
+
+  it('preserves requires_payment_method after JSON round-trip', () => {
+    const program = makeBountyProgram({ requires_payment_method: true });
+
+    const parsed = JSON.parse(JSON.stringify(program)) as BountyProgramDTO;
+
+    expect(parsed.requires_payment_method).toBe(true);
+    expect(parsed.name).toBe('Referral bounty');
+  });
+});
+
+describe('Survey response types (v0.8.14)', () => {
+  function makeSurveyResponse(overrides: Partial<SurveyResponseDTO> = {}): SurveyResponseDTO {
+    return {
+      id: 'survey-resp-1',
+      short_id: 'sr1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      question_id: 'q-onboarding',
+      response: 'Great product!',
+      ...overrides,
+    };
+  }
+
+  it('models SubmitSurveyRequest with optional agent, source, and context', () => {
+    const request: SubmitSurveyRequest = {
+      question_id: 'q-onboarding',
+      response: 'Great product!',
+      agent: 'onboarding-bot',
+      source: 'web',
+      context: 'post-signup',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SubmitSurveyRequest;
+
+    expect(parsed.question_id).toBe('q-onboarding');
+    expect(parsed.agent).toBe('onboarding-bot');
+    expect(parsed.source).toBe('web');
+    expect(parsed.context).toBe('post-signup');
+  });
+
+  it('models SubmitSurveyResponse with granted credit reward', () => {
+    const result: SubmitSurveyResponse = {
+      response: makeSurveyResponse(),
+      granted_amount: 500_000,
+    };
+
+    expect(result.granted_amount).toBe(500_000);
+    expect(result.reward_blocked_reason).toBeUndefined();
+    expect(result.response.question_id).toBe('q-onboarding');
+  });
+
+  it('models SubmitSurveyResponse when reward is withheld for missing payment method', () => {
+    const result: SubmitSurveyResponse = {
+      response: makeSurveyResponse(),
+      granted_amount: 0,
+      reward_blocked_reason: 'payment_method_required',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(result)) as SubmitSurveyResponse;
+
+    expect(parsed.granted_amount).toBe(0);
+    expect(parsed.reward_blocked_reason).toBe('payment_method_required');
+    expect(parsed.response.response).toBe('Great product!');
+  });
+});
+
+describe('UserDTO managed_by_org_id (v0.8.14)', () => {
+  function makeUser(overrides: Partial<UserDTO> = {}): UserDTO {
+    return {
+      id: 'user-1',
+      short_id: 'u1',
+      created_at: '2026-09-06T00:00:00Z',
+      updated_at: '2026-09-06T00:00:00Z',
+      default_team_id: 'team-1',
+      role: RoleUser,
+      email: 'user@example.com',
+      name: 'user',
+      full_name: 'Example User',
+      avatar_url: 'https://example.com/avatar.png',
+      totp_enabled: false,
+      ...overrides,
+    };
+  }
+
+  it('allows self-managed users without managed_by_org_id', () => {
+    const user = makeUser();
+
+    expect(user.managed_by_org_id).toBeUndefined();
+    expect(user.default_team_id).toBe('team-1');
+  });
+
+  it('marks enterprise-managed accounts with managed_by_org_id', () => {
+    const user = makeUser({
+      managed_by_org_id: 'org-enterprise',
+    });
+
+    expect(user.managed_by_org_id).toBe('org-enterprise');
+  });
+
+  it('preserves managed_by_org_id after JSON round-trip', () => {
+    const user = makeUser({ managed_by_org_id: 'org-enterprise' });
+
+    const parsed = JSON.parse(JSON.stringify(user)) as UserDTO;
+
+    expect(parsed.managed_by_org_id).toBe('org-enterprise');
+    expect(parsed.email).toBe('user@example.com');
+  });
+});
+
+describe('VisibilityOrg constant (INF-795 Phase 2)', () => {
+  it('exports VisibilityOrg between team and public visibility tiers', () => {
+    expect(VisibilityOrg).toBe('org');
+    expect(VisibilityPrivate).toBe('private');
+    expect(VisibilityTeam).toBe('team');
+    expect(VisibilityPublic).toBe('public');
+  });
+
+  it('accepts org visibility on PermissionModelDTO with optional org_id', () => {
+    const permission: PermissionModelDTO = {
+      user_id: 'user-1',
+      team_id: 'team-1',
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(permission)) as PermissionModelDTO;
+
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.visibility).toBe('org');
+  });
+});
+
+describe('MCPServerDTO org ownership (INF-795 Phase 2)', () => {
+  const baseServer = (): MCPServerDTO => ({
+    id: 'mcp-1',
+    user_id: 'user-1',
+    user: {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: RoleUser,
+      avatar_url: 'https://example.com/avatar.png',
+    },
+    team_id: 'team-1',
+    team: {
+      id: 'team-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      type: TeamTypeTeam,
+      username: 'acme',
+      avatar_url: 'https://example.com/team.png',
+      setup_completed: true,
+    },
+    visibility: VisibilityPrivate,
+    slug: 'filesystem',
+    name: 'Filesystem MCP',
+    description: 'Local filesystem access',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/filesystem',
+    auth_type: MCPServerAuthOAuth,
+    default_scopes: ['read'],
+    documentation_url: 'https://docs.example.com/mcp',
+  });
+
+  it('accepts optional org_id and org visibility on MCPServerDTO', () => {
+    const server: MCPServerDTO = {
+      ...baseServer(),
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    expect(server.org_id).toBe('org-1');
+    expect(server.visibility).toBe(VisibilityOrg);
+  });
+
+  it('preserves org_id and org visibility after JSON round-trip', () => {
+    const server: MCPServerDTO = {
+      ...baseServer(),
+      org_id: 'org-1',
+      visibility: VisibilityOrg,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.org_id).toBe('org-1');
+    expect(parsed.visibility).toBe('org');
+    expect(parsed.team.username).toBe('acme');
+  });
+});
+
+describe('v0.8.19 type contracts (PermUse, AppFunction capabilities, A2UI bindings)', () => {
+  it('exports PermRead, PermWrite, and PermUse permission constants', () => {
+    expect(PermRead).toBe('read');
+    expect(PermWrite).toBe('write');
+    expect(PermUse).toBe('use');
+  });
+
+  it('accepts PermUse on ResourceShareDTO and ShareRequest for execute intent (INF-808)', () => {
+    const share: ResourceShareDTO = {
+      id: 'share-1',
+      short_id: 'sh1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      resource_id: 'app-1',
+      resource_type: 'app',
+      user_id: 'user-2',
+      permission: PermUse,
+    };
+
+    const request: ShareRequest = {
+      user_id: 'user-2',
+      permission: PermUse,
+    };
+
+    expect(share.permission).toBe('use');
+    expect(request.permission).toBe('use');
+  });
+
+  it('preserves AppFunction.capabilities through JSON round-trip on AppVersionDTO', () => {
+    const run: AppFunction = {
+      name: 'run',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+      capabilities: ['llm'],
+    };
+
+    const version: AppVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-09-09T00:00:00Z',
+      updated_at: '2026-09-09T00:00:00Z',
+      app_id: 'app-1',
+      functions: { run },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AppVersionDTO;
+
+    expect(parsed.functions?.run.capabilities).toEqual(['llm']);
+  });
+
+  it('allows AppFunction without capabilities for non-LLM entry points', () => {
+    const transform: AppFunction = {
+      name: 'transform',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+    };
+
+    expect(transform.capabilities).toBeUndefined();
+  });
+
+  it('preserves A2UI path-bound fields through JSON round-trip', () => {
+    const bound: A2UIBoundValue = { path: '/model/title' };
+
+    const component: A2UIComponent = {
+      id: 'title',
+      component: A2UIText,
+      text: bound,
+    };
+
+    const button: A2UIComponent = {
+      id: 'submit',
+      component: A2UIButton,
+      child: 'label',
+      value: { path: '/form/submitted' },
+      selections: { path: '/form/choices' },
+    };
+
+    const parsedText = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+    const parsedButton = JSON.parse(JSON.stringify(button)) as A2UIComponent;
+
+    expect(parsedText.text).toEqual({ path: '/model/title' });
+    expect(parsedButton.value).toEqual({ path: '/form/submitted' });
+    expect(parsedButton.selections).toEqual({ path: '/form/choices' });
+  });
+
+  it('accepts A2UIBound literal primitives on A2UIComponent fields', () => {
+    const component: A2UIComponent = {
+      id: 'banner',
+      component: A2UIText,
+      text: 'Hello' satisfies A2UIBound,
+      url: '/static/logo.png' satisfies A2UIBound,
+      value: true satisfies A2UIBound,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(component)) as A2UIComponent;
+
+    expect(parsed.text).toBe('Hello');
+    expect(parsed.url).toBe('/static/logo.png');
+    expect(parsed.value).toBe(true);
   });
 });
