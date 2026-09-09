@@ -1267,6 +1267,60 @@ export interface ArtifactContentResponse {
   size_bytes: number /* int64 */;
 }
 /**
+ * ArtifactDataDTO is one document in an artifact's store.
+ */
+export interface ArtifactDataDTO {
+  collection: string;
+  doc_id: string;
+  data: { [key: string]: any};
+  updated_at: string /* RFC3339 */;
+  /**
+   * OwnerUserID is set for documents private to one viewer.
+   */
+  owner_user_id?: string;
+}
+/**
+ * ArtifactDataRequest addresses one document, or a collection when DocID is
+ * empty (list).
+ */
+export interface ArtifactDataRequest {
+  collection: string;
+  doc_id?: string;
+  /**
+   * Data is the document body for set and update.
+   */
+  data?: { [key: string]: any};
+  /**
+   * Limit caps a list; the server clamps it.
+   */
+  limit?: number /* int */;
+}
+/**
+ * ArtifactDataListResponse is a page of documents from one collection.
+ */
+export interface ArtifactDataListResponse {
+  collection: string;
+  documents: ArtifactDataDTO[];
+  count: number /* int */;
+}
+/**
+ * ArtifactViewerDTO is what the user capability tells a page about whoever
+ * has it open. It carries no credential and no email.
+ */
+export interface ArtifactViewerDTO {
+  /**
+   * SignedIn is false for someone opening a public link without an account.
+   */
+  signed_in: boolean;
+  user_id?: string;
+  name?: string;
+  avatar_url?: string;
+  /**
+   * CanEdit reports whether this viewer may publish new versions.
+   */
+  can_edit: boolean;
+}
+/**
  * AuthSessionDTO is a safe representation of AuthSession for API responses.
  */
 export interface AuthSessionDTO {
