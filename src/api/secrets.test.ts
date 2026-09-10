@@ -61,11 +61,26 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward connection_scope in create() body', async () => {
+    const payload = {
+      key: 'TEAM_API_KEY',
+      value: 'secret-value',
+      connection_scope: 'team',
+    };
+    const secret = { key: 'TEAM_API_KEY' };
+    mockJsonResponse(secret);
+
+    await api().create(payload);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should PUT /secrets/{key} for update()', async () => {
     const secret = { key: 'DB_PASSWORD' };
     mockJsonResponse(secret);
 
-    await api().update('DB_PASSWORD', { value: 'new-secret' } as never);
+    await api().update('DB_PASSWORD', { value: 'new-secret' });
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets/DB_PASSWORD');

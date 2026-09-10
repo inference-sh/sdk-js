@@ -3,6 +3,7 @@ import type { Response } from '../http/response';
 import {
   SecretDTO,
   SecretCreateRequest,
+  SecretUpdateRequest,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
@@ -30,7 +31,7 @@ export class SecretsAPI {
   /**
    * Update a secret
    */
-  async update(key: string, data: Partial<SecretCreateRequest>): Promise<Response<SecretDTO>> {
+  async update(key: string, data: SecretUpdateRequest): Promise<Response<SecretDTO>> {
     return this.http.request<SecretDTO>('put', `/secrets/${key}`, { data });
   }
 
