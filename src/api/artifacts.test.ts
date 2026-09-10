@@ -55,6 +55,46 @@ describe('ArtifactsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should pass base_version_id through publish() alongside base64 encoding', async () => {
+    const content = '<p>based on v1</p>';
+    mockJsonResponse({ id: 'art-1' });
+
+    await api().publish({
+      title: 'Runbook',
+      content,
+      base_version_id: 'ver-1',
+    });
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toEqual({
+      title: 'Runbook',
+      content: Buffer.from(content, 'utf8').toString('base64'),
+      content_encoding: 'base64',
+      base_version_id: 'ver-1',
+    });
+  });
+
+  it('should pass base_version_id and force through publishVersion()', async () => {
+    const content = '<p>forced overwrite</p>';
+    mockJsonResponse({ id: 'art-1', version_id: 'v3' });
+
+    await api().publishVersion('art-1', {
+      content,
+      base_version_id: 'ver-2',
+      force: true,
+      label: 'recovery',
+    });
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toEqual({
+      content: Buffer.from(content, 'utf8').toString('base64'),
+      content_encoding: 'base64',
+      base_version_id: 'ver-2',
+      force: true,
+      label: 'recovery',
+    });
+  });
+
   it('should GET the viewer-facing content without a version', async () => {
     mockJsonResponse({ artifact_id: 'art-1', content: '<p>x</p>' });
 
