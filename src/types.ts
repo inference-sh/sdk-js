@@ -1212,6 +1212,18 @@ export interface ArtifactCreateRequest {
   origin?: string;
   generated_by?: string;
   capabilities?: { [key: string]: any};
+  /**
+   * BaseVersionID is the version this content was built on. When the
+   * artifact has moved past it, the publish is refused instead of
+   * discarding whatever landed in between. Leave it empty to publish
+   * unconditionally.
+   */
+  base_version_id?: string;
+  /**
+   * Force publishes over a newer version anyway, discarding it. Only ever
+   * set this because a person said to discard that specific version.
+   */
+  force?: boolean;
 }
 /**
  * ArtifactUpdateRequest is the body for POST /artifacts/{id}. Metadata only;
@@ -1251,6 +1263,18 @@ export interface ArtifactPublishRequest {
   description?: string;
   favicon?: string;
   images?: ResourceImages;
+  /**
+   * BaseVersionID is the version this content was built on. When the
+   * artifact has moved past it, the publish is refused instead of
+   * discarding whatever landed in between. Leave it empty to publish
+   * unconditionally.
+   */
+  base_version_id?: string;
+  /**
+   * Force publishes over a newer version anyway, discarding it. Only ever
+   * set this because a person said to discard that specific version.
+   */
+  force?: boolean;
 }
 /**
  * ArtifactContentResponse is the JSON form of an artifact version body.
