@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { CredentialScopeOrg } from '../types';
 import { SecretsAPI } from './secrets';
 
 const mockFetch = jest.fn();
@@ -56,6 +57,22 @@ describe('SecretsAPI', () => {
     mockJsonResponse(secret);
 
     await api().create(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward connection_scope in create() body for scoped integration secrets', async () => {
+    const payload = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      provider: 'google',
+      connection_scope: CredentialScopeOrg,
+    };
+    const secret = { key: 'GOOGLE_SA_JSON', scope: 'internal' };
+    mockJsonResponse(secret);
+
+    await api().create(payload);
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
