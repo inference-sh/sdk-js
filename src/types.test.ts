@@ -85,6 +85,8 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ArtifactAssetDTO,
+  ArtifactAssetListResponse,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1570,101 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Artifact asset type contracts', () => {
+  it('models ArtifactAssetDTO with absolute URL and optional upload metadata', () => {
+    const asset: ArtifactAssetDTO = {
+      asset_id: 'asset-abc123',
+      filename: 'chart.png',
+      content_type: 'image/png',
+      size_bytes: 204800,
+      url: 'https://api.test/artifacts/art-1/assets/asset-abc123/chart.png',
+      created_at: '2026-09-10T00:00:00Z',
+      uploaded_by_user_id: 'user-42',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(asset)) as ArtifactAssetDTO;
+
+    expect(parsed.asset_id).toBe('asset-abc123');
+    expect(parsed.url).toMatch(/^https:\/\//);
+    expect(parsed.size_bytes).toBe(204800);
+    expect(parsed.content_type).toBe('image/png');
+    expect(parsed.uploaded_by_user_id).toBe('user-42');
+  });
+
+  it('models ArtifactAssetDTO with only required fields for CSP-referenced bytes', () => {
+    const asset: ArtifactAssetDTO = {
+      asset_id: 'asset-minimal',
+      size_bytes: 512,
+      url: 'https://cdn.test/artifacts/art-2/assets/asset-minimal',
+      created_at: '2026-09-10T01:00:00Z',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(asset)) as ArtifactAssetDTO;
+
+    expect(parsed.filename).toBeUndefined();
+    expect(parsed.content_type).toBeUndefined();
+    expect(parsed.uploaded_by_user_id).toBeUndefined();
+    expect(parsed.url).toContain('/assets/');
+  });
+
+  it('models ArtifactAssetListResponse with budget tracking fields', () => {
+    const response: ArtifactAssetListResponse = {
+      count: 2,
+      total_bytes: 307200,
+      budget_bytes: 1048576,
+      assets: [
+        {
+          asset_id: 'asset-1',
+          filename: 'logo.svg',
+          content_type: 'image/svg+xml',
+          size_bytes: 102400,
+          url: 'https://api.test/artifacts/art-1/assets/asset-1/logo.svg',
+          created_at: '2026-09-10T00:00:00Z',
+        },
+        {
+          asset_id: 'asset-2',
+          filename: 'data.json',
+          content_type: 'application/json',
+          size_bytes: 204800,
+          url: 'https://api.test/artifacts/art-1/assets/asset-2/data.json',
+          created_at: '2026-09-10T00:05:00Z',
+          uploaded_by_user_id: 'user-7',
+        },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as ArtifactAssetListResponse;
+
+    expect(parsed.count).toBe(2);
+    expect(parsed.assets).toHaveLength(2);
+    expect(parsed.total_bytes).toBeLessThan(parsed.budget_bytes);
+    expect(parsed.total_bytes).toBe(307200);
+    expect(parsed.budget_bytes).toBe(1048576);
+  });
+
+  it('models ArtifactAssetListResponse at budget ceiling with no remaining headroom', () => {
+    const response: ArtifactAssetListResponse = {
+      count: 1,
+      total_bytes: 5242880,
+      budget_bytes: 5242880,
+      assets: [
+        {
+          asset_id: 'asset-full',
+          filename: 'bundle.js',
+          content_type: 'application/javascript',
+          size_bytes: 5242880,
+          url: 'https://api.test/artifacts/art-3/assets/asset-full/bundle.js',
+          created_at: '2026-09-10T02:00:00Z',
+        },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as ArtifactAssetListResponse;
+
+    expect(parsed.total_bytes).toBe(parsed.budget_bytes);
+    expect(parsed.count).toBe(parsed.assets.length);
   });
 });
