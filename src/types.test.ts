@@ -85,6 +85,7 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ArtifactFrameDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1569,74 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Artifact frame type contracts', () => {
+  const userContentOrigin = 'https://content.test';
+
+  it('models ArtifactFrameDTO for private embeds with token exchange and expiry', () => {
+    const frame: ArtifactFrameDTO = {
+      artifact_id: 'art-private-1',
+      version_id: 'ver-abc-full',
+      version_short_id: 'vabc1',
+      embed_url: `${userContentOrigin}/embed/art-private-1/vabc1?exchange_token=signed-jwt-xyz`,
+      top_url: `${userContentOrigin}/view/art-private-1/vabc1?exchange_token=signed-jwt-xyz`,
+      exchange: true,
+      expires_at: '2026-09-10T12:05:00Z',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(frame)) as ArtifactFrameDTO;
+
+    expect(parsed.exchange).toBe(true);
+    expect(parsed.expires_at).toBe('2026-09-10T12:05:00Z');
+    expect(parsed.embed_url).toMatch(/^https:\/\/content\.test\//);
+    expect(parsed.top_url).toMatch(/^https:\/\/content\.test\//);
+    expect(parsed.embed_url).not.toContain('api.');
+    expect(parsed.top_url).not.toContain('api.');
+    expect(parsed.embed_url).toContain('exchange_token=');
+    expect(parsed.top_url).toContain('exchange_token=');
+    expect(parsed.embed_url).not.toBe(parsed.top_url);
+  });
+
+  it('models ArtifactFrameDTO for public pages without credential exchange', () => {
+    const frame: ArtifactFrameDTO = {
+      artifact_id: 'art-public-2',
+      version_id: 'ver-def-full',
+      version_short_id: 'vdef2',
+      embed_url: `${userContentOrigin}/embed/art-public-2/vdef2`,
+      top_url: `${userContentOrigin}/view/art-public-2/vdef2`,
+      exchange: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(frame)) as ArtifactFrameDTO;
+
+    expect(parsed.exchange).toBe(false);
+    expect(parsed.expires_at).toBeUndefined();
+    expect(parsed.embed_url).not.toContain('exchange_token');
+    expect(parsed.top_url).not.toContain('exchange_token');
+    expect(parsed.embed_url).toContain('/embed/');
+    expect(parsed.top_url).toContain('/view/');
+  });
+
+  it('binds ArtifactFrameDTO URLs to artifact and version identifiers', () => {
+    const frame: ArtifactFrameDTO = {
+      artifact_id: 'art-bind-3',
+      version_id: 'ver-ghi-full-id',
+      version_short_id: 'vghi3',
+      embed_url: `${userContentOrigin}/embed/art-bind-3/vghi3`,
+      top_url: `${userContentOrigin}/view/art-bind-3/vghi3`,
+      exchange: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(frame)) as ArtifactFrameDTO;
+
+    expect(parsed.artifact_id).toBe('art-bind-3');
+    expect(parsed.version_id).toBe('ver-ghi-full-id');
+    expect(parsed.version_short_id).toBe('vghi3');
+    expect(parsed.embed_url).toContain('art-bind-3');
+    expect(parsed.embed_url).toContain('vghi3');
+    expect(parsed.top_url).toContain('art-bind-3');
+    expect(parsed.top_url).toContain('vghi3');
   });
 });
