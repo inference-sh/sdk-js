@@ -1,5 +1,7 @@
 import {
   APIError,
+  ArtifactCreateRequest,
+  ArtifactPublishRequest,
   AppCategoryOther,
   AppDTO,
   AppPricing,
@@ -1568,5 +1570,60 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('artifact publish concurrency (base_version_id, force)', () => {
+  it('models optional base_version_id on ArtifactCreateRequest for optimistic publish', () => {
+    const create: ArtifactCreateRequest = {
+      title: 'Runbook',
+      content: '<html></html>',
+      base_version_id: 'ver-base-1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(create)) as ArtifactCreateRequest;
+
+    expect(parsed.base_version_id).toBe('ver-base-1');
+    expect(parsed.force).toBeUndefined();
+  });
+
+  it('models optional force on ArtifactCreateRequest to override a newer version', () => {
+    const create: ArtifactCreateRequest = {
+      title: 'Runbook',
+      content: '<html></html>',
+      base_version_id: 'ver-base-1',
+      force: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(create)) as ArtifactCreateRequest;
+
+    expect(parsed.base_version_id).toBe('ver-base-1');
+    expect(parsed.force).toBe(true);
+  });
+
+  it('models optional base_version_id and force on ArtifactPublishRequest', () => {
+    const publish: ArtifactPublishRequest = {
+      content: '<html>v2</html>',
+      base_version_id: 'ver-3',
+      force: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(publish)) as ArtifactPublishRequest;
+
+    expect(parsed.base_version_id).toBe('ver-3');
+    expect(parsed.force).toBe(false);
+  });
+
+  it('allows ArtifactPublishRequest without concurrency fields for unconditional publish', () => {
+    const publish: ArtifactPublishRequest = {
+      content: '<html>v2</html>',
+      label: 'draft',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(publish)) as ArtifactPublishRequest;
+
+    expect(parsed.base_version_id).toBeUndefined();
+    expect(parsed.force).toBeUndefined();
+    expect(parsed.label).toBe('draft');
   });
 });
