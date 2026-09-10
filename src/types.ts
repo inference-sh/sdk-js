@@ -1382,6 +1382,24 @@ export interface ArtifactAssetListResponse {
   budget_bytes: number /* int64 */;
 }
 /**
+ * ArtifactFrameDTO is what the viewer embeds. EmbedURL is for an iframe on
+ * the app; TopURL is the same page opened directly. Both point at the
+ * user-content domain, never the API.
+ * When Exchange is true the URL carries a short-lived signed token that the
+ * content origin swaps for a cookie scoped to that origin and then redirects
+ * to the document, so the token leaves the address bar. When false the page
+ * is public and no credential is needed.
+ */
+export interface ArtifactFrameDTO {
+  artifact_id: string;
+  version_id: string;
+  version_short_id: string;
+  embed_url: string;
+  top_url: string;
+  exchange: boolean;
+  expires_at?: string /* RFC3339 */;
+}
+/**
  * AuthSessionDTO is a safe representation of AuthSession for API responses.
  */
 export interface AuthSessionDTO {
