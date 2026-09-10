@@ -1345,6 +1345,37 @@ export interface ArtifactViewerDTO {
   can_edit: boolean;
 }
 /**
+ * ArtifactAssetDTO describes one file stored beside an artifact. URL is
+ * absolute and is the only way a page may reference the bytes: the page has
+ * no network of its own, and the CSP names this origin only when the
+ * artifact declared the assets capability.
+ */
+export interface ArtifactAssetDTO {
+  asset_id: string;
+  filename?: string;
+  content_type?: string;
+  size_bytes: number /* int64 */;
+  url: string;
+  created_at: string /* RFC3339 */;
+  uploaded_by_user_id?: string;
+}
+/**
+ * ArtifactAssetListResponse is the body of the asset listing.
+ */
+export interface ArtifactAssetListResponse {
+  assets: ArtifactAssetDTO[];
+  count: number /* int */;
+  /**
+   * TotalBytes is what this artifact's assets occupy, against the budget
+   * an upload is refused for exceeding.
+   */
+  total_bytes: number /* int64 */;
+  /**
+   * BudgetBytes is the ceiling for one artifact.
+   */
+  budget_bytes: number /* int64 */;
+}
+/**
  * AuthSessionDTO is a safe representation of AuthSession for API responses.
  */
 export interface AuthSessionDTO {
