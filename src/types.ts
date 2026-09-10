@@ -474,6 +474,12 @@ export interface SecretCreateRequest {
   value: string;
   description?: string;
   provider?: string;
+  /**
+   * ConnectionScope is who the credential this key activates belongs to —
+   * chosen once, here; scope is immutable after creation. Empty = the
+   * provider's default (team). Requires the matching admin role.
+   */
+  connection_scope?: CredentialScope;
 }
 export interface SecretUpdateRequest {
   value: string;
