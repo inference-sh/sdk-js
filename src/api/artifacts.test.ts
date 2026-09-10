@@ -53,6 +53,33 @@ describe('ArtifactsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/artifacts/art-1/versions');
     expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.content).toBe(Buffer.from('<p>v2</p>').toString('base64'));
+    expect(body.content_encoding).toBe('base64');
+  });
+
+  it('should pass base_version_id and force through for publish()', async () => {
+    mockJsonResponse({ id: 'art-new' });
+
+    await api().publish({ title: 'Test', content: '<h1>hi</h1>', base_version_id: 'v1', force: true });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.base_version_id).toBe('v1');
+    expect(body.force).toBe(true);
+    expect(body.content).toBe(Buffer.from('<h1>hi</h1>').toString('base64'));
+  });
+
+  it('should pass base_version_id and force through for publishVersion()', async () => {
+    mockJsonResponse({ id: 'art-1', version_id: 'v3' });
+
+    await api().publishVersion('art-1', { content: '<p>v3</p>', base_version_id: 'v2', force: true });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.base_version_id).toBe('v2');
+    expect(body.force).toBe(true);
+    expect(body.content_encoding).toBe('base64');
   });
 
   it('should GET the viewer-facing content without a version', async () => {
