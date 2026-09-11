@@ -85,6 +85,10 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ArtifactDataDTO,
+  ArtifactDataListResponse,
+  ArtifactDataRequest,
+  ArtifactViewerDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1572,127 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Artifact runtime capability type contracts', () => {
+  it('models ArtifactDataDTO with collection addressing and optional per-viewer ownership', () => {
+    const shared: ArtifactDataDTO = {
+      collection: 'settings',
+      doc_id: 'theme',
+      data: { mode: 'dark', accent: '#3366ff' },
+      updated_at: '2026-09-09T12:00:00Z',
+    };
+    const privateDoc: ArtifactDataDTO = {
+      collection: 'notes',
+      doc_id: 'draft-1',
+      data: { text: 'My private note' },
+      updated_at: '2026-09-09T12:05:00Z',
+      owner_user_id: 'user-42',
+    };
+
+    const parsedShared = JSON.parse(JSON.stringify(shared)) as ArtifactDataDTO;
+    const parsedPrivate = JSON.parse(JSON.stringify(privateDoc)) as ArtifactDataDTO;
+
+    expect(parsedShared.collection).toBe('settings');
+    expect(parsedShared.data.mode).toBe('dark');
+    expect(parsedShared.owner_user_id).toBeUndefined();
+    expect(parsedPrivate.owner_user_id).toBe('user-42');
+    expect(parsedPrivate.data.text).toBe('My private note');
+  });
+
+  it('models ArtifactDataRequest for get, set, update, and list operations', () => {
+    const getOne: ArtifactDataRequest = {
+      collection: 'settings',
+      doc_id: 'theme',
+    };
+    const setDoc: ArtifactDataRequest = {
+      collection: 'settings',
+      doc_id: 'theme',
+      data: { mode: 'light' },
+    };
+    const listCollection: ArtifactDataRequest = {
+      collection: 'notes',
+      limit: 50,
+    };
+
+    const parsedGet = JSON.parse(JSON.stringify(getOne)) as ArtifactDataRequest;
+    const parsedSet = JSON.parse(JSON.stringify(setDoc)) as ArtifactDataRequest;
+    const parsedList = JSON.parse(JSON.stringify(listCollection)) as ArtifactDataRequest;
+
+    expect(parsedGet.doc_id).toBe('theme');
+    expect(parsedGet.data).toBeUndefined();
+    expect(parsedSet.data?.mode).toBe('light');
+    expect(parsedList.doc_id).toBeUndefined();
+    expect(parsedList.limit).toBe(50);
+  });
+
+  it('models ArtifactDataListResponse as a bounded page of documents', () => {
+    const response: ArtifactDataListResponse = {
+      collection: 'notes',
+      count: 2,
+      documents: [
+        {
+          collection: 'notes',
+          doc_id: 'note-1',
+          data: { text: 'First' },
+          updated_at: '2026-09-09T12:00:00Z',
+        },
+        {
+          collection: 'notes',
+          doc_id: 'note-2',
+          data: { text: 'Second' },
+          updated_at: '2026-09-09T12:01:00Z',
+          owner_user_id: 'user-1',
+        },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as ArtifactDataListResponse;
+
+    expect(parsed.collection).toBe('notes');
+    expect(parsed.count).toBe(2);
+    expect(parsed.documents).toHaveLength(2);
+    expect(parsed.documents[1].owner_user_id).toBe('user-1');
+  });
+
+  it('models ArtifactViewerDTO for anonymous public viewers without credentials', () => {
+    const anonymous: ArtifactViewerDTO = {
+      signed_in: false,
+      can_edit: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(anonymous)) as ArtifactViewerDTO;
+
+    expect(parsed.signed_in).toBe(false);
+    expect(parsed.can_edit).toBe(false);
+    expect(parsed.user_id).toBeUndefined();
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.avatar_url).toBeUndefined();
+  });
+
+  it('models ArtifactViewerDTO for signed-in viewers with optional profile fields', () => {
+    const viewer: ArtifactViewerDTO = {
+      signed_in: true,
+      user_id: 'user-7',
+      name: 'Ada Lovelace',
+      avatar_url: 'https://cdn.test/avatars/user-7.png',
+      can_edit: true,
+    };
+    const readOnly: ArtifactViewerDTO = {
+      signed_in: true,
+      user_id: 'user-8',
+      name: 'Guest reviewer',
+      can_edit: false,
+    };
+
+    const parsedViewer = JSON.parse(JSON.stringify(viewer)) as ArtifactViewerDTO;
+    const parsedReadOnly = JSON.parse(JSON.stringify(readOnly)) as ArtifactViewerDTO;
+
+    expect(parsedViewer.signed_in).toBe(true);
+    expect(parsedViewer.can_edit).toBe(true);
+    expect(parsedViewer.avatar_url).toContain('/avatars/');
+    expect(parsedReadOnly.can_edit).toBe(false);
+    expect(parsedReadOnly.avatar_url).toBeUndefined();
   });
 });
