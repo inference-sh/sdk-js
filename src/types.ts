@@ -2379,75 +2379,6 @@ export interface SkillStoreListingDTO {
   tags?: string[];
 }
 /**
- * LifecycleHookConfig registers a handler for an agent lifecycle event.
- * Stored on AgentVersion alongside Tools and Skills.
- */
-export interface LifecycleHookConfig {
-  event: HookEvent;
-  type: HookHandlerType;
-  handler?: string;
-  async?: boolean;
-  timeout?: number /* int */; // seconds, 0 = default (30s for webhook, 300s for gate)
-  /**
-   * Gate-specific fields (type: "gate")
-   */
-  default_resolution?: InterruptResolution; // auto-resolve on timeout: "allow" (default) or "deny"
-}
-/**
- * LifecycleHookPayload is sent to hook handlers on lifecycle events.
- */
-export interface LifecycleHookPayload {
-  event: HookEvent;
-  timestamp: string;
-  agent_id: string;
-  chat_id: string;
-  run_id?: string;
-  turn_count: number /* int */;
-  data?: any;
-}
-/**
- * LifecycleHookResponse is returned by hook handlers.
- * All fields are optional — an empty 200 response is equivalent to {decision: "allow"}.
- */
-export interface LifecycleHookResponse {
-  inject?: ContextInjection;
-  decision?: HookDecision;
-  reason?: string;
-  override?: any;
-  system?: string;
-}
-/**
- * ContextInjection adds ephemeral content to the agent's context window.
- * Injections are stored as ChatMessages and filtered at context-build time.
- */
-export interface ContextInjection {
-  content: string;
-  role?: string; // default "system"
-  ttl_turns?: number /* int */; // 0 = permanent
-  dedup_key?: string; // new injection with same key supersedes prior
-}
-/**
- * ToolCallEventData is the typed payload for agent.tool_call events.
- */
-export interface ToolCallEventData {
-  tool: string;
-  arguments?: { [key: string]: any};
-}
-/**
- * ToolResultEventData is the typed payload for agent.tool_result events.
- */
-export interface ToolResultEventData {
-  tool: string;
-  status: string;
-  result?: string;
-}
-/**
- * ErrorEventData is the typed payload for agent.error events.
- */
-export interface ErrorEventData {
-  error: string;
-}
-/**
  * ElicitationCapability advertises which elicitation modes the client handles.
  * An empty struct is equivalent to form-only for backward compatibility.
  */
@@ -3731,164 +3662,6 @@ export interface A2UISurface {
   components: A2UIComponent[];
   dataModel?: any;
 }
-/**
- * AgentEventType identifies what happened in an agent run.
- * These are the backbone protocol events — every consumer (A2A, SDK, frontend)
- * projects from this set.
- */
-export type AgentEventType = string;
-/**
- * Run lifecycle
- */
-export const AgentEventRunStarted: AgentEventType = "run.started";
-export const AgentEventRunStateChanged: AgentEventType = "run.state_changed";
-/**
- * Turn lifecycle
- */
-export const AgentEventTurnStarted: AgentEventType = "turn.started";
-export const AgentEventTurnCompleted: AgentEventType = "turn.completed";
-/**
- * Content streaming — structural wrapper; high-frequency token deltas
- * still flow via the existing DeltaEvent channel for efficiency.
- */
-export const AgentEventContentDelta: AgentEventType = "content.delta";
-/**
- * Tool lifecycle
- */
-export const AgentEventToolStarted: AgentEventType = "tool.started";
-export const AgentEventToolCompleted: AgentEventType = "tool.completed";
-/**
- * Approval flow
- */
-export const AgentEventApprovalRequired: AgentEventType = "approval.required";
-export const AgentEventApprovalResolved: AgentEventType = "approval.resolved";
-/**
- * Hook lifecycle
- */
-export const AgentEventHookExecuted: AgentEventType = "hook.executed";
-/**
- * Usage
- */
-export const AgentEventUsageUpdated: AgentEventType = "usage.updated";
-/**
- * Context management
- */
-export const AgentEventContextCompacted: AgentEventType = "context.compacted";
-/**
- * Errors
- */
-export const AgentEventError: AgentEventType = "error";
-/**
- * AgentEvent is the backbone protocol event for agent runs.
- * Published to "runs:<runID>" and "chats:<chatID>" keys on the event bus.
- */
-export interface AgentEvent {
-  id: string;
-  type: AgentEventType;
-  run_id: string;
-  chat_id: string;
-  agent_id?: string;
-  timestamp: string /* RFC3339 */;
-  payload?: any;
-}
-export interface RunStartedPayload {
-  agent_id: string;
-  agent_version_id?: string;
-  user_message_id?: string;
-}
-export interface RunStateChangedPayload {
-  from_state: AgentRunState;
-  to_state: AgentRunState;
-  error?: string;
-}
-export interface TurnStartedPayload {
-  turn_index: number /* int */;
-  model?: string;
-}
-export interface TurnCompletedPayload {
-  turn_index: number /* int */;
-  tool_count: number /* int */;
-  has_output: boolean;
-  stop_reason?: string;
-}
-export interface ContentDeltaPayload {
-  kind: ContentDeltaKind;
-  delta: string;
-}
-export type ContentDeltaKind = string;
-export const ContentDeltaText: ContentDeltaKind = "text";
-export const ContentDeltaReasoning: ContentDeltaKind = "reasoning";
-export interface ToolStartedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  tool_type?: ToolType;
-  display_name?: string;
-  arguments?: StringEncodedMap;
-}
-export interface ToolCompletedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  status: ToolInvocationStatus;
-  result?: string;
-  duration_ms?: number /* int64 */;
-}
-export interface ApprovalRequiredPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  arguments?: StringEncodedMap;
-  reason: InterruptReason;
-}
-export interface ApprovalResolvedPayload {
-  tool_invocation_id: string;
-  tool_name: string;
-  decision: string; // "allow", "deny"
-  reason?: string;
-}
-export interface HookExecutedPayload {
-  hook_event: HookEvent;
-  decision: HookDecision;
-  reason?: string;
-  duration_ms?: number /* int64 */;
-}
-export interface UsageUpdatedPayload {
-  prompt_tokens: number /* int */;
-  completion_tokens: number /* int */;
-  total_tokens: number /* int */;
-  reasoning_tokens?: number /* int */;
-  cost_usd?: number /* float64 */;
-}
-export interface ContextCompactedPayload {
-  before_tokens: number /* int */;
-  after_tokens: number /* int */;
-}
-export interface ErrorPayload {
-  message: string;
-  code?: string;
-}
-/**
- * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
- * Maps to A2A TaskState and AG-UI Run outcome for protocol compliance.
- */
-export type AgentRunState = string;
-export const AgentRunStateSubmitted: AgentRunState = "submitted";
-export const AgentRunStateWorking: AgentRunState = "working";
-export const AgentRunStateInputRequired: AgentRunState = "input_required";
-export const AgentRunStateAuthRequired: AgentRunState = "auth_required";
-export const AgentRunStateCompleted: AgentRunState = "completed";
-export const AgentRunStateFailed: AgentRunState = "failed";
-export const AgentRunStateCanceled: AgentRunState = "canceled";
-export const AgentRunStateRejected: AgentRunState = "rejected";
-/**
- * InterruptReason describes why an agent run is in an interrupted state.
- * Aligns with AG-UI interrupt outcome reasons.
- */
-export type InterruptReason = string;
-export const InterruptReasonToolApproval: InterruptReason = "tool_approval";
-export const InterruptReasonClientTool: InterruptReason = "client_tool";
-export const InterruptReasonWidget: InterruptReason = "widget";
-export const InterruptReasonAuth: InterruptReason = "auth";
-export const InterruptReasonConfirmation: InterruptReason = "confirmation";
-export const InterruptReasonHookGate: InterruptReason = "hook_gate";
 export type AppCategory = string;
 export const AppCategoryImage: AppCategory = "image";
 export const AppCategoryVideo: AppCategory = "video";
@@ -4047,7 +3820,6 @@ export interface IntegrationContext {
   integration_type?: IntegrationType;
   integration_metadata?: any;
 }
-export type StringEncodedMap = { [key: string]: any};
 /**
  * EngineStatus represents the status of an engine.
  */
@@ -4203,65 +3975,6 @@ export const GraphEdgeTypeReferences: GraphEdgeType = "references";
 export const GraphEdgeTypeSupersedes: GraphEdgeType = "supersedes";
 export const GraphEdgeTypeInput: GraphEdgeType = "input";
 export const GraphEdgeTypeOutput: GraphEdgeType = "output";
-/**
- * InterruptStatus tracks the lifecycle of an interrupt gate.
- */
-export type InterruptStatus = string;
-export const InterruptStatusPending: InterruptStatus = "pending";
-export const InterruptStatusResolved: InterruptStatus = "resolved";
-export const InterruptStatusExpired: InterruptStatus = "expired";
-export const InterruptStatusCancelled: InterruptStatus = "cancelled";
-/**
- * InterruptResolution records how a pending interrupt was resolved.
- */
-export type InterruptResolution = string;
-export const InterruptResolutionAllow: InterruptResolution = "allow";
-export const InterruptResolutionDeny: InterruptResolution = "deny";
-/**
- * InterruptResourceType identifies the kind of resource an interrupt gates.
- */
-export type InterruptResourceType = string;
-export const InterruptResourceToolInvocation: InterruptResourceType = "tool_invocation";
-export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
-/**
- * HookEvent is a lifecycle event in the agent conversation loop.
- * Events fire at well-defined points in the turn cycle, giving external
- * handlers the ability to observe, inject context, or halt execution.
- */
-export type HookEvent = string;
-export const HookEventAgentStart: HookEvent = "agent.start";
-export const HookEventTurnStart: HookEvent = "agent.turn_start";
-export const HookEventToolCall: HookEvent = "agent.tool_call";
-export const HookEventToolResult: HookEvent = "agent.tool_result";
-export const HookEventTurnComplete: HookEvent = "agent.turn_complete";
-export const HookEventAgentError: HookEvent = "agent.error";
-export const HookEventAgentComplete: HookEvent = "agent.complete";
-export const HookEventAgentIdle: HookEvent = "agent.idle";
-export const HookEventPreCompact: HookEvent = "agent.pre_compact";
-export const HookEventPostCompact: HookEvent = "agent.post_compact";
-/**
- * HookEventDefinition describes a lifecycle hook event and its capabilities.
- */
-export interface HookEventDefinition {
-  event: HookEvent;
-  description: string;
-  can_gate: boolean;
-}
-/**
- * HookDecision is the handler's verdict on whether execution should continue.
- */
-export type HookDecision = string;
-export const HookDecisionAllow: HookDecision = "allow";
-export const HookDecisionDeny: HookDecision = "deny";
-export const HookDecisionStop: HookDecision = "stop";
-export const HookDecisionSuspend: HookDecision = "suspend";
-/**
- * HookHandlerType distinguishes how a lifecycle hook is executed.
- */
-export type HookHandlerType = string;
-export const HookHandlerWebhook: HookHandlerType = "webhook";
-export const HookHandlerTask: HookHandlerType = "task";
-export const HookHandlerGate: HookHandlerType = "gate";
 /**
  * MergeStrategy defines how a delta field should be merged by consumers.
  */
@@ -4468,29 +4181,6 @@ export const CommentStatusUnknown: CommentStatus = 0;
 export const CommentStatusDraft: CommentStatus = 1;
 export const CommentStatusPublished: CommentStatus = 2;
 export const CommentStatusArchived: CommentStatus = 3;
-/**
- * ToolInvocationStatus represents the execution status of a tool invocation
- */
-export type ToolInvocationStatus = string;
-export const ToolInvocationStatusPending: ToolInvocationStatus = "pending";
-export const ToolInvocationStatusInProgress: ToolInvocationStatus = "in_progress";
-export const ToolInvocationStatusAwaitingInput: ToolInvocationStatus = "awaiting_input";
-export const ToolInvocationStatusAwaitingApproval: ToolInvocationStatus = "awaiting_approval";
-export const ToolInvocationStatusCompleted: ToolInvocationStatus = "completed";
-export const ToolInvocationStatusFailed: ToolInvocationStatus = "failed";
-export const ToolInvocationStatusCancelled: ToolInvocationStatus = "cancelled";
-/**
- * ToolType represents the type of tool (used in both AgentTool definition and ToolInvocation)
- */
-export type ToolType = string;
-export const ToolTypeApp: ToolType = "app";
-export const ToolTypeAgent: ToolType = "agent";
-export const ToolTypeHook: ToolType = "hook";
-export const ToolTypeHTTP: ToolType = "http";
-export const ToolTypeCall: ToolType = "call";
-export const ToolTypeMCP: ToolType = "mcp";
-export const ToolTypeClient: ToolType = "client";
-export const ToolTypeInternal: ToolType = "internal";
 export type InstanceCloudProvider = string;
 export const CloudAWS: InstanceCloudProvider = "aws";
 export const CloudAmaya: InstanceCloudProvider = "amaya";
@@ -4891,6 +4581,331 @@ export type TeamRole = string;
 export const TeamRoleOwner: TeamRole = "owner";
 export const TeamRoleAdmin: TeamRole = "admin";
 export const TeamRoleMember: TeamRole = "member";
+export type Role = string;
+export const RoleGuest: Role = "guest";
+export const RoleUser: Role = "user";
+export const RoleAdmin: Role = "admin";
+export const RoleSystem: Role = "system";
+/**
+ * UtilityConfig defines a flow utility node — gate, selector, merge, or custom CEL.
+ */
+export interface UtilityConfig {
+  preset: string;
+  expression?: string;
+  gate?: GateCondition;
+  selector?: SelectorConfig;
+  constant?: any;
+}
+/**
+ * AgentEventType identifies what happened in an agent run.
+ * These are the backbone protocol events — every consumer (A2A, SDK, frontend)
+ * projects from this set.
+ */
+export type AgentEventType = string;
+/**
+ * Run lifecycle
+ */
+export const AgentEventRunStarted: AgentEventType = "run.started";
+export const AgentEventRunStateChanged: AgentEventType = "run.state_changed";
+/**
+ * Turn lifecycle
+ */
+export const AgentEventTurnStarted: AgentEventType = "turn.started";
+export const AgentEventTurnCompleted: AgentEventType = "turn.completed";
+/**
+ * Content streaming — structural wrapper; high-frequency token deltas
+ * still flow via the existing DeltaEvent channel for efficiency.
+ */
+export const AgentEventContentDelta: AgentEventType = "content.delta";
+/**
+ * Tool lifecycle
+ */
+export const AgentEventToolStarted: AgentEventType = "tool.started";
+export const AgentEventToolCompleted: AgentEventType = "tool.completed";
+/**
+ * Approval flow
+ */
+export const AgentEventApprovalRequired: AgentEventType = "approval.required";
+export const AgentEventApprovalResolved: AgentEventType = "approval.resolved";
+/**
+ * Hook lifecycle
+ */
+export const AgentEventHookExecuted: AgentEventType = "hook.executed";
+/**
+ * Usage
+ */
+export const AgentEventUsageUpdated: AgentEventType = "usage.updated";
+/**
+ * Context management
+ */
+export const AgentEventContextCompacted: AgentEventType = "context.compacted";
+/**
+ * Errors
+ */
+export const AgentEventError: AgentEventType = "error";
+/**
+ * AgentEvent is the backbone protocol event for agent runs.
+ * Published to "runs:<runID>" and "chats:<chatID>" keys on the event bus.
+ */
+export interface AgentEvent {
+  id: string;
+  type: AgentEventType;
+  run_id: string;
+  chat_id: string;
+  agent_id?: string;
+  timestamp: string /* RFC3339 */;
+  payload?: any;
+}
+export interface RunStartedPayload {
+  agent_id: string;
+  agent_version_id?: string;
+  user_message_id?: string;
+}
+export interface RunStateChangedPayload {
+  from_state: AgentRunState;
+  to_state: AgentRunState;
+  error?: string;
+}
+export interface TurnStartedPayload {
+  turn_index: number /* int */;
+  model?: string;
+}
+export interface TurnCompletedPayload {
+  turn_index: number /* int */;
+  tool_count: number /* int */;
+  has_output: boolean;
+  stop_reason?: string;
+}
+export interface ContentDeltaPayload {
+  kind: ContentDeltaKind;
+  delta: string;
+}
+export type ContentDeltaKind = string;
+export const ContentDeltaText: ContentDeltaKind = "text";
+export const ContentDeltaReasoning: ContentDeltaKind = "reasoning";
+export interface ToolStartedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  tool_type?: ToolType;
+  display_name?: string;
+  arguments?: StringEncodedMap;
+}
+export interface ToolCompletedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  status: ToolInvocationStatus;
+  result?: string;
+  duration_ms?: number /* int64 */;
+}
+export interface ApprovalRequiredPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  arguments?: StringEncodedMap;
+  reason: InterruptReason;
+}
+export interface ApprovalResolvedPayload {
+  tool_invocation_id: string;
+  tool_name: string;
+  decision: string; // "allow", "deny"
+  reason?: string;
+}
+export interface HookExecutedPayload {
+  hook_event: HookEvent;
+  decision: HookDecision;
+  reason?: string;
+  duration_ms?: number /* int64 */;
+}
+export interface UsageUpdatedPayload {
+  prompt_tokens: number /* int */;
+  completion_tokens: number /* int */;
+  total_tokens: number /* int */;
+  reasoning_tokens?: number /* int */;
+  cost_usd?: number /* float64 */;
+}
+export interface ContextCompactedPayload {
+  before_tokens: number /* int */;
+  after_tokens: number /* int */;
+}
+export interface ErrorPayload {
+  message: string;
+  code?: string;
+}
+/**
+ * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
+ * Maps to A2A TaskState and AG-UI Run outcome for protocol compliance.
+ */
+export type AgentRunState = string;
+export const AgentRunStateSubmitted: AgentRunState = "submitted";
+export const AgentRunStateWorking: AgentRunState = "working";
+export const AgentRunStateInputRequired: AgentRunState = "input_required";
+export const AgentRunStateAuthRequired: AgentRunState = "auth_required";
+export const AgentRunStateCompleted: AgentRunState = "completed";
+export const AgentRunStateFailed: AgentRunState = "failed";
+export const AgentRunStateCanceled: AgentRunState = "canceled";
+export const AgentRunStateRejected: AgentRunState = "rejected";
+/**
+ * InterruptReason describes why an agent run is in an interrupted state.
+ * Aligns with AG-UI interrupt outcome reasons.
+ */
+export type InterruptReason = string;
+export const InterruptReasonToolApproval: InterruptReason = "tool_approval";
+export const InterruptReasonClientTool: InterruptReason = "client_tool";
+export const InterruptReasonWidget: InterruptReason = "widget";
+export const InterruptReasonAuth: InterruptReason = "auth";
+export const InterruptReasonConfirmation: InterruptReason = "confirmation";
+export const InterruptReasonHookGate: InterruptReason = "hook_gate";
+export type StringEncodedMap = { [key: string]: any};
+/**
+ * InterruptStatus tracks the lifecycle of an interrupt gate.
+ */
+export type InterruptStatus = string;
+export const InterruptStatusPending: InterruptStatus = "pending";
+export const InterruptStatusResolved: InterruptStatus = "resolved";
+export const InterruptStatusExpired: InterruptStatus = "expired";
+export const InterruptStatusCancelled: InterruptStatus = "cancelled";
+/**
+ * InterruptResolution records how a pending interrupt was resolved.
+ */
+export type InterruptResolution = string;
+export const InterruptResolutionAllow: InterruptResolution = "allow";
+export const InterruptResolutionDeny: InterruptResolution = "deny";
+/**
+ * InterruptResourceType identifies the kind of resource an interrupt gates.
+ */
+export type InterruptResourceType = string;
+export const InterruptResourceToolInvocation: InterruptResourceType = "tool_invocation";
+export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
+/**
+ * HookEvent is a lifecycle event in the agent conversation loop.
+ * Events fire at well-defined points in the turn cycle, giving external
+ * handlers the ability to observe, inject context, or halt execution.
+ */
+export type HookEvent = string;
+export const HookEventAgentStart: HookEvent = "agent.start";
+export const HookEventTurnStart: HookEvent = "agent.turn_start";
+export const HookEventToolCall: HookEvent = "agent.tool_call";
+export const HookEventToolResult: HookEvent = "agent.tool_result";
+export const HookEventTurnComplete: HookEvent = "agent.turn_complete";
+export const HookEventAgentError: HookEvent = "agent.error";
+export const HookEventAgentComplete: HookEvent = "agent.complete";
+export const HookEventAgentIdle: HookEvent = "agent.idle";
+export const HookEventPreCompact: HookEvent = "agent.pre_compact";
+export const HookEventPostCompact: HookEvent = "agent.post_compact";
+/**
+ * HookEventDefinition describes a lifecycle hook event and its capabilities.
+ */
+export interface HookEventDefinition {
+  event: HookEvent;
+  description: string;
+  can_gate: boolean;
+}
+/**
+ * HookDecision is the handler's verdict on whether execution should continue.
+ */
+export type HookDecision = string;
+export const HookDecisionAllow: HookDecision = "allow";
+export const HookDecisionDeny: HookDecision = "deny";
+export const HookDecisionStop: HookDecision = "stop";
+export const HookDecisionSuspend: HookDecision = "suspend";
+/**
+ * HookHandlerType distinguishes how a lifecycle hook is executed.
+ */
+export type HookHandlerType = string;
+export const HookHandlerWebhook: HookHandlerType = "webhook";
+export const HookHandlerTask: HookHandlerType = "task";
+export const HookHandlerGate: HookHandlerType = "gate";
+/**
+ * LifecycleHookConfig registers a handler for an agent lifecycle event.
+ * Stored on AgentVersion alongside Tools and Skills.
+ */
+export interface LifecycleHookConfig {
+  event: HookEvent;
+  type: HookHandlerType;
+  handler?: string;
+  async?: boolean;
+  timeout?: number /* int */; // seconds, 0 = default (30s for webhook, 300s for gate)
+  /**
+   * Gate-specific fields (type: "gate")
+   */
+  default_resolution?: InterruptResolution; // auto-resolve on timeout: "allow" (default) or "deny"
+}
+/**
+ * LifecycleHookPayload is sent to hook handlers on lifecycle events.
+ */
+export interface LifecycleHookPayload {
+  event: HookEvent;
+  timestamp: string;
+  agent_id: string;
+  chat_id: string;
+  run_id?: string;
+  turn_count: number /* int */;
+  data?: any;
+}
+/**
+ * LifecycleHookResponse is returned by hook handlers.
+ * All fields are optional — an empty 200 response is equivalent to {decision: "allow"}.
+ */
+export interface LifecycleHookResponse {
+  inject?: ContextInjection;
+  decision?: HookDecision;
+  reason?: string;
+  override?: any;
+  system?: string;
+}
+/**
+ * ContextInjection adds ephemeral content to the agent's context window.
+ * Injections are stored as ChatMessages and filtered at context-build time.
+ */
+export interface ContextInjection {
+  content: string;
+  role?: string; // default "system"
+  ttl_turns?: number /* int */; // 0 = permanent
+  dedup_key?: string; // new injection with same key supersedes prior
+}
+/**
+ * ToolCallEventData is the typed payload for agent.tool_call events.
+ */
+export interface ToolCallEventData {
+  tool: string;
+  arguments?: { [key: string]: any};
+}
+/**
+ * ToolResultEventData is the typed payload for agent.tool_result events.
+ */
+export interface ToolResultEventData {
+  tool: string;
+  status: string;
+  result?: string;
+}
+/**
+ * ErrorEventData is the typed payload for agent.error events.
+ */
+export interface ErrorEventData {
+  error: string;
+}
+/**
+ * ToolInvocationStatus represents the execution status of a tool invocation
+ */
+export type ToolInvocationStatus = string;
+export const ToolInvocationStatusPending: ToolInvocationStatus = "pending";
+export const ToolInvocationStatusInProgress: ToolInvocationStatus = "in_progress";
+export const ToolInvocationStatusAwaitingInput: ToolInvocationStatus = "awaiting_input";
+export const ToolInvocationStatusAwaitingApproval: ToolInvocationStatus = "awaiting_approval";
+export const ToolInvocationStatusCompleted: ToolInvocationStatus = "completed";
+export const ToolInvocationStatusFailed: ToolInvocationStatus = "failed";
+export const ToolInvocationStatusCancelled: ToolInvocationStatus = "cancelled";
+/**
+ * ToolType represents the type of tool (used in both AgentTool definition and ToolInvocation)
+ */
+export type ToolType = string;
+export const ToolTypeApp: ToolType = "app";
+export const ToolTypeAgent: ToolType = "agent";
+export const ToolTypeHook: ToolType = "hook";
+export const ToolTypeHTTP: ToolType = "http";
+export const ToolTypeCall: ToolType = "call";
+export const ToolTypeMCP: ToolType = "mcp";
+export const ToolTypeClient: ToolType = "client";
+export const ToolTypeInternal: ToolType = "internal";
 /**
  * ToolCallType represents the type field on a tool call (wire format).
  */
@@ -4998,19 +5013,4 @@ export interface ToolParameterProperty {
   properties?: ToolParameterProperties;
   items?: ToolParameterProperty;
   required?: string[];
-}
-export type Role = string;
-export const RoleGuest: Role = "guest";
-export const RoleUser: Role = "user";
-export const RoleAdmin: Role = "admin";
-export const RoleSystem: Role = "system";
-/**
- * UtilityConfig defines a flow utility node — gate, selector, merge, or custom CEL.
- */
-export interface UtilityConfig {
-  preset: string;
-  expression?: string;
-  gate?: GateCondition;
-  selector?: SelectorConfig;
-  constant?: any;
 }
