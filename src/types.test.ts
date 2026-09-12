@@ -85,6 +85,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialScopeOrg,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+  SecretCreateRequest,
+  SecretUpdateRequest,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1573,59 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('SecretCreateRequest connection_scope', () => {
+  it('models connection_scope for integration-linked secret ownership', () => {
+    const request: SecretCreateRequest = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      provider: 'google',
+      connection_scope: CredentialScopeOrg,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SecretCreateRequest;
+
+    expect(parsed.key).toBe('GOOGLE_SA_JSON');
+    expect(parsed.provider).toBe('google');
+    expect(parsed.connection_scope).toBe('org');
+  });
+
+  it('allows SecretCreateRequest without connection_scope for provider defaults', () => {
+    const request: SecretCreateRequest = {
+      key: 'API_KEY',
+      value: 'sk-live-abc',
+    };
+
+    expect(request.connection_scope).toBeUndefined();
+  });
+
+  it('does not include connection_scope on SecretUpdateRequest (immutable after creation)', () => {
+    const update: SecretUpdateRequest = {
+      value: 'rotated-secret',
+      description: 'Rotated credentials',
+    };
+
+    expect(update).not.toHaveProperty('connection_scope');
+  });
+
+  it('accepts all CredentialScope values on create', () => {
+    const scopes = [
+      CredentialScopeUser,
+      CredentialScopeTeam,
+      CredentialScopeOrg,
+    ] as const;
+
+    for (const connection_scope of scopes) {
+      const request: SecretCreateRequest = {
+        key: 'INTEGRATION_TOKEN',
+        value: 'token',
+        provider: 'github',
+        connection_scope,
+      };
+
+      expect(JSON.parse(JSON.stringify(request)).connection_scope).toBe(connection_scope);
+    }
   });
 });
