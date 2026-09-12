@@ -85,6 +85,28 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  HookEventAgentError,
+  HookDecisionDeny,
+  RoleAdmin,
+  RoleGuest,
+  RoleSystem,
+  RoleUser,
+  UserDTO,
+  UserRelationDTO,
+  ChatMessageRoleSystem,
+  ChatMessageRoleUser,
+  TeamRoleAdmin,
+  TeamRoleMember,
+  LifecycleHookPayload,
+  LifecycleHookResponse,
+  ContextInjection,
+  ToolCallEventData,
+  ToolResultEventData,
+  ErrorEventData,
+  MergeStrategyConcat,
+  MergeStrategyReplace,
+  MergeStrategyIndexed,
+  MergeStrategyNested,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1590,156 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function makeUser(overrides: Partial<UserDTO> = {}): UserDTO {
+  return {
+    id: 'user-1',
+    short_id: 'u1',
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    default_team_id: 'team-1',
+    role: RoleUser,
+    email: 'user@example.com',
+    name: 'user',
+    full_name: 'Example User',
+    avatar_url: 'https://cdn.example.com/avatar.png',
+    totp_enabled: false,
+    ...overrides,
+  };
+}
+
+describe('Role constants and user DTO role field (v0.8.27 regen)', () => {
+  it('exports account Role constants with expected wire values', () => {
+    expect(RoleGuest).toBe('guest');
+    expect(RoleUser).toBe('user');
+    expect(RoleAdmin).toBe('admin');
+    expect(RoleSystem).toBe('system');
+
+    // Wire strings overlap with chat/team role enums — SDK consumers must pick the correct type.
+    expect(RoleUser).toBe(ChatMessageRoleUser);
+    expect(RoleSystem).toBe(ChatMessageRoleSystem);
+    expect(RoleAdmin).toBe(TeamRoleAdmin);
+    expect(TeamRoleMember).toBe('member');
+  });
+
+  it('models UserDTO.role for standard, admin, guest, and system accounts', () => {
+    const standard = makeUser({ role: RoleUser });
+    const admin = makeUser({ id: 'user-admin', role: RoleAdmin });
+    const guest = makeUser({ id: 'user-guest', role: RoleGuest, email: 'guest@example.com' });
+    const system = makeUser({ id: 'user-system', role: RoleSystem, name: 'system' });
+
+    expect(standard.role).toBe('user');
+    expect(admin.role).toBe('admin');
+    expect(guest.role).toBe('guest');
+    expect(system.role).toBe('system');
+  });
+
+  it('preserves UserDTO.role after JSON round-trip', () => {
+    const user = makeUser({ role: RoleAdmin });
+    const parsed = JSON.parse(JSON.stringify(user)) as UserDTO;
+
+    expect(parsed.role).toBe(RoleAdmin);
+  });
+
+  it('models UserRelationDTO.role on embedded user references', () => {
+    const relation: UserRelationDTO = {
+      id: 'user-42',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+      role: RoleGuest,
+      avatar_url: 'https://cdn.example.com/guest.png',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(relation)) as UserRelationDTO;
+
+    expect(parsed.role).toBe('guest');
+    expect(parsed.avatar_url).toContain('guest.png');
+  });
+});
+
+describe('Lifecycle hook payload and response types (v0.8.27 regen)', () => {
+  it('models LifecycleHookPayload with run context and typed event data', () => {
+    const toolCallData: ToolCallEventData = {
+      tool: 'search',
+      arguments: { query: 'weather in NYC' },
+    };
+    const payload: LifecycleHookPayload = {
+      event: HookEventToolCall,
+      timestamp: '2026-09-12T10:00:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      run_id: 'run-1',
+      turn_count: 2,
+      data: toolCallData,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(payload)) as LifecycleHookPayload;
+
+    expect(parsed.event).toBe('agent.tool_call');
+    expect(parsed.run_id).toBe('run-1');
+    expect(parsed.turn_count).toBe(2);
+    expect(parsed.data).toEqual({ tool: 'search', arguments: { query: 'weather in NYC' } });
+  });
+
+  it('models LifecycleHookResponse with ContextInjection dedup and ttl', () => {
+    const injection: ContextInjection = {
+      content: 'User prefers metric units.',
+      role: 'system',
+      ttl_turns: 3,
+      dedup_key: 'unit-preference',
+    };
+    const response: LifecycleHookResponse = {
+      inject: injection,
+      decision: HookDecisionDeny,
+      reason: 'blocked by policy hook',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as LifecycleHookResponse;
+
+    expect(parsed.decision).toBe('deny');
+    expect(parsed.inject?.dedup_key).toBe('unit-preference');
+    expect(parsed.inject?.ttl_turns).toBe(3);
+  });
+
+  it('models typed hook event data payloads for tool results and errors', () => {
+    const toolResult: ToolResultEventData = {
+      tool: 'search',
+      status: 'completed',
+      result: '{"temp_f": 72}',
+    };
+    const errorData: ErrorEventData = {
+      error: 'model timeout after 30s',
+    };
+
+    const resultPayload: LifecycleHookPayload = {
+      event: HookEventToolCall,
+      timestamp: '2026-09-12T10:01:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      turn_count: 2,
+      data: toolResult,
+    };
+    const errorPayload: LifecycleHookPayload = {
+      event: HookEventAgentError,
+      timestamp: '2026-09-12T10:02:00Z',
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      turn_count: 2,
+      data: errorData,
+    };
+
+    expect(JSON.parse(JSON.stringify(resultPayload)).data).toEqual(toolResult);
+    expect(JSON.parse(JSON.stringify(errorPayload)).data).toEqual(errorData);
+  });
+});
+
+describe('MergeStrategy constants (v0.8.27 regen)', () => {
+  it('exports delta merge strategy constants used by DeltaAccumulator', () => {
+    expect(MergeStrategyConcat).toBe('concat');
+    expect(MergeStrategyReplace).toBe('replace');
+    expect(MergeStrategyIndexed).toBe('indexed');
+    expect(MergeStrategyNested).toBe('nested');
   });
 });
