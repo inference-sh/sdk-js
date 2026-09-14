@@ -103,7 +103,7 @@
     "@eslint/js": "^9.39.5",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "eslint": "^9.32.0",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.5.0",
     "hono": "^4.13.1",
