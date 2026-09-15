@@ -85,6 +85,12 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  MCPServerAuthNone,
+  MCPServerDTO,
+  RoleUser,
+  TeamRelationDTO,
+  TeamTypeTeam,
+  UserRelationDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1210,6 +1216,81 @@ describe('MCP tool call response types', () => {
     expect(parsed.resultType).toBe('input_required');
     expect(parsed.inputRequests?.confirm.params).toEqual({ schema: { type: 'object' } });
     expect(parsed.requestState).toBe('state-abc');
+  });
+});
+
+describe('MCPServerDTO optional nested relations (v0.8.28)', () => {
+  const baseServer = (overrides: Partial<MCPServerDTO> = {}): MCPServerDTO => ({
+    id: 'mcp-1',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    slug: 'filesystem',
+    name: 'Filesystem MCP',
+    description: 'Local filesystem access',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/filesystem',
+    auth_type: MCPServerAuthNone,
+    default_scopes: [],
+    documentation_url: 'https://docs.example.com/mcp',
+    ...overrides,
+  });
+
+  it('accepts MCPServerDTO with flat ownership ids only (no nested user/team)', () => {
+    const server = baseServer();
+
+    expect(server.user_id).toBe('user-1');
+    expect(server.team_id).toBe('team-1');
+    expect(server.user).toBeUndefined();
+    expect(server.team).toBeUndefined();
+  });
+
+  it('accepts partial nested expansion (user without team)', () => {
+    const user: UserRelationDTO = {
+      id: 'user-1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      role: RoleUser,
+      avatar_url: 'https://example.com/avatar.png',
+    };
+
+    const server = baseServer({ user });
+
+    expect(server.user?.role).toBe('user');
+    expect(server.team).toBeUndefined();
+  });
+
+  it('preserves omitted nested relations after JSON round-trip', () => {
+    const parsed = JSON.parse(JSON.stringify(baseServer())) as MCPServerDTO;
+
+    expect(parsed.user_id).toBe('user-1');
+    expect(parsed.team_id).toBe('team-1');
+    expect(parsed.user).toBeUndefined();
+    expect(parsed.team).toBeUndefined();
+  });
+
+  it('still accepts fully expanded user and team relations', () => {
+    const server = baseServer({
+      user: {
+        id: 'user-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        role: RoleUser,
+        avatar_url: 'https://example.com/avatar.png',
+      },
+      team: {
+        id: 'team-1',
+        created_at: '2026-07-25T00:00:00Z',
+        updated_at: '2026-07-25T00:00:00Z',
+        type: TeamTypeTeam,
+        username: 'acme',
+        avatar_url: 'https://example.com/team.png',
+        setup_completed: true,
+      },
+    });
+
+    expect(server.user?.role).toBe('user');
+    expect(server.team?.username).toBe('acme');
   });
 });
 

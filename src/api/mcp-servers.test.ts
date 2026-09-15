@@ -1,10 +1,13 @@
 import { HttpClient } from '../http/client';
 import {
+  MCPServerAuthNone,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ToolCallResponse,
   ToolContentTypeText,
+  VisibilityPrivate,
 } from '../types';
+import type { MCPServerDTO } from '../types';
 import { MCPServersAPI } from './mcp-servers';
 
 const mockFetch = jest.fn();
@@ -16,6 +19,25 @@ function mockJsonResponse(body: unknown) {
     status: 200,
     text: () => Promise.resolve(JSON.stringify(body)),
   });
+}
+
+/** Minimal v0.8.28 MCPServerDTO: flat ownership ids without nested user/team. */
+function compactOwnedServer(overrides: Partial<MCPServerDTO> = {}): MCPServerDTO {
+  return {
+    id: 'mcp-1',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    slug: 'filesystem',
+    name: 'Filesystem MCP',
+    description: 'Local filesystem access',
+    icon_url: 'https://example.com/icon.png',
+    server_url: 'https://mcp.example.com/filesystem',
+    auth_type: MCPServerAuthNone,
+    default_scopes: [],
+    documentation_url: 'https://docs.example.com/mcp',
+    ...overrides,
+  };
 }
 
 describe('MCPServersAPI', () => {
@@ -152,6 +174,18 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize compact MCPServerDTO without nested user/team from get()', async () => {
+    const server = compactOwnedServer();
+    mockJsonResponse(server);
+
+    const result = await api().get('filesystem');
+
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team_id).toBe('team-1');
+    expect(result.data?.user).toBeUndefined();
+    expect(result.data?.team).toBeUndefined();
+  });
+
   it('should POST /mcp-servers/list for listOwned()', async () => {
     const page = { items: [{ id: 'mcp-1' }], next_cursor: null };
     mockJsonResponse(page);
@@ -174,6 +208,30 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize compact MCPServerDTO without nested user/team from getOwned()', async () => {
+    const server = compactOwnedServer({ name: 'My MCP' });
+    mockJsonResponse(server);
+
+    const result = await api().getOwned('mcp-1');
+
+    expect(result.data?.user_id).toBe('user-1');
+    expect(result.data?.team_id).toBe('team-1');
+    expect(result.data?.user).toBeUndefined();
+    expect(result.data?.team).toBeUndefined();
+  });
+
+  it('should deserialize compact MCPServerDTO items from listOwned()', async () => {
+    const page = { items: [compactOwnedServer()], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().listOwned({ limit: 5 });
+
+    expect(result.data?.items[0].user_id).toBe('user-1');
+    expect(result.data?.items[0].team_id).toBe('team-1');
+    expect(result.data?.items[0].user).toBeUndefined();
+    expect(result.data?.items[0].team).toBeUndefined();
   });
 
   it('should DELETE /mcp-servers/{id} for delete()', async () => {
