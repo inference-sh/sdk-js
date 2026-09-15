@@ -2538,9 +2538,9 @@ export type StringSlice = string[];
 export interface MCPServerDTO {
   id: string;
   user_id: string;
-  user: UserRelationDTO;
+  user?: UserRelationDTO;
   team_id: string;
-  team: TeamRelationDTO;
+  team?: TeamRelationDTO;
   org_id?: string;
   visibility: Visibility;
   slug: string;
