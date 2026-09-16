@@ -29,6 +29,9 @@ export interface InternalToolDefinition {
   description: string;
   tools: string[];
   scope: string;
+  /** What this category resolves to when the agent's flag is unset. Opt-in
+   * categories default false; render switches from this rather than assume. */
+  default_enabled: boolean;
 }
 
 /** Options for creating an agent */
