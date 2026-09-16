@@ -13,7 +13,7 @@ import {
 } from '../types';
 import type { AgentRunDTO } from '../types';
 import { FilesAPI } from './files';
-import { AgentsAPI } from './agents';
+import { AgentsAPI, type InternalToolDefinition } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
@@ -1358,7 +1358,16 @@ describe('AgentsAPI (template CRUD)', () => {
   };
 
   it('should GET /agents/internal-tools for getInternalTools()', async () => {
-    const tools = [{ name: 'search', description: 'Search the web' }];
+    const tools: InternalToolDefinition[] = [
+      {
+        id: 'web_search',
+        name: 'Web search',
+        description: 'Search the web',
+        tools: ['search', 'fetch'],
+        scope: 'agent',
+        default_enabled: true,
+      },
+    ];
     mockJsonResponse(tools);
 
     const result = await api().getInternalTools();
@@ -1367,6 +1376,42 @@ describe('AgentsAPI (template CRUD)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/internal-tools');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve default_enabled true for default-on internal tool categories', async () => {
+    const tools: InternalToolDefinition[] = [
+      {
+        id: 'code_exec',
+        name: 'Code execution',
+        description: 'Run code in a sandbox',
+        tools: ['run_python'],
+        scope: 'agent',
+        default_enabled: true,
+      },
+    ];
+    mockJsonResponse(tools);
+
+    const result = await api().getInternalTools();
+
+    expect(result.data[0].default_enabled).toBe(true);
+  });
+
+  it('should preserve default_enabled false for opt-in internal tool categories', async () => {
+    const tools: InternalToolDefinition[] = [
+      {
+        id: 'browser',
+        name: 'Browser automation',
+        description: 'Control a headless browser',
+        tools: ['navigate', 'click'],
+        scope: 'agent',
+        default_enabled: false,
+      },
+    ];
+    mockJsonResponse(tools);
+
+    const result = await api().getInternalTools();
+
+    expect(result.data[0].default_enabled).toBe(false);
   });
 
   it('should GET /agents/{id}/card for getA2ACard()', async () => {
