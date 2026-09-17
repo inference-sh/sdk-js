@@ -74,6 +74,17 @@ export class DeltaAccumulator {
     this.registry = registry;
   }
 
+  /**
+   * Discard everything accumulated so far. Required at a message boundary: the
+   * accumulator is cumulative, so without a reset the next message's deltas
+   * merge into the previous message's state. Concat makes that invisible for
+   * text — appending "" leaves the old text in place, so a tool-call-only turn
+   * serves the previous message's answer as its own.
+   */
+  reset(): void {
+    this.state = {};
+  }
+
   seed(output: Record<string, any>): void {
     for (const [key, value] of Object.entries(output)) {
       if (value != null) this.state[key] = value;

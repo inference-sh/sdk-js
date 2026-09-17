@@ -174,8 +174,19 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     });
 
+    // Token-by-token streaming state, reset at every assistant-message boundary.
+    const deltaAccum = createLLMDeltaAccumulator();
+
     // Listen for ChatMessage updates
     manager.addEventListener<ChatMessageDTO>('chat_messages', (message, fields) => {
+      // A new assistant message starts a new accumulation. The accumulator is
+      // cumulative and shared across the whole connection, so without this the
+      // next message's deltas merge into the previous message's state — and
+      // because concat with "" is a no-op, a turn that is only tool calls
+      // would render the previous message's text as its own.
+      if (message.role === 'assistant' && !getState().messages.some(m => m.id === message.id)) {
+        deltaAccum.reset();
+      }
       updateMessage(message, fields);
     });
 
@@ -188,8 +199,6 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });
     });
 
-    // Listen for LLM delta events (token-by-token streaming)
-    const deltaAccum = createLLMDeltaAccumulator();
     manager.addEventListener<DeltaEvent>('delta', (evt) => {
       if (evt && evt.delta) {
         deltaAccum.apply(evt.delta);
