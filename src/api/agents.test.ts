@@ -1411,6 +1411,24 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward internal_tools.spawn in createAgent() version config', async () => {
+    const payload = {
+      name: 'orchestrator',
+      version: {
+        system_prompt: 'Delegate work to sub-agents.',
+        internal_tools: { spawn: true, plan: false },
+      },
+    };
+    const created = { id: 'agent-orch', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data).toEqual(created);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
