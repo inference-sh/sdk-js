@@ -85,6 +85,10 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  AgentConfigInput,
+  AgentVersionDTO,
+  CreateAgentRequest,
+  InternalToolsConfig,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1572,67 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('InternalToolsConfig spawn (a9170c9)', () => {
+  it('models spawn on AgentConfigInput for agent version create/update', () => {
+    const config: AgentConfigInput = {
+      system_prompt: 'You are a coordinator.',
+      internal_tools: { spawn: true, plan: true, memory: false },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as AgentConfigInput;
+
+    expect(parsed.internal_tools?.spawn).toBe(true);
+    expect(parsed.internal_tools?.plan).toBe(true);
+    expect(parsed.internal_tools?.memory).toBe(false);
+  });
+
+  it('allows spawn: false to explicitly disable sub-agent spawning', () => {
+    const config: InternalToolsConfig = { spawn: false, finish: true };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as InternalToolsConfig;
+
+    expect(parsed.spawn).toBe(false);
+    expect(parsed.finish).toBe(true);
+  });
+
+  it('preserves spawn through CreateAgentRequest version embedding', () => {
+    const request: CreateAgentRequest = {
+      name: 'orchestrator',
+      version: {
+        description: 'Spawns sub-agents',
+        system_prompt: 'Delegate work.',
+        internal_tools: { spawn: true },
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CreateAgentRequest;
+
+    expect(parsed.version?.internal_tools?.spawn).toBe(true);
+  });
+
+  it('deserializes spawn on AgentVersionDTO API responses', () => {
+    const version: AgentVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-09-16T00:00:00Z',
+      updated_at: '2026-09-16T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'team',
+      description: 'Coordinator',
+      system_prompt: 'Delegate.',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      internal_tools: { spawn: true, artifact: false },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AgentVersionDTO;
+
+    expect(parsed.internal_tools?.spawn).toBe(true);
+    expect(parsed.internal_tools?.artifact).toBe(false);
   });
 });
