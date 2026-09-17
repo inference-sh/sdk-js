@@ -1435,6 +1435,19 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should forward include_private on list()', async () => {
+    const page = { items: [{ id: 'agent-private' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    await api().list({ limit: 10, include_private: true });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      limit: 10,
+      include_private: true,
+    });
+  });
+
   it('should GET /agents/{id} for get()', async () => {
     const agent = { id: 'agent-1', name: 'support-bot' };
     mockJsonResponse(agent);

@@ -85,6 +85,14 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  LLMInput,
+  LLMSettings,
+  ChatMessageRoleUser,
+  ToolTypeFunction,
+  ToolChoiceModeRequired,
+  ResponseFormatTypeJSONObject,
+  CursorListRequest,
+  ApiAgentRunRequest,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1576,148 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('LLMSettings (model removed from settings)', () => {
+  it('models generation settings without model — model is declared on the app', () => {
+    const settings: LLMSettings = {
+      context_size: 16384,
+      system_prompt: 'You are a research assistant.',
+      temperature: 0.2,
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: {
+            name: 'search',
+            description: 'Search knowledge base',
+          },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+    };
+
+    expect(settings).not.toHaveProperty('model');
+    expect(settings.tools).toHaveLength(1);
+    expect(settings.tool_choice?.mode).toBe('required');
+    expect(settings.response_format?.type).toBe('json_object');
+  });
+
+  it('preserves LLMSettings after JSON round-trip without model', () => {
+    const settings: LLMSettings = {
+      context_size: 8192,
+      system_prompt: 'Be concise.',
+      max_tokens: 1024,
+      stop: ['END'],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(settings)) as LLMSettings;
+
+    expect(parsed).not.toHaveProperty('model');
+    expect(parsed.context_size).toBe(8192);
+    expect(parsed.system_prompt).toBe('Be concise.');
+    expect(parsed.max_tokens).toBe(1024);
+    expect(parsed.stop).toEqual(['END']);
+  });
+});
+
+describe('LLMInput (extends LLMSettings without model)', () => {
+  const baseInput = (): LLMInput => ({
+    context_size: 8192,
+    system_prompt: 'You are helpful.',
+    context: [{ role: ChatMessageRoleUser, text: 'Hello' }],
+  });
+
+  it('carries conversation context and current-turn fields without model', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      role: ChatMessageRoleUser,
+      text: 'Summarize the thread',
+      temperature: 0.4,
+    };
+
+    expect(input).not.toHaveProperty('model');
+    expect(input.context).toHaveLength(1);
+    expect(input.text).toBe('Summarize the thread');
+  });
+
+  it('preserves LLMInput after JSON round-trip', () => {
+    const input: LLMInput = {
+      ...baseInput(),
+      tools: [
+        {
+          type: ToolTypeFunction,
+          function: { name: 'lookup', description: 'Lookup docs' },
+        },
+      ],
+      tool_choice: { mode: ToolChoiceModeRequired },
+      response_format: { type: ResponseFormatTypeJSONObject },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(input)) as LLMInput;
+
+    expect(parsed).not.toHaveProperty('model');
+    expect(parsed.tools).toHaveLength(1);
+    expect(parsed.tool_choice?.mode).toBe('required');
+    expect(parsed.response_format?.type).toBe('json_object');
+    expect(parsed.context[0].text).toBe('Hello');
+  });
+
+  it('models agent run requests with LLMInput envelopes that omit model', () => {
+    const request: ApiAgentRunRequest = {
+      agent: 'support-bot',
+      input: baseInput(),
+      stream: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as ApiAgentRunRequest;
+
+    expect(parsed.input).not.toHaveProperty('model');
+    expect(parsed.agent).toBe('support-bot');
+    expect(parsed.stream).toBe(true);
+  });
+});
+
+describe('CursorListRequest.include_private (INF-848)', () => {
+  const baseListRequest = (): CursorListRequest => ({
+    cursor: '',
+    limit: 25,
+    direction: 'next',
+    filters: [],
+    preloads: [],
+    sort: [],
+    fields: [],
+    permissions: [],
+    include_others: false,
+  });
+
+  it('models include_private for team owner/admin private row visibility', () => {
+    const request: CursorListRequest = {
+      ...baseListRequest(),
+      include_private: true,
+    };
+
+    expect(request.include_private).toBe(true);
+    expect(request.include_others).toBe(false);
+  });
+
+  it('allows omitting include_private for default list behavior', () => {
+    const request = baseListRequest();
+
+    expect(request.include_private).toBeUndefined();
+  });
+
+  it('preserves include_private after JSON round-trip', () => {
+    const request: CursorListRequest = {
+      ...baseListRequest(),
+      include_private: true,
+      search: { query: 'draft' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CursorListRequest;
+
+    expect(parsed.include_private).toBe(true);
+    expect(parsed.search?.query).toBe('draft');
   });
 });
