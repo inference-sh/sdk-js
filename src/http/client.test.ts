@@ -1,6 +1,12 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { HttpClient, createHttpClient } from './client';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource } from 'eventsource';
+
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../../package.json'), 'utf8')
+) as { version: string };
 
 jest.mock('eventsource');
 
@@ -317,7 +323,7 @@ describe('HttpClient', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers['X-API-Version']).toBeUndefined();
-      expect(headers['X-Client-Source']).toMatch(/inference-sdk-js\//);
+      expect(headers['X-Client-Source']).toBe(`inference-sdk-js/${packageJson.version}`);
     });
 
     it('should prefer RFC 9457 detail over title in error responses', async () => {
