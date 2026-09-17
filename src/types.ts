@@ -4099,14 +4099,15 @@ export interface ResponseFormat {
 }
 /**
  * LLMSettings is everything that configures a generation independent of the
- * conversation: model, context, sampling, system prompt, tools and output
+ * conversation: context, sampling, system prompt, tools and output
  * constraints. Embedded (tstype extends) by BaseLLMInput — an agent's stored
  * configuration — and LLMInput — a single call — so a field added here
  * reaches both, and the call is built from the configuration by one
  * assignment.
+ * Which model runs is not a setting: the app is the model. An app that
+ * fronts several models (a router) declares its own `model` input.
  */
 export interface LLMSettings {
-  model?: string;
   context_size: number /* int */;
   temperature?: number /* float64 */;
   top_p?: number /* float64 */;
