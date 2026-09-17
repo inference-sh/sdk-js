@@ -85,6 +85,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  TeamRelationDTO,
+  TeamTypeOrg,
+  TeamTypePersonal,
+  TeamTypeSystem,
+  TeamTypeTeam,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1573,64 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('TeamType constants and TeamRelationDTO (INF-848)', () => {
+  const baseTeamRelation = (overrides: Partial<TeamRelationDTO> = {}): TeamRelationDTO => ({
+    id: 'team-1',
+    created_at: '2026-09-17T00:00:00Z',
+    updated_at: '2026-09-17T00:00:00Z',
+    type: TeamTypeTeam,
+    username: 'acme',
+    avatar_url: 'https://example.com/team.png',
+    setup_completed: true,
+    ...overrides,
+  });
+
+  it('exports TeamTypeOrg for organization workspaces', () => {
+    expect(TeamTypeOrg).toBe('org');
+  });
+
+  it('exports distinct TeamType constants for personal, team, system, and org', () => {
+    const types = [TeamTypePersonal, TeamTypeTeam, TeamTypeSystem, TeamTypeOrg];
+    expect(types).toEqual(['personal', 'team', 'system', 'org']);
+    expect(new Set(types).size).toBe(4);
+  });
+
+  it('accepts TeamRelationDTO with type TeamTypeOrg (org workspace id equals org id)', () => {
+    const orgId = 'org-acme';
+    const orgWorkspace: TeamRelationDTO = baseTeamRelation({
+      id: orgId,
+      type: TeamTypeOrg,
+      username: 'acme-org',
+      setup_completed: true,
+    });
+
+    expect(orgWorkspace.type).toBe('org');
+    expect(orgWorkspace.id).toBe(orgId);
+  });
+
+  it('accepts all TeamType values on TeamRelationDTO responses', () => {
+    const types = [TeamTypePersonal, TeamTypeTeam, TeamTypeSystem, TeamTypeOrg] as const;
+
+    for (const type of types) {
+      const team = baseTeamRelation({ type, username: `team-${type}` });
+      expect(team.type).toBe(type);
+    }
+  });
+
+  it('preserves TeamRelationDTO type through JSON round-trip', () => {
+    const orgWorkspace = baseTeamRelation({
+      id: 'org-1',
+      type: TeamTypeOrg,
+      username: 'acme-org',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(orgWorkspace)) as TeamRelationDTO;
+
+    expect(parsed.type).toBe('org');
+    expect(parsed.id).toBe('org-1');
+    expect(parsed.username).toBe('acme-org');
   });
 });

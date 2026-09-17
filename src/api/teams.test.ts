@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { TeamTypeOrg, TeamTypePersonal, TeamTypeTeam } from '../types';
 import { TeamsAPI } from './teams';
 
 const mockFetch = jest.fn();
@@ -31,6 +32,28 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize org workspace team from me()', async () => {
+    const orgId = 'org-acme';
+    const me = {
+      user: { id: 'user-1' },
+      team: {
+        id: orgId,
+        created_at: '2026-09-17T00:00:00Z',
+        updated_at: '2026-09-17T00:00:00Z',
+        type: TeamTypeOrg,
+        username: 'acme-org',
+        avatar_url: 'https://example.com/org.png',
+        setup_completed: true,
+      },
+    };
+    mockJsonResponse(me);
+
+    const result = await api().me();
+
+    expect(result.data.team?.type).toBe('org');
+    expect(result.data.team?.id).toBe(orgId);
+  });
+
   it('should GET /teams for list()', async () => {
     const teams = [{ id: 'team-1', name: 'Acme' }];
     mockJsonResponse(teams);
@@ -41,6 +64,44 @@ describe('TeamsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize mixed team types including org workspace from list()', async () => {
+    const teams = [
+      {
+        id: 'user-1',
+        created_at: '2026-09-17T00:00:00Z',
+        updated_at: '2026-09-17T00:00:00Z',
+        type: TeamTypePersonal,
+        username: 'alice',
+        avatar_url: '',
+        setup_completed: true,
+      },
+      {
+        id: 'org-acme',
+        created_at: '2026-09-17T00:00:00Z',
+        updated_at: '2026-09-17T00:00:00Z',
+        type: TeamTypeOrg,
+        username: 'acme-org',
+        avatar_url: 'https://example.com/org.png',
+        setup_completed: true,
+      },
+      {
+        id: 'team-eng',
+        created_at: '2026-09-17T00:00:00Z',
+        updated_at: '2026-09-17T00:00:00Z',
+        type: TeamTypeTeam,
+        username: 'acme-eng',
+        avatar_url: '',
+        setup_completed: false,
+      },
+    ];
+    mockJsonResponse(teams);
+
+    const result = await api().list();
+
+    expect(result.data.map((t) => t.type)).toEqual(['personal', 'org', 'team']);
+    expect(result.data[1]?.id).toBe('org-acme');
   });
 
   it('should POST /teams for create()', async () => {
@@ -128,6 +189,25 @@ describe('TeamsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize org workspace from get()', async () => {
+    const orgId = 'org-acme';
+    const team = {
+      id: orgId,
+      created_at: '2026-09-17T00:00:00Z',
+      updated_at: '2026-09-17T00:00:00Z',
+      type: TeamTypeOrg,
+      username: 'acme-org',
+      avatar_url: 'https://example.com/org.png',
+      setup_completed: true,
+    };
+    mockJsonResponse(team);
+
+    const result = await api().get(orgId);
+
+    expect(result.data.type).toBe('org');
+    expect(result.data.id).toBe(orgId);
   });
 
   it('should POST /teams/{id} for update()', async () => {
