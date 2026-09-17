@@ -1598,6 +1598,11 @@ export interface CursorListRequest {
   fields: string[]; // Fields to select, empty means all fields
   permissions: string[]; // Permissions to filter by, empty means all permissions
   include_others: boolean; // Include other users' items in the response
+  /**
+   * IncludePrivate: an owner or admin of the selected team asks for every
+   * row the team owns, private ones included. Audited; ignored for others.
+   */
+  include_private?: boolean;
 }
 /**
  * CursorListResponse represents a cursor-based paginated response
