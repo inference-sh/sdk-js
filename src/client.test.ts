@@ -18,6 +18,7 @@ import {
   PlanTypeBase,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
+  RefRouteTypeURL,
   ResourceFeatureSeedance,
   createClient,
 } from './index';
@@ -61,6 +62,10 @@ describe('package type exports', () => {
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {
     expect(RefRouteModeRewrite).toBe('rewrite');
     expect(RefRouteModeRedirect).toBe('redirect');
+  });
+
+  it('exports RefRouteTypeURL for literal path site redirects', () => {
+    expect(RefRouteTypeURL).toBe('url');
   });
 
   it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
