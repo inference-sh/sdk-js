@@ -28,6 +28,14 @@ function mockJsonResponse(body: unknown) {
   });
 }
 
+function json(body: unknown) {
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    text: () => Promise.resolve(JSON.stringify(body)),
+  });
+}
+
 function makeMessage(overrides: Record<string, unknown> = {}) {
   return {
     id: 'msg-1',
@@ -129,6 +137,137 @@ describe('Agent.sendMessage (polling mode)', () => {
       ([url]) => typeof url === 'string' && url.includes('/status')
     );
     expect(statusPolls.length).toBe(1);
+  });
+
+  it('should not resolve a follow-up turn on the previous turn\'s idle snapshot', async () => {
+    const agentInstance = agent();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-1', chat_id: 'chat-1' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    await agentInstance.sendMessage('first', { stream: false, onChat: jest.fn() });
+
+    // Turn 2: pollUntilIdle starts before POST and can interleave with it, so route by URL.
+    let statusPolls = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: makeMessage({ id: 'user-2', role: 'user' }),
+                assistant_message: makeMessage({ id: 'asst-2' }),
+              })
+            ),
+        });
+      }
+      if (url.includes('/status')) {
+        statusPolls++;
+        if (statusPolls === 1) return json({ status: ChatStatusIdle });
+        if (statusPolls === 2) return json({ status: ChatStatusBusy });
+        return json({ status: ChatStatusIdle });
+      }
+      if (statusPolls <= 1) {
+        return json({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+      }
+      if (statusPolls === 2) {
+        return json({
+          id: 'chat-1',
+          status: ChatStatusBusy,
+          active_run: workingRun,
+          chat_messages: [],
+        });
+      }
+      return json({
+        id: 'chat-1',
+        status: ChatStatusIdle,
+        chat_messages: [makeMessage({ id: 'asst-2', content: 'second', status: 'ready' })],
+      });
+    });
+
+    const onMessage = jest.fn();
+    await agentInstance.sendMessage('second', { stream: false, onMessage });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'asst-2', content: 'second' })
+    );
+  });
+
+  it('should end a follow-up turn on a terminal assistant message when busy was never observed', async () => {
+    const agentInstance = agent();
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage({ id: 'asst-1', chat_id: 'chat-1' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    await agentInstance.sendMessage('first', { stream: false, onChat: jest.fn() });
+
+    let statusPolls = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: makeMessage({ id: 'user-2', role: 'user' }),
+                assistant_message: makeMessage({ id: 'asst-2' }),
+              })
+            ),
+        });
+      }
+      if (url.includes('/status')) {
+        statusPolls++;
+        return json({ status: ChatStatusIdle });
+      }
+      if (statusPolls === 1) {
+        return json({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+      }
+      return json({
+        id: 'chat-1',
+        status: ChatStatusIdle,
+        chat_messages: [makeMessage({ id: 'asst-2', content: 'fast', status: 'ready' })],
+      });
+    });
+
+    const onMessage = jest.fn();
+    await agentInstance.sendMessage('second', { stream: false, onMessage });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'asst-2', content: 'fast' })
+    );
   });
 
   it('should skip full GET /chats when poll status is unchanged', async () => {
