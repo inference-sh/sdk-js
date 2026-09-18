@@ -363,7 +363,7 @@ import {
   mcpTool,
   internalTools,
   string,
-  IntegrationProviderGoogle,
+  CredentialProviderGoogle,
 } from '@inferencesh/sdk';
 
 const clientTool = tool('get_weather')
@@ -375,7 +375,7 @@ const clientTool = tool('get_weather')
 const gmailSend = httpTool('gmail_send', 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send')
   .describe('Send an email via Gmail')
   .method('POST')
-  .auth({ integration: IntegrationProviderGoogle, integrationId: 'your-integration-id' })
+  .auth({ integration: CredentialProviderGoogle, integrationId: 'your-integration-id' })
   .build();
 
 // API key or bearer auth
@@ -606,24 +606,24 @@ if (task.status === TaskStatusCompleted) {
 
 ## Integration Constants
 
-`IntegrationDTO` fields (`provider`, `type`, `auth`, `status`) use typed string unions exported as constants:
+`CredentialDTO` fields (`provider`, `type`, `auth`, `status`) use typed string unions exported as constants:
 
 ```typescript
-import type { IntegrationDTO } from '@inferencesh/sdk';
+import type { CredentialDTO } from '@inferencesh/sdk';
 import {
-  IntegrationProviderGoogle,
-  IntegrationAuthTypeOAuth,
-  IntegrationStatusConnected,
-  IntegrationStatusDisconnected,
-  IntegrationStatusExpired,
-  IntegrationStatusError,
+  CredentialProviderGoogle,
+  CredentialTypeOAuth,
+  CredentialStatusConnected,
+  CredentialStatusDisconnected,
+  CredentialStatusExpired,
+  CredentialStatusError,
   isRequirementsNotMetException,
 } from '@inferencesh/sdk';
 
-function isGoogleConnected(integration: IntegrationDTO): boolean {
+function isGoogleConnected(integration: CredentialDTO): boolean {
   return (
-    integration.provider === IntegrationProviderGoogle &&
-    integration.status === IntegrationStatusConnected
+    integration.provider === CredentialProviderGoogle &&
+    integration.status === CredentialStatusConnected
   );
 }
 
@@ -633,7 +633,7 @@ try {
 } catch (error) {
   if (isRequirementsNotMetException(error)) {
     for (const req of error.errors) {
-      if (req.type === 'integration' && req.action?.provider === IntegrationProviderGoogle) {
+      if (req.type === 'integration' && req.action?.provider === CredentialProviderGoogle) {
         // User must connect Google — see https://inference.sh/docs/extend/integrations
       }
     }
@@ -643,9 +643,9 @@ try {
 
 | Constant group | Values |
 |----------------|--------|
-| `IntegrationProvider*` | `google`, `slack`, `notion`, `github`, `x`, `microsoft`, `salesforce`, `discord`, `gcp`, `mcp`, `reddit` |
-| `IntegrationAuthType*` | `service_account`, `oauth`, `api_key`, `wif`, `mcp` |
-| `IntegrationStatus*` | `connected`, `disconnected`, `expired`, `error` |
+| `CredentialProvider*` | `google`, `slack`, `notion`, `github`, `x`, `microsoft`, `salesforce`, `discord`, `gcp`, `mcp`, `reddit` |
+| `CredentialType*` | `service_account`, `oauth`, `api_key`, `wif`, `mcp` |
+| `CredentialStatus*` | `connected`, `disconnected`, `expired`, `error` |
 
 ## Instance Status Constants
 
@@ -698,7 +698,7 @@ import type {
   Task,
   ApiAppRunRequest,
   RunOptions,
-  IntegrationDTO,
+  CredentialDTO,
   AgentTool,
 } from '@inferencesh/sdk';
 ```

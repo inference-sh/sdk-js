@@ -77,6 +77,22 @@ export * from './types';
 // Convenience type alias
 export type { TaskDTO as Task } from './types';
 
+// Credentials were called integrations until 2026-09. Deprecated aliases keep
+// existing imports compiling; the JSON shape did not change.
+export type {
+  CredentialDTO as IntegrationDTO,
+  CredentialConfigDTO as IntegrationConfigDTO,
+  CredentialConnectRequest as IntegrationConnectRequest,
+  CredentialConnectResponse as IntegrationConnectResponse,
+  CredentialCompleteOAuthRequest as IntegrationCompleteOAuthRequest,
+  CredentialRequirement as IntegrationRequirement,
+  CredentialStatus as IntegrationStatus,
+  CredentialScope as IntegrationScope,
+  CredentialGrant as IntegrationGrant,
+  CredentialType as IntegrationAuthType,
+  CredentialProvider as IntegrationProvider,
+} from './types';
+
 // =============================================================================
 // Main Client
 // =============================================================================

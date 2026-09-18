@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import { IntegrationsAPI } from './integrations';
-import { IntegrationProviderGoogleSA } from '../types';
+import { CredentialProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -128,7 +128,7 @@ describe('IntegrationsAPI', () => {
     const payload = {
       integrations: [
         {
-          key: IntegrationProviderGoogleSA,
+          key: CredentialProviderGoogleSA,
           secrets: ['GOOGLE_SA_JSON'],
           scopes: ['https://www.googleapis.com/auth/calendar'],
         },
@@ -140,7 +140,7 @@ describe('IntegrationsAPI', () => {
         {
           type: 'scope',
           message: 'Missing calendar scope',
-          action: { type: 'add_scopes', provider: IntegrationProviderGoogleSA, scopes: ['https://www.googleapis.com/auth/calendar'] },
+          action: { type: 'add_scopes', provider: CredentialProviderGoogleSA, scopes: ['https://www.googleapis.com/auth/calendar'] },
         },
       ],
     };

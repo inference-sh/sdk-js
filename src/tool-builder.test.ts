@@ -23,8 +23,8 @@ import {
   ToolTypeHook,
   ToolTypeHTTP,
   ToolTypeMCP,
-  IntegrationProviderGoogle,
-  IntegrationProviderGoogleSA,
+  CredentialProviderGoogle,
+  CredentialProviderGoogleSA,
 } from './types';
 
 describe('Schema Helpers', () => {
@@ -342,25 +342,25 @@ describe('HTTPToolBuilder (httpTool)', () => {
 
   it('should attach integration auth with provider and integration id', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
-      .auth({ integration: IntegrationProviderGoogle, integrationId: 'int-123' })
+      .auth({ integration: CredentialProviderGoogle, integrationId: 'int-123' })
       .build();
 
     expect(t.type).toBe(ToolTypeHTTP);
     expect(t.http?.auth).toEqual({
       type: 'integration',
-      provider: IntegrationProviderGoogle,
+      provider: CredentialProviderGoogle,
       integration_id: 'int-123',
     });
   });
 
   it('should attach integration auth for google-sa service account provider', () => {
     const t = httpTool('calendar_read', 'https://api.example.com/calendar')
-      .auth({ integration: IntegrationProviderGoogleSA, integrationId: 'sa-int-1' })
+      .auth({ integration: CredentialProviderGoogleSA, integrationId: 'sa-int-1' })
       .build();
 
     expect(t.http?.auth).toEqual({
       type: 'integration',
-      provider: IntegrationProviderGoogleSA,
+      provider: CredentialProviderGoogleSA,
       integration_id: 'sa-int-1',
     });
   });
