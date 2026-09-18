@@ -79,19 +79,44 @@ export type { TaskDTO as Task } from './types';
 
 // Credentials were called integrations until 2026-09. Deprecated aliases keep
 // existing imports compiling; the JSON shape did not change.
-export type {
-  CredentialDTO as IntegrationDTO,
-  CredentialConfigDTO as IntegrationConfigDTO,
-  CredentialConnectRequest as IntegrationConnectRequest,
-  CredentialConnectResponse as IntegrationConnectResponse,
-  CredentialCompleteOAuthRequest as IntegrationCompleteOAuthRequest,
-  CredentialRequirement as IntegrationRequirement,
-  CredentialStatus as IntegrationStatus,
-  CredentialScope as IntegrationScope,
-  CredentialGrant as IntegrationGrant,
-  CredentialType as IntegrationAuthType,
-  CredentialProvider as IntegrationProvider,
+// These must be individual `export type Alias = Original` declarations (not
+// `export type { X as Y }`) so that each alias carries its @deprecated tag
+// and IDEs surface a strikethrough / deprecation warning to callers.
+import type {
+  CredentialDTO,
+  CredentialConfigDTO,
+  CredentialConnectRequest,
+  CredentialConnectResponse,
+  CredentialCompleteOAuthRequest,
+  CredentialRequirement,
+  CredentialStatus,
+  CredentialScope,
+  CredentialGrant,
+  CredentialType,
+  CredentialProvider,
 } from './types';
+/** @deprecated Use {@link CredentialDTO} instead */
+export type IntegrationDTO = CredentialDTO;
+/** @deprecated Use {@link CredentialConfigDTO} instead */
+export type IntegrationConfigDTO = CredentialConfigDTO;
+/** @deprecated Use {@link CredentialConnectRequest} instead */
+export type IntegrationConnectRequest = CredentialConnectRequest;
+/** @deprecated Use {@link CredentialConnectResponse} instead */
+export type IntegrationConnectResponse = CredentialConnectResponse;
+/** @deprecated Use {@link CredentialCompleteOAuthRequest} instead */
+export type IntegrationCompleteOAuthRequest = CredentialCompleteOAuthRequest;
+/** @deprecated Use {@link CredentialRequirement} instead */
+export type IntegrationRequirement = CredentialRequirement;
+/** @deprecated Use {@link CredentialStatus} instead */
+export type IntegrationStatus = CredentialStatus;
+/** @deprecated Use {@link CredentialScope} instead */
+export type IntegrationScope = CredentialScope;
+/** @deprecated Use {@link CredentialGrant} instead */
+export type IntegrationGrant = CredentialGrant;
+/** @deprecated Use {@link CredentialType} instead */
+export type IntegrationAuthType = CredentialType;
+/** @deprecated Use {@link CredentialProvider} instead */
+export type IntegrationProvider = CredentialProvider;
 
 // =============================================================================
 // Main Client
