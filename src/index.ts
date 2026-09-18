@@ -121,6 +121,11 @@ export interface InferenceConfig {
    * Polling interval in milliseconds when stream is false (default: 2000).
    */
   pollIntervalMs?: number;
+  /**
+   * fetch() credentials mode. Defaults to 'omit' with an apiKey and 'include'
+   * for proxyUrl / getToken flows that rely on cookies.
+   */
+  credentials?: RequestCredentials;
 }
 
 /**

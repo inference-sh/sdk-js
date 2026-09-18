@@ -7,6 +7,9 @@ import {
   AgentRunDTO,
   ChatDTO,
   ChatMessageDTO,
+  ChatMessageStatusCancelled,
+  ChatMessageStatusFailed,
+  ChatMessageStatusReady,
   ResourceStatusDTO,
   AgentConfigInput as AgentConfig,
   AgentDTO,
@@ -21,6 +24,40 @@ import {
   CursorListResponse,
 } from '../types';
 import { isChatBusy } from '../utils';
+
+const terminalMessageStatuses = new Set([ChatMessageStatusReady, ChatMessageStatusFailed, ChatMessageStatusCancelled]);
+
+/**
+ * Decides when one sendMessage() turn is over.
+ *
+ * For an existing chat the stream/poll is opened before the POST so nothing is
+ * missed, but its first snapshot is the previous turn's idle state. Resolving on
+ * that made sendMessage return before the new run had started. An idle snapshot
+ * only counts once the chat was seen busy, or once this turn's assistant message
+ * reached a terminal status (runs that finish between two observations).
+ */
+class TurnGate {
+  assistantMessageId: string | null = null;
+  private sawBusy = false;
+  private assistantDone = false;
+
+  constructor(private readonly existingChat: boolean) {}
+
+  observeChat(chat: ChatDTO): void {
+    if (isChatBusy(chat)) this.sawBusy = true;
+  }
+
+  observeMessage(message: ChatMessageDTO): void {
+    if (message.id === this.assistantMessageId && terminalMessageStatuses.has(message.status)) {
+      this.assistantDone = true;
+    }
+  }
+
+  /** Whether an idle observation may end the turn. */
+  get settled(): boolean {
+    return !this.existingChat || this.sawBusy || this.assistantDone;
+  }
+}
 
 /** Internal tool definition returned by getInternalTools */
 export interface InternalToolDefinition {
@@ -146,9 +183,10 @@ export class Agent {
 
     const useStream = options.stream ?? this.http.getStreamDefault();
     const shouldWait = useStream === false || hasCallbacks;
+    const gate = new TurnGate(!!this.chatId);
     const waitFn = useStream === false
-      ? (opts: SendMessageOptions) => this.pollUntilIdle(opts)
-      : (opts: SendMessageOptions) => this.streamUntilIdle(opts);
+      ? (opts: SendMessageOptions) => this.pollUntilIdle(opts, gate)
+      : (opts: SendMessageOptions) => this.streamUntilIdle(opts, gate);
 
     // For existing chats: Start waiting BEFORE POST so we don't miss updates
     let waitPromise: Promise<void> | null = null;
@@ -157,12 +195,20 @@ export class Agent {
     }
 
     // Make the POST request
-    const resp = await this.http.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
-      'post',
-      '/agents/run',
-      { data: body }
-    );
-    const response = resp.data;
+    let response: { user_message: ChatMessageDTO; assistant_message: ChatMessageDTO };
+    try {
+      const resp = await this.http.request<{ user_message: ChatMessageDTO; assistant_message: ChatMessageDTO }>(
+        'post',
+        '/agents/run',
+        { data: body }
+      );
+      response = resp.data;
+    } catch (err) {
+      // Nothing to wait for; don't leave the pre-opened stream/poller running.
+      if (waitPromise) this.disconnect();
+      throw err;
+    }
+    gate.assistantMessageId = response.assistant_message?.id ?? null;
 
     // For new chats: Set chatId and start waiting immediately after POST
     const isNewChat = !this.chatId && response.assistant_message.chat_id;
@@ -239,11 +285,11 @@ export class Agent {
    */
   startStreaming(options: Omit<SendMessageOptions, 'files'> = {}): void {
     if (!this.chatId) return;
-    this.streamUntilIdle(options);
+    this.streamUntilIdle(options, new TurnGate(false));
   }
 
   /** Stream events until chat becomes idle */
-  private streamUntilIdle(options: SendMessageOptions): Promise<void> {
+  private streamUntilIdle(options: SendMessageOptions, gate: TurnGate): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
     const { url, headers, credentials } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
@@ -257,23 +303,33 @@ export class Agent {
         credentials,
       });
 
+      // Last chat/run observation was idle but the gate wasn't settled yet;
+      // a terminal message for this turn can settle it.
+      let idlePending = false;
+      const onIdle = () => {
+        if (gate.settled) resolve();
+        else idlePending = true;
+      };
+
       this.stream.addEventListener<ChatDTO>('chats', (chat) => {
         options.onChat?.(chat);
-        if (!isChatBusy(chat)) {
-          resolve();
-        }
+        gate.observeChat(chat);
+        if (!isChatBusy(chat)) onIdle();
+        else idlePending = false;
       });
 
       this.stream.addEventListener<AgentRunDTO>('agent_runs', (run) => {
         const asChat = { active_run: run } as ChatDTO;
         options.onChat?.(asChat);
-        if (!isChatBusy(asChat)) {
-          resolve();
-        }
+        gate.observeChat(asChat);
+        if (!isChatBusy(asChat)) onIdle();
+        else idlePending = false;
       });
 
       this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
+        gate.observeMessage(message);
         options.onMessage?.(message);
+        if (idlePending && gate.settled) resolve();
 
         if (message.tool_invocations && options.onToolCall) {
           for (const inv of message.tool_invocations) {
@@ -296,7 +352,7 @@ export class Agent {
   }
 
   /** Poll until chat becomes idle, dispatching callbacks on changes */
-  private pollUntilIdle(options: SendMessageOptions): Promise<void> {
+  private pollUntilIdle(options: SendMessageOptions, gate: TurnGate): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
     const intervalMs = options.pollIntervalMs ?? this.http.getPollIntervalMs();
@@ -311,7 +367,9 @@ export class Agent {
           // Lightweight status check first
           const statusResp = await this.http.request<ResourceStatusDTO>('get', `/chats/${this.chatId}/status`);
           const status = statusResp.data;
-          if (status.status === prevStatus) {
+          // Unchanged status is skipped — unless the turn is still ungated: a run
+          // that started and finished between two polls only shows in the messages.
+          if (status.status === prevStatus && gate.settled) {
             // No change — return a stub to skip processing
             return { status: status.status } as ChatDTO;
           }
@@ -325,6 +383,8 @@ export class Agent {
           prevStatus = chat.status;
 
           options.onChat?.(chat);
+          gate.observeChat(chat);
+          for (const message of chat.chat_messages ?? []) gate.observeMessage(message);
 
           // Dispatch new/updated messages
           if (chat.chat_messages && options.onMessage) {
@@ -354,7 +414,7 @@ export class Agent {
             }
           }
 
-          if (!isChatBusy(chat)) {
+          if (!isChatBusy(chat) && gate.settled) {
             this.poller?.stop();
             this.poller = null;
             resolve();

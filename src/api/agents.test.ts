@@ -505,7 +505,77 @@ describe('Agent.sendMessage (streaming mode)', () => {
     );
 
     const streamCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/stream'));
-    expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'include' }));
+    expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'omit' }));
+  });
+
+  it('should not resolve a follow-up turn on the previous turn\'s idle snapshot', async () => {
+    // Turn 1 establishes the chat. Turn 2 opens the stream before the POST; the
+    // stream's first snapshot is still idle from turn 1 and must not end turn 2.
+    const runResponse = (n: number) => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            user_message: makeMessage({ id: `user-${n}`, role: 'user' }),
+            assistant_message: makeMessage({ id: `asst-${n}` }),
+          })
+        ),
+    });
+    const idle = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } });
+    const busy = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } });
+    const reply2 = JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-2', content: 'second', status: 'ready' }) });
+
+    let turn = 0;
+    let streams = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) return Promise.resolve(runResponse(++turn));
+      // Stream 1 belongs to turn 1; stream 2 is opened by turn 2 *before* its POST.
+      if (++streams === 1) return Promise.resolve(mockNdjsonStream([`${busy}\n`, `${idle}\n`]));
+      // Turn 2: stale idle first, then the real run.
+      return Promise.resolve(mockNdjsonStream([`${idle}\n`, `${busy}\n`, `${reply2}\n`, `${idle}\n`]));
+    });
+
+    const agent = streamingAgent();
+    await agent.sendMessage('first', { onChat: jest.fn() });
+
+    const onMessage = jest.fn();
+    await agent.sendMessage('second', { onMessage });
+
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'asst-2', content: 'second' }));
+  });
+
+  it('should end a follow-up turn on a terminal assistant message when busy was never observed', async () => {
+    const runResponse = (n: number) => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            user_message: makeMessage({ id: `user-${n}`, role: 'user' }),
+            assistant_message: makeMessage({ id: `asst-${n}` }),
+          })
+        ),
+    });
+    const idle = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } });
+    const busy = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } });
+    const reply2 = JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-2', content: 'fast', status: 'ready' }) });
+
+    let turn = 0;
+    let streams = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) return Promise.resolve(runResponse(++turn));
+      if (++streams === 1) return Promise.resolve(mockNdjsonStream([`${busy}\n`, `${idle}\n`]));
+      // Run finished between snapshots: only the message proves the turn happened.
+      return Promise.resolve(mockNdjsonStream([`${idle}\n`, `${reply2}\n`]));
+    });
+
+    const agent = streamingAgent();
+    await agent.sendMessage('first', { onChat: jest.fn() });
+    const onMessage = jest.fn();
+    await agent.sendMessage('second', { onMessage });
+
+    expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'asst-2' }));
   });
 
   it('should dispatch onToolCall for in_progress tools from chat_messages stream events', async () => {
@@ -650,6 +720,7 @@ describe('Agent.sendMessage (streaming mode)', () => {
       }
       return Promise.resolve(
         mockNdjsonStream([
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
           `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
         ])
       );

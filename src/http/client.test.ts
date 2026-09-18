@@ -458,12 +458,17 @@ describe('HttpClient', () => {
       expect(config.headers.Authorization).toBe('Bearer secret-key');
     });
 
-    it('should include credentials for cookie-based auth (default include)', () => {
+    it('should omit credentials by default with an apiKey (bearer auth, third-party origins)', () => {
       const config = new HttpClient({ apiKey: 'secret-key' }).getStreamableConfig(
         '/tasks/task-1/stream'
       );
 
-      expect(config.credentials).toBe('include');
+      expect(config.credentials).toBe('omit');
+    });
+
+    it('should include credentials by default for proxy and getToken flows (cookies)', () => {
+      expect(new HttpClient({ proxyUrl: 'https://app.example.com/proxy' }).getStreamableConfig('/x').credentials).toBe('include');
+      expect(new HttpClient({ getToken: () => 'tok' }).getStreamableConfig('/x').credentials).toBe('include');
     });
 
     it('should respect custom credentials mode', () => {

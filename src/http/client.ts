@@ -80,7 +80,11 @@ export class HttpClient {
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
     this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
-    this.credentials = config.credentials || 'include';
+    // Bearer auth needs no cookies, and 'include' makes browsers reject the
+    // response unless the API answers with Allow-Credentials — which it does not
+    // for third-party origins (WebKit reports that as "Load failed"). Cookies
+    // matter only for the proxy / getToken flows, which keep 'include'.
+    this.credentials = config.credentials || (config.apiKey ? 'omit' : 'include');
     this.onError = config.onError;
     this.onMessage = config.onMessage;
     this.streamDefault = config.stream ?? true;
