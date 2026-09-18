@@ -44,10 +44,14 @@ import {
   PlanTypeAddon,
   PlanTypeBase,
   PlanVersionDTO,
+  PageDTO,
+  PageStatusPublished,
+  PageTypeDoc,
   RefRouteDTO,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   RefRouteTypeApp,
+  RefRouteTypeURL,
   ResourceFeatureSeedance,
   ResourceSeats,
   ResultMeta,
@@ -256,6 +260,56 @@ describe('regenerated type constants and DTO shapes', () => {
 
     expect(rewriteRoute.mode).toBe('rewrite');
     expect(redirectRoute.mode).toBe('redirect');
+  });
+
+  it('exports RefRouteTypeURL for site path-to-path routing', () => {
+    expect(RefRouteTypeURL).toBe('url');
+  });
+
+  it('accepts RefRouteTypeURL on RefRouteDTO for site-path-to-path rewrites', () => {
+    const urlRoute: RefRouteDTO = {
+      id: 'route-2',
+      short_id: 'rt2',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+      type: RefRouteTypeURL,
+      alias_ref: '/docs/api-files',
+      target_ref: '/docs/api/sdk/files',
+      primary: false,
+      mode: RefRouteModeRedirect,
+      description: 'Redirect old doc path to new location',
+      enabled: true,
+    };
+
+    expect(urlRoute.type).toBe('url');
+    expect(urlRoute.alias_ref).toBe('/docs/api-files');
+    expect(urlRoute.target_ref).toBe('/docs/api/sdk/files');
+  });
+
+  it('exposes path field on PageDTO for direct link construction without fetching each page', () => {
+    const page: PageDTO = {
+      id: 'page-1',
+      short_id: 'pg1',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+      is_featured: false,
+      title: 'Getting Started',
+      content: '# Getting Started',
+      excerpt: 'Learn the basics',
+      status: PageStatusPublished,
+      type: PageTypeDoc,
+      metadata: {
+        title: 'Getting Started',
+        description: '',
+        image: '',
+        tags: [],
+      },
+      slug: 'getting-started',
+      path: '/docs/getting-started',
+    };
+
+    expect(page.path).toBe('/docs/getting-started');
+    expect(page.slug).toBe('getting-started');
   });
 
   it('allows matching AppStoreListingDTO required_feature against ResourceFeatureSeedance', () => {
