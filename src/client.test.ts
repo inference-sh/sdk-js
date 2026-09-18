@@ -19,12 +19,15 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  CredentialProviderGoogle,
+  CredentialProviderSlack,
   createClient,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking } from './types';
-import type { AgentRunDTO } from './types';
+import type { AgentRunDTO, CredentialDTO } from './types';
+import type { IntegrationDTO, IntegrationProvider, IntegrationStatus } from './index';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 
@@ -83,6 +86,37 @@ describe('package type exports', () => {
   it('does not export removed A2UIHTML component type constant', async () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
+  });
+
+  it('exports CredentialProvider constants from the main barrel', () => {
+    expect(CredentialProviderGoogle).toBe('google');
+    expect(CredentialProviderSlack).toBe('slack');
+  });
+
+  it('keeps deprecated Integration* type aliases compatible with Credential* types', () => {
+    const credential: CredentialDTO = {
+      id: 'cred-1',
+      short_id: 'c1',
+      created_at: '2026-09-18T00:00:00Z',
+      updated_at: '2026-09-18T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      provider: 'slack',
+      type: 'oauth',
+      scope: 'team',
+      status: 'connected',
+      display_name: 'Slack',
+      scopes: [],
+      is_primary: true,
+    };
+
+    const legacy: IntegrationDTO = credential;
+    const provider: IntegrationProvider = 'slack';
+    const status: IntegrationStatus = legacy.status;
+
+    expect(legacy.provider).toBe(provider);
+    expect(status).toBe('connected');
   });
 });
 
