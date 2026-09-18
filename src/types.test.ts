@@ -85,6 +85,31 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialDTO,
+  CredentialConfigDTO,
+  CredentialConnectRequest,
+  CredentialConnectResponse,
+  CredentialRequirement,
+  CredentialTypeOAuth,
+  CredentialTypeAPIKey,
+  CredentialTypeServiceAccount,
+  CredentialTypeWIF,
+  CredentialTypeMCP,
+  CredentialStatusPending,
+  CredentialStatusConnected,
+  CredentialStatusDisconnected,
+  CredentialStatusExpired,
+  CredentialStatusError,
+  CredentialProviderGoogle,
+  CredentialProviderGoogleSA,
+  CredentialProviderSlack,
+  CredentialGrantCredentials,
+  CredentialGrantToken,
+  CredentialScopePlatform,
+  CredentialScopeOrg,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+  CredentialScopeAgent,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1568,5 +1593,167 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Credential* types (Integration* rename, 2b5a8f9)', () => {
+  it('exports CredentialType constants (formerly IntegrationAuthType)', () => {
+    expect(CredentialTypeOAuth).toBe('oauth');
+    expect(CredentialTypeAPIKey).toBe('api_key');
+    expect(CredentialTypeServiceAccount).toBe('service_account');
+    expect(CredentialTypeWIF).toBe('wif');
+    expect(CredentialTypeMCP).toBe('mcp');
+  });
+
+  it('exports CredentialStatus lifecycle constants (formerly IntegrationStatus)', () => {
+    expect(CredentialStatusPending).toBe('pending');
+    expect(CredentialStatusConnected).toBe('connected');
+    expect(CredentialStatusDisconnected).toBe('disconnected');
+    expect(CredentialStatusExpired).toBe('expired');
+    expect(CredentialStatusError).toBe('error');
+  });
+
+  it('exports CredentialProvider constants (formerly IntegrationProvider)', () => {
+    expect(CredentialProviderGoogle).toBe('google');
+    expect(CredentialProviderGoogleSA).toBe('google-sa');
+    expect(CredentialProviderSlack).toBe('slack');
+  });
+
+  it('exports CredentialGrant constants (formerly IntegrationGrant)', () => {
+    expect(CredentialGrantCredentials).toBe('credentials');
+    expect(CredentialGrantToken).toBe('token');
+  });
+
+  it('exports CredentialScope ownership constants including org', () => {
+    expect(CredentialScopePlatform).toBe('platform');
+    expect(CredentialScopeOrg).toBe('org');
+    expect(CredentialScopeTeam).toBe('team');
+    expect(CredentialScopeUser).toBe('user');
+    expect(CredentialScopeAgent).toBe('agent');
+  });
+
+  it('models CredentialDTO with type and vault_id (no duplicate auth field)', () => {
+    const wire = {
+      id: 'cred-1',
+      short_id: 'c1',
+      created_at: '2026-09-18T00:00:00Z',
+      updated_at: '2026-09-18T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      provider: CredentialProviderSlack,
+      type: CredentialTypeOAuth,
+      grant: CredentialGrantToken,
+      scope: CredentialScopeTeam,
+      status: CredentialStatusConnected,
+      display_name: 'Slack workspace',
+      scopes: ['chat:write'],
+      vault_id: 'vault-abc',
+      is_primary: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(wire)) as CredentialDTO;
+
+    expect(parsed.type).toBe('oauth');
+    expect(parsed.scope).toBe('team');
+    expect(parsed.vault_id).toBe('vault-abc');
+    expect(parsed).not.toHaveProperty('auth');
+    expect(parsed).not.toHaveProperty('service_account_email');
+  });
+
+  it('models CredentialConfigDTO with nested credential (not integration)', () => {
+    const config: CredentialConfigDTO = {
+      slug: 'slack',
+      provider: 'slack',
+      type: 'oauth',
+      name: 'Slack',
+      short_name: 'Slack',
+      description: 'Post to Slack',
+      allows_byok: false,
+      available: true,
+      has_managed: true,
+      grant: CredentialGrantToken,
+      credential: {
+        id: 'cred-1',
+        short_id: 'c1',
+        created_at: '2026-09-18T00:00:00Z',
+        updated_at: '2026-09-18T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: 'private',
+        provider: 'slack',
+        type: CredentialTypeOAuth,
+        scope: CredentialScopeTeam,
+        status: CredentialStatusConnected,
+        display_name: 'Slack',
+        scopes: [],
+        is_primary: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.credential?.provider).toBe('slack');
+    expect(parsed.credential?.status).toBe('connected');
+    expect(parsed).not.toHaveProperty('integration');
+    expect(parsed).not.toHaveProperty('auth');
+  });
+
+  it('models CredentialConnectRequest connection_scope separately from OAuth scopes', () => {
+    const request: CredentialConnectRequest = {
+      provider: CredentialProviderGoogle,
+      type: CredentialTypeOAuth,
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+      connection_scope: CredentialScopeUser,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CredentialConnectRequest;
+
+    expect(parsed.connection_scope).toBe('user');
+    expect(parsed.scopes).toEqual(['https://www.googleapis.com/auth/calendar']);
+  });
+
+  it('keeps integration key on CredentialConnectResponse wire shape', () => {
+    const response: CredentialConnectResponse = {
+      integration: {
+        id: 'cred-1',
+        short_id: 'c1',
+        created_at: '2026-09-18T00:00:00Z',
+        updated_at: '2026-09-18T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: 'private',
+        provider: 'google',
+        type: CredentialTypeOAuth,
+        scope: CredentialScopeUser,
+        status: CredentialStatusPending,
+        display_name: 'Google',
+        scopes: [],
+        is_primary: false,
+      },
+      auth_url: 'https://accounts.google.com/o/oauth2/auth',
+      state: 'state-token',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(response)) as CredentialConnectResponse;
+
+    expect(parsed.integration?.provider).toBe('google');
+    expect(parsed.integration?.status).toBe('pending');
+    expect(parsed.auth_url).toContain('accounts.google.com');
+  });
+
+  it('models CredentialRequirement for app and check-requirements envelopes', () => {
+    const requirement: CredentialRequirement = {
+      key: CredentialProviderGoogleSA,
+      description: 'Google service account for calendar',
+      secrets: ['GOOGLE_SA_JSON'],
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(requirement)) as CredentialRequirement;
+
+    expect(parsed.key).toBe('google-sa');
+    expect(parsed.secrets).toEqual(['GOOGLE_SA_JSON']);
+    expect(parsed.scopes).toHaveLength(1);
   });
 });

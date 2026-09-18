@@ -1,6 +1,12 @@
 import { HttpClient } from '../http/client';
 import { IntegrationsAPI } from './integrations';
-import { CredentialProviderGoogleSA } from '../types';
+import {
+  CredentialProviderGoogleSA,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+  CredentialStatusConnected,
+  CredentialTypeOAuth,
+} from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -122,6 +128,84 @@ describe('IntegrationsAPI', () => {
     expect(url).toContain('/credentials/capabilities');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should forward connection_scope separately from OAuth scopes in connect()', async () => {
+    const payload = {
+      provider: 'google',
+      type: CredentialTypeOAuth,
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+      connection_scope: CredentialScopeUser,
+    };
+    const response = { integration: { provider: 'google', status: 'pending' }, auth_url: 'https://oauth.test' };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload);
+
+    expect(result.data).toEqual(response);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.connection_scope).toBe('user');
+    expect(body.scopes).toEqual(['https://www.googleapis.com/auth/calendar']);
+  });
+
+  it('should deserialize CredentialDTO shape from list() (type, vault_id; no auth)', async () => {
+    const credential = {
+      id: 'cred-1',
+      short_id: 'c1',
+      created_at: '2026-09-18T00:00:00Z',
+      updated_at: '2026-09-18T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      provider: 'slack',
+      type: CredentialTypeOAuth,
+      scope: CredentialScopeTeam,
+      status: CredentialStatusConnected,
+      display_name: 'Slack',
+      scopes: ['chat:write'],
+      vault_id: 'vault-xyz',
+      is_primary: true,
+    };
+    const page = { items: [credential], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data.items[0]).toEqual(credential);
+    expect(result.data.items[0]).not.toHaveProperty('auth');
+    expect(result.data.items[0].vault_id).toBe('vault-xyz');
+  });
+
+  it('should deserialize CredentialConfigDTO with nested credential from getConfigs()', async () => {
+    const configs = [
+      {
+        slug: 'slack',
+        provider: 'slack',
+        type: 'oauth',
+        name: 'Slack',
+        short_name: 'Slack',
+        description: 'Slack integration',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        credential: {
+          provider: 'slack',
+          type: CredentialTypeOAuth,
+          scope: CredentialScopeTeam,
+          status: CredentialStatusConnected,
+          display_name: 'Slack',
+          scopes: [],
+          is_primary: true,
+        },
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0].credential?.provider).toBe('slack');
+    expect(result.data[0]).not.toHaveProperty('integration');
   });
 
   it('should POST typed integration requirements with secrets and scopes for checkRequirements()', async () => {
