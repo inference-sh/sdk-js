@@ -44,10 +44,16 @@ import {
   PlanTypeAddon,
   PlanTypeBase,
   PlanVersionDTO,
+  MenuDTO,
+  MenuItem,
+  PageDTO,
+  PageStatusPublished,
+  PageTypeDoc,
   RefRouteDTO,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   RefRouteTypeApp,
+  RefRouteTypeURL,
   ResourceFeatureSeedance,
   ResourceSeats,
   ResultMeta,
@@ -202,6 +208,10 @@ describe('regenerated type constants and DTO shapes', () => {
     expect(RefRouteModeRedirect).toBe('redirect');
   });
 
+  it('exports RefRouteTypeURL for literal path site redirects', () => {
+    expect(RefRouteTypeURL).toBe('url');
+  });
+
   it('exports AppStatus constants for app lifecycle states', () => {
     expect(AppStatusActive).toBe('active');
     expect(AppStatusMaintenance).toBe('maintenance');
@@ -255,6 +265,29 @@ describe('regenerated type constants and DTO shapes', () => {
     const redirectRoute: RefRouteDTO = { ...base, mode: RefRouteModeRedirect };
 
     expect(rewriteRoute.mode).toBe('rewrite');
+    expect(redirectRoute.mode).toBe('redirect');
+  });
+
+  it('accepts RefRouteTypeURL routes with literal paths on alias_ref and target_ref', () => {
+    const base = {
+      id: 'route-url-1',
+      short_id: 'rtu1',
+      created_at: '2026-09-18T00:00:00Z',
+      updated_at: '2026-09-18T00:00:00Z',
+      type: RefRouteTypeURL,
+      alias_ref: '/docs/api-files',
+      target_ref: '/docs/api/sdk/files',
+      primary: false,
+      description: 'Docs alias',
+      enabled: true,
+    };
+
+    const rewriteRoute: RefRouteDTO = { ...base, mode: RefRouteModeRewrite };
+    const redirectRoute: RefRouteDTO = { ...base, mode: RefRouteModeRedirect };
+
+    expect(rewriteRoute.type).toBe('url');
+    expect(rewriteRoute.alias_ref).toBe('/docs/api-files');
+    expect(rewriteRoute.target_ref).toBe('/docs/api/sdk/files');
     expect(redirectRoute.mode).toBe('redirect');
   });
 
@@ -1568,5 +1601,108 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function makePage(overrides: Partial<PageDTO> = {}): PageDTO {
+  return {
+    id: 'page-1',
+    short_id: 'pg1',
+    created_at: '2026-09-18T00:00:00Z',
+    updated_at: '2026-09-18T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    is_featured: false,
+    title: 'API Files',
+    content: '# API Files',
+    excerpt: 'How to upload files',
+    status: PageStatusPublished,
+    type: PageTypeDoc,
+    metadata: {
+      title: 'API Files',
+      description: 'How to upload files',
+      image: '',
+      tags: ['docs'],
+    },
+    slug: 'api-files',
+    path: '/docs/api-files',
+    ...overrides,
+  };
+}
+
+describe('site navigation types (page path, menu projection, url ref routes)', () => {
+  it('requires path on PageDTO responses for site navigation', () => {
+    const page = makePage();
+
+    expect(page.path).toBe('/docs/api-files');
+    expect(page.slug).toBe('api-files');
+  });
+
+  it('preserves PageDTO.path through JSON round-trip', () => {
+    const page = makePage({ path: '/docs/api/sdk/files' });
+
+    const parsed = JSON.parse(JSON.stringify(page)) as PageDTO;
+
+    expect(parsed.path).toBe('/docs/api/sdk/files');
+  });
+
+  it('projects linked page path onto MenuItem when a menu is read', () => {
+    const linkedItem: MenuItem = {
+      id: 'item-1',
+      label: 'API Files',
+      page_id: 'page-1',
+      path: '/docs/api-files',
+      order: 0,
+    };
+
+    const externalItem: MenuItem = {
+      id: 'item-2',
+      label: 'GitHub',
+      url: 'https://github.com/inference-sh',
+      order: 1,
+    };
+
+    const menu: MenuDTO = {
+      id: 'menu-1',
+      short_id: 'mn1',
+      created_at: '2026-09-18T00:00:00Z',
+      updated_at: '2026-09-18T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      name: 'Docs',
+      slug: 'docs',
+      description: 'Documentation navigation',
+      items: [linkedItem, externalItem],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(menu)) as MenuDTO;
+
+    expect(parsed.items[0].path).toBe('/docs/api-files');
+    expect(parsed.items[0].page_id).toBe('page-1');
+    expect(parsed.items[1].path).toBeUndefined();
+    expect(parsed.items[1].url).toBe('https://github.com/inference-sh');
+  });
+
+  it('carries MenuItem.path on nested children for grouped nav trees', () => {
+    const parent: MenuItem = {
+      id: 'group-1',
+      label: 'API',
+      is_group: true,
+      expanded: true,
+      order: 0,
+      children: [
+        {
+          id: 'item-1',
+          label: 'Files',
+          page_id: 'page-1',
+          path: '/docs/api/sdk/files',
+          order: 0,
+        },
+      ],
+    };
+
+    expect(parent.children?.[0].path).toBe('/docs/api/sdk/files');
   });
 });
