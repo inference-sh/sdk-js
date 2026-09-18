@@ -626,6 +626,134 @@ describe('createActions', () => {
     });
   });
 
+  describe('delta stream listener', () => {
+    it('should register a delta listener and dispatch accumulated DELTA_TOKEN actions', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(streamInstances[0].addEventListener).toHaveBeenCalledWith('delta', expect.any(Function));
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: { delta: { response?: string }; seq: number }) => void;
+
+      onDelta({ delta: { response: 'Hel' }, seq: 1 });
+      onDelta({ delta: { response: 'lo' }, seq: 2 });
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hel' },
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { response: 'Hello' },
+      });
+    });
+
+    it('should ignore delta events without a delta payload', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: unknown) => void;
+
+      onDelta(null);
+      onDelta({ seq: 1 });
+      onDelta({ delta: null, seq: 2 });
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'DELTA_TOKEN' })
+      );
+    });
+
+    it('should reset accumulated deltas when a new assistant message starts', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: { delta: Record<string, unknown>; seq: number }) => void;
+
+      const onChatMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (message: ChatMessageDTO) => void;
+
+      onDelta({ delta: { response: 'Answer to the first question.' }, seq: 1 });
+
+      onChatMessage(
+        makeMessage({ id: 'msg-2', role: 'assistant', content: '' }) as ChatMessageDTO
+      );
+
+      onDelta({
+        delta: {
+          response: '',
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'search', arguments: '{"q"' },
+            },
+          ],
+        },
+        seq: 2,
+      });
+
+      const lastDeltaToken = dispatch.mock.calls
+        .filter(([action]) => action.type === 'DELTA_TOKEN')
+        .map(([action]) => action.payload)
+        .at(-1);
+
+      expect(lastDeltaToken?.response).toBe('');
+      expect(lastDeltaToken?.tool_calls?.[0]?.function?.arguments).toBe('{"q"');
+    });
+
+    it('should not reset accumulated deltas when an existing assistant message is updated', async () => {
+      const existingMessage = makeMessage({ id: 'msg-1', role: 'assistant' });
+      const { ctx, dispatch } = createTestContext({
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [existingMessage as ChatMessageDTO],
+          connectionStatus: 'idle' as const,
+          chat: null,
+        }),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: { delta: { response?: string }; seq: number }) => void;
+
+      const onChatMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (message: ChatMessageDTO) => void;
+
+      onDelta({ delta: { response: 'Hel' }, seq: 1 });
+      onChatMessage(existingMessage as ChatMessageDTO);
+      onDelta({ delta: { response: 'lo' }, seq: 2 });
+
+      const lastDeltaToken = dispatch.mock.calls
+        .filter(([action]) => action.type === 'DELTA_TOKEN')
+        .map(([action]) => action.payload)
+        .at(-1);
+
+      expect(lastDeltaToken?.response).toBe('Hello');
+    });
+  });
+
   describe('streamChat error handling', () => {
     it('should reset to idle when initial fetchChat fails', async () => {
       mockAgentApi.fetchChat.mockRejectedValueOnce(new Error('fetch failed'));
