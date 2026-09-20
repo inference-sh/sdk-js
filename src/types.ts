@@ -4076,18 +4076,6 @@ export const ToolCallDelta_fieldTags = {
 } as const;
 
 /**
- * DeltaEvent is the generic streaming envelope on the NDJSON wire.
- * Delta is raw bytes — consumers parse based on context.
- */
-export interface DeltaEvent {
-  delta: any;
-  seq: number /* int64 */;
-}
-/**
- * LLMDeltaEvent is a typed alias for backward compatibility.
- */
-export type LLMDeltaEvent = DeltaEvent;
-/**
  * ToolCallFunctionDelta carries partial tool call function data.
  * Arguments is a raw JSON string fragment — concatenate by index, parse on completion.
  */
@@ -4593,6 +4581,34 @@ export const NotificationStatusDelivered: NotificationStatus = "delivered";
 export const NotificationStatusFailed: NotificationStatus = "failed";
 export const NotificationStatusBounced: NotificationStatus = "bounced";
 export const NotificationStatusCancelled: NotificationStatus = "cancelled";
+/**
+ * DeltaEvent is the generic streaming envelope on the NDJSON wire.
+ * Delta is raw bytes — consumers parse based on context.
+ * It is deliberately not LLM-specific: agent lifecycle events and any future
+ * delta producer share this envelope, which is why the identity field below is
+ * a bare resource id rather than anything named after chat.
+ */
+export interface DeltaEvent {
+  delta: any;
+  seq: number /* int64 */;
+  /**
+   * ResourceID names what this delta belongs to — for an LLM task, the
+   * assistant chat message being generated.
+   * Without it a consumer can only assume deltas belong to whatever it is
+   * currently building, which breaks the moment a message carries no text
+   * (a tool-call-only turn) and the previous message's state is still live.
+   * The producer copies this from the graph and never interprets it: ids come
+   * from one idgen space, so a consumer matches against the ids it already
+   * tracks and buffers anything it does not recognise yet. A resource_type
+   * companion is deliberately absent — nothing needs to route before matching.
+   * Empty when the task has no execution edge (a plain app run).
+   */
+  resource_id?: string;
+}
+/**
+ * LLMDeltaEvent is a typed alias for backward compatibility.
+ */
+export type LLMDeltaEvent = DeltaEvent;
 /**
  * TaskStatus represents the state of a task in its lifecycle.
  */

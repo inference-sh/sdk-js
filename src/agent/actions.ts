@@ -13,11 +13,14 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  ChatMessageStatusReady,
+  ChatMessageStatusFailed,
+  ChatMessageStatusCancelled,
 } from '../types';
 import { isChatBusy } from '../utils';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
-import { createLLMDeltaAccumulator } from '../delta';
+import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
 import type {
   AgentChatActions,
   ActionsContext,
@@ -174,18 +177,27 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     });
 
-    // Token-by-token streaming state, reset at every assistant-message boundary.
-    const deltaAccum = createLLMDeltaAccumulator();
+    // Token-by-token streaming state, one accumulator per message being
+    // streamed. Deltas name their message (DeltaEvent.resource_id), so state
+    // never leaks between messages the way a single shared accumulator allowed.
+    const deltaAccums = new Map<string, DeltaAccumulator>();
+    // Fallback for deltas with no resource_id — an API older than this field,
+    // or a task with no execution edge. Same shared-accumulator behaviour as
+    // before, boundary reset included, so old servers degrade rather than break.
+    const legacyAccum = createLLMDeltaAccumulator();
 
     // Listen for ChatMessage updates
     manager.addEventListener<ChatMessageDTO>('chat_messages', (message, fields) => {
-      // A new assistant message starts a new accumulation. The accumulator is
-      // cumulative and shared across the whole connection, so without this the
-      // next message's deltas merge into the previous message's state — and
-      // because concat with "" is a no-op, a turn that is only tool calls
-      // would render the previous message's text as its own.
       if (message.role === 'assistant' && !getState().messages.some(m => m.id === message.id)) {
-        deltaAccum.reset();
+        legacyAccum.reset();
+      }
+      // A message that has reached a terminal state will receive no further
+      // deltas, so its accumulator is done. This bounds the map by the number
+      // of messages streaming at once rather than by chat length.
+      if (message.status === ChatMessageStatusReady
+        || message.status === ChatMessageStatusFailed
+        || message.status === ChatMessageStatusCancelled) {
+        deltaAccums.delete(message.id);
       }
       updateMessage(message, fields);
     });
@@ -200,10 +212,22 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     manager.addEventListener<DeltaEvent>('delta', (evt) => {
-      if (evt && evt.delta) {
-        deltaAccum.apply(evt.delta);
-        dispatch({ type: 'DELTA_TOKEN', payload: deltaAccum.toOutput() });
+      if (!evt || !evt.delta) return;
+
+      const messageId = evt.resource_id;
+      if (!messageId) {
+        legacyAccum.apply(evt.delta);
+        dispatch({ type: 'DELTA_TOKEN', payload: { output: legacyAccum.toOutput() } });
+        return;
       }
+
+      let accum = deltaAccums.get(messageId);
+      if (!accum) {
+        accum = createLLMDeltaAccumulator();
+        deltaAccums.set(messageId, accum);
+      }
+      accum.apply(evt.delta);
+      dispatch({ type: 'DELTA_TOKEN', payload: { messageId, output: accum.toOutput() } });
     });
 
     setStreamManager(manager);

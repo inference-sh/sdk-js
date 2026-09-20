@@ -311,3 +311,53 @@ describe('chatReducer', () => {
     expect(state).toBe(initialState);
   });
 });
+
+describe('chatReducer DELTA_TOKEN attribution', () => {
+  function assistant(id: string, order: number, text: string): ChatMessageDTO {
+    return { ...makeMessage(id, order), role: 'assistant', content: [{ type: 'text', text }] } as ChatMessageDTO;
+  }
+
+  it('applies the delta to the message it names, not the newest one', () => {
+    const state = {
+      ...initialState,
+      messages: [assistant('msg-1', 1, 'first'), assistant('msg-2', 2, '')],
+    };
+
+    const next = chatReducer(state, {
+      type: 'DELTA_TOKEN',
+      payload: { messageId: 'msg-1', output: { response: 'first updated' } },
+    });
+
+    expect(next.messages[0].content[0].text).toBe('first updated');
+    expect(next.messages[1].content[0].text).toBe('');
+  });
+
+  it('drops a delta for a message it has not received rather than misattributing it', () => {
+    // The regression: a tool-call-only turn streams nothing, so a delta landing
+    // before its message used to overwrite the previous message's text.
+    const state = { ...initialState, messages: [assistant('msg-1', 1, 'first')] };
+
+    const next = chatReducer(state, {
+      type: 'DELTA_TOKEN',
+      payload: { messageId: 'msg-unseen', output: { response: 'leaked' } },
+    });
+
+    expect(next).toBe(state);
+    expect(next.messages[0].content[0].text).toBe('first');
+  });
+
+  it('falls back to the last assistant message when no id is carried', () => {
+    const state = {
+      ...initialState,
+      messages: [assistant('msg-1', 1, 'first'), assistant('msg-2', 2, '')],
+    };
+
+    const next = chatReducer(state, {
+      type: 'DELTA_TOKEN',
+      payload: { output: { response: 'legacy' } },
+    });
+
+    expect(next.messages[1].content[0].text).toBe('legacy');
+    expect(next.messages[0].content[0].text).toBe('first');
+  });
+});

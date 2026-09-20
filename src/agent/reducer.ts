@@ -94,15 +94,23 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       };
 
     case 'DELTA_TOKEN': {
-      const output = action.payload;
+      const { messageId, output } = action.payload;
       const msgs = state.messages;
-      const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant');
-      if (!lastAssistant) return state;
-      const textBlock = lastAssistant.content?.find(c => c.type === 'text');
+      // Apply to the message the delta names. Falling back to the last
+      // assistant message is a guess that is wrong whenever a delta arrives
+      // before the message it belongs to, so it is only for deltas that carry
+      // no id at all (an API older than DeltaEvent.resource_id).
+      const target = messageId
+        ? msgs.find(m => m.id === messageId)
+        : [...msgs].reverse().find(m => m.role === 'assistant');
+      // A named message we have not received yet: drop rather than misattribute.
+      // The completed text still arrives with the message itself.
+      if (!target) return state;
+      const textBlock = target.content?.find(c => c.type === 'text');
       const newContent = textBlock
-        ? lastAssistant.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
-        : [{ type: 'text' as const, text: output.response }, ...lastAssistant.content];
-      const newMessages = msgs.map(m => m.id === lastAssistant.id ? { ...lastAssistant, content: newContent } : m);
+        ? target.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
+        : [{ type: 'text' as const, text: output.response }, ...target.content];
+      const newMessages = msgs.map(m => m.id === target.id ? { ...target, content: newContent } : m);
       return { ...state, messages: newMessages };
     }
 

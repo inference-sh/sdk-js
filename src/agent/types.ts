@@ -274,7 +274,7 @@ export type ChatAction =
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
   | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO; partial?: boolean }
   | { type: 'ADD_MESSAGE'; payload: ChatMessageDTO }
-  | { type: 'DELTA_TOKEN'; payload: Record<string, any> }
+  | { type: 'DELTA_TOKEN'; payload: { messageId?: string; output: Record<string, any> } }
   | { type: 'SET_CONNECTION_STATUS'; payload: ChatStatus }
   | { type: 'SET_ERROR'; payload: string | undefined }
   | { type: 'PREPEND_MESSAGES'; payload: { messages: ChatMessageDTO[]; cursor?: string; hasMore: boolean } }
