@@ -4,6 +4,7 @@ import {
   ChatStatusIdle,
   AgentRunStateWorking,
   AgentRunStateCompleted,
+  ChatMessageStatusReady,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
@@ -623,6 +624,190 @@ describe('createActions', () => {
 
       expect(mockAgentApi.sendMessage).toHaveBeenCalled();
       expect(StreamableManager).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delta stream listener', () => {
+    function getDeltaListener() {
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: {
+        delta?: Record<string, unknown> | null;
+        seq: number;
+        resource_id?: string;
+      }) => void;
+    }
+
+    function getChatMessageListener() {
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (message: ChatMessageDTO) => void;
+    }
+
+    function lastDeltaTokenPayload(mockDispatch: jest.Mock) {
+      return mockDispatch.mock.calls
+        .filter(([action]) => action.type === 'DELTA_TOKEN')
+        .map(([action]) => action.payload)
+        .at(-1);
+    }
+
+    it('should register a delta listener and dispatch per-message DELTA_TOKEN actions', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      expect(streamInstances[0].addEventListener).toHaveBeenCalledWith('delta', expect.any(Function));
+
+      const onDelta = getDeltaListener();
+      onDelta({ delta: { response: 'Hel' }, seq: 1, resource_id: 'msg-1' });
+      onDelta({ delta: { response: 'lo' }, seq: 2, resource_id: 'msg-1' });
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { messageId: 'msg-1', output: { response: 'Hel' } },
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { messageId: 'msg-1', output: { response: 'Hello' } },
+      });
+    });
+
+    it('should keep per-message accumulators independent', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      onDelta({ delta: { response: 'first' }, seq: 1, resource_id: 'msg-1' });
+      onDelta({ delta: { response: 'second' }, seq: 2, resource_id: 'msg-2' });
+
+      const payloads = dispatch.mock.calls
+        .filter(([action]) => action.type === 'DELTA_TOKEN')
+        .map(([action]) => action.payload);
+
+      expect(payloads).toContainEqual({
+        messageId: 'msg-1',
+        output: { response: 'first' },
+      });
+      expect(payloads).toContainEqual({
+        messageId: 'msg-2',
+        output: { response: 'second' },
+      });
+    });
+
+    it('should ignore delta events without a delta payload', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      onDelta(null as never);
+      onDelta({ seq: 1 });
+      onDelta({ delta: null, seq: 2 });
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'DELTA_TOKEN' })
+      );
+    });
+
+    it('should not leak the previous message text into a tool-call-only turn', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      onDelta({ delta: { response: 'Answer to the first question.' }, seq: 1, resource_id: 'msg-1' });
+      onDelta({
+        delta: {
+          response: '',
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'search', arguments: '{"q"' },
+            },
+          ],
+        },
+        seq: 2,
+        resource_id: 'msg-2',
+      });
+
+      const lastPayload = lastDeltaTokenPayload(dispatch);
+      expect(lastPayload?.messageId).toBe('msg-2');
+      expect(lastPayload?.output.response).toBe('');
+      expect(lastPayload?.output.tool_calls?.[0]?.function?.arguments).toBe('{"q"');
+    });
+
+    it('should drop deltas that omit resource_id instead of guessing a target', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      const onChatMessage = getChatMessageListener();
+
+      onDelta({ delta: { response: 'Answer to the first question.' }, seq: 1, resource_id: 'msg-1' });
+      onChatMessage(
+        makeMessage({ id: 'msg-2', role: 'assistant', content: '' }) as ChatMessageDTO
+      );
+      onDelta({
+        delta: {
+          response: '',
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'search', arguments: '{"q"' },
+            },
+          ],
+        },
+        seq: 2,
+      });
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'DELTA_TOKEN',
+          payload: expect.objectContaining({ messageId: undefined }),
+        })
+      );
+      expect(lastDeltaTokenPayload(dispatch)?.messageId).toBe('msg-1');
+    });
+
+    it('should release the per-message accumulator when the message reaches a terminal status', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      const onChatMessage = getChatMessageListener();
+
+      onDelta({ delta: { response: 'partial' }, seq: 1, resource_id: 'msg-1' });
+      onChatMessage(
+        makeMessage({
+          id: 'msg-1',
+          role: 'assistant',
+          status: ChatMessageStatusReady,
+        }) as ChatMessageDTO
+      );
+      onDelta({ delta: { response: 'fresh' }, seq: 2, resource_id: 'msg-1' });
+
+      const lastPayload = lastDeltaTokenPayload(dispatch);
+      expect(lastPayload?.messageId).toBe('msg-1');
+      expect(lastPayload?.output.response).toBe('fresh');
     });
   });
 
