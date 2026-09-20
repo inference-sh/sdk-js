@@ -19,6 +19,10 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  UtilityPresetConstant,
+  UtilityPresetGate,
+  UtilityPresetMerge,
+  UtilityPresetSelector,
   createClient,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
@@ -73,6 +77,13 @@ describe('package type exports', () => {
     expect(AppStatusMaintenance).toBe('maintenance');
     expect(AppStatusDeprecated).toBe('deprecated');
     expect(AppStatusRetired).toBe('retired');
+  });
+
+  it('exports UtilityPreset constants for flow utility node presets', () => {
+    expect(UtilityPresetGate).toBe('gate');
+    expect(UtilityPresetSelector).toBe('selector');
+    expect(UtilityPresetMerge).toBe('merge');
+    expect(UtilityPresetConstant).toBe('constant');
   });
 
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {

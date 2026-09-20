@@ -2,6 +2,7 @@ import {
   APIError,
   AppCategoryOther,
   AppDTO,
+  CreateAppRequest,
   AppPricing,
   AppStatusActive,
   AppStatusDeprecated,
@@ -27,6 +28,7 @@ import {
   EntitlementTypeLimit,
   EstimateCostRequest,
   EstimateCostResponse,
+  KnowledgeCreateRequest,
   KnowledgeDTO,
   KnowledgeLifecycleDecay,
   KnowledgeLifecycleDeprecated,
@@ -34,11 +36,16 @@ import {
   KnowledgeLifecyclePermanent,
   KnowledgeTypeSkill,
   KnowledgeVersionDTO,
+  KnowledgeUpdateRequest,
   KnowledgeVersionInput,
   FlowNodeData,
   InfraPrivate,
   SelectorConfig,
   UtilityConfig,
+  UtilityPresetConstant,
+  UtilityPresetGate,
+  UtilityPresetMerge,
+  UtilityPresetSelector,
   PlanDTO,
   PlanLimits,
   PlanTypeAddon,
@@ -236,6 +243,42 @@ describe('regenerated type constants and DTO shapes', () => {
       const app = makeApp({ status });
       expect(app.status).toBe(status);
     }
+  });
+
+  it('requires title on AppDTO distinct from the immutable name slug', () => {
+    const app = makeApp({
+      name: 'veo-3-1',
+      title: 'Veo 3.1',
+    });
+
+    expect(app.name).toBe('veo-3-1');
+    expect(app.title).toBe('Veo 3.1');
+
+    const parsed = JSON.parse(JSON.stringify(app)) as AppDTO;
+
+    expect(parsed.title).toBe('Veo 3.1');
+    expect(parsed.name).toBe('veo-3-1');
+  });
+
+  it('allows empty title on AppDTO for name fallback semantics', () => {
+    const app = makeApp({ name: 'demo-app', title: '' });
+
+    expect(app.title).toBe('');
+
+    const parsed = JSON.parse(JSON.stringify(app)) as AppDTO;
+
+    expect(parsed.title).toBe('');
+  });
+
+  it('accepts optional title on CreateAppRequest payloads', () => {
+    const request: CreateAppRequest = {
+      name: 'veo-3-1',
+      title: 'Veo 3.1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CreateAppRequest;
+
+    expect(parsed.title).toBe('Veo 3.1');
   });
 
   it('accepts rewrite and redirect modes on RefRouteDTO responses', () => {
@@ -1054,6 +1097,50 @@ describe('SkillDTO and KnowledgeDTO usage metrics', () => {
 
     expect(knowledge.uses).toBe(512);
     expect(knowledge.installs).toBe(17);
+    expect(knowledge.title).toBe('Product Docs');
+    expect(knowledge.name).toBe('docs');
+  });
+
+  it('preserves KnowledgeDTO title through JSON round-trip', () => {
+    const knowledge: KnowledgeDTO = {
+      id: 'know-1',
+      short_id: 'k1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'product-docs',
+      title: 'Product Documentation',
+      description: 'Product documentation',
+      type: KnowledgeTypeSkill,
+      lifecycle: KnowledgeLifecyclePermanent,
+      version_id: 'ver-1',
+      uses: 0,
+      installs: 0,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(knowledge)) as KnowledgeDTO;
+
+    expect(parsed.title).toBe('Product Documentation');
+    expect(parsed.name).toBe('product-docs');
+  });
+
+  it('accepts optional title on KnowledgeCreateRequest and KnowledgeUpdateRequest', () => {
+    const createRequest: KnowledgeCreateRequest = {
+      name: 'product-docs',
+      title: 'Product Documentation',
+    };
+    const updateRequest: KnowledgeUpdateRequest = {
+      title: 'Updated Product Docs',
+    };
+
+    const parsedCreate = JSON.parse(JSON.stringify(createRequest)) as KnowledgeCreateRequest;
+    const parsedUpdate = JSON.parse(JSON.stringify(updateRequest)) as KnowledgeUpdateRequest;
+
+    expect(parsedCreate.title).toBe('Product Documentation');
+    expect(parsedUpdate.title).toBe('Updated Product Docs');
   });
 
   it('preserves uses and installs after JSON round-trip', () => {
@@ -1447,6 +1534,13 @@ describe('flow utility node type contracts (v0.7.86)', () => {
     workers: [],
   });
 
+  it('exports UtilityPreset constants for gate, selector, merge, and constant nodes', () => {
+    expect(UtilityPresetGate).toBe('gate');
+    expect(UtilityPresetSelector).toBe('selector');
+    expect(UtilityPresetMerge).toBe('merge');
+    expect(UtilityPresetConstant).toBe('constant');
+  });
+
   it('models SelectorConfig with field, mode, and optional index', () => {
     const byIndex: SelectorConfig = {
       field: 'items',
@@ -1468,7 +1562,7 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
   it('models UtilityConfig gate preset with nested GateCondition', () => {
     const utility: UtilityConfig = {
-      preset: 'gate',
+      preset: UtilityPresetGate,
       gate: {
         field: 'approved',
         operator: 'eq',
@@ -1528,6 +1622,26 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(parsed.preset).toBe('custom');
     expect(parsed.expression).toBe('input.score > 0.8 && input.tier == "pro"');
+  });
+
+  it('models UtilityConfig random range fields for stochastic selector nodes', () => {
+    const utility: UtilityConfig = {
+      preset: UtilityPresetSelector,
+      selector: {
+        field: 'candidates',
+        mode: 'index',
+        index: 0,
+      },
+      random: true,
+      random_min: 0.1,
+      random_max: 0.9,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(utility)) as UtilityConfig;
+
+    expect(parsed.random).toBe(true);
+    expect(parsed.random_min).toBe(0.1);
+    expect(parsed.random_max).toBe(0.9);
   });
 
   it('models FlowNodeData.utility as unified config alongside legacy fields', () => {
