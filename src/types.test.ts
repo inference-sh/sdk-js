@@ -85,6 +85,8 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  DeltaEvent,
+  LLMDeltaEvent,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1573,43 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('DeltaEvent (resource_id attribution)', () => {
+  it('carries optional resource_id to name the message a delta belongs to', () => {
+    const event: DeltaEvent = {
+      delta: { response: 'Hel' },
+      seq: 1,
+      resource_id: 'msg-assistant-1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as DeltaEvent;
+
+    expect(parsed.resource_id).toBe('msg-assistant-1');
+    expect(parsed.delta).toEqual({ response: 'Hel' });
+    expect(parsed.seq).toBe(1);
+  });
+
+  it('omits resource_id for legacy producers and plain app runs', () => {
+    const event: DeltaEvent = {
+      delta: { response: 'chunk' },
+      seq: 42,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(event)) as DeltaEvent;
+
+    expect(parsed.resource_id).toBeUndefined();
+    expect(parsed.delta).toEqual({ response: 'chunk' });
+  });
+
+  it('keeps LLMDeltaEvent as a backward-compatible alias', () => {
+    const event: LLMDeltaEvent = {
+      delta: { response: 'token' },
+      seq: 7,
+      resource_id: 'msg-1',
+    };
+
+    expect(event.resource_id).toBe('msg-1');
   });
 });
