@@ -333,7 +333,7 @@ export interface CreateAgentMessageRequest {
   agent?: string;
   tool_call_id?: string;
   input: LLMInput;
-  integration_context?: IntegrationContext;
+  channel_context?: ChannelContext;
   agent_config?: AgentConfigInput;
   agent_name?: string;
   context?: { [key: string]: string};
@@ -3820,11 +3820,11 @@ export const ChatMessageContentTypeReasoning: ChatMessageContentType = "reasonin
 export const ChatMessageContentTypeImage: ChatMessageContentType = "image";
 export const ChatMessageContentTypeFile: ChatMessageContentType = "file";
 export const ChatMessageContentTypeTool: ChatMessageContentType = "tool";
-export type IntegrationType = string;
-export const IntegrationTypeSlack: IntegrationType = "slack";
-export const IntegrationTypeDiscord: IntegrationType = "discord";
-export const IntegrationTypeTeams: IntegrationType = "teams";
-export const IntegrationTypeTelegram: IntegrationType = "telegram";
+export type ChannelType = string;
+export const ChannelTypeSlack: ChannelType = "slack";
+export const ChannelTypeDiscord: ChannelType = "discord";
+export const ChannelTypeTeams: ChannelType = "teams";
+export const ChannelTypeTelegram: ChannelType = "telegram";
 /**
  * ChatData contains agent-specific data for a chat session
  */
@@ -3855,11 +3855,13 @@ export interface ChatMessageContent {
   tool_calls?: ToolCall[];
 }
 /**
- * IntegrationContext holds integration-specific metadata for a chat
+ * ChannelContext records which channel a chat or message came through
+ * (slack, telegram, an OpenAI-dialect tag, ...) and the transport metadata
+ * needed to route a reply back to it.
  */
-export interface IntegrationContext {
-  integration_type?: IntegrationType;
-  integration_metadata?: any;
+export interface ChannelContext {
+  channel_type?: ChannelType;
+  channel_metadata?: any;
 }
 /**
  * EngineStatus represents the status of an engine.
