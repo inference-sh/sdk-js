@@ -1560,6 +1560,7 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   agent_data: ChatData;
   active_run?: AgentRunDTO;
   pending_interrupts?: InterruptDTO[];
+  channel_context?: ChannelContext;
 }
 /**
  * ChatMessageDTO for API responses
@@ -1576,6 +1577,7 @@ export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   tools?: Tool[];
   tool_call_id?: string;
   tool_invocations?: ToolInvocationDTO[];
+  channel_context?: ChannelContext;
 }
 /**
  * CredentialDTO is the API response for a credential (never exposes secrets).
