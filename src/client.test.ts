@@ -19,6 +19,10 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  ChannelTypeDiscord,
+  ChannelTypeSlack,
+  ChannelTypeTeams,
+  ChannelTypeTelegram,
   createClient,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
@@ -78,6 +82,13 @@ describe('package type exports', () => {
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
+  });
+
+  it('exports ChannelType constants for channel routing metadata', () => {
+    expect(ChannelTypeSlack).toBe('slack');
+    expect(ChannelTypeDiscord).toBe('discord');
+    expect(ChannelTypeTeams).toBe('teams');
+    expect(ChannelTypeTelegram).toBe('telegram');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {

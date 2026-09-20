@@ -85,7 +85,13 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ChannelTypeDiscord,
+  ChannelTypeSlack,
+  ChannelTypeTeams,
+  ChannelTypeTelegram,
+  CreateAgentMessageRequest,
 } from './types';
+import type { ChannelContext } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
   return {
@@ -1571,5 +1577,71 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('ChannelContext and ChannelType (channel routing metadata)', () => {
+  const minimalInput = {
+    text: 'hello from slack',
+    role: 'user' as const,
+    context: [],
+    system_prompt: '',
+    context_size: 0,
+  };
+
+  it('exports ChannelType constants for messaging platform identifiers', () => {
+    expect(ChannelTypeSlack).toBe('slack');
+    expect(ChannelTypeDiscord).toBe('discord');
+    expect(ChannelTypeTeams).toBe('teams');
+    expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('accepts ChannelContext with channel_type and reply routing metadata on CreateAgentMessageRequest', () => {
+    const channelContext: ChannelContext = {
+      channel_type: ChannelTypeSlack,
+      channel_metadata: {
+        channel_id: 'C123',
+        thread_ts: '1234.5678',
+      },
+    };
+    const request: CreateAgentMessageRequest = {
+      input: minimalInput,
+      channel_context: channelContext,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CreateAgentMessageRequest;
+
+    expect(parsed.channel_context?.channel_type).toBe('slack');
+    expect(parsed.channel_context?.channel_metadata).toEqual({
+      channel_id: 'C123',
+      thread_ts: '1234.5678',
+    });
+  });
+
+  it('allows CreateAgentMessageRequest without channel_context for direct SDK runs', () => {
+    const request: CreateAgentMessageRequest = {
+      input: minimalInput,
+    };
+
+    expect(request.channel_context).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(request))).not.toHaveProperty('channel_context');
+  });
+
+  it('serializes channel_context with channel_type and channel_metadata wire keys', () => {
+    const wire = JSON.stringify({
+      input: minimalInput,
+      channel_context: {
+        channel_type: ChannelTypeTelegram,
+        channel_metadata: { chat_id: 42, message_id: 99 },
+      },
+    });
+
+    const parsed = JSON.parse(wire) as CreateAgentMessageRequest;
+
+    expect(parsed.channel_context?.channel_type).toBe('telegram');
+    expect(parsed.channel_context?.channel_metadata).toEqual({ chat_id: 42, message_id: 99 });
+    expect(parsed).not.toHaveProperty('integration_context');
+    expect(parsed.channel_context).not.toHaveProperty('integration_type');
+    expect(parsed.channel_context).not.toHaveProperty('integration_metadata');
   });
 });
