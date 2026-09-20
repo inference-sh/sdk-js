@@ -181,16 +181,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // streamed. Deltas name their message (DeltaEvent.resource_id), so state
     // never leaks between messages the way a single shared accumulator allowed.
     const deltaAccums = new Map<string, DeltaAccumulator>();
-    // Fallback for deltas with no resource_id — an API older than this field,
-    // or a task with no execution edge. Same shared-accumulator behaviour as
-    // before, boundary reset included, so old servers degrade rather than break.
-    const legacyAccum = createLLMDeltaAccumulator();
 
     // Listen for ChatMessage updates
     manager.addEventListener<ChatMessageDTO>('chat_messages', (message, fields) => {
-      if (message.role === 'assistant' && !getState().messages.some(m => m.id === message.id)) {
-        legacyAccum.reset();
-      }
       // A message that has reached a terminal state will receive no further
       // deltas, so its accumulator is done. This bounds the map by the number
       // of messages streaming at once rather than by chat length.
@@ -214,12 +207,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     manager.addEventListener<DeltaEvent>('delta', (evt) => {
       if (!evt || !evt.delta) return;
 
+      // On a chat stream every task is created with an execution edge, so a
+      // delta with no resource id means something is wrong upstream — a missing
+      // or ambiguous edge, or a failed lookup. Guessing a target there would
+      // reintroduce exactly the misattribution this field exists to end, so
+      // drop it: the text still lands when the message itself arrives.
       const messageId = evt.resource_id;
-      if (!messageId) {
-        legacyAccum.apply(evt.delta);
-        dispatch({ type: 'DELTA_TOKEN', payload: { output: legacyAccum.toOutput() } });
-        return;
-      }
+      if (!messageId) return;
 
       let accum = deltaAccums.get(messageId);
       if (!accum) {

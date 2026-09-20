@@ -346,7 +346,9 @@ describe('chatReducer DELTA_TOKEN attribution', () => {
     expect(next.messages[0].content[0].text).toBe('first');
   });
 
-  it('falls back to the last assistant message when no id is carried', () => {
+  it('never guesses a target for a delta that names no message', () => {
+    // An unnamed delta on a chat stream means something is wrong upstream.
+    // Guessing is what caused the original misattribution, so it is dropped.
     const state = {
       ...initialState,
       messages: [assistant('msg-1', 1, 'first'), assistant('msg-2', 2, '')],
@@ -354,10 +356,9 @@ describe('chatReducer DELTA_TOKEN attribution', () => {
 
     const next = chatReducer(state, {
       type: 'DELTA_TOKEN',
-      payload: { output: { response: 'legacy' } },
+      payload: { output: { response: 'unattributed' } } as never,
     });
 
-    expect(next.messages[1].content[0].text).toBe('legacy');
-    expect(next.messages[0].content[0].text).toBe('first');
+    expect(next).toBe(state);
   });
 });

@@ -96,15 +96,10 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'DELTA_TOKEN': {
       const { messageId, output } = action.payload;
       const msgs = state.messages;
-      // Apply to the message the delta names. Falling back to the last
-      // assistant message is a guess that is wrong whenever a delta arrives
-      // before the message it belongs to, so it is only for deltas that carry
-      // no id at all (an API older than DeltaEvent.resource_id).
-      const target = messageId
-        ? msgs.find(m => m.id === messageId)
-        : [...msgs].reverse().find(m => m.role === 'assistant');
-      // A named message we have not received yet: drop rather than misattribute.
-      // The completed text still arrives with the message itself.
+      // Apply to the message the delta names — never to a guessed one. A
+      // message we have not received yet (or an unnamed delta) is dropped
+      // rather than misattributed; the text still arrives with the message.
+      const target = msgs.find(m => m.id === messageId);
       if (!target) return state;
       const textBlock = target.content?.find(c => c.type === 'text');
       const newContent = textBlock
