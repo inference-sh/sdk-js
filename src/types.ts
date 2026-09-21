@@ -957,6 +957,11 @@ export interface AppFunction {
    * metadata by AppVersion.DeriveCapabilities.
    */
   capabilities?: string[];
+  /**
+   * Kind is how the function talks to its caller, from engine discovery:
+   * a stream function declares a socket parameter. Empty means run.
+   */
+  kind?: FunctionKind;
 }
 /**
  * AppImages holds developer-provided images for the app.
@@ -3080,6 +3085,38 @@ export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
   scope?: SecretScope;
 }
 /**
+ * SocketAccess is where one end of a socket dials and the credential it
+ * presents. The task's caller gets one in the run response; the worker gets
+ * its own with the dispatch.
+ * Browsers cannot set headers on a WebSocket: they append
+ * `?access_token=<token>` to the URL. Everything else sends
+ * `Authorization: Bearer <token>`.
+ */
+export interface SocketAccess {
+  id: string;
+  url: string;
+  token: string;
+  expires_at: string /* RFC3339 */;
+}
+/**
+ * SocketDTO is a socket and what is known of its life. The traffic figures
+ * come from the relay once the socket has closed.
+ */
+export interface SocketDTO extends BaseModelDTO, PermissionModelDTO {
+  task_id: string;
+  relay: string;
+  status: SocketStatus;
+  paired_at?: string /* RFC3339 */;
+  ended_at?: string /* RFC3339 */;
+  outcome?: SocketOutcome;
+  close_code?: number /* int */;
+  close_reason?: string;
+  client_frames: number /* int64 */;
+  client_bytes: number /* int64 */;
+  worker_frames: number /* int64 */;
+  worker_bytes: number /* int64 */;
+}
+/**
  * MeStatsResponse is returned by GET /me/stats.
  */
 export interface MeStatsResponse {
@@ -3325,6 +3362,11 @@ export interface TaskResultDTO {
   created_at: string /* RFC3339 */;
   updated_at: string /* RFC3339 */;
   run_at?: string /* RFC3339 */;
+  /**
+   * Socket is set when the function is a stream function: the caller dials
+   * it to talk to the app. POST /sockets/{id}/access issues a fresh one.
+   */
+  socket?: SocketAccess;
 }
 /**
  * TaskLogsDTO is a lightweight response for task logs endpoint.
@@ -4586,6 +4628,57 @@ export const NotificationStatusDelivered: NotificationStatus = "delivered";
 export const NotificationStatusFailed: NotificationStatus = "failed";
 export const NotificationStatusBounced: NotificationStatus = "bounced";
 export const NotificationStatusCancelled: NotificationStatus = "cancelled";
+/**
+ * FunctionKind is how an app function talks to its caller.
+ */
+export type FunctionKind = string;
+/**
+ * FunctionKindRun takes an input and returns an output (optionally
+ * yielding progress on the way). The zero value means this.
+ */
+export const FunctionKindRun: FunctionKind = "run";
+/**
+ * FunctionKindStream holds a socket with the caller for the life of the
+ * task: frames both ways, no input/output exchange.
+ */
+export const FunctionKindStream: FunctionKind = "stream";
+/**
+ * SocketStatus is where a socket is in its life.
+ */
+export type SocketStatus = string;
+/**
+ * SocketStatusPending: opened, and the two ends have not met yet. An end
+ * that gave up waiting may dial again, so an unpaired end does not close
+ * the socket; the task ending does.
+ */
+export const SocketStatusPending: SocketStatus = "pending";
+/**
+ * SocketStatusOpen: both ends are connected through the relay.
+ */
+export const SocketStatusOpen: SocketStatus = "open";
+/**
+ * SocketStatusClosed: over. Outcome says why.
+ */
+export const SocketStatusClosed: SocketStatus = "closed";
+/**
+ * SocketOutcome is why a socket closed.
+ */
+export type SocketOutcome = string;
+export const SocketOutcomeClientClosed: SocketOutcome = "client_closed";
+export const SocketOutcomeWorkerClosed: SocketOutcome = "worker_closed";
+/**
+ * SocketOutcomeDrained: the relay restarted under a live socket.
+ */
+export const SocketOutcomeDrained: SocketOutcome = "drained";
+/**
+ * SocketOutcomeNeverPaired: the task ended before the two ends met.
+ */
+export const SocketOutcomeNeverPaired: SocketOutcome = "never_paired";
+/**
+ * SocketOutcomeTaskEnded: the task ended and the relay's own account of
+ * the socket has not arrived (yet).
+ */
+export const SocketOutcomeTaskEnded: SocketOutcome = "task_ended";
 /**
  * DeltaEvent is the generic streaming envelope on the NDJSON wire.
  * Delta is raw bytes — consumers parse based on context.
