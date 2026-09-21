@@ -487,6 +487,24 @@ export interface SecretCreateRequest {
    * provider's default (team). Requires the matching admin role.
    */
   connection_scope?: CredentialScope;
+  /**
+   * ProviderName and ProviderWebsite describe a provider the platform does
+   * not list: the name the credential is shown under, and the site its
+   * logo is looked up from. Ignored for a provider the platform knows.
+   */
+  provider_name?: string;
+  provider_website?: string;
+}
+/**
+ * SecretProviderRequest attaches an existing secret to a provider's
+ * credential — the link a secret gets when it is created against a provider.
+ * An empty Provider detaches it back to a plain secret.
+ */
+export interface SecretProviderRequest {
+  provider: string;
+  connection_scope?: CredentialScope;
+  provider_name?: string;
+  provider_website?: string;
 }
 export interface SecretUpdateRequest {
   value: string;
@@ -3083,6 +3101,11 @@ export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
   masked_value: string;
   description?: string;
   scope?: SecretScope;
+  /**
+   * CredentialID is the credential this secret is attached to; empty for
+   * a plain secret.
+   */
+  credential_id?: string;
 }
 /**
  * SocketAccess is where one end of a socket dials and the credential it
