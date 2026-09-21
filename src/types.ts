@@ -1615,6 +1615,11 @@ export interface CredentialConfigDTO {
   available: boolean;
   has_managed: boolean;
   grant?: CredentialGrant;
+  /**
+   * CustomProviderID is set when the provider is one the team defined
+   * itself (models.CustomProvider), so the UI can offer edit and remove.
+   */
+  custom_provider_id?: string;
   credential?: CredentialDTO;
 }
 /**
