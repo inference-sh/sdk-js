@@ -319,13 +319,18 @@ export class Agent {
 
     const { url, headers, credentials } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.stream?.stop();
 
       this.stream = new StreamableManager<unknown>({
         url,
         headers,
         credentials,
+        onError: (err) => reject(err),
+        // Stream ended without an idle observation (server closed early or max
+        // reconnects exhausted). Resolve so sendMessage does not hang; the
+        // caller may not have seen a clean turn-end state, but hanging is worse.
+        onEnd: () => resolve(),
       });
 
       // Last chat/run observation was idle but the gate wasn't settled yet;
