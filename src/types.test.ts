@@ -1,6 +1,7 @@
 import {
   APIError,
   AppCategoryOther,
+  AppFunction,
   AppDTO,
   AppPricing,
   AppStatusActive,
@@ -36,6 +37,8 @@ import {
   KnowledgeVersionDTO,
   KnowledgeVersionInput,
   FlowNodeData,
+  FunctionKindRun,
+  FunctionKindStream,
   InfraPrivate,
   SelectorConfig,
   UtilityConfig,
@@ -60,6 +63,16 @@ import {
   ScopePreset,
   ScopesResponse,
   SkillDTO,
+  SocketAccess,
+  SocketDTO,
+  SocketOutcomeClientClosed,
+  SocketOutcomeDrained,
+  SocketOutcomeNeverPaired,
+  SocketOutcomeTaskEnded,
+  SocketOutcomeWorkerClosed,
+  SocketStatusClosed,
+  SocketStatusOpen,
+  SocketStatusPending,
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
@@ -69,6 +82,8 @@ import {
   ToolContentTypeResource,
   ToolContentTypeResourceLink,
   ToolContentTypeText,
+  TaskResultDTO,
+  TaskStatusCompleted,
   VisibilityPrivate,
   InterruptDTO,
   InterruptReasonToolApproval,
@@ -1571,5 +1586,148 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('socket types (SocketDTO, SocketAccess, AppFunction.kind, TaskResultDTO.socket)', () => {
+  function makeSocketAccess(overrides: Partial<SocketAccess> = {}): SocketAccess {
+    return {
+      id: 'sock-access-1',
+      url: 'wss://relay.example.com/sockets/sock-1',
+      token: 'access-token-abc',
+      expires_at: '2026-09-21T12:00:00Z',
+      ...overrides,
+    };
+  }
+
+  function makeSocketDTO(overrides: Partial<SocketDTO> = {}): SocketDTO {
+    return {
+      id: 'sock-1',
+      short_id: 's1',
+      created_at: '2026-09-21T10:00:00Z',
+      updated_at: '2026-09-21T10:05:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      task_id: 'task-1',
+      relay: 'relay-us-east-1',
+      status: SocketStatusOpen,
+      client_frames: 0,
+      client_bytes: 0,
+      worker_frames: 0,
+      worker_bytes: 0,
+      ...overrides,
+    };
+  }
+
+  function makeTaskResult(overrides: Partial<TaskResultDTO> = {}): TaskResultDTO {
+    return {
+      id: 'task-1',
+      short_id: 't1',
+      status: TaskStatusCompleted,
+      status_text: 'completed',
+      output: null,
+      created_at: '2026-09-21T10:00:00Z',
+      updated_at: '2026-09-21T10:05:00Z',
+      ...overrides,
+    };
+  }
+
+  it('exports FunctionKind constants for run and stream app functions', () => {
+    expect(FunctionKindRun).toBe('run');
+    expect(FunctionKindStream).toBe('stream');
+  });
+
+  it('exports SocketStatus constants for pending, open, and closed lifecycle states', () => {
+    expect(SocketStatusPending).toBe('pending');
+    expect(SocketStatusOpen).toBe('open');
+    expect(SocketStatusClosed).toBe('closed');
+  });
+
+  it('exports SocketOutcome constants for all documented close reasons', () => {
+    expect(SocketOutcomeClientClosed).toBe('client_closed');
+    expect(SocketOutcomeWorkerClosed).toBe('worker_closed');
+    expect(SocketOutcomeDrained).toBe('drained');
+    expect(SocketOutcomeNeverPaired).toBe('never_paired');
+    expect(SocketOutcomeTaskEnded).toBe('task_ended');
+  });
+
+  it('accepts AppFunction.kind stream for socket-parameter functions from engine discovery', () => {
+    const fn: AppFunction = {
+      name: 'interactive',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+      kind: FunctionKindStream,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(fn)) as AppFunction;
+
+    expect(parsed.kind).toBe('stream');
+    expect(parsed.name).toBe('interactive');
+  });
+
+  it('allows AppFunction without kind for legacy run functions (empty means run)', () => {
+    const fn: AppFunction = {
+      name: 'generate',
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+    };
+
+    expect(fn.kind).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(fn))).not.toHaveProperty('kind');
+  });
+
+  it('preserves SocketAccess dial credentials through JSON round-trip', () => {
+    const access = makeSocketAccess();
+
+    const parsed = JSON.parse(JSON.stringify(access)) as SocketAccess;
+
+    expect(parsed.id).toBe('sock-access-1');
+    expect(parsed.url).toBe('wss://relay.example.com/sockets/sock-1');
+    expect(parsed.token).toBe('access-token-abc');
+    expect(parsed.expires_at).toBe('2026-09-21T12:00:00Z');
+  });
+
+  it('models SocketDTO with relay traffic counters and optional close metadata', () => {
+    const socket = makeSocketDTO({
+      status: SocketStatusClosed,
+      paired_at: '2026-09-21T10:01:00Z',
+      ended_at: '2026-09-21T10:04:30Z',
+      outcome: SocketOutcomeClientClosed,
+      close_code: 1000,
+      close_reason: 'normal closure',
+      client_frames: 42,
+      client_bytes: 8192,
+      worker_frames: 38,
+      worker_bytes: 6144,
+    });
+
+    const parsed = JSON.parse(JSON.stringify(socket)) as SocketDTO;
+
+    expect(parsed.status).toBe('closed');
+    expect(parsed.outcome).toBe('client_closed');
+    expect(parsed.close_code).toBe(1000);
+    expect(parsed.close_reason).toBe('normal closure');
+    expect(parsed.client_frames).toBe(42);
+    expect(parsed.worker_bytes).toBe(6144);
+  });
+
+  it('accepts TaskResultDTO.socket for stream function run responses', () => {
+    const access = makeSocketAccess();
+    const result = makeTaskResult({ socket: access });
+
+    const parsed = JSON.parse(JSON.stringify(result)) as TaskResultDTO;
+
+    expect(parsed.socket?.id).toBe('sock-access-1');
+    expect(parsed.socket?.url).toContain('wss://');
+    expect(parsed.socket?.token).toBe('access-token-abc');
+    expect(parsed.status).toBe(TaskStatusCompleted);
+  });
+
+  it('allows TaskResultDTO without socket for standard run functions', () => {
+    const result = makeTaskResult({ output: { text: 'done' } });
+
+    expect(result.socket).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(result))).not.toHaveProperty('socket');
   });
 });
