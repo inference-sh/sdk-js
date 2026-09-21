@@ -3,6 +3,7 @@ import type { Response } from '../http/response';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
+import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
 import {
   AgentRunDTO,
   ChatDTO,
@@ -10,6 +11,9 @@ import {
   ChatMessageStatusCancelled,
   ChatMessageStatusFailed,
   ChatMessageStatusReady,
+  DeltaEvent,
+  LLMDelta,
+  LLMOutput,
   ResourceStatusDTO,
   AgentConfigInput as AgentConfig,
   AgentDTO,
@@ -79,6 +83,21 @@ export interface AgentOptions {
   context?: Record<string, string>;
 }
 
+/**
+ * One streamed token batch for a message, with everything received for that
+ * message so far. `output.response` is the assistant text as it grows.
+ */
+export interface AgentDelta {
+  /** The chat message the tokens belong to (normally this turn's assistant message) */
+  messageId: string;
+  /** This batch alone */
+  delta: LLMDelta;
+  /** All batches for the message merged, in the shape of the message's final output */
+  output: LLMOutput;
+  /** Producer sequence number, monotonically increasing per message */
+  seq: number;
+}
+
 export interface SendMessageOptions {
   /** File attachments - Blob (will be uploaded) or FileDTO (already uploaded, has uri) */
   files?: (Blob | File)[];
@@ -86,6 +105,12 @@ export interface SendMessageOptions {
   onMessage?: (message: ChatMessageDTO) => void;
   /** Callback for chat updates */
   onChat?: (chat: ChatDTO) => void;
+  /**
+   * Callback for token-by-token output while the assistant message is being
+   * generated. Streaming mode only: with `stream: false` there are no deltas
+   * and the message arrives whole through onMessage.
+   */
+  onDelta?: (delta: AgentDelta) => void;
   /** Callback when a client tool needs execution */
   onToolCall?: (invocation: { id: string; name: string; args: Record<string, unknown> }) => void;
   /** Use SSE streaming (true) or polling (false). Overrides client default. */
@@ -136,7 +161,7 @@ export class Agent {
   ): Promise<{ userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO }> {
     this.dispatchedToolCalls.clear();
     const isTemplate = typeof this.config === 'string';
-    const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall);
+    const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall || options.onDelta);
 
     // Process files - either already uploaded (FileDTO with uri) or needs upload (Blob)
     let imageUris: string[] | undefined;
@@ -326,7 +351,30 @@ export class Agent {
         else idlePending = false;
       });
 
+      // One accumulator per message being streamed, keyed by the message id
+      // the delta names, so a tool-call-only turn never shows the previous
+      // message's text. Same attribution rule as the React hooks.
+      const deltaAccums = new Map<string, DeltaAccumulator>();
+
+      this.stream.addEventListener<DeltaEvent>('delta', (evt) => {
+        if (!options.onDelta || !evt?.delta || !evt.resource_id) return;
+        let accum = deltaAccums.get(evt.resource_id);
+        if (!accum) {
+          accum = createLLMDeltaAccumulator();
+          deltaAccums.set(evt.resource_id, accum);
+        }
+        accum.apply(evt.delta);
+        options.onDelta({
+          messageId: evt.resource_id,
+          delta: evt.delta as LLMDelta,
+          output: accum.toOutput() as LLMOutput,
+          seq: evt.seq,
+        });
+      });
+
       this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
+        // A terminal message receives no further deltas.
+        if (terminalMessageStatuses.has(message.status)) deltaAccums.delete(message.id);
         gate.observeMessage(message);
         options.onMessage?.(message);
         if (idlePending && gate.settled) resolve();
