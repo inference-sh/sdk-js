@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { CredentialScopeOrg } from '../types';
 import { SecretsAPI } from './secrets';
 
 const mockFetch = jest.fn();
@@ -59,6 +60,41 @@ describe('SecretsAPI', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward provider_name and provider_website for custom provider secrets', async () => {
+    const payload = {
+      key: 'ACME_API_KEY',
+      value: 'secret-value',
+      provider: 'acme',
+      connection_scope: CredentialScopeOrg,
+      provider_name: 'Acme Corp',
+      provider_website: 'https://acme.example',
+    };
+    const secret = { key: 'ACME_API_KEY', credential_id: 'cred-acme-1' };
+    mockJsonResponse(secret);
+
+    const result = await api().create(payload);
+
+    expect(result.data.credential_id).toBe('cred-acme-1');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should deserialize credential_id on list() responses', async () => {
+    const page = {
+      items: [
+        { key: 'PLAIN_KEY', masked_value: '****' },
+        { key: 'LINKED_KEY', masked_value: '****', credential_id: 'cred-github-1' },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data.items[0].credential_id).toBeUndefined();
+    expect(result.data.items[1].credential_id).toBe('cred-github-1');
   });
 
   it('should PUT /secrets/{key} for update()', async () => {

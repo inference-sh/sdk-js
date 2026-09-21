@@ -85,6 +85,12 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialScopeOrg,
+  CredentialScopeTeam,
+  SecretCreateRequest,
+  SecretProviderRequest,
+  SecretDTO,
+  SecretUpdateRequest,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1577,98 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('secret provider types (SecretProviderRequest, provider fields, credential_id)', () => {
+  function makeSecretDTO(overrides: Partial<SecretDTO> = {}): SecretDTO {
+    return {
+      id: 'sec-1',
+      short_id: 's1',
+      created_at: '2026-09-21T00:00:00Z',
+      updated_at: '2026-09-21T00:00:00Z',
+      key: 'API_TOKEN',
+      masked_value: 'sk-****',
+      ...overrides,
+    };
+  }
+
+  it('models provider_name and provider_website on SecretCreateRequest for custom providers', () => {
+    const request: SecretCreateRequest = {
+      key: 'ACME_API_KEY',
+      value: 'secret-value',
+      provider: 'acme',
+      provider_name: 'Acme Corp',
+      provider_website: 'https://acme.example',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SecretCreateRequest;
+
+    expect(parsed.provider).toBe('acme');
+    expect(parsed.provider_name).toBe('Acme Corp');
+    expect(parsed.provider_website).toBe('https://acme.example');
+  });
+
+  it('allows SecretCreateRequest without provider_name for platform-known providers', () => {
+    const request: SecretCreateRequest = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      provider: 'google',
+    };
+
+    expect(request.provider_name).toBeUndefined();
+    expect(request.provider_website).toBeUndefined();
+  });
+
+  it('preserves SecretProviderRequest attach fields through JSON round-trip', () => {
+    const request: SecretProviderRequest = {
+      provider: 'github',
+      connection_scope: CredentialScopeTeam,
+      provider_name: 'GitHub Enterprise',
+      provider_website: 'https://github.example.com',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as SecretProviderRequest;
+
+    expect(parsed.provider).toBe('github');
+    expect(parsed.connection_scope).toBe('team');
+    expect(parsed.provider_name).toBe('GitHub Enterprise');
+    expect(parsed.provider_website).toBe('https://github.example.com');
+  });
+
+  it('allows SecretProviderRequest with empty provider to detach from a credential', () => {
+    const detach: SecretProviderRequest = { provider: '' };
+
+    expect(JSON.parse(JSON.stringify(detach))).toEqual({ provider: '' });
+    expect(detach.connection_scope).toBeUndefined();
+  });
+
+  it('does not include provider fields on SecretUpdateRequest (immutable after creation)', () => {
+    const update: SecretUpdateRequest = {
+      value: 'rotated-secret',
+      description: 'Rotated credentials',
+    };
+
+    expect(update).not.toHaveProperty('provider');
+    expect(update).not.toHaveProperty('provider_name');
+    expect(update).not.toHaveProperty('provider_website');
+    expect(update).not.toHaveProperty('connection_scope');
+  });
+
+  it('models credential_id on SecretDTO when attached to a provider credential', () => {
+    const secret = makeSecretDTO({ credential_id: 'cred-github-1' });
+
+    const parsed = JSON.parse(JSON.stringify(secret)) as SecretDTO;
+
+    expect(parsed.credential_id).toBe('cred-github-1');
+    expect(parsed.key).toBe('API_TOKEN');
+    expect(parsed.masked_value).toBe('sk-****');
+  });
+
+  it('allows SecretDTO without credential_id for plain secrets', () => {
+    const secret = makeSecretDTO();
+
+    expect(secret.credential_id).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(secret))).not.toHaveProperty('credential_id');
   });
 });

@@ -703,6 +703,130 @@ describe('Agent.sendMessage (streaming mode)', () => {
     ]);
   });
 
+  it('should not invoke onDelta when stream is false', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage,
+      assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    const onDelta = jest.fn();
+    await streamingAgent().sendMessage('hello', { stream: false, onDelta });
+
+    expect(onDelta).not.toHaveBeenCalled();
+  });
+
+  it('should reset per-message accumulation after the assistant message is terminal', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1', status: 'in_progress' });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage,
+                assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'Hel' }, seq: 1, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'lo' }, seq: 2, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-1', status: 'ready' }) })}\n`,
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'late' }, seq: 3, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+        ])
+      );
+    });
+
+    const onDelta = jest.fn();
+    await streamingAgent().sendMessage('hello', { onDelta });
+
+    expect(onDelta.mock.calls.map(([d]) => [d.messageId, d.output.response, d.seq])).toEqual([
+      ['asst-1', 'Hel', 1],
+      ['asst-1', 'Hello', 2],
+      ['asst-1', 'late', 3],
+    ]);
+  });
+
+  it('should not surface previous turn text through onDelta on a tool-call-only follow-up', async () => {
+    const runResponse = (n: number) => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            user_message: makeMessage({ id: `user-${n}`, role: 'user' }),
+            assistant_message: makeMessage({ id: `asst-${n}` }),
+          })
+        ),
+    });
+    const idle = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } });
+    const busy = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } });
+    const turn1Deltas = [
+      `${JSON.stringify({ event: 'delta', data: { delta: { response: 'First' }, seq: 1, resource_id: 'asst-1' } })}\n`,
+      `${JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-1', status: 'ready', content: 'First' }) })}\n`,
+    ];
+    const toolOnly = makeMessage({
+      id: 'asst-2',
+      content: '',
+      tool_invocations: [{
+        id: 'tool-1',
+        type: ToolTypeClient,
+        status: ToolInvocationStatusAwaitingInput,
+        function: { name: 'lookup', arguments: { q: 'x' } },
+      }],
+    });
+
+    let turn = 0;
+    let streams = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) return Promise.resolve(runResponse(++turn));
+      if (++streams === 1) {
+        return Promise.resolve(mockNdjsonStream([`${busy}\n`, ...turn1Deltas, `${idle}\n`]));
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${idle}\n`,
+          `${busy}\n`,
+          `${JSON.stringify({ event: 'chat_messages', data: toolOnly })}\n`,
+          `${idle}\n`,
+        ])
+      );
+    });
+
+    const agent = streamingAgent();
+    const onDeltaTurn1 = jest.fn();
+    await agent.sendMessage('first', { onDelta: onDeltaTurn1 });
+    expect(onDeltaTurn1).toHaveBeenCalledTimes(1);
+    expect(onDeltaTurn1.mock.calls[0][0].output.response).toBe('First');
+
+    const onDeltaTurn2 = jest.fn();
+    await agent.sendMessage('second', { onDelta: onDeltaTurn2 });
+    expect(onDeltaTurn2).not.toHaveBeenCalled();
+  });
+
   it('should wait for the turn when onDelta is the only callback', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });
