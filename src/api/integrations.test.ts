@@ -111,6 +111,52 @@ describe('IntegrationsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize custom_provider_id on team-defined providers from getConfigs()', async () => {
+    const configs = [
+      {
+        slug: 'my-llm',
+        provider: 'custom',
+        type: 'api_key',
+        name: 'My LLM',
+        short_name: 'My LLM',
+        description: 'Team-defined custom provider',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        custom_provider_id: 'cp-abc123',
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0].custom_provider_id).toBe('cp-abc123');
+    expect(result.data[0].provider).toBe('custom');
+  });
+
+  it('should deserialize custom_provider_id from listAvailable()', async () => {
+    const available = [
+      {
+        slug: 'my-llm',
+        provider: 'custom',
+        type: 'api_key',
+        name: 'My LLM',
+        short_name: 'My LLM',
+        description: 'Team-defined custom provider',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        custom_provider_id: 'cp-xyz789',
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0].custom_provider_id).toBe('cp-xyz789');
+    expect(result.data[0].provider).toBe('custom');
+  });
+
   it('should GET /credentials/capabilities for getCapabilities()', async () => {
     const capabilities = { slack: ['post_message'] };
     mockJsonResponse(capabilities);

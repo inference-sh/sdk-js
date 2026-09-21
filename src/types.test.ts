@@ -85,6 +85,7 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialConfigDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1572,76 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function makeCredentialConfig(overrides: Partial<CredentialConfigDTO> = {}): CredentialConfigDTO {
+  return {
+    slug: 'openai',
+    provider: 'openai',
+    type: 'api_key',
+    name: 'OpenAI',
+    short_name: 'OpenAI',
+    description: 'OpenAI models',
+    allows_byok: true,
+    available: true,
+    has_managed: true,
+    ...overrides,
+  };
+}
+
+describe('CredentialConfigDTO custom_provider_id (af3f4d1)', () => {
+  it('preserves custom_provider_id for team-defined providers through JSON round-trip', () => {
+    const config = makeCredentialConfig({
+      slug: 'my-llm',
+      provider: 'custom',
+      name: 'My LLM',
+      short_name: 'My LLM',
+      description: 'Team-defined custom provider',
+      custom_provider_id: 'cp-abc123',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.custom_provider_id).toBe('cp-abc123');
+    expect(parsed.provider).toBe('custom');
+    expect(parsed.slug).toBe('my-llm');
+  });
+
+  it('omits custom_provider_id for built-in catalog providers', () => {
+    const config = makeCredentialConfig();
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.custom_provider_id).toBeUndefined();
+    expect(parsed.provider).toBe('openai');
+  });
+
+  it('keeps custom_provider_id independent of nested credential state', () => {
+    const config = makeCredentialConfig({
+      custom_provider_id: 'cp-xyz789',
+      credential: {
+        id: 'cred-1',
+        short_id: 'c1',
+        created_at: '2026-09-21T00:00:00Z',
+        updated_at: '2026-09-21T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: 'private',
+        provider: 'custom',
+        type: 'api_key',
+        scope: 'team',
+        status: 'connected',
+        display_name: 'My LLM',
+        scopes: [],
+        is_primary: true,
+      },
+    });
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.custom_provider_id).toBe('cp-xyz789');
+    expect(parsed.credential?.provider).toBe('custom');
+    expect(parsed.credential?.status).toBe('connected');
   });
 });
