@@ -421,6 +421,147 @@ describe('Agent.sendMessage (polling mode)', () => {
     warnSpy.mockRestore();
     jest.useRealTimers();
   });
+
+  it('should reject with signal.reason and stop polling when aborted mid-turn', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    let statusPollCount = 0;
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ user_message: userMessage, assistant_message: assistantMessage })
+            ),
+        });
+      }
+      if (urlStr.includes('/status')) {
+        statusPollCount++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        });
+      }
+      if (urlStr.includes('/chats/')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'chat-1',
+                status: ChatStatusBusy,
+                active_run: workingRun,
+                chat_messages: [],
+              })
+            ),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+    });
+
+    const agentInstance = agent();
+    const reason = new Error('operator needed');
+    const turn = agentInstance.sendMessage('hello', { stream: false, signal: controller.signal });
+
+    for (let i = 0; i < 3; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    const statusPollsBeforeAbort = statusPollCount;
+    controller.abort(reason);
+
+    await expect(turn).rejects.toBe(reason);
+    expect(agentInstance.currentChatId).toBe('chat-1');
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(statusPollCount).toBe(statusPollsBeforeAbort);
+
+    jest.useRealTimers();
+  });
+
+  it('should reject before POST when the signal is already aborted (polling mode)', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      agent().sendMessage('hello', { stream: false, signal: controller.signal })
+    ).rejects.toBe(controller.signal.reason);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should allow aborting a turn parked on client tool approval', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const toolInvocation = {
+      id: 'tool-inv-await',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'approve_action', arguments: { step: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ user_message: userMessage, assistant_message: assistantMessage })
+            ),
+        });
+      }
+      if (urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        });
+      }
+      if (urlStr.includes('/chats/') && !urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'chat-1',
+                status: ChatStatusBusy,
+                active_run: workingRun,
+                chat_messages: [messageWithTool],
+              })
+            ),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+    });
+
+    const reason = new Error('cannot resolve approval in this environment');
+    const turn = agent().sendMessage('approve this', { stream: false, signal: controller.signal });
+
+    for (let i = 0; i < 3; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    controller.abort(reason);
+    await expect(turn).rejects.toBe(reason);
+    jest.useRealTimers();
+  });
 });
 
 describe('Agent.sendMessage (streaming mode)', () => {
