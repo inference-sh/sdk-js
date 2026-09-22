@@ -85,6 +85,11 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ChatDTO,
+  ChannelContext,
+  ChannelTypeSlack,
+  ChannelTypeTeams,
+  ChatStatusIdle,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1576,71 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('ChatDTO channel_context (channel origin on chat responses)', () => {
+  const minimalChat = (): ChatDTO =>
+    ({
+      id: 'chat-1',
+      short_id: 'c1',
+      created_at: '2026-09-22T00:00:00Z',
+      updated_at: '2026-09-22T00:00:00Z',
+      status: ChatStatusIdle,
+      children: [],
+      name: 'Slack thread',
+      description: '',
+      chat_messages: [],
+      agent_data: {},
+    }) as ChatDTO;
+
+  it('preserves channel_context with channel_type and reply routing metadata on ChatDTO', () => {
+    const channelContext: ChannelContext = {
+      channel_type: ChannelTypeSlack,
+      channel_metadata: {
+        channel_id: 'C123',
+        thread_ts: '1234.5678',
+      },
+    };
+    const chat: ChatDTO = {
+      ...minimalChat(),
+      channel_context: channelContext,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.channel_context?.channel_type).toBe('slack');
+    expect(parsed.channel_context?.channel_metadata).toEqual({
+      channel_id: 'C123',
+      thread_ts: '1234.5678',
+    });
+  });
+
+  it('allows ChatDTO without channel_context for SDK- or app-started chats', () => {
+    const chat = minimalChat();
+
+    expect(chat.channel_context).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(chat))).not.toHaveProperty('channel_context');
+  });
+
+  it('serializes ChatDTO channel_context with channel_type and channel_metadata wire keys', () => {
+    const wire = JSON.stringify({
+      ...minimalChat(),
+      channel_context: {
+        channel_type: ChannelTypeTeams,
+        channel_metadata: { conversation_id: 'conv-9', service_url: 'https://teams.example' },
+      },
+    });
+
+    const parsed = JSON.parse(wire) as ChatDTO;
+
+    expect(parsed.channel_context?.channel_type).toBe('teams');
+    expect(parsed.channel_context?.channel_metadata).toEqual({
+      conversation_id: 'conv-9',
+      service_url: 'https://teams.example',
+    });
+    expect(parsed).not.toHaveProperty('integration_context');
+    expect(parsed.channel_context).not.toHaveProperty('integration_type');
+    expect(parsed.channel_context).not.toHaveProperty('integration_metadata');
   });
 });

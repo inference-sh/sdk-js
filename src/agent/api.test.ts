@@ -318,6 +318,28 @@ describe('agent/api', () => {
   });
 
   describe('fetchChat', () => {
+    it('should preserve channel_context from Chat.Get responses', async () => {
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        channel_context: {
+          channel_type: 'slack',
+          channel_metadata: { channel_id: 'C123', thread_ts: '1234.5678' },
+        },
+      };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.channel_context?.channel_type).toBe('slack');
+      expect(result?.channel_context?.channel_metadata).toEqual({
+        channel_id: 'C123',
+        thread_ts: '1234.5678',
+      });
+    });
+
     it('should fetch messages separately when Chat.Get does not preload them', async () => {
       const chat = { id: 'chat-1', status: 'idle' };
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];

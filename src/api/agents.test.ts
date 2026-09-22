@@ -1384,6 +1384,24 @@ describe('Agent.getChat', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve channel_context when getChat loads a channel-originated chat', async () => {
+    const chat = {
+      id: 'chat-42',
+      status: 'idle',
+      chat_messages: [],
+      channel_context: {
+        channel_type: 'telegram',
+        channel_metadata: { chat_id: 42, message_id: 99 },
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+
+    expect(result?.channel_context?.channel_type).toBe('telegram');
+    expect(result?.channel_context?.channel_metadata).toEqual({ chat_id: 42, message_id: 99 });
+  });
+
   it('should expose currentChatId after sendMessage establishes a chat', async () => {
     const agentInstance = agent();
 

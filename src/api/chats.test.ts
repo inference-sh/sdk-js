@@ -3,6 +3,7 @@ import {
   AgentRunStateInputRequired,
   AgentRunStateWorking,
   ChatStatusBusy,
+  ChannelTypeSlack,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeReferences,
@@ -191,6 +192,29 @@ describe('ChatsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/chats/chat-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve channel_context on channel-originated chats in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: 'idle',
+      channel_context: {
+        channel_type: ChannelTypeSlack,
+        channel_metadata: {
+          channel_id: 'C123',
+          thread_ts: '1234.5678',
+        },
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.channel_context?.channel_type).toBe('slack');
+    expect(result.data.channel_context?.channel_metadata).toEqual({
+      channel_id: 'C123',
+      thread_ts: '1234.5678',
+    });
   });
 
   it('should preserve active_run with interrupt details in get() responses', async () => {
