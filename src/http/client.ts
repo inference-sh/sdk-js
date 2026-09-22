@@ -79,7 +79,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl || 'https://api.inference.sh';
     this.proxyUrl = config.proxyUrl;
     this.getToken = config.getToken;
-    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.5.13', ...config.headers };
+    this.customHeaders = { 'X-Client-Source': 'inference-sdk-js/0.6.53', ...config.headers };
     // Bearer auth needs no cookies, and 'include' makes browsers reject the
     // response unless the API answers with Allow-Credentials — which it does not
     // for third-party origins (WebKit reports that as "Load failed"). Cookies
