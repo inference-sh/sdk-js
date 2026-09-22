@@ -1573,6 +1573,11 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   status: ChatStatus;
   output?: any;
   context?: { [key: string]: string};
+  /**
+   * ChannelContext names the channel this chat came through (slack, a
+   * wearable's tag, ...). Unset for chats started in the app or the SDK.
+   */
+  channel_context?: ChannelContext;
   agent_id?: string;
   agent?: AgentDTO;
   agent_version_id?: string;
