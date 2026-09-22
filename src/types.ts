@@ -4604,6 +4604,7 @@ export const NotificationTypePaymentFailed: NotificationType = "payment_failed";
 export const NotificationTypeUsageSummary: NotificationType = "usage_summary";
 export const NotificationTypeSpendingLimit: NotificationType = "spending_limit";
 export const NotificationTypeInvoice: NotificationType = "invoice";
+export const NotificationTypeCreditNote: NotificationType = "credit_note";
 export const NotificationTypeSubscriptionCreated: NotificationType = "subscription_created";
 export const NotificationTypeSubscriptionCredit: NotificationType = "subscription_credit";
 export const NotificationTypeSubscriptionCanceled: NotificationType = "subscription_canceled";
