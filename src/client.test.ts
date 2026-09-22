@@ -12,6 +12,7 @@ import {
   Inference,
   inference,
   InferenceConfig,
+  LiveSession,
   NotificationTypeDataExport,
   NotificationTypeSubscriptionPaymentFailed,
   PlanTypeAddon,
@@ -19,8 +20,14 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  SocketsAPI,
+  STREAM_FORMAT,
   createClient,
+  isLiveField,
+  splitLiveSchema,
 } from './index';
+import type { WebSocketLike } from './live/session';
+import { TaskStatusRunning } from './types';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
 import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking } from './types';
@@ -84,6 +91,14 @@ describe('package type exports', () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
   });
+
+  it('exports live and socket client symbols', () => {
+    expect(LiveSession).toEqual(expect.any(Function));
+    expect(SocketsAPI).toEqual(expect.any(Function));
+    expect(STREAM_FORMAT).toBe('stream');
+    expect(isLiveField({ format: 'stream' })).toBe(true);
+    expect(splitLiveSchema({ type: 'object', properties: {} }).live).toEqual([]);
+  });
 });
 
 describe('Inference', () => {
@@ -113,6 +128,12 @@ describe('Inference', () => {
         baseUrl: 'https://custom-api.example.com',
       });
       expect(client).toBeDefined();
+    });
+
+    it('exposes the sockets API on the client', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.sockets).toBeInstanceOf(SocketsAPI);
+      expect(typeof client.sockets.open).toBe('function');
     });
   });
 
@@ -645,5 +666,73 @@ describe('uploadFile', () => {
     await expect(
       client.uploadFile('SGVsbG8gV29ybGQh', { filename: 'test.txt' })
     ).rejects.toThrow('No upload URL provided by the server');
+  });
+});
+
+class LiveFakeWebSocket implements WebSocketLike {
+  static dialed: LiveFakeWebSocket[] = [];
+  binaryType = 'blob';
+  readyState = 0;
+  onopen: ((event: unknown) => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  onclose: ((event: { code: number; reason: string }) => void) | null = null;
+
+  constructor(readonly url: string) {
+    LiveFakeWebSocket.dialed.push(this);
+  }
+
+  send(): void {}
+  close(): void {}
+}
+
+describe('Inference.live', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    LiveFakeWebSocket.dialed = [];
+  });
+
+  it('runs a stream task without waiting and dials the socket from the run response', async () => {
+    const access = {
+      id: 'sock-1',
+      url: 'wss://relay.test/sockets/sock-1',
+      token: 'tok',
+      expires_at: '2030-01-01T00:00:00Z',
+    };
+    const task = {
+      id: 'task-1',
+      status: TaskStatusRunning,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      input: { effect: 'robot' },
+      output: null,
+      logs: [],
+      socket: access,
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(JSON.stringify(task)),
+    });
+
+    const client = new Inference({ apiKey: 'test-api-key', stream: false });
+    const { task: returnedTask, session } = await client.live(
+      { app: 'infsh/voice-loop', function: 'stream', input: { effect: 'robot' } },
+      {},
+      { webSocket: LiveFakeWebSocket, watchTask: false }
+    );
+
+    expect(returnedTask.id).toBe('task-1');
+    expect(returnedTask.socket).toEqual(access);
+    expect(session.state).toBe('connecting');
+    expect(LiveFakeWebSocket.dialed[0].url).toBe('wss://relay.test/sockets/sock-1?access_token=tok');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/run');
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'infsh/voice-loop',
+      function: 'stream',
+      input: { effect: 'robot' },
+    });
   });
 });

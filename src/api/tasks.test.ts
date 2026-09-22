@@ -557,3 +557,68 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('GET');
   });
 });
+
+describe('TasksAPI.watch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () =>
+    new TasksAPI(
+      new HttpClient({
+        apiKey: 'test-key',
+        stream: false,
+        pollIntervalMs: 20,
+      })
+    );
+
+  it('resolves done when polling detects completion without going through run()', async () => {
+    const runningTask = makeTask();
+    const completedTask = makeTask({ status: TaskStatusCompleted, output: { ok: true } });
+
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
+    mockJsonResponse(completedTask);
+
+    const onUpdate = jest.fn();
+    const watch = api().watch(runningTask, { stream: false, onUpdate });
+    const result = await watch.done;
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-1', status: TaskStatusCompleted })
+    );
+    expect(mockFetch.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
+      '/tasks/task-1/status',
+      '/tasks/task-1/status',
+      '/tasks/task-1',
+    ]);
+  });
+
+  it('stop() ends polling early and leaves done pending', async () => {
+    const runningTask = makeTask();
+    mockJsonResponse({ status: TaskStatusRunning });
+
+    const watch = api().watch(runningTask, { stream: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    watch.stop();
+
+    const settled = await Promise.race([
+      watch.done.then(() => 'settled'),
+      new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 50)),
+    ]);
+    expect(settled).toBe('pending');
+  });
+
+  it('rejects done when polling detects a failed task', async () => {
+    const runningTask = makeTask();
+    const failedTask = makeTask({ status: TaskStatusFailed, error: 'worker crashed' });
+
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusFailed });
+    mockJsonResponse(failedTask);
+
+    const watch = api().watch(runningTask, { stream: false });
+    await expect(watch.done).rejects.toThrow('worker crashed');
+  });
+});

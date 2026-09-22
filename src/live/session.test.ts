@@ -89,6 +89,8 @@ describe('LiveSession', () => {
     expect(binaries).toEqual([pcm]);
     ws().message('not json');
     expect(patches[1]).toEqual({ text: 'not json' });
+    ws().message('[]');
+    expect(patches).toHaveLength(2);
     expect(states.map((s) => s.state)).toEqual(['connecting', 'waiting', 'live']);
   });
 
@@ -160,6 +162,39 @@ describe('LiveSession', () => {
     await tick();
     expect(session.state).toBe('ended');
     expect(FakeWebSocket.dialed).toHaveLength(1);
+  });
+
+  it('ends when renewal fails during redial', async () => {
+    const renew = jest.fn().mockRejectedValue(new Error('access denied'));
+    const { session, states, ws } = start({ renew });
+    ws().open();
+    ws().serverClose(1012, 'restarting');
+    await tick();
+    expect(session.state).toBe('ended');
+    expect(states[states.length - 1]?.end).toMatchObject({
+      code: 1006,
+      reason: 'access denied',
+      byCaller: false,
+      taskEnded: false,
+    });
+    await expect(session.ended).resolves.toMatchObject({ reason: 'access denied' });
+  });
+
+  it('gives up waiting when the task completes before the app connected', async () => {
+    let complete!: (task: unknown) => void;
+    const watch: TaskWatch = { done: new Promise((resolve) => (complete = resolve)), stop: jest.fn() };
+    const { session, states, ws } = start({ task: watch });
+    ws().open();
+    complete({});
+    await tick();
+    expect(session.state).toBe('ended');
+    expect(states[states.length - 1]?.end).toEqual({
+      code: 1000,
+      reason: 'the task ended before the app connected',
+      byCaller: false,
+      taskEnded: true,
+    });
+    expect(ws().closedWith).toEqual({ code: 1000, reason: 'task ended' });
   });
 
   it('gives up waiting when the task fails before the app connected', async () => {

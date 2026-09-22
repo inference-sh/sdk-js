@@ -82,4 +82,27 @@ describe('media types', () => {
     expect(pcmFormat(parseMediaType('image/jpeg'))).toBeNull();
     expect(pcmFormat(null)).toBeNull();
   });
+
+  it('rejects non-positive PCM sample rates and channel counts', () => {
+    expect(pcmFormat(parseMediaType('audio/pcm;format=s16le;rate=0;channels=1'))).toBeNull();
+    expect(pcmFormat(parseMediaType('audio/pcm;format=s16le;rate=16000;channels=-1'))).toBeNull();
+    expect(pcmFormat(parseMediaType('audio/pcm;format=s16le;rate=NaN;channels=1'))).toBeNull();
+  });
+});
+
+describe('splitLiveSchema alternatives', () => {
+  it('resolves oneOf alternatives the same way as anyOf', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: { oneOf: [{ type: 'string', title: 'Alpha' }, { type: 'number', title: 'Beta' }] },
+        },
+      },
+    };
+    const events = splitLiveSchema(schema).live[0];
+    expect(events.alternatives.map(alternativeLabel)).toEqual(['Alpha', 'Beta']);
+  });
 });

@@ -79,6 +79,11 @@ describe('SocketsAPI', () => {
     expect(FakeWebSocket.dialed).toHaveLength(1);
   });
 
+  it('returns null when a task has no socket row', async () => {
+    mockJsonResponse({ items: [] });
+    expect(await api().forTask('task-1')).toBeNull();
+  });
+
   it('refuses a task without a socket', async () => {
     mockJsonResponse({ items: [] });
     await expect(api().open(task, {}, { webSocket: FakeWebSocket })).rejects.toThrow(/has no socket/);
