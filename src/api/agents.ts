@@ -269,7 +269,7 @@ export class Agent {
         this.disconnect();
         reject(signal.reason);
       };
-      if (signal.aborted) return onAbort();
+      if (signal.aborted) { onAbort(); wait.catch(() => {}); return; }
       signal.addEventListener('abort', onAbort, { once: true });
       wait.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
     });
