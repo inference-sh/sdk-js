@@ -12,6 +12,7 @@ import {
   Inference,
   inference,
   InferenceConfig,
+  NotificationTypeCreditNote,
   NotificationTypeDataExport,
   NotificationTypeSubscriptionPaymentFailed,
   PlanTypeAddon,
@@ -43,6 +44,10 @@ describe('package type exports', () => {
 
   it('exports NotificationTypeSubscriptionPaymentFailed for subscription billing alerts', () => {
     expect(NotificationTypeSubscriptionPaymentFailed).toBe('subscription_payment_failed');
+  });
+
+  it('exports NotificationTypeCreditNote for billing credit-note alerts', () => {
+    expect(NotificationTypeCreditNote).toBe('credit_note');
   });
 
   it('exports PlanType constants for base and add-on plans', () => {

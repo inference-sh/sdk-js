@@ -85,6 +85,13 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  NotificationChannelEmail,
+  NotificationDTO,
+  NotificationPriorityNormal,
+  NotificationStatusSent,
+  NotificationTypeCreditNote,
+  NotificationTypeInvoice,
+  NotificationTypeSubscriptionCredit,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1578,52 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('NotificationTypeCreditNote (e230eaae)', () => {
+  function makeNotification(overrides: Partial<NotificationDTO> = {}): NotificationDTO {
+    return {
+      id: 'notif-1',
+      short_id: 'n1',
+      created_at: '2026-09-22T18:00:00Z',
+      updated_at: '2026-09-22T18:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      type: NotificationTypeCreditNote,
+      channel: NotificationChannelEmail,
+      priority: NotificationPriorityNormal,
+      status: NotificationStatusSent,
+      subject: 'Credit note issued',
+      retry_count: 0,
+      ...overrides,
+    };
+  }
+
+  it('exports NotificationTypeCreditNote for billing credit-note notifications', () => {
+    expect(NotificationTypeCreditNote).toBe('credit_note');
+  });
+
+  it('distinguishes NotificationTypeCreditNote from adjacent billing types', () => {
+    expect(NotificationTypeCreditNote).not.toBe(NotificationTypeInvoice);
+    expect(NotificationTypeCreditNote).not.toBe(NotificationTypeSubscriptionCredit);
+  });
+
+  it('preserves NotificationDTO credit_note type and billing reference through JSON round-trip', () => {
+    const notification = makeNotification({
+      reference_type: 'credit_note',
+      reference_id: 'cn-abc123',
+      recipient_email: 'billing@example.com',
+      body: 'A credit note has been applied to your account.',
+      sent_at: '2026-09-22T18:01:00Z',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(notification)) as NotificationDTO;
+
+    expect(parsed.type).toBe('credit_note');
+    expect(parsed.reference_type).toBe('credit_note');
+    expect(parsed.reference_id).toBe('cn-abc123');
+    expect(parsed.recipient_email).toBe('billing@example.com');
   });
 });
