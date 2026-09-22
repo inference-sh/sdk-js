@@ -176,6 +176,32 @@ const task = await client.tasks.run(
 await client.tasks.cancel(task.id);
 ```
 
+### Stream Functions (Live Sockets)
+
+A stream function keeps a socket open with its caller for the life of the task: frames go both ways until the caller closes or the app returns. `client.live` starts the task and dials its socket; the run response carries where to dial (`task.socket`).
+
+```typescript
+const { task, session } = await client.live(
+  { app: 'infsh/voice-loop', function: 'stream', input: { effect: 'robot' } },
+  {
+    onState: (state) => console.log(state), // connecting → waiting → live → ended
+    onBinary: (pcm) => speaker.write(new Int16Array(pcm)),
+    onPatch: (patch) => console.log(patch), // e.g. { frames: 120 }
+  }
+);
+
+session.sendBinary(micFrame);          // one item of the input's binary live field
+session.sendPatch({ effect: 'echo' }); // change an ordinary input while it runs
+session.close();                       // the function returns and the task completes
+await session.ended;
+```
+
+The session is `waiting` until the app's first frame (a cold start can take a minute) and gives up if the task ends before then. It dials again with a fresh credential when the relay restarts under it. `client.sockets.open(taskOrId, handlers)` reconnects to a running task's socket, e.g. after a page reload.
+
+What a function's socket carries is in its schemas: a live field is `{"type": "array", "format": "stream", "items": ...}`. `splitLiveSchema(schema)` separates the ordinary fields (the request body) from the live ones, and `pcmFormat(field.media)` reads the sample rate of a PCM audio field.
+
+On Node 18–21 there is no global `WebSocket`: pass one from the `ws` package as `{ webSocket: WebSocket }`.
+
 ### Sessions (Stateful Execution)
 
 Sessions allow you to maintain state across multiple task invocations. The worker stays warm between calls, preserving loaded models and in-memory state.
@@ -587,6 +613,18 @@ const agent = client.agents.create({
 | `list()` | `GET /sessions` | All sessions (empty array if none) |
 | `keepalive(sessionId)` | `POST /sessions/{id}/keepalive` | Reset idle expiration |
 | `end(sessionId)` | `DELETE /sessions/{id}` | End session and release worker |
+
+### `client.sockets`
+
+| Method | HTTP | Description |
+|--------|------|-------------|
+| `open(taskOrId, handlers?, options?)` | — | Dial a stream task's socket; returns a `LiveSession` |
+| `get(socketId)` | `GET /sockets/{id}` | The socket and what is known of its life |
+| `forTask(taskId)` | `POST /sockets/list` | The task's socket, or null |
+| `access(socketId)` | `POST /sockets/{id}/access` | A fresh credential for the caller's end |
+| `delete(socketId)` | `DELETE /sockets/{id}` | Delete the record |
+
+`client.live(params, handlers?, options?)` is `tasks.run(params, { wait: false })` followed by `sockets.open`.
 
 ## Task Status Constants
 

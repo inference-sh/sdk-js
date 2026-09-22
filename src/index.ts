@@ -20,7 +20,8 @@ export {
 } from './http/errors';
 
 // API modules
-export { TasksAPI, type RunOptions } from './api/tasks';
+export { TasksAPI, type RunOptions, type WatchOptions, type TaskWatch } from './api/tasks';
+export { SocketsAPI, type SocketTarget, type OpenSocketOptions } from './api/sockets';
 export { FilesAPI, type UploadFileOptions } from './api/files';
 export { AgentsAPI, Agent, type AgentOptions, type SendMessageOptions, type AgentRunOptions, type AgentDelta } from './api/agents';
 export { SessionsAPI } from './api/sessions';
@@ -38,6 +39,20 @@ export { IntegrationsAPI } from './api/integrations';
 export { SearchAPI } from './api/search';
 export { ProjectsAPI } from './api/projects';
 export { MCPServersAPI } from './api/mcp-servers';
+
+// Live: the socket of a stream task and the live fields of its schemas
+export { LiveSession } from './live/session';
+export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, WebSocketLike, WebSocketConstructor } from './live/session';
+export {
+  STREAM_FORMAT,
+  isLiveField,
+  parseMediaType,
+  pcmFormat,
+  splitLiveSchema,
+  binaryLiveField,
+  alternativeLabel,
+} from './live/schema';
+export type { JsonSchema, MediaType, PCMFormat, LiveField } from './live/schema';
 
 // Tool Builder (fluent API)
 export {
@@ -99,6 +114,9 @@ export type {
 
 import { HttpClient, type HttpClientConfig } from './http/client';
 import { TasksAPI, RunOptions } from './api/tasks';
+import { SocketsAPI } from './api/sockets';
+import { LiveSession, type LiveHandlers } from './live/session';
+import type { OpenSocketOptions } from './api/sockets';
 import { FilesAPI, UploadFileOptions } from './api/files';
 import { AgentsAPI, Agent, AgentOptions } from './api/agents';
 import { SessionsAPI } from './api/sessions';
@@ -174,6 +192,7 @@ export class Inference {
   readonly search: SearchAPI;
   readonly projects: ProjectsAPI;
   readonly mcpServers: MCPServersAPI;
+  readonly sockets: SocketsAPI;
 
   constructor(config: InferenceConfig | HttpClientConfig) {
     // Handle both simple config and full HttpClientConfig
@@ -208,6 +227,7 @@ export class Inference {
     this.search = new SearchAPI(this.http);
     this.projects = new ProjectsAPI(this.http);
     this.mcpServers = new MCPServersAPI(this.http);
+    this.sockets = new SocketsAPI(this.http, this.tasks);
   }
 
   // Legacy methods for backward compatibility
@@ -232,6 +252,30 @@ export class Inference {
   async run(params: ApiAppRunRequest, options: RunOptions = {}): Promise<Task> {
     const processedInput = await this.files.processInput(params.input);
     return this.tasks.run(params, processedInput, options);
+  }
+
+  /**
+   * Start a stream function and open its socket. The task runs until the
+   * session is closed (or the app returns); `session.ended` settles then.
+   *
+   * @example
+   * ```typescript
+   * const { session } = await client.live({ app: 'infsh/voice-loop', function: 'stream', input: { effect: 'robot' } }, {
+   *   onBinary: (pcm) => speaker.write(pcm),
+   *   onPatch: (patch) => console.log(patch),
+   * });
+   * session.sendBinary(micFrame);
+   * session.close();
+   * ```
+   */
+  async live(
+    params: ApiAppRunRequest,
+    handlers: LiveHandlers = {},
+    options: OpenSocketOptions = {}
+  ): Promise<{ task: Task; session: LiveSession }> {
+    const task = await this.run(params, { wait: false });
+    const session = await this.sockets.open(task, handlers, options);
+    return { task, session };
   }
 
   /**

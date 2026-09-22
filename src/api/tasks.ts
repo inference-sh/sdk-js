@@ -16,13 +16,12 @@ import {
 } from '../types';
 import { parseStatus } from '../utils';
 
-export interface RunOptions {
+/** How to follow a task while it runs; see TasksAPI.watch. */
+export interface WatchOptions {
   /** Callback for real-time status updates */
   onUpdate?: (update: Task) => void;
   /** Callback for partial updates with list of changed fields */
   onPartialUpdate?: (update: Task, fields: string[]) => void;
-  /** Wait for task completion (default: true) */
-  wait?: boolean;
   /** Maximum retry attempts when using polling mode (stream: false). Default: 5 */
   maxReconnects?: number;
   /** Use SSE streaming (true) or polling (false). Overrides client default. */
@@ -31,6 +30,17 @@ export interface RunOptions {
   pollIntervalMs?: number;
   /** Callback for streaming delta events (token-by-token updates) */
   onDelta?: (delta: Record<string, any>, seq: number) => void;
+}
+
+export interface RunOptions extends WatchOptions {
+  /** Wait for task completion (default: true) */
+  wait?: boolean;
+}
+
+/** A task being followed: `done` settles when it ends, `stop` ends the watch early. */
+export interface TaskWatch {
+  done: Promise<Task>;
+  stop(): void;
 }
 
 //TODO: This is ugly...
@@ -111,12 +121,7 @@ export class TasksAPI {
     processedInput: unknown,
     options: RunOptions = {}
   ): Promise<Task> {
-    const {
-      onUpdate,
-      onPartialUpdate,
-      onDelta,
-      wait = true,
-    } = options;
+    const { wait = true } = options;
 
     const resp = await this.http.request<Task>('post', '/apps/run', {
       data: {
@@ -131,19 +136,40 @@ export class TasksAPI {
       return stripTask(task);
     }
 
+    return this.watch(task, options).done;
+  }
+
+  /**
+   * Follows a task until it ends. `done` resolves with the task when it
+   * completes and rejects when it fails or is cancelled; `stop` ends the
+   * watch early and leaves `done` pending.
+   */
+  watch(task: Pick<Task, 'id' | 'status'>, options: WatchOptions = {}): TaskWatch {
     const useStream = options.stream ?? this.http.getStreamDefault();
+    return useStream ? this.watchStream(task, options) : this.watchPoll(task, options);
+  }
 
-    if (!useStream) {
-      return this.pollUntilTerminal(task, options);
-    }
-
-    // Wait for completion with optional updates via NDJSON streaming
+  private watchStream(task: Pick<Task, 'id' | 'status'>, options: WatchOptions): TaskWatch {
+    const { onUpdate, onPartialUpdate, onDelta } = options;
     // Accumulate state across partial updates to preserve fields like session_id
-    let accumulatedTask = { ...task };
+    let accumulatedTask = { ...task } as Task;
     const { url, headers, credentials } = this.http.getStreamableConfig(`/tasks/${task.id}/stream`);
 
-    return new Promise<Task>((resolve, reject) => {
-      const streamManager = new StreamableManager<Task>({
+    let streamManager: StreamableManager<Task>;
+    const done = new Promise<Task>((resolve, reject) => {
+      const settle = (data: Task, stripped: Task) => {
+        if (parseStatus(data.status) === TaskStatusCompleted) {
+          streamManager.stop();
+          resolve(stripped);
+        } else if (parseStatus(data.status) === TaskStatusFailed) {
+          streamManager.stop();
+          reject(new Error(data.error || 'task failed'));
+        } else if (parseStatus(data.status) === TaskStatusCancelled) {
+          streamManager.stop();
+          reject(new Error('task cancelled'));
+        }
+      };
+      streamManager = new StreamableManager<Task>({
         url,
         headers,
         credentials,
@@ -153,34 +179,14 @@ export class TasksAPI {
           accumulatedTask = { ...accumulatedTask, ...data };
           const stripped = stripTask(accumulatedTask);
           onUpdate?.(stripped);
-
-          if (parseStatus(data.status) === TaskStatusCompleted) {
-            streamManager.stop();
-            resolve(stripped);
-          } else if (parseStatus(data.status) === TaskStatusFailed) {
-            streamManager.stop();
-            reject(new Error(data.error || 'task failed'));
-          } else if (parseStatus(data.status) === TaskStatusCancelled) {
-            streamManager.stop();
-            reject(new Error('task cancelled'));
-          }
+          settle(data, stripped);
         },
         onPartialData: (data, fields) => {
           // Merge partial update, preserving fields not in this update
           accumulatedTask = { ...accumulatedTask, ...data };
           const stripped = stripTask(accumulatedTask);
           onPartialUpdate?.(stripped, fields);
-
-          if (parseStatus(data.status) === TaskStatusCompleted) {
-            streamManager.stop();
-            resolve(stripped);
-          } else if (parseStatus(data.status) === TaskStatusFailed) {
-            streamManager.stop();
-            reject(new Error(data.error || 'task failed'));
-          } else if (parseStatus(data.status) === TaskStatusCancelled) {
-            streamManager.stop();
-            reject(new Error('task cancelled'));
-          }
+          settle(data, stripped);
         },
         onError: (error) => {
           reject(error);
@@ -190,16 +196,18 @@ export class TasksAPI {
 
       streamManager.start();
     });
+    return { done, stop: () => streamManager.stop() };
   }
 
   /** Poll GET /tasks/{id}/status until terminal, full-fetch on status change. */
-  private pollUntilTerminal(task: Task, options: RunOptions): Promise<Task> {
+  private watchPoll(task: Pick<Task, 'id' | 'status'>, options: WatchOptions): TaskWatch {
     const { onUpdate, maxReconnects = 5 } = options;
     const intervalMs = options.pollIntervalMs ?? this.http.getPollIntervalMs();
     let prevStatus = task.status;
 
-    return new Promise<Task>((resolve, reject) => {
-      const poller = new PollManager<ResourceStatusDTO>({
+    let poller: PollManager<ResourceStatusDTO>;
+    const done = new Promise<Task>((resolve, reject) => {
+      poller = new PollManager<ResourceStatusDTO>({
         pollFunction: async () => {
           const resp = await this.http.request<ResourceStatusDTO>('get', `/tasks/${task.id}/status`);
           return resp.data;
@@ -240,6 +248,7 @@ export class TasksAPI {
 
       poller.start();
     });
+    return { done, stop: () => poller.stop() };
   }
 
   /**
