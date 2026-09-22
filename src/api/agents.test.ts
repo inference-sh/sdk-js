@@ -733,6 +733,62 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(streamOpened).toBe(true);
   });
 
+  it('should reject with signal.reason and stop the stream when aborted mid-turn', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    const controller = new AbortController();
+    let releaseStream: () => void = () => {};
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      // A stream that never ends on its own: one busy snapshot, then hangs.
+      let sent = false;
+      const reader = {
+        read: jest.fn().mockImplementation(() => {
+          if (!sent) {
+            sent = true;
+            return Promise.resolve({
+              done: false,
+              value: new TextEncoder().encode(`${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`),
+            });
+          }
+          return new Promise((resolve) => { releaseStream = () => resolve({ done: true, value: undefined }); });
+        }),
+        releaseLock: jest.fn(),
+      };
+      return Promise.resolve({ ok: true, status: 200, body: { getReader: () => reader } });
+    });
+
+    const agent = streamingAgent();
+    const turn = agent.sendMessage('hello', { onChat: () => {}, signal: controller.signal });
+    await new Promise((r) => setTimeout(r, 10));
+    const reason = new Error('operator needed');
+    controller.abort(reason);
+
+    await expect(turn).rejects.toBe(reason);
+    releaseStream();
+    // The stream was torn down: a later sendMessage on the same chat opens a fresh one.
+    expect(agent.currentChatId).toBe('chat-1');
+  });
+
+  it('should reject before POST when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(streamingAgent().sendMessage('hello', { signal: controller.signal })).rejects.toBe(controller.signal.reason);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('should return immediately without waiting when stream is true and no callbacks', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });

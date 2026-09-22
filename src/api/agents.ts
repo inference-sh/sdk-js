@@ -117,6 +117,14 @@ export interface SendMessageOptions {
   stream?: boolean;
   /** Polling interval in ms when stream is false. Overrides client default. */
   pollIntervalMs?: number;
+  /**
+   * Stops waiting for the turn. Aborting rejects sendMessage with
+   * `signal.reason` and closes the stream or poller; the agent keeps running
+   * server-side (use stopChat() to cancel it). A turn parked on a tool
+   * approval or an authorization counts as still running, so a client that
+   * cannot resolve those is the typical caller.
+   */
+  signal?: AbortSignal;
 }
 
 export interface AgentRunOptions extends Omit<SendMessageOptions, 'stream'> {
@@ -160,6 +168,7 @@ export class Agent {
     options: SendMessageOptions = {}
   ): Promise<{ userMessage: ChatMessageDTO; assistantMessage: ChatMessageDTO }> {
     this.dispatchedToolCalls.clear();
+    if (options.signal?.aborted) throw options.signal.reason;
     const isTemplate = typeof this.config === 'string';
     const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall || options.onDelta);
 
@@ -246,10 +255,24 @@ export class Agent {
 
     // Wait for completion
     if (waitPromise) {
-      await waitPromise;
+      await this.abortable(waitPromise, options.signal);
     }
 
     return { userMessage: response.user_message, assistantMessage: response.assistant_message };
+  }
+
+  /** Resolves with `wait`, or rejects with `signal.reason` and stops the stream/poller. */
+  private abortable(wait: Promise<void>, signal?: AbortSignal): Promise<void> {
+    if (!signal) return wait;
+    return new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        this.disconnect();
+        reject(signal.reason);
+      };
+      if (signal.aborted) return onAbort();
+      signal.addEventListener('abort', onAbort, { once: true });
+      wait.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+    });
   }
 
   /** Get chat by ID */
