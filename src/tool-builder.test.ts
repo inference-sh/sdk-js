@@ -349,7 +349,7 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.auth).toEqual({
       type: 'integration',
       provider: CredentialProviderGoogle,
-      integration_id: 'int-123',
+      credential_id: 'int-123',
     });
   });
 
@@ -361,7 +361,7 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.auth).toEqual({
       type: 'integration',
       provider: CredentialProviderGoogleSA,
-      integration_id: 'sa-int-1',
+      credential_id: 'sa-int-1',
     });
   });
 
@@ -442,7 +442,7 @@ describe('MCPToolBuilder (mcpTool)', () => {
     const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
 
     expect(t.type).toBe(ToolTypeMCP);
-    expect(t.mcp).toEqual({ integration_id: 'int-mcp-1', tool_name: 'search' });
+    expect(t.mcp).toEqual({ credential_id: 'int-mcp-1', tool_name: 'search' });
     expect(t.description).toBe('Search docs');
   });
 });

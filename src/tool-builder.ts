@@ -255,9 +255,9 @@ class HTTPToolBuilder extends ToolBuilder {
     return this;
   }
 
-  auth(config: { integration?: string; integrationId?: string; apiKey?: string; bearer?: string; header?: string }): this {
+  auth(config: { integration?: string; credentialId?: string; /** @deprecated use credentialId */ integrationId?: string; apiKey?: string; bearer?: string; header?: string }): this {
     if (config.integration) {
-      this.authConfig = { type: 'integration', provider: config.integration, integration_id: config.integrationId };
+      this.authConfig = { type: 'integration', provider: config.integration, credential_id: config.credentialId ?? config.integrationId };
     } else if (config.apiKey) {
       this.authConfig = { type: 'api_key', secret: config.apiKey, header: config.header || 'X-API-Key' };
     } else if (config.bearer) {
@@ -312,16 +312,17 @@ export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name,
 export const callTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
 
 /** Create an MCP connector tool (calls a tool on a connected MCP server) */
-export const mcpTool = (name: string, integrationId: string, toolName: string) =>
-  new MCPToolBuilder(name, integrationId, toolName);
+/** `credentialId` is the MCP credential the tool runs through (formerly called the integration id). */
+export const mcpTool = (name: string, credentialId: string, toolName: string) =>
+  new MCPToolBuilder(name, credentialId, toolName);
 
 class MCPToolBuilder extends ToolBuilder {
-  private integrationId: string;
+  private credentialId: string;
   private toolName: string;
 
-  constructor(name: string, integrationId: string, toolName: string) {
+  constructor(name: string, credentialId: string, toolName: string) {
     super(name);
-    this.integrationId = integrationId;
+    this.credentialId = credentialId;
     this.toolName = toolName;
   }
 
@@ -332,7 +333,7 @@ class MCPToolBuilder extends ToolBuilder {
       description: this.desc,
       type: ToolTypeMCP,
       require_approval: this.approval || undefined,
-      mcp: { integration_id: this.integrationId, tool_name: this.toolName },
+      mcp: { credential_id: this.credentialId, tool_name: this.toolName },
     };
   }
 }

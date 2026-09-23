@@ -377,7 +377,7 @@ Use the fluent builders to define `AgentTool` schemas. Client tools (`tool`) run
 | `agentTool(name, agentRef)` | Server | Delegate to a sub-agent |
 | `httpTool(name, url)` / `callTool(name, url)` | Server | HTTP request with credential injection (preferred over `webhookTool`) |
 | `webhookTool(name, url)` | Server | Unsigned webhook (legacy; use `httpTool` for new tools) |
-| `mcpTool(name, integrationId, toolName)` | Server | Call a tool on a connected MCP integration |
+| `mcpTool(name, credentialId, toolName)` | Server | Call a tool through a connected MCP credential |
 | `internalTools()` | Server | Built-in plan, memory, and widget tools |
 
 ```typescript
@@ -401,7 +401,7 @@ const clientTool = tool('get_weather')
 const gmailSend = httpTool('gmail_send', 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send')
   .describe('Send an email via Gmail')
   .method('POST')
-  .auth({ integration: CredentialProviderGoogle, integrationId: 'your-integration-id' })
+  .auth({ integration: CredentialProviderGoogle, credentialId: 'your-credential-id' })
   .build();
 
 // API key or bearer auth
