@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import { CredentialsAPI } from './credentials';
-import { CredentialProviderGoogleSA } from '../types';
+import { CredentialConnectRequest, CredentialProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -60,11 +60,11 @@ describe('CredentialsAPI', () => {
   });
 
   it('should POST /credentials for connect()', async () => {
-    const payload = { provider: 'slack', config: { token: 'xoxb-123' } };
+    const payload: CredentialConnectRequest = { provider: 'slack', type: 'api_key', api_key: 'xoxb-123' };
     const response = { credential: { provider: 'slack' }, redirect_url: null };
     mockJsonResponse(response);
 
-    const result = await api().connect(payload as never);
+    const result = await api().connect(payload);
 
     expect(result.data).toEqual(response);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
