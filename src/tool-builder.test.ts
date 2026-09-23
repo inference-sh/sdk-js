@@ -340,6 +340,12 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.method).toBeUndefined();
   });
 
+  it('omits http.auth when no auth() is configured (same as type none)', () => {
+    const t = httpTool('public_fetch', 'https://api.example.com/open').build();
+
+    expect(t.http?.auth).toBeUndefined();
+  });
+
   it('should attach credential auth with provider and credential id', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
       .auth({ credential: CredentialProviderGoogle, credentialId: 'int-123' })

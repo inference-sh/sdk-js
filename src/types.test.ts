@@ -85,6 +85,10 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  ToolAuthTypeNone,
+  ToolAuthConfig,
+  AgentTool,
+  ToolTypeHTTP,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1575,24 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('ToolAuthTypeNone (e3eabd9)', () => {
+  it('exports the wire string for explicit no-auth HTTP tools', () => {
+    expect(ToolAuthTypeNone).toBe('none');
+  });
+
+  it('round-trips ToolAuthConfig with type none on AgentTool.http', () => {
+    const auth: ToolAuthConfig = { type: ToolAuthTypeNone };
+    const tool: AgentTool = {
+      name: 'public_fetch',
+      type: ToolTypeHTTP,
+      http: { url: 'https://example.com/data', auth },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(tool)) as AgentTool;
+
+    expect(parsed.http?.auth).toEqual({ type: 'none' });
   });
 });

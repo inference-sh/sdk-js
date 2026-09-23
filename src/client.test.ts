@@ -19,6 +19,7 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  ToolAuthTypeNone,
   createClient,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
@@ -78,6 +79,10 @@ describe('package type exports', () => {
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
+  });
+
+  it('exports ToolAuthTypeNone for HTTP tools that send no credentials', () => {
+    expect(ToolAuthTypeNone).toBe('none');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
