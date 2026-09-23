@@ -110,6 +110,10 @@ export interface ClientToolConfig {
  */
 export type ToolAuthType = string;
 /**
+ * ToolAuthTypeNone sends no credentials (same as leaving type empty).
+ */
+export const ToolAuthTypeNone: ToolAuthType = "none";
+/**
  * ToolAuthTypeCredential sends a connected credential's access token.
  */
 export const ToolAuthTypeCredential: ToolAuthType = "credential";
