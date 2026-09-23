@@ -340,7 +340,21 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.method).toBeUndefined();
   });
 
-  it('should attach integration auth with provider and integration id', () => {
+  it('should attach integration auth with provider and credentialId', () => {
+    const t = httpTool('gmail_send', 'https://api.example.com/send')
+      .auth({ integration: CredentialProviderGoogle, credentialId: 'cred-123' })
+      .build();
+
+    expect(t.type).toBe(ToolTypeHTTP);
+    expect(t.http?.auth).toEqual({
+      type: 'integration',
+      provider: CredentialProviderGoogle,
+      credential_id: 'cred-123',
+    });
+    expect(t.http?.auth).not.toHaveProperty('integration_id');
+  });
+
+  it('should accept deprecated integrationId alias for integration auth', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
       .auth({ integration: CredentialProviderGoogle, integrationId: 'int-123' })
       .build();
@@ -351,6 +365,20 @@ describe('HTTPToolBuilder (httpTool)', () => {
       provider: CredentialProviderGoogle,
       credential_id: 'int-123',
     });
+    expect(t.http?.auth).not.toHaveProperty('integration_id');
+  });
+
+  it('should prefer credentialId over deprecated integrationId when both are set', () => {
+    const t = httpTool('gmail_send', 'https://api.example.com/send')
+      .auth({
+        integration: CredentialProviderGoogle,
+        credentialId: 'cred-wins',
+        integrationId: 'int-legacy',
+      })
+      .build();
+
+    expect(t.http?.auth?.credential_id).toBe('cred-wins');
+    expect(t.http?.auth).not.toHaveProperty('integration_id');
   });
 
   it('should attach integration auth for google-sa service account provider', () => {
@@ -438,11 +466,12 @@ describe('HTTPToolBuilder (httpTool)', () => {
 });
 
 describe('MCPToolBuilder (mcpTool)', () => {
-  it('creates MCP tool with integration and tool name', () => {
-    const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
+  it('creates MCP tool with credential id and tool name', () => {
+    const t = mcpTool('search_docs', 'cred-mcp-1', 'search').describe('Search docs').build();
 
     expect(t.type).toBe(ToolTypeMCP);
-    expect(t.mcp).toEqual({ credential_id: 'int-mcp-1', tool_name: 'search' });
+    expect(t.mcp).toEqual({ credential_id: 'cred-mcp-1', tool_name: 'search' });
+    expect(t.mcp).not.toHaveProperty('integration_id');
     expect(t.description).toBe('Search docs');
   });
 });
