@@ -58,6 +58,27 @@ describe('splitLiveSchema', () => {
     expect(events.alternatives.every((alternative) => alternative.$defs === talkInput.$defs)).toBe(true);
   });
 
+  it('keeps nested $ref fields on an alternative when the root $defs travel with it', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        Tag: { type: 'string', enum: ['a', 'b'] },
+        Message: { type: 'object', properties: { tag: { $ref: '#/$defs/Tag' } } },
+      },
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: { anyOf: [{ $ref: '#/$defs/Message' }] },
+        },
+      },
+    };
+    const [message] = splitLiveSchema(schema).live[0].alternatives;
+    expect(message.$defs).toBe(schema.$defs);
+    expect(message.properties?.tag).toEqual({ $ref: '#/$defs/Tag' });
+    expect('$ref' in message).toBe(false);
+  });
+
   it('leaves a schema without live fields alone', () => {
     const plain: JsonSchema = { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] };
     const { ordinary, live } = splitLiveSchema(plain);

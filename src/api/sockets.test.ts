@@ -79,6 +79,66 @@ describe('SocketsAPI', () => {
     expect(FakeWebSocket.dialed).toHaveLength(1);
   });
 
+  it('loads the task and begins credential lookup together when given a task id', async () => {
+    const release: Record<string, () => void> = {};
+    mockFetch.mockImplementation((url, init) => {
+      const path = new URL(String(url)).pathname;
+      const method = (init as RequestInit).method ?? 'GET';
+      const key = `${method} ${path}`;
+      return new Promise((resolve) => {
+        release[key] = () =>
+          resolve({
+            ok: true,
+            status: 200,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  key === 'GET /tasks/task-1'
+                    ? task
+                    : key === 'POST /sockets/list'
+                      ? { items: [{ id: 'sock-1', task_id: 'task-1' }] }
+                      : access
+                )
+              ),
+          });
+      });
+    });
+
+    const pending = api().open('task-1', {}, { webSocket: FakeWebSocket, watchTask: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(Object.keys(release).sort()).toEqual(['GET /tasks/task-1', 'POST /sockets/list']);
+    release['POST /sockets/list']();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(release['POST /sockets/sock-1/access']).toBeDefined();
+    release['GET /tasks/task-1']();
+    release['POST /sockets/sock-1/access']();
+    await pending;
+    expect(FakeWebSocket.dialed).toHaveLength(1);
+  });
+
+  it('renews through the run response credential id when the relay restarts early', async () => {
+    const cred = {
+      id: 'access-record-99',
+      url: 'wss://relay.test/sockets/access-record-99',
+      token: 'tok-a',
+      expires_at: '2030-01-01T00:00:00Z',
+    };
+    const refreshed = { ...cred, token: 'tok-b' };
+    mockJsonResponse(refreshed);
+
+    const session = await api().open({ ...task, socket: cred }, {}, { webSocket: FakeWebSocket, watchTask: false });
+    const ws = FakeWebSocket.dialed[0];
+    ws.onopen?.({});
+    ws.onclose?.({ code: 1012, reason: 'restarting' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(requests()).toEqual(['POST /sockets/access-record-99/access']);
+    expect(FakeWebSocket.dialed).toHaveLength(2);
+    expect(FakeWebSocket.dialed[1].url).toBe('wss://relay.test/sockets/access-record-99?access_token=tok-b');
+    session.close();
+  });
+
   it('refuses a task without a socket', async () => {
     mockJsonResponse({ items: [] });
     await expect(api().open(task, {}, { webSocket: FakeWebSocket })).rejects.toThrow(/has no socket/);
