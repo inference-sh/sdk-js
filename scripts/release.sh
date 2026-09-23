@@ -78,11 +78,12 @@ log_success "Prerequisites satisfied"
 echo ""
 log_info "Validating git state..."
 
-# Ensure we're on main branch
+# Ensure we're on dev branch (releases are cut from dev; main is fast-forwarded
+# to the released commit so the two never drift)
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ]; then
-    log_error "Not on main branch. Current branch: $CURRENT_BRANCH"
-    echo "Please switch to main: git checkout main"
+if [ "$CURRENT_BRANCH" != "dev" ]; then
+    log_error "Not on dev branch. Current branch: $CURRENT_BRANCH"
+    echo "Please switch to dev: git checkout dev"
     exit 1
 fi
 
@@ -95,13 +96,13 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 # Ensure we're up to date with remote
-git fetch origin main --quiet
+git fetch origin dev --quiet
 LOCAL_COMMIT=$(git rev-parse HEAD)
-REMOTE_COMMIT=$(git rev-parse origin/main)
+REMOTE_COMMIT=$(git rev-parse origin/dev)
 
 if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
-    log_error "Local branch is not up to date with origin/main"
-    echo "Please pull the latest changes: git pull origin main"
+    log_error "Local branch is not up to date with origin/dev"
+    echo "Please pull the latest changes: git pull origin dev"
     exit 1
 fi
 
