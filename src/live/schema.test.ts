@@ -52,6 +52,8 @@ describe('splitLiveSchema', () => {
     expect(events.binary).toBe(false);
     expect(events.alternatives.map(alternativeLabel)).toEqual(['interrupt', 'text']);
     expect(events.alternatives[1].required).toEqual(['text']);
+    // Self-contained: a form compiles an alternative without the root's $defs.
+    expect(events.alternatives.every((alternative) => !('$ref' in alternative))).toBe(true);
   });
 
   it('leaves a schema without live fields alone', () => {

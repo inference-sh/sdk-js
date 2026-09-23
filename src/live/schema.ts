@@ -89,14 +89,19 @@ export interface LiveField<S extends JsonSchema = JsonSchema> {
   alternatives: S[];
 }
 
-/** Resolves a `#/$defs/` reference against the root, recursively. */
+/**
+ * Resolves a `#/$defs/` reference against the root, recursively. The result
+ * stands on its own: it carries no `$ref`, so a validator can compile it
+ * without the root's `$defs`.
+ */
 function deref<S extends JsonSchema>(schema: S, root: S): S {
   if (!schema.$ref || !root.$defs) return schema;
   const name = schema.$ref.replace('#/$defs/', '');
   const target = root.$defs[name] as S | undefined;
   if (!target) return schema;
   // The reference's own fields (title, description) win over the target's.
-  return { ...deref(target, root), ...schema };
+  const { $ref: _ref, ...own } = schema;
+  return { ...deref(target, root), ...own } as S;
 }
 
 function itemAlternatives<S extends JsonSchema>(items: S, root: S): S[] {
