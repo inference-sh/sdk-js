@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client';
-import { IntegrationsAPI } from './integrations';
+import { CredentialsAPI } from './credentials';
 import { CredentialProviderGoogleSA } from '../types';
 
 const mockFetch = jest.fn();
@@ -13,12 +13,12 @@ function mockJsonResponse(body: unknown) {
   });
 }
 
-describe('IntegrationsAPI', () => {
+describe('CredentialsAPI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  const api = () => new IntegrationsAPI(new HttpClient({ apiKey: 'test-key' }));
+  const api = () => new CredentialsAPI(new HttpClient({ apiKey: 'test-key' }));
 
   it('should POST /credentials/list for list()', async () => {
     const page = { items: [{ provider: 'slack' }], next_cursor: null };
@@ -61,7 +61,7 @@ describe('IntegrationsAPI', () => {
 
   it('should POST /credentials for connect()', async () => {
     const payload = { provider: 'slack', config: { token: 'xoxb-123' } };
-    const response = { integration: { provider: 'slack' }, redirect_url: null };
+    const response = { credential: { provider: 'slack' }, redirect_url: null };
     mockJsonResponse(response);
 
     const result = await api().connect(payload as never);
@@ -75,12 +75,12 @@ describe('IntegrationsAPI', () => {
   });
 
   it('should GET /credentials/{provider} for get()', async () => {
-    const integration = { provider: 'slack', status: 'connected' };
-    mockJsonResponse(integration);
+    const credential = { provider: 'slack', status: 'connected' };
+    mockJsonResponse(credential);
 
     const result = await api().get('slack');
 
-    expect(result.data).toEqual(integration);
+    expect(result.data).toEqual(credential);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/slack');
     expect(url).not.toContain('/integrations/');
@@ -124,9 +124,9 @@ describe('IntegrationsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
-  it('should POST typed integration requirements with secrets and scopes for checkRequirements()', async () => {
+  it('should POST typed credential requirements with secrets and scopes for checkRequirements()', async () => {
     const payload = {
-      integrations: [
+      credentials: [
         {
           key: CredentialProviderGoogleSA,
           secrets: ['GOOGLE_SA_JSON'],

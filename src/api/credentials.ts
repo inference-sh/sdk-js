@@ -1,6 +1,8 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
 import {
+  CheckRequirementsRequest,
+  CheckRequirementsResponse,
   CredentialDTO,
   CredentialConfigDTO,
   CredentialConnectRequest,
@@ -10,27 +12,27 @@ import {
 } from '../types';
 
 /**
- * Integrations API
+ * Credentials API: the accounts and keys a team has connected to external services.
  */
-export class IntegrationsAPI {
+export class CredentialsAPI {
   constructor(private readonly http: HttpClient) { }
 
   /**
-   * List integrations with cursor-based pagination
+   * List credentials with cursor-based pagination
    */
   async list(params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<CredentialDTO>>> {
     return this.http.request<CursorListResponse<CredentialDTO>>('post', '/credentials/list', { data: params });
   }
 
   /**
-   * Get available integrations
+   * List the providers a credential can be connected for
    */
   async listAvailable(): Promise<Response<CredentialConfigDTO[]>> {
     return this.http.request<CredentialConfigDTO[]>('get', '/credentials/available');
   }
 
   /**
-   * Get integration configs
+   * Get provider connection configs
    */
   async getConfigs(): Promise<Response<CredentialConfigDTO[]>> {
     return this.http.request<CredentialConfigDTO[]>('get', '/credentials/configs');
@@ -44,30 +46,30 @@ export class IntegrationsAPI {
   }
 
   /**
-   * Check requirements
+   * Check whether secret and credential requirements are satisfied
    */
-  async checkRequirements(data: unknown): Promise<Response<unknown>> {
-    return this.http.request<unknown>('post', '/credentials/check', { data });
+  async checkRequirements(data: CheckRequirementsRequest): Promise<Response<CheckRequirementsResponse>> {
+    return this.http.request<CheckRequirementsResponse>('post', '/credentials/check', { data });
   }
 
   /**
-   * Connect an integration
+   * Connect a credential
    */
   async connect(data: CredentialConnectRequest): Promise<Response<CredentialConnectResponse>> {
     return this.http.request<CredentialConnectResponse>('post', '/credentials', { data });
   }
 
   /**
-   * Get an integration by provider key
+   * Get a credential by provider key
    */
   async get(provider: string): Promise<Response<CredentialDTO>> {
-    return this.http.request<CredentialDTO>('get', `/credentials/${provider}`);
+    return this.http.request<CredentialDTO>('get', `/credentials/${encodeURIComponent(provider)}`);
   }
 
   /**
-   * Disconnect an integration
+   * Disconnect a credential
    */
   async disconnect(provider: string): Promise<Response<void>> {
-    return this.http.request<void>('delete', `/credentials/${provider}`);
+    return this.http.request<void>('delete', `/credentials/${encodeURIComponent(provider)}`);
   }
 }

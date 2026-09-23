@@ -106,10 +106,26 @@ export interface ClientToolConfig {
   output_schema?: any;
 }
 /**
+ * ToolAuthType says how an HTTP tool authenticates.
+ */
+export type ToolAuthType = string;
+/**
+ * ToolAuthTypeCredential sends a connected credential's access token.
+ */
+export const ToolAuthTypeCredential: ToolAuthType = "credential";
+/**
+ * ToolAuthTypeAPIKey sends a vault secret in a header.
+ */
+export const ToolAuthTypeAPIKey: ToolAuthType = "api_key";
+/**
+ * ToolAuthTypeBearer sends a vault secret as a bearer token.
+ */
+export const ToolAuthTypeBearer: ToolAuthType = "bearer";
+/**
  * ToolAuthConfig declares how a tool authenticates.
  */
 export interface ToolAuthConfig {
-  type: string;
+  type: ToolAuthType;
   provider?: string;
   credential_id?: string;
   /**
@@ -403,7 +419,7 @@ export interface AppVersionInput {
   env?: { [key: string]: string};
   kernel?: string;
   required_secrets?: SecretRequirement[];
-  required_integrations?: CredentialRequirement[];
+  required_credentials?: CredentialRequirement[];
   resources?: AppResources;
 }
 /**
@@ -558,7 +574,7 @@ export interface CredentialCompleteOAuthRequest {
   code_verifier?: string;
 }
 export interface CredentialConnectResponse {
-  integration?: CredentialDTO;
+  credential?: CredentialDTO;
   auth_url?: string;
   state?: string;
   code_verifier?: string;
@@ -815,15 +831,16 @@ export const ScopeSecretsRead: Scope = "secrets:read";
  */
 export const ScopeSecretsWrite: Scope = "secrets:write";
 /**
- * Action-level scopes for Integrations
+ * Action-level scopes for credentials (connected accounts, vaults,
+ * custom providers, MCP servers). Formerly integrations:read|write.
  */
-export const ScopeIntegrationsRead: Scope = "integrations:read";
+export const ScopeCredentialsRead: Scope = "credentials:read";
 /**
  * API Key Scopes - hierarchical permission system.
  * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
  * Empty scopes = full access (for backwards compatibility with existing keys).
  */
-export const ScopeIntegrationsWrite: Scope = "integrations:write";
+export const ScopeCredentialsWrite: Scope = "credentials:write";
 /**
  * Action-level scopes for Engines
  */
@@ -904,7 +921,7 @@ export const ScopeGroupProjects: ScopeGroup = "projects";
 export const ScopeGroupTeams: ScopeGroup = "teams";
 export const ScopeGroupBilling: ScopeGroup = "billing";
 export const ScopeGroupSecrets: ScopeGroup = "secrets";
-export const ScopeGroupIntegrations: ScopeGroup = "integrations";
+export const ScopeGroupCredentials: ScopeGroup = "credentials";
 export const ScopeGroupEngines: ScopeGroup = "engines";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
 export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
@@ -1049,10 +1066,10 @@ export interface SecretRequirement {
   optional?: boolean;
 }
 /**
- * CredentialRequirement defines an integration that an app requires.
+ * CredentialRequirement defines a credential that an app requires.
  * Key is the provider slug (e.g. "bytedance", "google").
- * Secrets lists the specific env var names to inject from this integration.
- * Scopes lists OAuth scopes needed (for OAuth integrations).
+ * Secrets lists the specific env var names to inject from this credential.
+ * Scopes lists OAuth scopes needed (for OAuth credentials).
  */
 export interface CredentialRequirement {
   key: string;
@@ -1101,7 +1118,7 @@ export interface AppVersionDTO extends BaseModelDTO {
   env: { [key: string]: string};
   kernel: string;
   required_secrets?: SecretRequirement[];
-  required_integrations?: CredentialRequirement[];
+  required_credentials?: CredentialRequirement[];
   resources: AppResources;
   checksum?: string;
 }
@@ -3022,9 +3039,9 @@ export interface CompletePaymentRequest {
   payment_id?: string;
 }
 /**
- * UpdateIntegrationScopesRequest updates integration scopes.
+ * UpdateCredentialScopesRequest adds OAuth scopes to a connected credential.
  */
-export interface UpdateIntegrationScopesRequest {
+export interface UpdateCredentialScopesRequest {
   scopes: string[];
 }
 /**
@@ -3069,7 +3086,7 @@ export const RequirementTypeSecret: RequirementType = "secret";
 /**
  * Requirement error types
  */
-export const RequirementTypeIntegration: RequirementType = "integration";
+export const RequirementTypeCredential: RequirementType = "credential";
 /**
  * Requirement error types
  */
@@ -3078,7 +3095,7 @@ export const RequirementTypeScope: RequirementType = "scope";
  * RequirementError represents a single missing requirement with actionable info
  */
 export interface RequirementError {
-  type: RequirementType; // "secret" | "integration" | "scope"
+  type: RequirementType; // "secret" | "credential" | "scope"
   key: string; // The requirement key that's missing
   message: string; // Human-readable error message
   action?: SetupAction;
@@ -3105,7 +3122,7 @@ export interface SetupAction {
  */
 export interface CheckRequirementsRequest {
   secrets?: SecretRequirement[];
-  integrations?: CredentialRequirement[];
+  credentials?: CredentialRequirement[];
 }
 /**
  * CheckRequirementsResponse is the API response for checking requirements
@@ -4093,7 +4110,7 @@ export const GraphNodeTypeApproval: GraphNodeType = "approval";
 export const GraphNodeTypeConditional: GraphNodeType = "conditional";
 export const GraphNodeTypeFlowNode: GraphNodeType = "flow_node";
 export const GraphNodeTypeTrigger: GraphNodeType = "trigger";
-export const GraphNodeTypeIntegrationRequirement: GraphNodeType = "integration_requirement";
+export const GraphNodeTypeCredentialRequirement: GraphNodeType = "credential_requirement";
 /**
  * GraphNodeStatus represents the status of a node
  */

@@ -10,7 +10,7 @@ import {
   isSessionError,
 } from './errors';
 import {
-  RequirementTypeIntegration,
+  RequirementTypeCredential,
   RequirementTypeScope,
   RequirementTypeSecret,
 } from '../types';
@@ -72,13 +72,13 @@ describe('error classes', () => {
   it('RequirementsNotMetException should preserve typed RequirementType values', () => {
     const errors = [
       { type: RequirementTypeSecret, key: 'API_KEY', message: 'Missing secret' },
-      { type: RequirementTypeIntegration, key: 'google', message: 'Not connected' },
+      { type: RequirementTypeCredential, key: 'google', message: 'Not connected' },
       { type: RequirementTypeScope, key: 'calendar.readonly', message: 'Missing scope' },
     ];
     const err = new RequirementsNotMetException(errors);
 
     expect(err.errors[0].type).toBe('secret');
-    expect(err.errors[1].type).toBe('integration');
+    expect(err.errors[1].type).toBe('credential');
     expect(err.errors[2].type).toBe('scope');
     expect(isRequirementsNotMetException(err)).toBe(true);
   });

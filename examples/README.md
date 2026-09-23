@@ -29,11 +29,11 @@ These examples demonstrate how to use the `@inferencesh/sdk` package.
 
 ## SDK constants
 
-The README documents typed constants for tasks, integrations, instances, and tool parameters:
+The README documents typed constants for tasks, credentials, instances, and tool parameters:
 
 - **Task status:** `TaskStatusCompleted`, `TaskStatusRunning`, …
-- **Integrations:** `IntegrationProvider*`, `IntegrationAuthType*`, `IntegrationStatus*` — use with `IntegrationDTO` and `isRequirementsNotMetException()` when a run returns HTTP 412
+- **Credentials:** `CredentialProvider*`, `CredentialType*`, `CredentialStatus*`, `RequirementType*` — use with `CredentialDTO` and `isRequirementsNotMetException()` when a run returns HTTP 412
 - **Instances:** `InstanceStatus*` — for engine instance APIs (`InstanceDTO.status`)
 - **Tool schemas:** `ToolParamType*` — JSON Schema `type` values when building `AgentTool` manually (the tool builder infers these automatically)
 
-See the [Integrations guide](https://inference.sh/docs/extend/integrations) for declaring OAuth integrations in `inf.yml`.
+See the [credentials guide](https://inference.sh/docs/extend/credentials) for declaring required credentials in `inf.yml`.

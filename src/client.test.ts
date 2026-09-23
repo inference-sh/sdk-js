@@ -179,9 +179,9 @@ describe('Inference', () => {
           action: { type: 'add_secret', secret_key: 'OPENAI_API_KEY' },
         },
         {
-          type: 'integration',
+          type: 'credential',
           key: 'google',
-          message: 'Integration not connected: google',
+          message: 'Credential not connected: google',
           action: { type: 'connect', provider: 'google' },
         },
       ];
@@ -203,7 +203,7 @@ describe('Inference', () => {
         expect(exception.errors).toHaveLength(2);
         expect(exception.errors[0].type).toBe('secret');
         expect(exception.errors[0].key).toBe('OPENAI_API_KEY');
-        expect(exception.errors[1].type).toBe('integration');
+        expect(exception.errors[1].type).toBe('credential');
         expect(exception.statusCode).toBe(412);
         expect(exception.message).toBe('Missing secret: OPENAI_API_KEY');
       }

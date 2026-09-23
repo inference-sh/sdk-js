@@ -340,26 +340,26 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.method).toBeUndefined();
   });
 
-  it('should attach integration auth with provider and integration id', () => {
+  it('should attach credential auth with provider and credential id', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
-      .auth({ integration: CredentialProviderGoogle, integrationId: 'int-123' })
+      .auth({ credential: CredentialProviderGoogle, credentialId: 'int-123' })
       .build();
 
     expect(t.type).toBe(ToolTypeHTTP);
     expect(t.http?.auth).toEqual({
-      type: 'integration',
+      type: 'credential',
       provider: CredentialProviderGoogle,
       credential_id: 'int-123',
     });
   });
 
-  it('should attach integration auth for google-sa service account provider', () => {
+  it('still accepts the deprecated integration / integrationId options', () => {
     const t = httpTool('calendar_read', 'https://api.example.com/calendar')
       .auth({ integration: CredentialProviderGoogleSA, integrationId: 'sa-int-1' })
       .build();
 
     expect(t.http?.auth).toEqual({
-      type: 'integration',
+      type: 'credential',
       provider: CredentialProviderGoogleSA,
       credential_id: 'sa-int-1',
     });
@@ -438,7 +438,7 @@ describe('HTTPToolBuilder (httpTool)', () => {
 });
 
 describe('MCPToolBuilder (mcpTool)', () => {
-  it('creates MCP tool with integration and tool name', () => {
+  it('creates MCP tool with credential and tool name', () => {
     const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
 
     expect(t.type).toBe(ToolTypeMCP);

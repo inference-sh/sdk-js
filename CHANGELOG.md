@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `client.credentials` (`CredentialsAPI`) replaces `client.integrations` / `IntegrationsAPI`; both old names remain as deprecated aliases
+- `httpTool().auth({ credential, credentialId })` writes auth type `credential`; `integration` / `integrationId` still work
+- Requirement errors use type `credential` (was `integration`); check against `RequirementTypeCredential`
+- `CredentialsAPI.checkRequirements` is typed (`CheckRequirementsRequest` with `credentials`, `CheckRequirementsResponse`)
+- API key scopes are `credentials:read` / `credentials:write` (`integrations:*` keys keep working)
+
 ## [0.6.8] - 2026-05-20
 
 ### Added

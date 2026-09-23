@@ -35,7 +35,9 @@ export { ArtifactsAPI } from './api/artifacts';
 export { TeamsAPI, type MeResponse } from './api/teams';
 export { SecretsAPI } from './api/secrets';
 export { ApiKeysAPI } from './api/api-keys';
-export { IntegrationsAPI } from './api/integrations';
+export { CredentialsAPI } from './api/credentials';
+/** @deprecated renamed CredentialsAPI */
+export { CredentialsAPI as IntegrationsAPI } from './api/credentials';
 export { SearchAPI } from './api/search';
 export { ProjectsAPI } from './api/projects';
 export { MCPServersAPI } from './api/mcp-servers';
@@ -130,7 +132,7 @@ import { ArtifactsAPI } from './api/artifacts';
 import { TeamsAPI } from './api/teams';
 import { SecretsAPI } from './api/secrets';
 import { ApiKeysAPI } from './api/api-keys';
-import { IntegrationsAPI } from './api/integrations';
+import { CredentialsAPI } from './api/credentials';
 import { SearchAPI } from './api/search';
 import { ProjectsAPI } from './api/projects';
 import { MCPServersAPI } from './api/mcp-servers';
@@ -188,11 +190,16 @@ export class Inference {
   readonly teams: TeamsAPI;
   readonly secrets: SecretsAPI;
   readonly apiKeys: ApiKeysAPI;
-  readonly integrations: IntegrationsAPI;
+  readonly credentials: CredentialsAPI;
   readonly search: SearchAPI;
   readonly projects: ProjectsAPI;
   readonly mcpServers: MCPServersAPI;
   readonly sockets: SocketsAPI;
+
+  /** @deprecated renamed `credentials` */
+  get integrations(): CredentialsAPI {
+    return this.credentials;
+  }
 
   constructor(config: InferenceConfig | HttpClientConfig) {
     // Handle both simple config and full HttpClientConfig
@@ -223,7 +230,7 @@ export class Inference {
     this.teams = new TeamsAPI(this.http);
     this.secrets = new SecretsAPI(this.http);
     this.apiKeys = new ApiKeysAPI(this.http);
-    this.integrations = new IntegrationsAPI(this.http);
+    this.credentials = new CredentialsAPI(this.http);
     this.search = new SearchAPI(this.http);
     this.projects = new ProjectsAPI(this.http);
     this.mcpServers = new MCPServersAPI(this.http);

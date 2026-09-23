@@ -2,7 +2,7 @@
  * Tool Builder - Fluent API for defining agent tools
  */
 
-import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types';
+import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAPIKey, ToolAuthTypeBearer, ToolAuthTypeCredential, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types';
 
 // =============================================================================
 // Client Tool Types
@@ -255,13 +255,27 @@ class HTTPToolBuilder extends ToolBuilder {
     return this;
   }
 
-  auth(config: { integration?: string; credentialId?: string; /** @deprecated use credentialId */ integrationId?: string; apiKey?: string; bearer?: string; header?: string }): this {
-    if (config.integration) {
-      this.authConfig = { type: 'integration', provider: config.integration, credential_id: config.credentialId ?? config.integrationId };
+  /**
+   * How the tool authenticates: `credential` sends a connected account's
+   * access token (pick the account with `credentialId`), `apiKey` / `bearer`
+   * send a vault secret.
+   */
+  auth(config: {
+    credential?: string;
+    credentialId?: string;
+    /** @deprecated renamed `credential` */ integration?: string;
+    /** @deprecated renamed `credentialId` */ integrationId?: string;
+    apiKey?: string;
+    bearer?: string;
+    header?: string;
+  }): this {
+    const provider = config.credential ?? config.integration;
+    if (provider) {
+      this.authConfig = { type: ToolAuthTypeCredential, provider, credential_id: config.credentialId ?? config.integrationId };
     } else if (config.apiKey) {
-      this.authConfig = { type: 'api_key', secret: config.apiKey, header: config.header || 'X-API-Key' };
+      this.authConfig = { type: ToolAuthTypeAPIKey, secret: config.apiKey, header: config.header || 'X-API-Key' };
     } else if (config.bearer) {
-      this.authConfig = { type: 'bearer', secret: config.bearer };
+      this.authConfig = { type: ToolAuthTypeBearer, secret: config.bearer };
     }
     return this;
   }
@@ -312,7 +326,7 @@ export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name,
 export const callTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
 
 /** Create an MCP connector tool (calls a tool on a connected MCP server) */
-/** `credentialId` is the MCP credential the tool runs through (formerly called the integration id). */
+/** `credentialId` is the MCP credential the tool runs through. */
 export const mcpTool = (name: string, credentialId: string, toolName: string) =>
   new MCPToolBuilder(name, credentialId, toolName);
 

@@ -397,11 +397,11 @@ const clientTool = tool('get_weather')
   .param('city', string('City name'))
   .build();
 
-// HTTP tool with OAuth integration credentials (injected server-side)
+// HTTP tool authenticated with a connected account (token injected server-side)
 const gmailSend = httpTool('gmail_send', 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send')
   .describe('Send an email via Gmail')
   .method('POST')
-  .auth({ integration: CredentialProviderGoogle, credentialId: 'your-credential-id' })
+  .auth({ credential: CredentialProviderGoogle, credentialId: 'your-credential-id' })
   .build();
 
 // API key or bearer auth
@@ -420,7 +420,7 @@ const imageGen = appTool('generate_image', 'infsh/flux-schnell@abc123')
   .requireApproval()
   .build();
 
-const mcpSearch = mcpTool('notion_search', 'your-mcp-integration-id', 'search')
+const mcpSearch = mcpTool('notion_search', 'your-mcp-credential-id', 'search')
   .describe('Search Notion pages')
   .param('query', string('Search query'))
   .build();
@@ -642,9 +642,9 @@ if (task.status === TaskStatusCompleted) {
 }
 ```
 
-## Integration Constants
+## Credential Constants
 
-`CredentialDTO` fields (`provider`, `type`, `auth`, `status`) use typed string unions exported as constants:
+`CredentialDTO` fields (`provider`, `type`, `status`) use typed string unions exported as constants:
 
 ```typescript
 import type { CredentialDTO } from '@inferencesh/sdk';
@@ -655,24 +655,25 @@ import {
   CredentialStatusDisconnected,
   CredentialStatusExpired,
   CredentialStatusError,
+  RequirementTypeCredential,
   isRequirementsNotMetException,
 } from '@inferencesh/sdk';
 
-function isGoogleConnected(integration: CredentialDTO): boolean {
+function isGoogleConnected(credential: CredentialDTO): boolean {
   return (
-    integration.provider === CredentialProviderGoogle &&
-    integration.status === CredentialStatusConnected
+    credential.provider === CredentialProviderGoogle &&
+    credential.status === CredentialStatusConnected
   );
 }
 
-// HTTP 412 when an app requires a missing secret, integration, or scope
+// HTTP 412 when an app requires a missing secret, credential, or scope
 try {
   await client.run({ app: 'my-app', input: {} });
 } catch (error) {
   if (isRequirementsNotMetException(error)) {
     for (const req of error.errors) {
-      if (req.type === 'integration' && req.action?.provider === CredentialProviderGoogle) {
-        // User must connect Google — see https://inference.sh/docs/extend/integrations
+      if (req.type === RequirementTypeCredential && req.action?.provider === CredentialProviderGoogle) {
+        // User must connect Google — see https://inference.sh/docs/extend/credentials
       }
     }
   }
