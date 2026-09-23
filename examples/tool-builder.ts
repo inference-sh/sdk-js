@@ -24,7 +24,7 @@ import {
   object,
   array,
   optional,
-  IntegrationProviderGoogle,
+  CredentialProviderGoogle,
   ToolParamTypeObject,
   ToolParamTypeString,
 } from '../src';
@@ -115,7 +115,7 @@ console.log('\nsend_slack (webhook tool):', JSON.stringify(sendSlack, null, 2));
 const gmailSend = httpTool('gmail_send', 'https://api.example.com/send')
   .describe('Send email via connected Gmail integration')
   .method('POST')
-  .auth({ integration: IntegrationProviderGoogle, integrationId: 'int-123' })
+  .auth({ integration: CredentialProviderGoogle, credentialId: 'cred-123' })
   .build();
 
 console.log('\ngmail_send (http tool, integration auth):', JSON.stringify(gmailSend, null, 2));
