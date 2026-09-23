@@ -19,6 +19,10 @@ import {
   RefRouteModeRedirect,
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
+  CredentialsAPI,
+  IntegrationsAPI,
+  ScopeCredentialsRead,
+  ScopeCredentialsWrite,
   createClient,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
@@ -83,6 +87,15 @@ describe('package type exports', () => {
   it('does not export removed A2UIHTML component type constant', async () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
+  });
+
+  it('exports CredentialsAPI and deprecated IntegrationsAPI as the same class', () => {
+    expect(CredentialsAPI).toBe(IntegrationsAPI);
+  });
+
+  it('exports credentials API key scope constants (formerly integrations:*)', () => {
+    expect(ScopeCredentialsRead).toBe('credentials:read');
+    expect(ScopeCredentialsWrite).toBe('credentials:write');
   });
 });
 
@@ -589,6 +602,26 @@ describe('namespaced APIs', () => {
       expect(client.engines).toBeDefined();
       expect(typeof client.engines.list).toBe('function');
       expect(typeof client.engines.get).toBe('function');
+    });
+  });
+
+  describe('client.credentials', () => {
+    it('should expose CredentialsAPI methods on client.credentials', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.credentials).toBeDefined();
+      expect(typeof client.credentials.list).toBe('function');
+      expect(typeof client.credentials.listAvailable).toBe('function');
+      expect(typeof client.credentials.getConfigs).toBe('function');
+      expect(typeof client.credentials.getCapabilities).toBe('function');
+      expect(typeof client.credentials.checkRequirements).toBe('function');
+      expect(typeof client.credentials.connect).toBe('function');
+      expect(typeof client.credentials.get).toBe('function');
+      expect(typeof client.credentials.disconnect).toBe('function');
+    });
+
+    it('should keep deprecated client.integrations as the same CredentialsAPI instance', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.integrations).toBe(client.credentials);
     });
   });
 });

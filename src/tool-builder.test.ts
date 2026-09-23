@@ -365,6 +365,31 @@ describe('HTTPToolBuilder (httpTool)', () => {
     });
   });
 
+  it('prefers credential over deprecated integration when both are set', () => {
+    const t = httpTool('dual', 'https://api.example.com')
+      .auth({
+        credential: CredentialProviderGoogle,
+        integration: CredentialProviderGoogleSA,
+        credentialId: 'cred-new',
+        integrationId: 'cred-old',
+      })
+      .build();
+
+    expect(t.http?.auth).toEqual({
+      type: 'credential',
+      provider: CredentialProviderGoogle,
+      credential_id: 'cred-new',
+    });
+  });
+
+  it('does not attach credential auth when only credentialId is provided', () => {
+    const t = httpTool('orphan_id', 'https://api.example.com')
+      .auth({ credentialId: 'cred-only' })
+      .build();
+
+    expect(t.http?.auth).toBeUndefined();
+  });
+
   it('should attach api key auth with default header', () => {
     const t = httpTool('fetch', 'https://api.example.com').auth({ apiKey: 'KEY' }).build();
 

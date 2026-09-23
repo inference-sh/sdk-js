@@ -155,4 +155,32 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
+
+  it('should URL-encode provider keys in get() and disconnect()', async () => {
+    const provider = 'acme/custom+provider';
+    mockJsonResponse({ provider: 'acme/custom+provider', status: 'connected' });
+    await api().get(provider);
+    mockJsonResponse(null);
+    await api().disconnect(provider);
+
+    const getUrl = (mockFetch.mock.calls[0] as [string])[0];
+    const deleteUrl = (mockFetch.mock.calls[1] as [string])[0];
+    const encoded = encodeURIComponent(provider);
+    expect(getUrl).toContain(`/credentials/${encoded}`);
+    expect(deleteUrl).toContain(`/credentials/${encoded}`);
+    expect(getUrl).not.toContain('/credentials/acme/custom+provider');
+  });
+
+  it('should POST secrets-only payloads to checkRequirements()', async () => {
+    const payload = { secrets: [{ key: 'OPENAI_API_KEY' }] };
+    const response = { satisfied: true };
+    mockJsonResponse(response);
+
+    const result = await api().checkRequirements(payload);
+
+    expect(result.data).toEqual(response);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/credentials/check');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
 });

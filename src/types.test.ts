@@ -56,7 +56,12 @@ import {
   ScopeAgentsRead,
   ScopeAppsRead,
   ScopeAppsWrite,
+  ScopeCredentialsRead,
+  ScopeCredentialsWrite,
   ScopeGroupApps,
+  ScopeGroupCredentials,
+  RequirementTypeCredential,
+  ToolAuthTypeCredential,
   ScopePreset,
   ScopesResponse,
   SkillDTO,
@@ -1571,5 +1576,18 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('Credential rename constants (f19b521)', () => {
+  it('exports API key scope strings under credentials:*', () => {
+    expect(ScopeCredentialsRead).toBe('credentials:read');
+    expect(ScopeCredentialsWrite).toBe('credentials:write');
+    expect(ScopeGroupCredentials).toBe('credentials');
+  });
+
+  it('exports requirement and tool auth type strings for credentials', () => {
+    expect(RequirementTypeCredential).toBe('credential');
+    expect(ToolAuthTypeCredential).toBe('credential');
   });
 });
