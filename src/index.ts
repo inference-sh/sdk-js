@@ -41,7 +41,7 @@ export { ProjectsAPI } from './api/projects';
 export { MCPServersAPI } from './api/mcp-servers';
 
 // Live: the socket of a stream task and the live fields of its schemas
-export { LiveSession } from './live/session';
+export { LiveSession, accessUrl } from './live/session';
 export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, WebSocketLike, WebSocketConstructor } from './live/session';
 export {
   STREAM_FORMAT,

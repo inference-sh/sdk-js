@@ -86,6 +86,15 @@ function globalWebSocket(): WebSocketConstructor {
   return ctor;
 }
 
+/**
+ * Where to dial. A browser cannot set headers on a WebSocket, so the
+ * credential rides in the query, as the relay documents.
+ */
+export function accessUrl(access: Pick<SocketAccess, 'url' | 'token'>): string {
+  const sep = access.url.includes('?') ? '&' : '?';
+  return `${access.url}${sep}access_token=${encodeURIComponent(access.token)}`;
+}
+
 export class LiveSession {
   private ws: WebSocketLike | null = null;
   private current: LiveState = 'connecting';
@@ -124,9 +133,7 @@ export class LiveSession {
   connect(): void {
     this.setState('connecting');
     this.watchTask();
-    // A browser cannot set headers on a WebSocket, so the credential rides in
-    // the query, as the relay documents.
-    const ws = new this.WebSocket(`${this.access.url}?access_token=${encodeURIComponent(this.access.token)}`);
+    const ws = new this.WebSocket(accessUrl(this.access));
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
 

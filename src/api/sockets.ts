@@ -50,6 +50,12 @@ export class SocketsAPI {
     return this.http.request<SocketAccess>('post', `/sockets/${id}/access`);
   }
 
+  private async credentialFor(taskId: string): Promise<SocketAccess> {
+    const socket = await this.forTask(taskId);
+    if (!socket) throw new Error(`task ${taskId} has no socket: is it a stream function?`);
+    return (await this.access(socket.id)).data;
+  }
+
   async delete(id: string): Promise<Response<void>> {
     return this.http.request<void>('delete', `/sockets/${id}`);
   }
@@ -59,20 +65,18 @@ export class SocketsAPI {
    * `waiting` until the app's first frame, then `live`; see LiveSession.
    */
   async open(target: SocketTarget, handlers: LiveHandlers = {}, options: OpenSocketOptions = {}): Promise<LiveSession> {
-    const task = typeof target === 'string' ? (await this.tasks.get(target)).data : target;
-    let access = typeof target === 'string' ? undefined : target.socket;
-    let socketId = access?.id;
-    if (!access) {
-      const socket = await this.forTask(task.id);
-      if (!socket) throw new Error(`task ${task.id} has no socket: is it a stream function?`);
-      socketId = socket.id;
-      access = (await this.access(socket.id)).data;
-    }
+    const taskId = typeof target === 'string' ? target : target.id;
+    // Given only an id, the task (for the watch) and a credential for its
+    // socket are independent: fetch them together.
+    const [task, access] = await Promise.all([
+      typeof target === 'string' ? this.tasks.get(target).then((res) => res.data) : target,
+      (typeof target !== 'string' && target.socket) || this.credentialFor(taskId),
+    ]);
 
     const session = new LiveSession({
       access,
       handlers,
-      renew: async () => (await this.access(socketId!)).data,
+      renew: async () => (await this.access(access.id)).data,
       task: options.watchTask === false ? undefined : this.tasks.watch(task),
       webSocket: options.webSocket,
     });

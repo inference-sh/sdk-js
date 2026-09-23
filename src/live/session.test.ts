@@ -1,4 +1,4 @@
-import { LiveSession, type LiveEnd, type LiveState, type TaskWatch, type WebSocketLike } from './session';
+import { LiveSession, accessUrl, type LiveEnd, type LiveState, type TaskWatch, type WebSocketLike } from './session';
 
 /** A WebSocket the test drives: every dial is recorded, and the test opens, feeds and closes it. */
 class FakeWebSocket implements WebSocketLike {
@@ -198,5 +198,12 @@ describe('LiveSession', () => {
     } finally {
       if (saved) (globalThis as { WebSocket?: unknown }).WebSocket = saved;
     }
+  });
+});
+
+describe('accessUrl', () => {
+  it('puts the credential in the query, after any query the relay url already has', () => {
+    expect(accessUrl({ url: 'wss://relay.test/sockets/s1', token: 'a b' })).toBe('wss://relay.test/sockets/s1?access_token=a%20b');
+    expect(accessUrl({ url: 'wss://relay.test/sockets/s1?region=eu', token: 't' })).toBe('wss://relay.test/sockets/s1?region=eu&access_token=t');
   });
 });

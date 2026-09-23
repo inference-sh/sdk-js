@@ -91,8 +91,7 @@ export interface LiveField<S extends JsonSchema = JsonSchema> {
 
 /**
  * Resolves a `#/$defs/` reference against the root, recursively. The result
- * stands on its own: it carries no `$ref`, so a validator can compile it
- * without the root's `$defs`.
+ * carries no top-level `$ref` (a validator ignores a `$ref`'s siblings).
  */
 function deref<S extends JsonSchema>(schema: S, root: S): S {
   if (!schema.$ref || !root.$defs) return schema;
@@ -107,8 +106,11 @@ function deref<S extends JsonSchema>(schema: S, root: S): S {
 function itemAlternatives<S extends JsonSchema>(items: S, root: S): S[] {
   const resolved = deref(items, root);
   const options = (resolved.anyOf ?? resolved.oneOf) as S[] | undefined;
-  if (options?.length) return options.map((option) => deref(option, root));
-  return [resolved];
+  const alternatives = options?.length ? options.map((option) => deref(option, root)) : [resolved];
+  // Each alternative must stand on its own (a form validates it without the
+  // root), and nested references (an enum field, a nested model) still point
+  // into the root's $defs, so they travel with it.
+  return root.$defs ? alternatives.map((alternative) => ({ ...alternative, $defs: root.$defs })) : alternatives;
 }
 
 /**
