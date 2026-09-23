@@ -350,6 +350,23 @@ describe('agent/api', () => {
       expect((result as unknown as Record<string, unknown>)._hasOlderMessages).toBe(true);
     });
 
+    it('should preserve harness_session_id when fetching chat', async () => {
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        harness_session_id: 'sess-resume-42',
+        forked_from_message_id: 'msg-root',
+      };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.harness_session_id).toBe('sess-resume-42');
+      expect(result?.forked_from_message_id).toBe('msg-root');
+    });
+
     it('should skip message fetch when chat_messages are already preloaded', async () => {
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
       const chat = { id: 'chat-1', status: 'idle', chat_messages: messages };

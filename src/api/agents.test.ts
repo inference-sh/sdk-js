@@ -1645,6 +1645,21 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve profile_id and remote_id on agent get() responses', async () => {
+    const agent = {
+      id: 'agent-1',
+      name: 'remote-coder',
+      profile_id: 'prof-default',
+      remote_id: 'remote-dev-machine',
+    };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.profile_id).toBe('prof-default');
+    expect(result.data.remote_id).toBe('remote-dev-machine');
+  });
+
   it('should POST /agents/{id} for update()', async () => {
     const agent = { id: 'agent-1', name: 'updated' };
     mockJsonResponse(agent);

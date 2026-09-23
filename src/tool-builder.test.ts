@@ -519,6 +519,16 @@ describe('InternalToolsBuilder (internalTools)', () => {
     expect(config).toEqual({ remote: true });
   });
 
+  it('allows explicit disable of remote tools', () => {
+    const config = internalTools().remote(false).build();
+    expect(config).toEqual({ remote: false });
+  });
+
+  it('does not enable remote tools when using all()', () => {
+    const config = internalTools().all().build();
+    expect(config.remote).toBeUndefined();
+  });
+
   it('chains multiple tool enables', () => {
     const config = internalTools().plan().memory().widget().build();
     expect(config).toEqual({ plan: true, memory: true, widget: true });

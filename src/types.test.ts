@@ -85,6 +85,13 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  AgentDTO,
+  AgentRunDTO,
+  AgentRunStateCompleted,
+  ChatDTO,
+  ChatStatusIdle,
+  InternalToolsConfig,
+  VisibilityPrivate,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -172,6 +179,43 @@ function makeApp(overrides: Partial<AppDTO> = {}): AppDTO {
     images: { card: '', thumbnail: '', banner: '' },
     version_id: 'ver-1',
     status: AppStatusActive,
+    ...overrides,
+  };
+}
+
+function makeAgent(overrides: Partial<AgentDTO> = {}): AgentDTO {
+  return {
+    id: 'agent-1',
+    short_id: 'a1',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    namespace: 'acme',
+    name: 'harness-bot',
+    title: 'Harness Bot',
+    images: { card: '', thumbnail: '', banner: '' },
+    version_id: 'ver-1',
+    ...overrides,
+  };
+}
+
+function makeChat(overrides: Partial<ChatDTO> = {}): ChatDTO {
+  return {
+    id: 'chat-1',
+    short_id: 'c1',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    children: [],
+    status: ChatStatusIdle,
+    name: 'Session',
+    description: '',
+    chat_messages: [],
+    agent_data: { plan_steps: [], memory: {}, always_allowed_tools: [] },
     ...overrides,
   };
 }
@@ -1571,5 +1615,88 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('harness profile and remote binding (go/api 51d94e80)', () => {
+  it('preserves AgentDTO profile_id and remote_id through JSON round-trip', () => {
+    const agent = makeAgent({
+      profile_id: 'prof-claude-code',
+      remote_id: 'remote-macbook',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(agent)) as AgentDTO;
+
+    expect(parsed.profile_id).toBe('prof-claude-code');
+    expect(parsed.remote_id).toBe('remote-macbook');
+  });
+
+  it('omits harness binding fields on AgentDTO when unset', () => {
+    const parsed = JSON.parse(JSON.stringify(makeAgent())) as AgentDTO;
+
+    expect(parsed.profile_id).toBeUndefined();
+    expect(parsed.remote_id).toBeUndefined();
+  });
+
+  it('preserves AgentRunDTO profile_id and remote_id through JSON round-trip', () => {
+    const run: AgentRunDTO = {
+      id: 'run-1',
+      short_id: 'r1',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      agent_id: 'agent-1',
+      chat_id: 'chat-1',
+      state: AgentRunStateCompleted,
+      profile_id: 'prof-remote-loop',
+      remote_id: 'remote-linux-box',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(run)) as AgentRunDTO;
+
+    expect(parsed.profile_id).toBe('prof-remote-loop');
+    expect(parsed.remote_id).toBe('remote-linux-box');
+  });
+
+  it('preserves ChatDTO harness_session_id and forked_from_message_id on wire', () => {
+    const chat = makeChat({
+      harness_session_id: 'claude-sess-abc',
+      forked_from_message_id: 'msg-branch-point',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.harness_session_id).toBe('claude-sess-abc');
+    expect(parsed.forked_from_message_id).toBe('msg-branch-point');
+  });
+
+  it('omits harness chat metadata when remote profile did not start the chat', () => {
+    const parsed = JSON.parse(JSON.stringify(makeChat())) as ChatDTO;
+
+    expect(parsed.harness_session_id).toBeUndefined();
+    expect(parsed.forked_from_message_id).toBeUndefined();
+  });
+});
+
+describe('InternalToolsConfig.remote (1ffd53a)', () => {
+  it('round-trips remote flag on internal_tools config', () => {
+    const config: InternalToolsConfig = {
+      plan: true,
+      remote: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as InternalToolsConfig;
+
+    expect(parsed.remote).toBe(true);
+    expect(parsed.plan).toBe(true);
+  });
+
+  it('uses snake_case-free remote key on the wire object', () => {
+    const serialized = JSON.stringify({ remote: true } satisfies InternalToolsConfig);
+
+    expect(serialized).toBe('{"remote":true}');
+    expect(serialized).not.toContain('remote_tools');
   });
 });
