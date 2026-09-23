@@ -381,7 +381,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Enable all internal tools */
+  /** Enable the core internal tools (plan, memory, widget, finish). Use .meta() or .remote() to opt into those separately. */
   all(): this {
     this.config.plan = true;
     this.config.memory = true;
@@ -390,7 +390,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Disable all internal tools */
+  /** Disable the core internal tools (plan, memory, widget, finish). Does not affect meta or remote — disable those explicitly if needed. */
   none(): this {
     this.config.plan = false;
     this.config.memory = false;
