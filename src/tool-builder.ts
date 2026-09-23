@@ -375,6 +375,12 @@ class InternalToolsBuilder {
     return this;
   }
 
+  /** Enable remote tools (run commands on the user's connected remotes) */
+  remote(enabled = true): this {
+    this.config.remote = enabled;
+    return this;
+  }
+
   /** Enable all internal tools */
   all(): this {
     this.config.plan = true;

@@ -514,6 +514,11 @@ describe('InternalToolsBuilder (internalTools)', () => {
     expect(config).toEqual({ meta: true });
   });
 
+  it('enables remote tools', () => {
+    const config = internalTools().remote().build();
+    expect(config).toEqual({ remote: true });
+  });
+
   it('chains multiple tool enables', () => {
     const config = internalTools().plan().memory().widget().build();
     expect(config).toEqual({ plan: true, memory: true, widget: true });

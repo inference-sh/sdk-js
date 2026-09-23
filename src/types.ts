@@ -16,6 +16,7 @@ export interface InternalToolsConfig {
   meta?: boolean;
   artifact?: boolean;
   spawn?: boolean;
+  remote?: boolean;
 }
 /**
  * AgentTool represents a unified tool that can be used by an agent
