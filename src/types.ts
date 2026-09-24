@@ -826,7 +826,7 @@ export const ScopeSecretsRead: Scope = "secrets:read";
 export const ScopeSecretsWrite: Scope = "secrets:write";
 /**
  * Action-level scopes for credentials (connected accounts, vaults,
- * custom providers, MCP servers).
+ * auth schemes, MCP servers).
  */
 export const ScopeCredentialsRead: Scope = "credentials:read";
 /**
@@ -1705,10 +1705,10 @@ export interface CredentialConfigDTO {
   has_managed: boolean;
   grant?: CredentialGrant;
   /**
-   * CustomProviderID is set when the provider is one the team defined
-   * itself (models.CustomProvider), so the UI can offer edit and remove.
+   * AuthSchemeID is set when the provider is one the team defined
+   * itself (models.AuthScheme), so the UI can offer edit and remove.
    */
-  custom_provider_id?: string;
+  auth_scheme_id?: string;
   credential?: CredentialDTO;
 }
 /**
