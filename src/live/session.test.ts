@@ -227,6 +227,40 @@ describe('the clear control frame', () => {
 
     expect(patches).toEqual([{ $clear: 'audio' }]);
   });
+
+  it('skips onPatch when onClear consumes a clear-only frame', () => {
+    const cleared: string[] = [];
+    const patches: Record<string, unknown>[] = [];
+    const session = new LiveSession({
+      access: access(),
+      handlers: { onClear: (field) => cleared.push(field), onPatch: (patch) => patches.push(patch) },
+      webSocket: FakeWebSocket,
+    });
+    session.connect();
+    const ws = FakeWebSocket.dialed[0];
+    ws.open();
+    ws.message(JSON.stringify({ $clear: 'transcript' }));
+
+    expect(cleared).toEqual(['transcript']);
+    expect(patches).toEqual([]);
+  });
+
+  it('forwards a non-string $clear value to onPatch even when onClear is set', () => {
+    const cleared: string[] = [];
+    const patches: Record<string, unknown>[] = [];
+    const session = new LiveSession({
+      access: access(),
+      handlers: { onClear: (field) => cleared.push(field), onPatch: (patch) => patches.push(patch) },
+      webSocket: FakeWebSocket,
+    });
+    session.connect();
+    const ws = FakeWebSocket.dialed[0];
+    ws.open();
+    ws.message(JSON.stringify({ $clear: ['audio'] }));
+
+    expect(cleared).toEqual([]);
+    expect(patches).toEqual([{ $clear: ['audio'] }]);
+  });
 });
 
 describe('accessUrl', () => {

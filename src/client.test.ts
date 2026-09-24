@@ -9,9 +9,13 @@ import {
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeSupersedes,
+  CLEAR_KEY,
   Inference,
   inference,
   InferenceConfig,
+  SetupActionAddSecret,
+  SetupActionConnect,
+  SetupActionAddScopes,
   NotificationTypeDataExport,
   NotificationTypeSubscriptionPaymentFailed,
   PlanTypeAddon,
@@ -56,6 +60,16 @@ describe('package type exports', () => {
 
   it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
     expect(ResourceFeatureSeedance).toBe('feature:seedance');
+  });
+
+  it('exports CLEAR_KEY for live $clear control frames', () => {
+    expect(CLEAR_KEY).toBe('$clear');
+  });
+
+  it('exports SetupAction type constants for requirement resolution hints', () => {
+    expect(SetupActionAddSecret).toBe('add_secret');
+    expect(SetupActionConnect).toBe('connect');
+    expect(SetupActionAddScopes).toBe('add_scopes');
   });
 
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {

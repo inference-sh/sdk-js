@@ -155,4 +155,40 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
+
+  it('should POST provider/name/website requirements and return SetupAction secrets for checkRequirements()', async () => {
+    const payload = {
+      credentials: [
+        {
+          provider: 'acme',
+          name: 'Acme CRM',
+          website: 'acme.com',
+          secrets: ['ACME_API_KEY'],
+        },
+      ],
+    };
+    const response = {
+      satisfied: false,
+      errors: [
+        {
+          type: 'credential',
+          key: 'acme',
+          message: 'Connect Acme CRM',
+          action: {
+            type: 'add_secret',
+            provider: 'acme',
+            provider_name: 'Acme CRM',
+            secrets: ['ACME_API_KEY'],
+            provider_website: 'acme.com',
+          },
+        },
+      ],
+    };
+    mockJsonResponse(response);
+
+    const result = await api().checkRequirements(payload);
+
+    expect(result.data).toEqual(response);
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
+  });
 });
