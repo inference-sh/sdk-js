@@ -46,6 +46,29 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
+  it('should deserialize auth_scheme_id on listAvailable() catalog entries', async () => {
+    const available = [
+      {
+        slug: 'team-oauth',
+        provider: 'custom',
+        type: 'oauth2',
+        name: 'Team OAuth',
+        short_name: 'OAuth',
+        description: 'Custom auth scheme',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        auth_scheme_id: 'asch_abc',
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.auth_scheme_id).toBe('asch_abc');
+    expect(result.data[0]).not.toHaveProperty('custom_provider_id');
+  });
+
   it('should GET /credentials/available for listAvailable()', async () => {
     const available = [{ provider: 'github' }];
     mockJsonResponse(available);
@@ -109,6 +132,28 @@ describe('CredentialsAPI', () => {
     expect(url).toContain('/credentials/configs');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize auth_scheme_id on getConfigs() merged views', async () => {
+    const configs = [
+      {
+        slug: 'team-api-key',
+        provider: 'custom',
+        type: 'api_key',
+        name: 'Team API key',
+        short_name: 'API key',
+        description: 'BYOK auth scheme',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        auth_scheme_id: 'asch_cfg_1',
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0]?.auth_scheme_id).toBe('asch_cfg_1');
   });
 
   it('should GET /credentials/capabilities for getCapabilities()', async () => {

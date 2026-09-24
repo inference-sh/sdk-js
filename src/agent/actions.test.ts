@@ -411,6 +411,30 @@ describe('createActions', () => {
       });
       expect(onStatusChange).toHaveBeenCalledWith('streaming');
     });
+
+    it('should ignore DeltaEvent.end completion frames that carry no delta payload', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'delta'
+      )?.[1] as (evt: { delta?: Record<string, unknown>; seq: number; end?: string }) => void;
+
+      onDelta({ delta: { response: 'partial' }, seq: 1, resource_id: 'msg-1' });
+      onDelta({ seq: 2, end: 'msg-1' });
+
+      const deltaTokens = dispatch.mock.calls.filter(
+        ([action]) => action.type === 'DELTA_TOKEN'
+      );
+      expect(deltaTokens).toHaveLength(1);
+      expect(deltaTokens[0][0].payload).toEqual({
+        messageId: 'msg-1',
+        output: { response: 'partial' },
+      });
+    });
   });
 
   describe('stopStream', () => {

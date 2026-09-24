@@ -85,6 +85,8 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialConfigDTO,
+  DeltaEvent,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1573,72 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('DeltaEvent.end (v0.8.2)', () => {
+  it('models an end marker that names the completed resource without carrying delta payload', () => {
+    const evt: DeltaEvent = {
+      delta: null as never,
+      seq: 42,
+      end: 'run_abc123',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(evt)) as DeltaEvent;
+
+    expect(parsed.end).toBe('run_abc123');
+    expect(parsed.seq).toBe(42);
+    expect(parsed.delta).toBeNull();
+    expect(parsed.resource_id).toBeUndefined();
+  });
+
+  it('allows end on the same envelope as a final delta for the named resource', () => {
+    const evt: DeltaEvent = {
+      delta: { response: 'done' },
+      seq: 10,
+      resource_id: 'msg-1',
+      end: 'msg-1',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(evt)) as DeltaEvent;
+
+    expect(parsed.resource_id).toBe('msg-1');
+    expect(parsed.end).toBe('msg-1');
+    expect(parsed.delta).toEqual({ response: 'done' });
+  });
+});
+
+describe('CredentialConfigDTO auth_scheme_id (v0.8.2)', () => {
+  function makeCredentialConfig(
+    overrides: Partial<CredentialConfigDTO> = {}
+  ): CredentialConfigDTO {
+    return {
+      slug: 'my-oauth',
+      provider: 'custom',
+      type: 'oauth2',
+      name: 'My OAuth',
+      short_name: 'OAuth',
+      description: 'Team-defined auth scheme',
+      allows_byok: true,
+      available: true,
+      has_managed: false,
+      ...overrides,
+    };
+  }
+
+  it('round-trips auth_scheme_id for team-defined AuthScheme providers', () => {
+    const config = makeCredentialConfig({ auth_scheme_id: 'asch_team_1' });
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.auth_scheme_id).toBe('asch_team_1');
+  });
+
+  it('does not use the removed custom_provider_id wire key', () => {
+    const config = makeCredentialConfig({ auth_scheme_id: 'asch_team_1' });
+    const wire = JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
+
+    expect(wire).not.toHaveProperty('custom_provider_id');
+    expect(wire.auth_scheme_id).toBe('asch_team_1');
   });
 });
