@@ -19,11 +19,16 @@
 
 export const STREAM_FORMAT = 'stream';
 
-/**
- * A control frame, `{"$clear": "audio"}`: drop what has been buffered of a
- * live output field. Reserved keys start with `$`, which no field name can.
- */
+// Control frames. Reserved keys start with `$`, which no field name can, so a
+// control frame is never mistaken for an output field.
+
+/** `{"$clear": "audio"}`: drop what has been buffered of a live output field. */
 export const CLEAR_KEY = '$clear';
+/**
+ * `{"$error": {"field": ..., "message": ...}}`: a refused frame, or anything
+ * else the caller should be told went wrong. The stream goes on.
+ */
+export const ERROR_KEY = '$error';
 
 /** The part of JSON Schema these helpers read. */
 export interface JsonSchema {
@@ -40,6 +45,7 @@ export interface JsonSchema {
   required?: string[];
   anyOf?: JsonSchema[];
   oneOf?: JsonSchema[];
+  discriminator?: { propertyName?: string };
 }
 
 export function isLiveField(schema: JsonSchema | undefined | null): boolean {
@@ -93,6 +99,8 @@ export interface LiveField<S extends JsonSchema = JsonSchema> {
    * or the single item schema. Empty for a binary field.
    */
   alternatives: S[];
+  /** The property that tells the alternatives apart, when the schema names one. */
+  discriminator?: string;
 }
 
 /**
@@ -143,6 +151,7 @@ export function splitLiveSchema<S extends JsonSchema>(schema: S | undefined | nu
       binary,
       media: binary ? parseMediaType(resolvedItems.contentMediaType) : null,
       alternatives: binary ? [] : itemAlternatives(items, schema),
+      discriminator: binary ? undefined : resolvedItems.discriminator?.propertyName,
     });
   }
   return {
@@ -156,9 +165,21 @@ export function binaryLiveField<S extends JsonSchema>(live: LiveField<S>[]): Liv
   return live.find((field) => field.binary) ?? null;
 }
 
-/** A label for one alternative of a JSON live field: its `type` const, else its title. */
-export function alternativeLabel(schema: JsonSchema, index: number): string {
-  const tag = schema.properties?.type?.const;
-  if (typeof tag === 'string') return tag;
+/**
+ * The property whose constant names this alternative: the schema's
+ * discriminator, else `type`, else the first property with a constant.
+ */
+export function alternativeTag(schema: JsonSchema, discriminator?: string): string | undefined {
+  const constants = Object.entries(schema.properties ?? {})
+    .filter(([, property]) => property && 'const' in property)
+    .map(([key]) => key);
+  return [discriminator, 'type', ...constants].find((key): key is string => !!key && constants.includes(key));
+}
+
+/** A label for one alternative of a JSON live field: the constant that tags it, else its title. */
+export function alternativeLabel(schema: JsonSchema, index: number, discriminator?: string): string {
+  const tag = alternativeTag(schema, discriminator);
+  const value = tag ? schema.properties?.[tag]?.const : undefined;
+  if (typeof value === 'string') return value;
   return schema.title ?? `option ${index + 1}`;
 }

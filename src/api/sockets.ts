@@ -1,6 +1,7 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
 import { LiveSession, type LiveHandlers, type WebSocketConstructor } from '../live/session';
+import type { JsonSchema } from '../live/schema';
 import { CursorListRequest, CursorListResponse, OpEqual, SocketAccess, SocketDTO, TaskDTO as Task } from '../types';
 import type { TasksAPI } from './tasks';
 
@@ -16,6 +17,10 @@ export interface OpenSocketOptions {
   watchTask?: boolean;
   /** The WebSocket to dial with; defaults to the runtime's global one. */
   webSocket?: WebSocketConstructor;
+  /** The function's input schema: `session.sendField` routes by it. */
+  inputSchema?: JsonSchema | null;
+  /** The function's output schema: frames arrive at `onUpdate` as fields. */
+  outputSchema?: JsonSchema | null;
 }
 
 /**
@@ -79,6 +84,8 @@ export class SocketsAPI {
       renew: async () => (await this.access(access.id)).data,
       task: options.watchTask === false ? undefined : this.tasks.watch(task),
       webSocket: options.webSocket,
+      inputSchema: options.inputSchema,
+      outputSchema: options.outputSchema,
     });
     session.connect();
     return session;

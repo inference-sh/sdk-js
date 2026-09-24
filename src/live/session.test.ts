@@ -88,7 +88,7 @@ describe('LiveSession', () => {
     ws().message(pcm);
     expect(binaries).toEqual([pcm]);
     ws().message('not json');
-    expect(patches[1]).toEqual({ text: 'not json' });
+    expect(patches).toHaveLength(1); // plain text is not a patch (see onText)
     expect(states.map((s) => s.state)).toEqual(['connecting', 'waiting', 'live']);
   });
 
@@ -226,6 +226,79 @@ describe('the clear control frame', () => {
     ws().message(JSON.stringify({ $clear: 'audio' }));
 
     expect(patches).toEqual([{ $clear: 'audio' }]);
+  });
+});
+
+describe('text, errors and fields', () => {
+  function open(options: Partial<ConstructorParameters<typeof LiveSession>[0]>) {
+    const session = new LiveSession({ access: access(), webSocket: FakeWebSocket, ...options });
+    session.connect();
+    const ws = FakeWebSocket.dialed[FakeWebSocket.dialed.length - 1];
+    ws.open();
+    return { session, ws };
+  }
+
+  it('passes text that is not a patch to onText, as the app sent it', () => {
+    const texts: string[] = [];
+    const patches: unknown[] = [];
+    const { ws } = open({ handlers: { onText: (t) => texts.push(t), onPatch: (p) => patches.push(p) } });
+    ws.message('hello');
+    ws.message('[1, 2]');
+    expect(texts).toEqual(['hello', '[1, 2]']);
+    expect(patches).toEqual([]);
+  });
+
+  it('routes $error to onError and passes the rest of the patch on', () => {
+    const errors: unknown[] = [];
+    const patches: unknown[] = [];
+    const { ws } = open({ handlers: { onError: (f, m) => errors.push([f, m]), onPatch: (p) => patches.push(p) } });
+    ws.message(JSON.stringify({ $error: { field: 'speed', message: 'too fast' }, voice: 'eve' }));
+    ws.message(JSON.stringify({ error: { field: null, message: 'from an older app' } }));
+    expect(errors).toEqual([['speed', 'too fast'], [null, 'from an older app']]);
+    expect(patches).toEqual([{ voice: 'eve' }]);
+  });
+
+  it('leaves an output field named error alone', () => {
+    const errors: unknown[] = [];
+    const patches: unknown[] = [];
+    const { ws } = open({
+      handlers: { onError: (f, m) => errors.push(m), onPatch: (p) => patches.push(p) },
+      outputSchema: { type: 'object', properties: { error: { type: 'object' } } },
+    });
+    ws.message(JSON.stringify({ error: { message: 'a value' } }));
+    expect(errors).toEqual([]);
+    expect(patches).toEqual([{ error: { message: 'a value' } }]);
+  });
+
+  it('delivers an empty patch: it is still the app saying it is there', () => {
+    const patches: unknown[] = [];
+    const { ws } = open({ handlers: { onPatch: (p) => patches.push(p), onClear: () => {} } });
+    ws.message('{}');
+    ws.message(JSON.stringify({ $clear: 'audio' }));
+    expect(patches).toEqual([{}]);
+  });
+
+  const pcm = { type: 'array', format: 'stream', items: { type: 'string', format: 'binary', contentMediaType: 'audio/pcm;rate=24000' } };
+
+  it('with the output schema, maps frames to fields', () => {
+    const updates: unknown[] = [];
+    const { ws } = open({
+      handlers: { onUpdate: (u) => updates.push(u) },
+      outputSchema: { type: 'object', properties: { audio: pcm, user_text: { type: 'string' } } },
+    });
+    const frame = new ArrayBuffer(2);
+    ws.message(frame);
+    ws.message(JSON.stringify({ user_text: 'hi' }));
+    expect(updates).toEqual([{ field: 'audio', value: frame }, { field: 'user_text', value: 'hi' }]);
+  });
+
+  it('with the input schema, sendField sends binary or JSON as the field requires', () => {
+    const { session, ws } = open({ inputSchema: { type: 'object', properties: { audio: pcm, voice: { type: 'string' } } } });
+    const frame = new Uint8Array([9]);
+    session.sendField('audio', frame);
+    session.sendField('voice', 'ara');
+    expect(ws.sent).toEqual([frame, '{"voice":"ara"}']);
+    expect(() => open({}).session.sendField('voice', 'ara')).toThrow(/inputSchema/);
   });
 });
 

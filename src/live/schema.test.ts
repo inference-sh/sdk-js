@@ -1,4 +1,4 @@
-import { alternativeLabel, binaryLiveField, isLiveField, parseMediaType, pcmFormat, splitLiveSchema, type JsonSchema } from './schema';
+import { alternativeLabel, alternativeTag, binaryLiveField, isLiveField, parseMediaType, pcmFormat, splitLiveSchema, type JsonSchema } from './schema';
 
 // What pydantic emits for voice-loop-like models (inferencesh >= 0.8.1).
 const talkInput: JsonSchema = {
@@ -50,7 +50,7 @@ describe('splitLiveSchema', () => {
   it('resolves the alternatives of a JSON field through $defs', () => {
     const events = splitLiveSchema(talkInput).live[1];
     expect(events.binary).toBe(false);
-    expect(events.alternatives.map(alternativeLabel)).toEqual(['interrupt', 'text']);
+    expect(events.alternatives.map((alternative, index) => alternativeLabel(alternative, index))).toEqual(['interrupt', 'text']);
     expect(events.alternatives[1].required).toEqual(['text']);
     // No top-level $ref: a validator ignores its siblings.
     expect(events.alternatives.every((alternative) => !('$ref' in alternative))).toBe(true);
@@ -85,5 +85,34 @@ describe('media types', () => {
     expect(pcmFormat(parseMediaType('audio/pcm;format=f32le;rate=24000'))).toBeNull();
     expect(pcmFormat(parseMediaType('image/jpeg'))).toBeNull();
     expect(pcmFormat(null)).toBeNull();
+  });
+});
+
+describe('discriminated items', () => {
+  it('labels alternatives by the property the schema discriminates on', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: { oneOf: [{ $ref: '#/$defs/Ask' }, { $ref: '#/$defs/Stop' }], discriminator: { propertyName: 'kind' } },
+        },
+      },
+      $defs: {
+        Ask: { type: 'object', properties: { kind: { const: 'ask' }, q: { type: 'string' } } },
+        Stop: { type: 'object', title: 'Stop', properties: { kind: { const: 'stop' } } },
+      },
+    };
+    const events = splitLiveSchema(schema).live[0];
+    expect(events.discriminator).toBe('kind');
+    expect(events.alternatives.map((alternative, index) => alternativeLabel(alternative, index, events.discriminator))).toEqual(['ask', 'stop']);
+    expect(alternativeTag(events.alternatives[0], events.discriminator)).toBe('kind');
+  });
+
+  it('falls back to `type`, then to the first constant property, then the title', () => {
+    expect(alternativeLabel({ properties: { type: { const: 'text' } } }, 0)).toBe('text');
+    expect(alternativeLabel({ properties: { op: { const: 'ping' } } }, 0)).toBe('ping');
+    expect(alternativeLabel({ title: 'Plain' }, 3)).toBe('Plain');
   });
 });

@@ -11,7 +11,8 @@
  * name.
  */
 import type { SocketAccess } from '../types';
-import { CLEAR_KEY } from './schema';
+import type { TaskWatch as TasksWatch } from '../api/tasks';
+import { binaryLiveField, CLEAR_KEY, ERROR_KEY, splitLiveSchema, type JsonSchema } from './schema';
 
 export type LiveState = 'connecting' | 'waiting' | 'live' | 'ended';
 
@@ -37,17 +38,37 @@ export interface LiveHandlers {
    * handler the control frame reaches onPatch as `{"$clear": field}`.
    */
   onClear?: (field: string) => void;
+  /**
+   * The app refused a frame, or has something to report, and goes on:
+   * `{"$error": {field, message}}`. Apps on SDKs before 0.7.2 / 0.9.2 send it
+   * as `{"error": ...}`, which counts too unless the output has an `error`
+   * field. Without this handler it stays in the patch.
+   */
+  onError?: (field: string | null, message: string) => void;
+  /** A text frame that is not a JSON object: text the app sent as text. */
+  onText?: (text: string) => void;
+  /**
+   * With `outputSchema`, each frame mapped to its output field: an item of a
+   * live field (an ArrayBuffer for the binary one) or a new value of an
+   * ordinary field. Takes the place of onBinary and onPatch where those are
+   * not set.
+   */
+  onUpdate?: (update: LiveUpdate) => void;
+}
+
+/** One thing the app sent, mapped to its output field. */
+export interface LiveUpdate {
+  field: string;
+  value: unknown;
 }
 
 /**
- * Follows the task the socket belongs to. `done` settles when the task ends
- * (rejected when it failed or was cancelled); `stop` ends the watch early and
- * leaves `done` pending.
+ * Follows the task the socket belongs to (what `client.tasks.watch` returns):
+ * `done` settles when the task ends, rejected when it failed or was
+ * cancelled; `stop` ends the watch early and leaves `done` pending. Only
+ * settling matters here, so any promise will do.
  */
-export interface TaskWatch {
-  done: Promise<unknown>;
-  stop(): void;
-}
+export type TaskWatch = Pick<TasksWatch, 'stop'> & { done: Promise<unknown> };
 
 /** The part of the WebSocket API the session uses; browsers, Node 22+ and `ws` all provide it. */
 export interface WebSocketLike {
@@ -77,6 +98,10 @@ export interface LiveSessionOptions {
   task?: TaskWatch;
   /** The WebSocket to dial with; defaults to the runtime's global one. */
   webSocket?: WebSocketConstructor;
+  /** The function's input schema: `sendField` routes by it. */
+  inputSchema?: JsonSchema | null;
+  /** The function's output schema: frames arrive at onUpdate as fields. */
+  outputSchema?: JsonSchema | null;
 }
 
 // 1012: the relay is restarting and closed an end that still waited for its
@@ -112,6 +137,11 @@ export class LiveSession {
   private readonly renew: (() => Promise<SocketAccess>) | undefined;
   private readonly task: TaskWatch | undefined;
   private readonly WebSocket: WebSocketConstructor;
+  private readonly mapped: boolean;
+  private readonly outputBinary: string | undefined;
+  private readonly outputFields: Set<string>;
+  private readonly inputKnown: boolean;
+  private readonly inputBinary: string | undefined;
   private resolveEnded!: (end: LiveEnd) => void;
 
   /** Settles when the session has ended, however it ended. */
@@ -123,6 +153,11 @@ export class LiveSession {
     this.renew = options.renew;
     this.task = options.task;
     this.WebSocket = options.webSocket ?? globalWebSocket();
+    this.mapped = !!options.outputSchema;
+    this.outputBinary = binaryLiveField(splitLiveSchema(options.outputSchema).live)?.key;
+    this.outputFields = new Set(Object.keys(options.outputSchema?.properties ?? {}));
+    this.inputKnown = !!options.inputSchema;
+    this.inputBinary = binaryLiveField(splitLiveSchema(options.inputSchema).live)?.key;
     this.ended = new Promise<LiveEnd>((resolve) => {
       this.resolveEnded = resolve;
     });
@@ -150,26 +185,8 @@ export class LiveSession {
         this.setState('live');
         this.task?.stop(); // the app is there; the task's fate now shows on the socket
       }
-      if (typeof event.data === 'string') {
-        let patch: unknown;
-        try {
-          patch = JSON.parse(event.data);
-        } catch {
-          patch = { text: event.data };
-        }
-        if (patch && typeof patch === 'object' && !Array.isArray(patch)) {
-          const record = patch as Record<string, unknown>;
-          const clear = record[CLEAR_KEY];
-          if (this.handlers.onClear && typeof clear === 'string') {
-            this.handlers.onClear(clear);
-            delete record[CLEAR_KEY];
-            if (Object.keys(record).length === 0) return;
-          }
-          this.handlers.onPatch?.(record);
-        }
-      } else {
-        this.handlers.onBinary?.(event.data as ArrayBuffer);
-      }
+      if (typeof event.data === 'string') this.deliverText(event.data);
+      else this.deliverBinary(event.data as ArrayBuffer);
     };
     ws.onclose = (event) => {
       if (this.ws !== ws) return;
@@ -182,6 +199,49 @@ export class LiveSession {
       }
       this.end({ code: event.code, reason: event.reason, byCaller: this.closedByCaller, taskEnded: false });
     };
+  }
+
+  private deliverText(text: string): void {
+    let patch: unknown;
+    try {
+      patch = JSON.parse(text);
+    } catch {
+      patch = undefined;
+    }
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      this.handlers.onText?.(text); // text the app sent as text
+      return;
+    }
+    const record = patch as Record<string, unknown>;
+    const arrivedEmpty = Object.keys(record).length === 0;
+    const { onClear, onError } = this.handlers;
+    if (onClear && typeof record[CLEAR_KEY] === 'string') {
+      onClear(record[CLEAR_KEY] as string);
+      delete record[CLEAR_KEY];
+    }
+    if (onError) {
+      const key = ERROR_KEY in record ? ERROR_KEY : this.legacyError(record) ? 'error' : undefined;
+      if (key) {
+        const err = record[key];
+        delete record[key];
+        const { field = null, message } = (err && typeof err === 'object' ? err : { message: String(err) }) as { field?: string | null; message?: unknown };
+        onError(field, typeof message === 'string' ? message : JSON.stringify(err));
+      }
+    }
+    if (!arrivedEmpty && Object.keys(record).length === 0) return; // it was only control frames
+    if (this.handlers.onPatch) this.handlers.onPatch(record);
+    else if (this.mapped) for (const [field, value] of Object.entries(record)) this.handlers.onUpdate?.({ field, value });
+  }
+
+  /** `{"error": {"message": ...}}` from an app on an older SDK, unless the output has an `error` field. */
+  private legacyError(record: Record<string, unknown>): boolean {
+    const err = record.error as { message?: unknown } | undefined;
+    return !!err && typeof err === 'object' && 'message' in err && !this.outputFields.has('error');
+  }
+
+  private deliverBinary(data: ArrayBuffer): void {
+    if (this.handlers.onBinary) this.handlers.onBinary(data);
+    else if (this.mapped && this.outputBinary) this.handlers.onUpdate?.({ field: this.outputBinary, value: data });
   }
 
   private watched = false;
@@ -230,6 +290,17 @@ export class LiveSession {
   /** One item of the input's binary live field. */
   sendBinary(data: ArrayBuffer | ArrayBufferView): void {
     if (this.isOpen) this.ws!.send(data);
+  }
+
+  /**
+   * One item of an input live field, or a new value of an ordinary one: a
+   * binary frame for the binary live field, a JSON frame otherwise. Needs
+   * `inputSchema`.
+   */
+  sendField(field: string, value: unknown): void {
+    if (!this.inputKnown) throw new Error("sendField needs the function's inputSchema");
+    if (field === this.inputBinary) this.sendBinary(value as ArrayBuffer | ArrayBufferView);
+    else this.sendPatch({ [field]: value });
   }
 
   /** A partial input object keyed by field name. */
