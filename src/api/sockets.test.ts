@@ -70,6 +70,48 @@ describe('SocketsAPI', () => {
     expect(session.state).toBe('connecting');
   });
 
+  it('forwards input and output schemas for sendField and onUpdate', async () => {
+    const pcm = {
+      type: 'array',
+      format: 'stream',
+      items: { type: 'string', format: 'binary', contentMediaType: 'audio/pcm;rate=24000' },
+    };
+    const updates: unknown[] = [];
+    const wsSent: unknown[] = [];
+    class RecordingWebSocket extends FakeWebSocket {
+      send(data: string | ArrayBuffer | ArrayBufferView): void {
+        wsSent.push(data);
+      }
+      open(): void {
+        this.readyState = 1;
+        this.onopen?.({});
+      }
+      message(data: unknown): void {
+        this.onmessage?.({ data });
+      }
+    }
+    const session = await api().open(
+      { ...task, socket: access },
+      { onUpdate: (update) => updates.push(update) },
+      {
+        webSocket: RecordingWebSocket,
+        watchTask: false,
+        inputSchema: { type: 'object', properties: { audio: pcm, voice: { type: 'string' } } },
+        outputSchema: { type: 'object', properties: { audio: pcm, line: { type: 'string' } } },
+      },
+    );
+    const ws = RecordingWebSocket.dialed[0];
+    ws.open();
+    const frame = new Uint8Array([7]);
+    session.sendField('audio', frame);
+    session.sendField('voice', 'ara');
+    const out = new ArrayBuffer(1);
+    ws.message(out);
+    ws.message(JSON.stringify({ line: 'hi' }));
+    expect(wsSent).toEqual([frame, '{"voice":"ara"}']);
+    expect(updates).toEqual([{ field: 'audio', value: out }, { field: 'line', value: 'hi' }]);
+  });
+
   it('finds the socket of a task id and issues a credential for it', async () => {
     mockJsonResponse(task);
     mockJsonResponse({ items: [{ id: 'sock-1', task_id: 'task-1' }] });

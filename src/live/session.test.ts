@@ -270,6 +270,47 @@ describe('text, errors and fields', () => {
     expect(patches).toEqual([{ error: { message: 'a value' } }]);
   });
 
+  it('keeps control errors in the patch when there is no onError handler', () => {
+    const patches: unknown[] = [];
+    const { ws } = open({ handlers: { onPatch: (p) => patches.push(p) } });
+    ws.message(JSON.stringify({ $error: { field: 'speed', message: 'too fast' } }));
+    ws.message(JSON.stringify({ error: { message: 'from an older app' } }));
+    expect(patches).toEqual([
+      { $error: { field: 'speed', message: 'too fast' } },
+      { error: { message: 'from an older app' } },
+    ]);
+  });
+
+  it('does not treat a legacy error object without message as onError', () => {
+    const errors: unknown[] = [];
+    const patches: unknown[] = [];
+    const { ws } = open({
+      handlers: { onError: (_f, m) => errors.push(m), onPatch: (p) => patches.push(p) },
+    });
+    ws.message(JSON.stringify({ error: { field: 'speed' } }));
+    expect(errors).toEqual([]);
+    expect(patches).toEqual([{ error: { field: 'speed' } }]);
+  });
+
+  it('stringifies non-string error messages for onError', () => {
+    const errors: unknown[] = [];
+    const { ws } = open({ handlers: { onError: (_f, m) => errors.push(m) } });
+    ws.message(JSON.stringify({ $error: { message: { code: 1 } } }));
+    ws.message(JSON.stringify({ error: { message: 42 } }));
+    expect(errors).toEqual(['{"message":{"code":1}}', '{"message":42}']);
+  });
+
+  it('routes $error to onError and leaves a coexisting error key on the patch', () => {
+    const errors: unknown[] = [];
+    const patches: unknown[] = [];
+    const { ws } = open({
+      handlers: { onError: (f, m) => errors.push([f, m]), onPatch: (p) => patches.push(p) },
+    });
+    ws.message(JSON.stringify({ $error: { message: 'canonical' }, error: { message: 'legacy' } }));
+    expect(errors).toEqual([[null, 'canonical']]);
+    expect(patches).toEqual([{ error: { message: 'legacy' } }]);
+  });
+
   it('delivers an empty patch: it is still the app saying it is there', () => {
     const patches: unknown[] = [];
     const { ws } = open({ handlers: { onPatch: (p) => patches.push(p), onClear: () => {} } });

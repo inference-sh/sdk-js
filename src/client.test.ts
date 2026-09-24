@@ -9,6 +9,7 @@ import {
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeSupersedes,
+  ERROR_KEY,
   Inference,
   inference,
   InferenceConfig,
@@ -35,6 +36,10 @@ global.fetch = mockFetch;
 describe('package type exports', () => {
   it('exports GraphEdgeTypeSupersedes for version lineage graph edges', () => {
     expect(GraphEdgeTypeSupersedes).toBe('supersedes');
+  });
+
+  it('exports ERROR_KEY for live $error control frames', () => {
+    expect(ERROR_KEY).toBe('$error');
   });
 
   it('exports NotificationTypeDataExport for data export notifications', () => {
