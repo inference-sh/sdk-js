@@ -353,6 +353,18 @@ describe('HTTPToolBuilder (httpTool)', () => {
     });
   });
 
+  it('ignores removed integration / integrationId auth options (v0.8.0)', () => {
+    const t = httpTool('calendar_read', 'https://api.example.com/calendar')
+      // Legacy callers may still pass old keys at runtime after upgrading.
+      .auth({
+        integration: CredentialProviderGoogleSA,
+        integrationId: 'sa-int-1',
+      } as never)
+      .build();
+
+    expect(t.http?.auth).toBeUndefined();
+  });
+
   it('should attach api key auth with default header', () => {
     const t = httpTool('fetch', 'https://api.example.com').auth({ apiKey: 'KEY' }).build();
 

@@ -53,6 +53,12 @@ describe('package export surface', () => {
     it('still exports FilesAPI for the public upload API', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
     });
+
+    it('does not export integration-named aliases removed in v0.8.0', () => {
+      expect(main).not.toHaveProperty('IntegrationsAPI');
+      expect(main).not.toHaveProperty('IntegrationDTO');
+      expect(main).toHaveProperty('CredentialsAPI');
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

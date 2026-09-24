@@ -84,6 +84,23 @@ describe('package type exports', () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
   });
+
+  it('does not export integration-named aliases removed in v0.8.0', async () => {
+    const sdk = (await import('./index')) as Record<string, unknown>;
+    expect(sdk.IntegrationsAPI).toBeUndefined();
+    expect(sdk.IntegrationDTO).toBeUndefined();
+    expect(sdk.IntegrationConfigDTO).toBeUndefined();
+    expect(sdk.IntegrationConnectRequest).toBeUndefined();
+    expect(sdk.IntegrationConnectResponse).toBeUndefined();
+    expect(sdk.IntegrationCompleteOAuthRequest).toBeUndefined();
+    expect(sdk.IntegrationRequirement).toBeUndefined();
+    expect(sdk.IntegrationStatus).toBeUndefined();
+    expect(sdk.IntegrationScope).toBeUndefined();
+    expect(sdk.IntegrationGrant).toBeUndefined();
+    expect(sdk.IntegrationAuthType).toBeUndefined();
+    expect(sdk.IntegrationProvider).toBeUndefined();
+    expect(sdk.CredentialsAPI).toEqual(expect.any(Function));
+  });
 });
 
 describe('Inference', () => {
@@ -113,6 +130,12 @@ describe('Inference', () => {
         baseUrl: 'https://custom-api.example.com',
       });
       expect(client).toBeDefined();
+    });
+
+    it('exposes credentials but not the removed integrations client alias (v0.8.0)', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.credentials).toBeDefined();
+      expect('integrations' in client).toBe(false);
     });
   });
 
