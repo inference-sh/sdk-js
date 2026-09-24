@@ -96,6 +96,42 @@ describe('Agent.sendMessage (polling mode)', () => {
     );
   });
 
+  it('should forward harness work_dir metadata through onChat while polling', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage, assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+      harness_session_id: 'sess-poll',
+      work_dir: '/data/workspace',
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+      harness_session_id: 'sess-poll',
+      work_dir: '/data/workspace',
+    });
+
+    const onChat = jest.fn();
+    await agent().sendMessage('hello', { stream: false, onChat });
+
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        harness_session_id: 'sess-poll',
+        work_dir: '/data/workspace',
+      })
+    );
+  });
+
   it('should treat chat as idle when active_run is completed even if status is still busy', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });
@@ -506,6 +542,59 @@ describe('Agent.sendMessage (streaming mode)', () => {
 
     const streamCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/stream'));
     expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'omit' }));
+  });
+
+  it('should forward harness work_dir metadata through onChat while streaming', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({
+            event: 'chats',
+            data: {
+              id: 'chat-1',
+              status: ChatStatusBusy,
+              active_run: workingRun,
+              harness_session_id: 'sess-stream',
+              work_dir: '/remote/project',
+            },
+          })}\n`,
+          `${JSON.stringify({
+            event: 'chats',
+            data: {
+              id: 'chat-1',
+              status: ChatStatusIdle,
+              harness_session_id: 'sess-stream',
+              work_dir: '/remote/project',
+            },
+          })}\n`,
+        ])
+      );
+    });
+
+    const onChat = jest.fn();
+    await streamingAgent().sendMessage('hello', { onChat });
+
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        harness_session_id: 'sess-stream',
+        work_dir: '/remote/project',
+      })
+    );
   });
 
   it('should not resolve a follow-up turn on the previous turn\'s idle snapshot', async () => {
@@ -1609,6 +1698,24 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should pass harness binding fields through createAgent()', async () => {
+    const payload = {
+      name: 'claude-bot',
+      harness: 'claude',
+      profile_id: 'default',
+      remote_id: 'dev-mac',
+      core_app: { ref: 'app/ref' },
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.harness).toBe('claude');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -1654,6 +1761,18 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data).toEqual(agent);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+  });
+
+  it('should pass harness through update()', async () => {
+    const payload = { harness: 'codex', profile_id: 'team-profile' };
+    const agent = { id: 'agent-1', name: 'coder', ...payload };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', payload as never);
+
+    expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
   it('should DELETE /agents/{id} for delete()', async () => {
