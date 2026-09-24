@@ -164,6 +164,34 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize assignable_roles and removable on getMembers()', async () => {
+    const members = [
+      {
+        id: 'tm-1',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        role: 'admin',
+        assignable_roles: ['admin', 'member'],
+        removable: true,
+      },
+      {
+        id: 'tm-2',
+        user_id: 'user-owner',
+        team_id: 'team-1',
+        role: 'owner',
+      },
+    ];
+    mockJsonResponse(members);
+
+    const result = await api().getMembers('team-1');
+
+    expect(result.data).toEqual(members);
+    expect(result.data[0].assignable_roles).toEqual(['admin', 'member']);
+    expect(result.data[0].removable).toBe(true);
+    expect(result.data[1].assignable_roles).toBeUndefined();
+    expect(result.data[1].removable).toBeUndefined();
+  });
+
   it('should POST /teams/{id}/members for addMember()', async () => {
     const payload = { user_id: 'user-4', role: 'member' };
     const member = { ...payload };

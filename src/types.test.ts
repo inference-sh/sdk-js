@@ -63,6 +63,10 @@ import {
   SubscriptionDTO,
   SubscriptionIntervalMonthly,
   SubscriptionStatusActive,
+  TeamMemberDTO,
+  TeamRoleAdmin,
+  TeamRoleMember,
+  TeamRoleOwner,
   ToolCallResponse,
   ToolContentTypeAudio,
   ToolContentTypeImage,
@@ -1571,5 +1575,50 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('TeamMemberDTO permission hints (GET /teams/{id}/members)', () => {
+  it('includes assignable_roles and removable when the caller may manage the member', () => {
+    const member: TeamMemberDTO = {
+      id: 'tm-1',
+      user_id: 'user-2',
+      team_id: 'team-1',
+      role: TeamRoleMember,
+      assignable_roles: [TeamRoleMember, TeamRoleAdmin],
+      removable: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(member)) as TeamMemberDTO;
+
+    expect(parsed.assignable_roles).toEqual([TeamRoleMember, TeamRoleAdmin]);
+    expect(parsed.removable).toBe(true);
+  });
+
+  it('allows absent assignable_roles and removable when the caller cannot act', () => {
+    const member: TeamMemberDTO = {
+      id: 'tm-2',
+      user_id: 'user-owner',
+      team_id: 'team-1',
+      role: TeamRoleOwner,
+    };
+
+    expect(member.assignable_roles).toBeUndefined();
+    expect(member.removable).toBeUndefined();
+  });
+
+  it('preserves removable false when role changes are not permitted', () => {
+    const member: TeamMemberDTO = {
+      id: 'tm-3',
+      user_id: 'user-admin',
+      team_id: 'team-1',
+      role: TeamRoleAdmin,
+      removable: false,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(member)) as TeamMemberDTO;
+
+    expect(parsed.removable).toBe(false);
+    expect(parsed.assignable_roles).toBeUndefined();
   });
 });
