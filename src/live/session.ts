@@ -40,7 +40,7 @@ export interface LiveHandlers {
   onClear?: (field: string) => void;
   /**
    * The app refused a frame, or has something to report, and goes on:
-   * `{"$error": {field, message}}`. Apps on SDKs before 0.7.2 / 0.9.2 send it
+   * `{"$error": {field, message}}`. Apps on older SDKs (inferencesh before 0.10.1, @inferencesh/app before 0.1.16) send it
    * as `{"error": ...}`, which counts too unless the output has an `error`
    * field. Without this handler it stays in the patch.
    */
