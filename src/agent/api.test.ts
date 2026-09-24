@@ -361,6 +361,24 @@ describe('agent/api', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
+    it('should preserve work_dir when chat is preloaded with harness metadata', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        chat_messages: messages,
+        harness_session_id: 'resume-id',
+        work_dir: '/tmp/harness-wd',
+      };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.work_dir).toBe('/tmp/harness-wd');
+      expect(result?.harness_session_id).toBe('resume-id');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should return chat with empty messages when message fetch fails', async () => {
       const chat = { id: 'chat-1', status: 'idle' };
       mockJsonResponse(chat);

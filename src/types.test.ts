@@ -85,6 +85,9 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  AgentDTO,
+  ChatDTO,
+  ChatStatusIdle,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1574,103 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function makeAgentDTO(overrides: Partial<AgentDTO> = {}): AgentDTO {
+  return {
+    id: 'agent-1',
+    short_id: 'a1',
+    created_at: '2026-09-24T00:00:00Z',
+    updated_at: '2026-09-24T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    project_id: 'proj-1',
+    namespace: 'inference',
+    name: 'support-bot',
+    title: 'Support Bot',
+    images: { card: '', thumbnail: '', banner: '' },
+    version_id: 'ver-1',
+    harness: 'inference',
+    ...overrides,
+  };
+}
+
+function makeChatDTO(overrides: Partial<ChatDTO> = {}): ChatDTO {
+  return {
+    id: 'chat-1',
+    short_id: 'c1',
+    created_at: '2026-09-24T00:00:00Z',
+    updated_at: '2026-09-24T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    children: [],
+    status: ChatStatusIdle,
+    name: 'Harness chat',
+    description: '',
+    chat_messages: [],
+    agent_data: { plan_steps: [], memory: {}, always_allowed_tools: [] },
+    ...overrides,
+  };
+}
+
+describe('AgentDTO.harness and ChatDTO.work_dir (391d742)', () => {
+  it('preserves harness on AgentDTO JSON round-trip for inference loop agents', () => {
+    const agent = makeAgentDTO({ harness: 'inference' });
+
+    const parsed = JSON.parse(JSON.stringify(agent)) as AgentDTO;
+
+    expect(parsed.harness).toBe('inference');
+  });
+
+  it('preserves external agentprotocol harness ids on AgentDTO responses', () => {
+    const agent = makeAgentDTO({
+      harness: 'claude',
+      profile_id: 'profile-7',
+      remote_id: 'remote-mac',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(agent)) as AgentDTO;
+
+    expect(parsed.harness).toBe('claude');
+    expect(parsed.profile_id).toBe('profile-7');
+    expect(parsed.remote_id).toBe('remote-mac');
+  });
+
+  it('preserves work_dir on ChatDTO JSON round-trip for harness sessions', () => {
+    const chat = makeChatDTO({
+      harness_session_id: 'sess-resume-42',
+      work_dir: '/Users/dev/myproject',
+      forked_from_message_id: 'msg-branch',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.harness_session_id).toBe('sess-resume-42');
+    expect(parsed.work_dir).toBe('/Users/dev/myproject');
+    expect(parsed.forked_from_message_id).toBe('msg-branch');
+  });
+
+  it('allows ChatDTO without work_dir when harness uses default cwd', () => {
+    const chat = makeChatDTO({ harness_session_id: 'sess-1' });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.work_dir).toBeUndefined();
+    expect(parsed.harness_session_id).toBe('sess-1');
+  });
+
+  it('preserves nested agent.harness on ChatDTO.agent responses', () => {
+    const chat = makeChatDTO({
+      agent: makeAgentDTO({ harness: 'codex', name: 'code-agent' }),
+      work_dir: '/workspace/repo',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(chat)) as ChatDTO;
+
+    expect(parsed.agent?.harness).toBe('codex');
+    expect(parsed.work_dir).toBe('/workspace/repo');
   });
 });

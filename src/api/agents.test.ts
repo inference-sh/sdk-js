@@ -1440,6 +1440,22 @@ describe('Agent.getChat', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve work_dir and harness_session_id on getChat() responses', async () => {
+    const chat = {
+      id: 'chat-42',
+      status: 'idle',
+      chat_messages: [],
+      harness_session_id: 'claude-session-9',
+      work_dir: '/home/user/project',
+    };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+
+    expect(result?.harness_session_id).toBe('claude-session-9');
+    expect(result?.work_dir).toBe('/home/user/project');
+  });
+
   it('should expose currentChatId after sendMessage establishes a chat', async () => {
     const agentInstance = agent();
 
@@ -1621,6 +1637,23 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve harness on getByName() responses', async () => {
+    const agent = {
+      id: 'agent-1',
+      name: 'claude-bot',
+      harness: 'claude',
+      profile_id: 'default',
+      remote_id: 'dev-machine',
+    };
+    mockJsonResponse(agent);
+
+    const result = await api().getByName('inference', 'claude-bot');
+
+    expect(result.data.harness).toBe('claude');
+    expect(result.data.profile_id).toBe('default');
+    expect(result.data.remote_id).toBe('dev-machine');
+  });
+
   it('should POST /agents/list for list()', async () => {
     const page = { items: [{ id: 'agent-1' }], next_cursor: null };
     mockJsonResponse(page);
@@ -1643,6 +1676,15 @@ describe('AgentsAPI (template CRUD)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve harness on get() responses', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', harness: 'inference' };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.harness).toBe('inference');
   });
 
   it('should POST /agents/{id} for update()', async () => {

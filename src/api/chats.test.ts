@@ -193,6 +193,21 @@ describe('ChatsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve work_dir on get() responses for harness chats', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: 'open',
+      harness_session_id: 'sess-abc',
+      work_dir: '/var/workspaces/run-3',
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.harness_session_id).toBe('sess-abc');
+    expect(result.data.work_dir).toBe('/var/workspaces/run-3');
+  });
+
   it('should preserve active_run with interrupt details in get() responses', async () => {
     const chat = {
       id: 'chat-1',
