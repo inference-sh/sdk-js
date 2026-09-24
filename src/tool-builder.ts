@@ -263,15 +263,12 @@ class HTTPToolBuilder extends ToolBuilder {
   auth(config: {
     credential?: string;
     credentialId?: string;
-    /** @deprecated renamed `credential` */ integration?: string;
-    /** @deprecated renamed `credentialId` */ integrationId?: string;
     apiKey?: string;
     bearer?: string;
     header?: string;
   }): this {
-    const provider = config.credential ?? config.integration;
-    if (provider) {
-      this.authConfig = { type: ToolAuthTypeCredential, provider, credential_id: config.credentialId ?? config.integrationId };
+    if (config.credential) {
+      this.authConfig = { type: ToolAuthTypeCredential, provider: config.credential, credential_id: config.credentialId };
     } else if (config.apiKey) {
       this.authConfig = { type: ToolAuthTypeAPIKey, secret: config.apiKey, header: config.header || 'X-API-Key' };
     } else if (config.bearer) {

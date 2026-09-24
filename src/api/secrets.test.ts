@@ -45,11 +45,11 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
-  it('should forward provider in create() body for integration-linked secrets', async () => {
+  it('should forward provider in create() body for provider-linked secrets', async () => {
     const payload = {
       key: 'GOOGLE_SA_JSON',
       value: '{"type":"service_account"}',
-      description: 'Google service account for Drive integration',
+      description: 'Google service account for Drive',
       provider: 'google',
     };
     const secret = { key: 'GOOGLE_SA_JSON', scope: 'internal' };

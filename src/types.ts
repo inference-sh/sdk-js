@@ -132,11 +132,6 @@ export interface ToolAuthConfig {
   type: ToolAuthType;
   provider?: string;
   credential_id?: string;
-  /**
-   * Deprecated: the credential id used to be called integration_id. Read
-   * through CredentialRef(); never written.
-   */
-  integration_id?: string;
   secret?: string;
   header?: string;
 }
@@ -150,11 +145,6 @@ export interface HTTPToolConfig {
 }
 export interface MCPToolConfig {
   credential_id?: string;
-  /**
-   * Deprecated: the credential id used to be called integration_id. Read
-   * through CredentialRef(); never written.
-   */
-  integration_id?: string;
   tool_name: string;
 }
 export interface AppToolConfigDTO {
@@ -836,7 +826,7 @@ export const ScopeSecretsRead: Scope = "secrets:read";
 export const ScopeSecretsWrite: Scope = "secrets:write";
 /**
  * Action-level scopes for credentials (connected accounts, vaults,
- * custom providers, MCP servers). Formerly integrations:read|write.
+ * custom providers, MCP servers).
  */
 export const ScopeCredentialsRead: Scope = "credentials:read";
 /**
@@ -4343,7 +4333,7 @@ export type SecretScope = string;
  */
 export const SecretScopeTeam: SecretScope = "team";
 /**
- * SecretScopeInternal is an integration-managed secret, hidden from user lists
+ * SecretScopeInternal is a credential-managed secret, hidden from user lists
  */
 export const SecretScopeInternal: SecretScope = "internal";
 /**

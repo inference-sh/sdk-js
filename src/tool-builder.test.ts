@@ -353,18 +353,6 @@ describe('HTTPToolBuilder (httpTool)', () => {
     });
   });
 
-  it('still accepts the deprecated integration / integrationId options', () => {
-    const t = httpTool('calendar_read', 'https://api.example.com/calendar')
-      .auth({ integration: CredentialProviderGoogleSA, integrationId: 'sa-int-1' })
-      .build();
-
-    expect(t.http?.auth).toEqual({
-      type: 'credential',
-      provider: CredentialProviderGoogleSA,
-      credential_id: 'sa-int-1',
-    });
-  });
-
   it('should attach api key auth with default header', () => {
     const t = httpTool('fetch', 'https://api.example.com').auth({ apiKey: 'KEY' }).build();
 

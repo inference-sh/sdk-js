@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-24
+
+### Removed
+
+- The integration-named aliases: `IntegrationsAPI`, `client.integrations`, the `Integration*` type aliases, and `httpTool().auth({ integration, integrationId })`. Use `CredentialsAPI`, `client.credentials`, the `Credential*` types and `auth({ credential, credentialId })`.
+
 ## [0.7.0] - 2026-09-23
 
 ### Changed

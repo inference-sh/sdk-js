@@ -36,8 +36,6 @@ export { TeamsAPI, type MeResponse } from './api/teams';
 export { SecretsAPI } from './api/secrets';
 export { ApiKeysAPI } from './api/api-keys';
 export { CredentialsAPI } from './api/credentials';
-/** @deprecated renamed CredentialsAPI */
-export { CredentialsAPI as IntegrationsAPI } from './api/credentials';
 export { SearchAPI } from './api/search';
 export { ProjectsAPI } from './api/projects';
 export { MCPServersAPI } from './api/mcp-servers';
@@ -94,22 +92,6 @@ export * from './types';
 
 // Convenience type alias
 export type { TaskDTO as Task } from './types';
-
-// Credentials were called integrations until 2026-09. Deprecated aliases keep
-// existing imports compiling; the JSON shape did not change.
-export type {
-  CredentialDTO as IntegrationDTO,
-  CredentialConfigDTO as IntegrationConfigDTO,
-  CredentialConnectRequest as IntegrationConnectRequest,
-  CredentialConnectResponse as IntegrationConnectResponse,
-  CredentialCompleteOAuthRequest as IntegrationCompleteOAuthRequest,
-  CredentialRequirement as IntegrationRequirement,
-  CredentialStatus as IntegrationStatus,
-  CredentialScope as IntegrationScope,
-  CredentialGrant as IntegrationGrant,
-  CredentialType as IntegrationAuthType,
-  CredentialProvider as IntegrationProvider,
-} from './types';
 
 // =============================================================================
 // Main Client
@@ -196,11 +178,6 @@ export class Inference {
   readonly projects: ProjectsAPI;
   readonly mcpServers: MCPServersAPI;
   readonly sockets: SocketsAPI;
-
-  /** @deprecated renamed `credentials` */
-  get integrations(): CredentialsAPI {
-    return this.credentials;
-  }
 
   constructor(config: InferenceConfig | HttpClientConfig) {
     // Handle both simple config and full HttpClientConfig
