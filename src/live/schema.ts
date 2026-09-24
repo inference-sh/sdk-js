@@ -19,6 +19,12 @@
 
 export const STREAM_FORMAT = 'stream';
 
+/**
+ * A control frame, `{"$clear": "audio"}`: drop what has been buffered of a
+ * live output field. Reserved keys start with `$`, which no field name can.
+ */
+export const CLEAR_KEY = '$clear';
+
 /** The part of JSON Schema these helpers read. */
 export interface JsonSchema {
   $ref?: string;

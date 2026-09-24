@@ -11,6 +11,7 @@
  * name.
  */
 import type { SocketAccess } from '../types';
+import { CLEAR_KEY } from './schema';
 
 export type LiveState = 'connecting' | 'waiting' | 'live' | 'ended';
 
@@ -30,6 +31,12 @@ export interface LiveHandlers {
   onBinary?: (data: ArrayBuffer) => void;
   /** A partial output object keyed by field name. */
   onPatch?: (patch: Record<string, unknown>) => void;
+  /**
+   * Drop what you have buffered of this live output field: the app sends it
+   * when an answer is cut short, e.g. the user talked over it. Without this
+   * handler the control frame reaches onPatch as `{"$clear": field}`.
+   */
+  onClear?: (field: string) => void;
 }
 
 /**
@@ -151,7 +158,14 @@ export class LiveSession {
           patch = { text: event.data };
         }
         if (patch && typeof patch === 'object' && !Array.isArray(patch)) {
-          this.handlers.onPatch?.(patch as Record<string, unknown>);
+          const record = patch as Record<string, unknown>;
+          const clear = record[CLEAR_KEY];
+          if (this.handlers.onClear && typeof clear === 'string') {
+            this.handlers.onClear(clear);
+            delete record[CLEAR_KEY];
+            if (Object.keys(record).length === 0) return;
+          }
+          this.handlers.onPatch?.(record);
         }
       } else {
         this.handlers.onBinary?.(event.data as ArrayBuffer);

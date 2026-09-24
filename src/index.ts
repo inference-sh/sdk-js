@@ -47,6 +47,7 @@ export { LiveSession, accessUrl } from './live/session';
 export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, WebSocketLike, WebSocketConstructor } from './live/session';
 export {
   STREAM_FORMAT,
+  CLEAR_KEY,
   isLiveField,
   parseMediaType,
   pcmFormat,

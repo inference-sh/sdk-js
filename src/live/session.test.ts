@@ -201,6 +201,34 @@ describe('LiveSession', () => {
   });
 });
 
+describe('the clear control frame', () => {
+  it('goes to onClear, and the rest of the patch to onPatch', () => {
+    const cleared: string[] = [];
+    const patches: Record<string, unknown>[] = [];
+    const session = new LiveSession({
+      access: access(),
+      handlers: { onClear: (field) => cleared.push(field), onPatch: (patch) => patches.push(patch) },
+      webSocket: FakeWebSocket,
+    });
+    session.connect();
+    const ws = FakeWebSocket.dialed[0];
+    ws.open();
+    ws.message(JSON.stringify({ $clear: 'audio' }));
+    ws.message(JSON.stringify({ $clear: 'audio', assistant_text: '' }));
+
+    expect(cleared).toEqual(['audio', 'audio']);
+    expect(patches).toEqual([{ assistant_text: '' }]);
+  });
+
+  it('is an ordinary patch to a caller without onClear', () => {
+    const { ws, patches } = start();
+    ws().open();
+    ws().message(JSON.stringify({ $clear: 'audio' }));
+
+    expect(patches).toEqual([{ $clear: 'audio' }]);
+  });
+});
+
 describe('accessUrl', () => {
   it('puts the credential in the query, after any query the relay url already has', () => {
     expect(accessUrl({ url: 'wss://relay.test/sockets/s1', token: 'a b' })).toBe('wss://relay.test/sockets/s1?access_token=a%20b');
