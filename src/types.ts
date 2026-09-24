@@ -3526,6 +3526,14 @@ export interface TeamMemberDTO {
   team_id: string;
   role: TeamRole;
   user?: TeamMemberUserDTO;
+  /**
+   * AssignableRoles are the roles the caller may set this member to, the
+   * current one included; Removable, whether the caller may remove them.
+   * Set on GET /teams/{id}/members by the rules the member writes enforce;
+   * absent means none.
+   */
+  assignable_roles?: TeamRole[];
+  removable?: boolean;
 }
 /**
  * TeamMemberUserDTO is a lightweight user view within team membership.
