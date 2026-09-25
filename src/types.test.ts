@@ -11,7 +11,11 @@ import {
   AppStatusRetired,
   AddNodePayload,
   AppStoreListingDTO,
+  AppVersionDTO,
+  CheckRequirementsRequest,
+  CheckRequirementsResponse,
   CredentialCompleteOAuthRequest,
+  CredentialRequirement,
   AuthResponse,
   A2UIButton,
   A2UIChart,
@@ -36,6 +40,12 @@ import {
   FlowNodeDataMap,
   FlowNodePosition,
   GateCondition,
+  RequirementError,
+  RequirementTypeCredential,
+  SetupAction,
+  SetupActionAddSecret,
+  SetupActionConnect,
+  SetupActionAddScopes,
   SecretCreateRequest,
   SuggestRequest,
   Widget,
@@ -3595,5 +3605,112 @@ describe('PermissionModelDTO embed without org_id (api 53509cc2)', () => {
 
     expect(parsed.team_id).toBe('team-1');
     expect(parsed).not.toHaveProperty('org_id');
+  });
+});
+
+describe('CredentialRequirement and SetupAction (inf.yml + check-requirements)', () => {
+  it('round-trips provider catalog fields and custom provider name/website on CredentialRequirement', () => {
+    const catalog: CredentialRequirement = {
+      provider: 'acme',
+      name: 'Acme CRM',
+      website: 'acme.com',
+      secrets: ['ACME_API_KEY'],
+    };
+    const custom: CredentialRequirement = {
+      name: 'Internal LDAP',
+      website: 'ldap.internal.example',
+      secrets: ['LDAP_BIND_DN', 'LDAP_BIND_PW'],
+    };
+    const capability: CredentialRequirement = {
+      provider: 'google',
+      key: 'google.sheets',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    };
+
+    expect(JSON.parse(JSON.stringify(catalog))).toEqual(catalog);
+    expect(JSON.parse(JSON.stringify(custom))).toEqual(custom);
+    expect(JSON.parse(JSON.stringify(capability))).toEqual(capability);
+  });
+
+  it('models SetupAction add_secret with secrets and provider_website for unlisted providers', () => {
+    const action: SetupAction = {
+      type: SetupActionAddSecret,
+      provider: 'acme',
+      provider_name: 'Acme CRM',
+      secrets: ['ACME_API_KEY'],
+      provider_website: 'acme.com',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(action)) as SetupAction;
+
+    expect(parsed.type).toBe('add_secret');
+    expect(parsed.secrets).toEqual(['ACME_API_KEY']);
+    expect(parsed.provider_website).toBe('acme.com');
+  });
+
+  it('models CheckRequirementsRequest/Response with credential errors carrying SetupAction', () => {
+    const request: CheckRequirementsRequest = {
+      credentials: [
+        {
+          provider: 'acme',
+          name: 'Acme CRM',
+          website: 'acme.com',
+          secrets: ['ACME_API_KEY'],
+        },
+      ],
+    };
+    const error: RequirementError = {
+      type: RequirementTypeCredential,
+      key: 'acme',
+      message: 'Connect Acme CRM',
+      action: {
+        type: SetupActionAddSecret,
+        provider: 'acme',
+        provider_name: 'Acme CRM',
+        secrets: ['ACME_API_KEY'],
+        provider_website: 'acme.com',
+      },
+    };
+    const response: CheckRequirementsResponse = { satisfied: false, errors: [error] };
+
+    expect(JSON.parse(JSON.stringify(request))).toEqual(request);
+    expect(JSON.parse(JSON.stringify(response))).toEqual(response);
+  });
+
+  it('keeps SetupAction type constants on stable wire values', () => {
+    expect(SetupActionAddSecret).toBe('add_secret');
+    expect(SetupActionConnect).toBe('connect');
+    expect(SetupActionAddScopes).toBe('add_scopes');
+  });
+
+  it('allows AppVersionDTO.required_credentials to carry inf.yml credential entries', () => {
+    const version: AppVersionDTO = {
+      id: 'ver-1',
+      short_id: 'v1',
+      created_at: '2026-09-24T00:00:00Z',
+      updated_at: '2026-09-24T00:00:00Z',
+      metadata: {},
+      repository: 'github.com/acme/app',
+      setup_schema: {},
+      input_schema: {},
+      output_schema: {},
+      variants: {},
+      env: {},
+      kernel: 'python',
+      resources: {},
+      required_credentials: [
+        {
+          provider: 'acme',
+          name: 'Acme CRM',
+          website: 'acme.com',
+          secrets: ['ACME_API_KEY'],
+        },
+      ],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(version)) as AppVersionDTO;
+
+    expect(parsed.required_credentials?.[0]?.provider).toBe('acme');
+    expect(parsed.required_credentials?.[0]?.website).toBe('acme.com');
   });
 });
