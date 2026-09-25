@@ -1536,7 +1536,6 @@ export interface PermissionModelDTO {
   user?: UserRelationDTO;
   team_id: string;
   team?: TeamRelationDTO;
-  org_id?: string;
   visibility: Visibility;
 }
 /**
@@ -1682,7 +1681,8 @@ export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
 export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   provider: string;
   type: CredentialType;
-  grant?: CredentialGrant;
+  grant: CredentialGrant;
+  app_credential_id?: string;
   scope: CredentialScope;
   status: CredentialStatus;
   display_name: string;
@@ -1713,7 +1713,19 @@ export interface CredentialConfigDTO {
   allows_byok: boolean;
   available: boolean;
   has_managed: boolean;
-  grant?: CredentialGrant;
+  /**
+   * ConnectionScope is who a new connection belongs to by default: the
+   * team, or each user (their own account).
+   */
+  connection_scope: CredentialScope;
+  /**
+   * App is the OAuth app a login to this provider goes through (a
+   * grant=credentials row): the workspace's own, its org's or the
+   * platform's. Nil when the provider signs in through an app and none is
+   * set up yet, or when it doesn't sign in through one. Credential is the
+   * login itself.
+   */
+  app?: CredentialDTO;
   /**
    * AuthSchemeID is set when the provider is one the team defined
    * itself (models.AuthScheme), so the UI can offer edit and remove.
@@ -2674,7 +2686,6 @@ export interface MCPServerDTO {
   user?: UserRelationDTO;
   team_id: string;
   team?: TeamRelationDTO;
-  org_id?: string;
   visibility: Visibility;
   slug: string;
   name: string;
@@ -4663,10 +4674,20 @@ export const CredentialScopeTeam: CredentialScope = "team";
 export const CredentialScopeUser: CredentialScope = "user";
 export const CredentialScopeAgent: CredentialScope = "agent";
 /**
- * CredentialGrant describes what a credential provides.
+ * CredentialGrant is which layer a credential row is. OAuth has two: the
+ * app (client id and secret, owned by the platform, an org or a team) and
+ * the logins made through it (owned by a team or a user). Every other
+ * credential type is a token row.
  */
 export type CredentialGrant = string;
+/**
+ * CredentialGrantCredentials: an OAuth app. Never a connection.
+ */
 export const CredentialGrantCredentials: CredentialGrant = "credentials";
+/**
+ * CredentialGrantToken: a connection: an OAuth login, an API key, a
+ * service account, an MCP authorization.
+ */
 export const CredentialGrantToken: CredentialGrant = "token";
 /**
  * NotificationChannel represents a delivery channel
