@@ -9,17 +9,31 @@ import {
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeSupersedes,
+  ERROR_KEY,
   Inference,
   inference,
   InferenceConfig,
+  NotificationTypeCreditNote,
   NotificationTypeDataExport,
   NotificationTypeSubscriptionPaymentFailed,
   PlanTypeAddon,
   PlanTypeBase,
   RefRouteModeRedirect,
   RefRouteModeRewrite,
+  RefRouteTypeURL,
   ResourceFeatureSeedance,
+  ToolAuthTypeNone,
+  UtilityPresetConstant,
+  UtilityPresetGate,
+  UtilityPresetMerge,
+  UtilityPresetSelector,
+  ChannelTypeDiscord,
+  ChannelTypeSlack,
+  ChannelTypeTeams,
+  ChannelTypeTelegram,
   createClient,
+  CredentialGrantCredentials,
+  CredentialGrantToken,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -37,6 +51,10 @@ describe('package type exports', () => {
     expect(GraphEdgeTypeSupersedes).toBe('supersedes');
   });
 
+  it('exports ERROR_KEY for live $error control frames', () => {
+    expect(ERROR_KEY).toBe('$error');
+  });
+
   it('exports NotificationTypeDataExport for data export notifications', () => {
     expect(NotificationTypeDataExport).toBe('data_export');
   });
@@ -45,9 +63,18 @@ describe('package type exports', () => {
     expect(NotificationTypeSubscriptionPaymentFailed).toBe('subscription_payment_failed');
   });
 
+  it('exports NotificationTypeCreditNote for billing credit-note alerts', () => {
+    expect(NotificationTypeCreditNote).toBe('credit_note');
+  });
+
   it('exports PlanType constants for base and add-on plans', () => {
     expect(PlanTypeBase).toBe('base');
     expect(PlanTypeAddon).toBe('addon');
+  });
+
+  it('exports CredentialGrant constants for OAuth app vs connection rows', () => {
+    expect(CredentialGrantCredentials).toBe('credentials');
+    expect(CredentialGrantToken).toBe('token');
   });
 
   it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
@@ -63,6 +90,10 @@ describe('package type exports', () => {
     expect(RefRouteModeRedirect).toBe('redirect');
   });
 
+  it('exports RefRouteTypeURL for literal path site redirects', () => {
+    expect(RefRouteTypeURL).toBe('url');
+  });
+
   it('exports GraphEdgeTypeInput and GraphEdgeTypeOutput for flow I/O graph edges', () => {
     expect(GraphEdgeTypeInput).toBe('input');
     expect(GraphEdgeTypeOutput).toBe('output');
@@ -75,14 +106,49 @@ describe('package type exports', () => {
     expect(AppStatusRetired).toBe('retired');
   });
 
+  it('exports UtilityPreset constants for flow utility node presets', () => {
+    expect(UtilityPresetGate).toBe('gate');
+    expect(UtilityPresetSelector).toBe('selector');
+    expect(UtilityPresetMerge).toBe('merge');
+    expect(UtilityPresetConstant).toBe('constant');
+  });
+
   it('exports DeviceAuthStatusApproved and DeviceTokenKindSession for PKCE device auth', () => {
     expect(DeviceAuthStatusApproved).toBe('approved');
     expect(DeviceTokenKindSession).toBe('session');
   });
 
+  it('exports ToolAuthTypeNone for HTTP tools that send no credentials', () => {
+    expect(ToolAuthTypeNone).toBe('none');
+  });
+
+  it('exports ChannelType constants for channel routing metadata', () => {
+    expect(ChannelTypeSlack).toBe('slack');
+    expect(ChannelTypeDiscord).toBe('discord');
+    expect(ChannelTypeTeams).toBe('teams');
+    expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
   it('does not export removed A2UIHTML component type constant', async () => {
     const sdk = (await import('./index')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
+  });
+
+  it('does not export integration-named aliases removed in v0.8.0', async () => {
+    const sdk = (await import('./index')) as Record<string, unknown>;
+    expect(sdk.IntegrationsAPI).toBeUndefined();
+    expect(sdk.IntegrationDTO).toBeUndefined();
+    expect(sdk.IntegrationConfigDTO).toBeUndefined();
+    expect(sdk.IntegrationConnectRequest).toBeUndefined();
+    expect(sdk.IntegrationConnectResponse).toBeUndefined();
+    expect(sdk.IntegrationCompleteOAuthRequest).toBeUndefined();
+    expect(sdk.IntegrationRequirement).toBeUndefined();
+    expect(sdk.IntegrationStatus).toBeUndefined();
+    expect(sdk.IntegrationScope).toBeUndefined();
+    expect(sdk.IntegrationGrant).toBeUndefined();
+    expect(sdk.IntegrationAuthType).toBeUndefined();
+    expect(sdk.IntegrationProvider).toBeUndefined();
+    expect(sdk.CredentialsAPI).toEqual(expect.any(Function));
   });
 });
 
@@ -113,6 +179,12 @@ describe('Inference', () => {
         baseUrl: 'https://custom-api.example.com',
       });
       expect(client).toBeDefined();
+    });
+
+    it('exposes credentials but not the removed integrations client alias (v0.8.0)', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.credentials).toBeDefined();
+      expect('integrations' in client).toBe(false);
     });
   });
 

@@ -96,6 +96,42 @@ describe('Agent.sendMessage (polling mode)', () => {
     );
   });
 
+  it('should forward harness work_dir metadata through onChat while polling', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage, assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+      harness_session_id: 'sess-poll',
+      work_dir: '/data/workspace',
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+      harness_session_id: 'sess-poll',
+      work_dir: '/data/workspace',
+    });
+
+    const onChat = jest.fn();
+    await agent().sendMessage('hello', { stream: false, onChat });
+
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        harness_session_id: 'sess-poll',
+        work_dir: '/data/workspace',
+      })
+    );
+  });
+
   it('should treat chat as idle when active_run is completed even if status is still busy', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });
@@ -421,6 +457,147 @@ describe('Agent.sendMessage (polling mode)', () => {
     warnSpy.mockRestore();
     jest.useRealTimers();
   });
+
+  it('should reject with signal.reason and stop polling when aborted mid-turn', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    let statusPollCount = 0;
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ user_message: userMessage, assistant_message: assistantMessage })
+            ),
+        });
+      }
+      if (urlStr.includes('/status')) {
+        statusPollCount++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        });
+      }
+      if (urlStr.includes('/chats/')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'chat-1',
+                status: ChatStatusBusy,
+                active_run: workingRun,
+                chat_messages: [],
+              })
+            ),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+    });
+
+    const agentInstance = agent();
+    const reason = new Error('operator needed');
+    const turn = agentInstance.sendMessage('hello', { stream: false, signal: controller.signal });
+
+    for (let i = 0; i < 3; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    const statusPollsBeforeAbort = statusPollCount;
+    controller.abort(reason);
+
+    await expect(turn).rejects.toBe(reason);
+    expect(agentInstance.currentChatId).toBe('chat-1');
+
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(statusPollCount).toBe(statusPollsBeforeAbort);
+
+    jest.useRealTimers();
+  });
+
+  it('should reject before POST when the signal is already aborted (polling mode)', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      agent().sendMessage('hello', { stream: false, signal: controller.signal })
+    ).rejects.toBe(controller.signal.reason);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should allow aborting a turn parked on client tool approval', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const toolInvocation = {
+      id: 'tool-inv-await',
+      type: ToolTypeClient,
+      status: ToolInvocationStatusAwaitingInput,
+      function: { name: 'approve_action', arguments: { step: 1 } },
+    };
+    const messageWithTool = makeMessage({ tool_invocations: [toolInvocation] });
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ user_message: userMessage, assistant_message: assistantMessage })
+            ),
+        });
+      }
+      if (urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        });
+      }
+      if (urlStr.includes('/chats/') && !urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'chat-1',
+                status: ChatStatusBusy,
+                active_run: workingRun,
+                chat_messages: [messageWithTool],
+              })
+            ),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+    });
+
+    const reason = new Error('cannot resolve approval in this environment');
+    const turn = agent().sendMessage('approve this', { stream: false, signal: controller.signal });
+
+    for (let i = 0; i < 3; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    controller.abort(reason);
+    await expect(turn).rejects.toBe(reason);
+    jest.useRealTimers();
+  });
 });
 
 describe('Agent.sendMessage (streaming mode)', () => {
@@ -506,6 +683,59 @@ describe('Agent.sendMessage (streaming mode)', () => {
 
     const streamCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/stream'));
     expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'omit' }));
+  });
+
+  it('should forward harness work_dir metadata through onChat while streaming', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage, assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({
+            event: 'chats',
+            data: {
+              id: 'chat-1',
+              status: ChatStatusBusy,
+              active_run: workingRun,
+              harness_session_id: 'sess-stream',
+              work_dir: '/remote/project',
+            },
+          })}\n`,
+          `${JSON.stringify({
+            event: 'chats',
+            data: {
+              id: 'chat-1',
+              status: ChatStatusIdle,
+              harness_session_id: 'sess-stream',
+              work_dir: '/remote/project',
+            },
+          })}\n`,
+        ])
+      );
+    });
+
+    const onChat = jest.fn();
+    await streamingAgent().sendMessage('hello', { onChat });
+
+    expect(onChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        harness_session_id: 'sess-stream',
+        work_dir: '/remote/project',
+      })
+    );
   });
 
   it('should not resolve a follow-up turn on the previous turn\'s idle snapshot', async () => {
@@ -701,6 +931,130 @@ describe('Agent.sendMessage (streaming mode)', () => {
       ['asst-1', 'lo', 'Hello', 2],
       ['asst-2', 'Other', 'Other', 1],
     ]);
+  });
+
+  it('should not invoke onDelta when stream is false', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage,
+      assistant_message: assistantMessage,
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: workingRun,
+      chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1',
+      status: ChatStatusIdle,
+      chat_messages: [],
+    });
+
+    const onDelta = jest.fn();
+    await streamingAgent().sendMessage('hello', { stream: false, onDelta });
+
+    expect(onDelta).not.toHaveBeenCalled();
+  });
+
+  it('should reset per-message accumulation after the assistant message is terminal', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1', status: 'in_progress' });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage,
+                assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'Hel' }, seq: 1, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'lo' }, seq: 2, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-1', status: 'ready' }) })}\n`,
+          `${JSON.stringify({ event: 'delta', data: { delta: { response: 'late' }, seq: 3, resource_id: 'asst-1' } })}\n`,
+          `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+        ])
+      );
+    });
+
+    const onDelta = jest.fn();
+    await streamingAgent().sendMessage('hello', { onDelta });
+
+    expect(onDelta.mock.calls.map(([d]) => [d.messageId, d.output.response, d.seq])).toEqual([
+      ['asst-1', 'Hel', 1],
+      ['asst-1', 'Hello', 2],
+      ['asst-1', 'late', 3],
+    ]);
+  });
+
+  it('should not surface previous turn text through onDelta on a tool-call-only follow-up', async () => {
+    const runResponse = (n: number) => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            user_message: makeMessage({ id: `user-${n}`, role: 'user' }),
+            assistant_message: makeMessage({ id: `asst-${n}` }),
+          })
+        ),
+    });
+    const idle = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } });
+    const busy = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } });
+    const turn1Deltas = [
+      `${JSON.stringify({ event: 'delta', data: { delta: { response: 'First' }, seq: 1, resource_id: 'asst-1' } })}\n`,
+      `${JSON.stringify({ event: 'chat_messages', data: makeMessage({ id: 'asst-1', status: 'ready', content: 'First' }) })}\n`,
+    ];
+    const toolOnly = makeMessage({
+      id: 'asst-2',
+      content: '',
+      tool_invocations: [{
+        id: 'tool-1',
+        type: ToolTypeClient,
+        status: ToolInvocationStatusAwaitingInput,
+        function: { name: 'lookup', arguments: { q: 'x' } },
+      }],
+    });
+
+    let turn = 0;
+    let streams = 0;
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) return Promise.resolve(runResponse(++turn));
+      if (++streams === 1) {
+        return Promise.resolve(mockNdjsonStream([`${busy}\n`, ...turn1Deltas, `${idle}\n`]));
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${idle}\n`,
+          `${busy}\n`,
+          `${JSON.stringify({ event: 'chat_messages', data: toolOnly })}\n`,
+          `${idle}\n`,
+        ])
+      );
+    });
+
+    const agent = streamingAgent();
+    const onDeltaTurn1 = jest.fn();
+    await agent.sendMessage('first', { onDelta: onDeltaTurn1 });
+    expect(onDeltaTurn1).toHaveBeenCalledTimes(1);
+    expect(onDeltaTurn1.mock.calls[0][0].output.response).toBe('First');
+
+    const onDeltaTurn2 = jest.fn();
+    await agent.sendMessage('second', { onDelta: onDeltaTurn2 });
+    expect(onDeltaTurn2).not.toHaveBeenCalled();
   });
 
   it('should wait for the turn when onDelta is the only callback', async () => {
@@ -1440,6 +1794,40 @@ describe('Agent.getChat', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve work_dir and harness_session_id on getChat() responses', async () => {
+    const chat = {
+      id: 'chat-42',
+      status: 'idle',
+      chat_messages: [],
+      harness_session_id: 'claude-session-9',
+      work_dir: '/home/user/project',
+    };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+
+    expect(result?.harness_session_id).toBe('claude-session-9');
+    expect(result?.work_dir).toBe('/home/user/project');
+  });
+
+  it('should preserve channel_context when getChat loads a channel-originated chat', async () => {
+    const chat = {
+      id: 'chat-42',
+      status: 'idle',
+      chat_messages: [],
+      channel_context: {
+        channel_type: 'telegram',
+        channel_metadata: { chat_id: 42, message_id: 99 },
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+
+    expect(result?.channel_context?.channel_type).toBe('telegram');
+    expect(result?.channel_context?.channel_metadata).toEqual({ chat_id: 42, message_id: 99 });
+  });
+
   it('should expose currentChatId after sendMessage establishes a chat', async () => {
     const agentInstance = agent();
 
@@ -1609,6 +1997,24 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should pass harness binding fields through createAgent()', async () => {
+    const payload = {
+      name: 'claude-bot',
+      harness: 'claude',
+      profile_id: 'default',
+      remote_id: 'dev-mac',
+      core_app: { ref: 'app/ref' },
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.harness).toBe('claude');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -1619,6 +2025,23 @@ describe('AgentsAPI (template CRUD)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/inference/my-agent');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve harness on getByName() responses', async () => {
+    const agent = {
+      id: 'agent-1',
+      name: 'claude-bot',
+      harness: 'claude',
+      profile_id: 'default',
+      remote_id: 'dev-machine',
+    };
+    mockJsonResponse(agent);
+
+    const result = await api().getByName('inference', 'claude-bot');
+
+    expect(result.data.harness).toBe('claude');
+    expect(result.data.profile_id).toBe('default');
+    expect(result.data.remote_id).toBe('dev-machine');
   });
 
   it('should POST /agents/list for list()', async () => {
@@ -1645,6 +2068,30 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve harness on get() responses', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', harness: 'inference' };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.harness).toBe('inference');
+  });
+
+  it('should preserve profile_id and remote_id on agent get() responses', async () => {
+    const agent = {
+      id: 'agent-1',
+      name: 'remote-coder',
+      profile_id: 'prof-default',
+      remote_id: 'remote-dev-machine',
+    };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.profile_id).toBe('prof-default');
+    expect(result.data.remote_id).toBe('remote-dev-machine');
+  });
+
   it('should POST /agents/{id} for update()', async () => {
     const agent = { id: 'agent-1', name: 'updated' };
     mockJsonResponse(agent);
@@ -1654,6 +2101,18 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data).toEqual(agent);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+  });
+
+  it('should pass harness through update()', async () => {
+    const payload = { harness: 'codex', profile_id: 'team-profile' };
+    const agent = { id: 'agent-1', name: 'coder', ...payload };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', payload as never);
+
+    expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
   it('should DELETE /agents/{id} for delete()', async () => {

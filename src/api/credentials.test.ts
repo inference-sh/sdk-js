@@ -1,6 +1,12 @@
 import { HttpClient } from '../http/client';
 import { CredentialsAPI } from './credentials';
-import { CredentialProviderGoogleSA } from '../types';
+import {
+  CredentialGrantCredentials,
+  CredentialGrantToken,
+  CredentialProviderGoogleSA,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+} from '../types';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -46,13 +52,82 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
-  it('should GET /credentials/available for listAvailable()', async () => {
-    const available = [{ provider: 'github' }];
+  it('should deserialize auth_scheme_id on listAvailable() catalog entries', async () => {
+    const available = [
+      {
+        slug: 'team-oauth',
+        provider: 'custom',
+        type: 'oauth2',
+        name: 'Team OAuth',
+        short_name: 'OAuth',
+        description: 'Custom auth scheme',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        auth_scheme_id: 'asch_abc',
+      },
+    ];
     mockJsonResponse(available);
 
     const result = await api().listAvailable();
 
-    expect(result.data).toEqual(available);
+    expect(result.data[0]?.auth_scheme_id).toBe('asch_abc');
+    expect(result.data[0]).not.toHaveProperty('custom_provider_id');
+  });
+
+  it('should deserialize connection_scope and nested app/credential grants on listAvailable()', async () => {
+    const available = [
+      {
+        slug: 'github',
+        provider: 'github',
+        type: 'oauth',
+        name: 'GitHub',
+        short_name: 'GitHub',
+        description: 'GitHub OAuth',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeUser,
+        app: {
+          id: 'cred-app',
+          user_id: 'user-1',
+          team_id: 'team-1',
+          visibility: 'private',
+          provider: 'github',
+          type: 'oauth',
+          grant: CredentialGrantCredentials,
+          scope: CredentialScopeTeam,
+          status: 'connected',
+          display_name: 'GitHub app',
+          scopes: [],
+          is_primary: false,
+        },
+        credential: {
+          id: 'cred-login',
+          user_id: 'user-1',
+          team_id: 'team-1',
+          visibility: 'private',
+          provider: 'github',
+          type: 'oauth',
+          grant: CredentialGrantToken,
+          app_credential_id: 'cred-app',
+          scope: CredentialScopeUser,
+          status: 'connected',
+          display_name: 'GitHub login',
+          scopes: ['repo'],
+          is_primary: true,
+        },
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.connection_scope).toBe(CredentialScopeUser);
+    expect(result.data[0]?.app?.grant).toBe(CredentialGrantCredentials);
+    expect(result.data[0]?.credential?.grant).toBe(CredentialGrantToken);
+    expect(result.data[0]?.credential?.app_credential_id).toBe('cred-app');
+    expect(result.data[0]).not.toHaveProperty('grant');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/available');
     expect(url).not.toContain('/integrations/');
@@ -74,13 +149,28 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
-  it('should GET /credentials/{provider} for get()', async () => {
-    const credential = { provider: 'slack', status: 'connected' };
+  it('should deserialize grant and app_credential_id on get()', async () => {
+    const credential = {
+      id: 'cred-1',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      provider: 'slack',
+      type: 'oauth',
+      grant: CredentialGrantToken,
+      app_credential_id: 'cred-slack-app',
+      scope: CredentialScopeTeam,
+      status: 'connected',
+      display_name: 'Slack',
+      scopes: ['chat:write'],
+      is_primary: true,
+    };
     mockJsonResponse(credential);
 
     const result = await api().get('slack');
 
-    expect(result.data).toEqual(credential);
+    expect(result.data?.grant).toBe(CredentialGrantToken);
+    expect(result.data?.app_credential_id).toBe('cred-slack-app');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/slack');
     expect(url).not.toContain('/integrations/');
@@ -98,17 +188,52 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('DELETE');
   });
 
-  it('should GET /credentials/configs for getConfigs()', async () => {
-    const configs = [{ provider: 'github', scopes: ['repo'] }];
+  it('should deserialize connection_scope on getConfigs() merged views', async () => {
+    const configs = [
+      {
+        slug: 'slack',
+        provider: 'slack',
+        type: 'oauth',
+        name: 'Slack',
+        short_name: 'Slack',
+        description: 'Slack workspace',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        connection_scope: CredentialScopeTeam,
+      },
+    ];
     mockJsonResponse(configs);
 
     const result = await api().getConfigs();
 
-    expect(result.data).toEqual(configs);
+    expect(result.data[0]?.connection_scope).toBe(CredentialScopeTeam);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/configs');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize auth_scheme_id on getConfigs() merged views', async () => {
+    const configs = [
+      {
+        slug: 'team-api-key',
+        provider: 'custom',
+        type: 'api_key',
+        name: 'Team API key',
+        short_name: 'API key',
+        description: 'BYOK auth scheme',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        auth_scheme_id: 'asch_cfg_1',
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0]?.auth_scheme_id).toBe('asch_cfg_1');
   });
 
   it('should GET /credentials/capabilities for getCapabilities()', async () => {

@@ -56,6 +56,20 @@ describe('KnowledgeAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should forward title in create() body', async () => {
+    const payload = {
+      name: 'product-docs',
+      title: 'Product Documentation',
+    };
+    const entry = { id: 'know-new', ...payload };
+    mockJsonResponse(entry);
+
+    await api().create(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should forward version scope signals in create() body', async () => {
     const payload = {
       name: 'docs',
@@ -117,6 +131,17 @@ describe('KnowledgeAPI', () => {
     expect(result.data).toEqual(entry);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+  });
+
+  it('should forward title in update() body', async () => {
+    const entry = { id: 'know-1', title: 'Updated Product Docs' };
+    mockJsonResponse(entry);
+
+    const result = await api().update('know-1', { title: 'Updated Product Docs' } as never);
+
+    expect(result.data).toEqual(entry);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Updated Product Docs' });
   });
 
   it('should DELETE /knowledge/{id} for delete()', async () => {

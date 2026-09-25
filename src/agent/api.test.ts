@@ -106,6 +106,36 @@ describe('agent/api', () => {
 
       // 2 calls: create chat + send message (no upload call)
       expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init2.body));
+      expect(messageBody).toEqual({ message: 'see image' });
+      expect(messageBody.files).toBeUndefined();
+      expect(messageBody.attachments).toBeUndefined();
+    });
+
+    it('should upload files but not yet attach URIs to the message POST body', async () => {
+      const client = makeClient();
+      const file = new File(['data'], 'notes.txt', { type: 'text/plain' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue({
+        id: 'file-notes',
+        uri: 'inf://files/notes',
+        filename: 'notes.txt',
+        content_type: 'text/plain',
+      });
+
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, 'chat-1', 'with attachment', [file]);
+
+      expect(uploadSpy).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init.body));
+      expect(messageBody).toEqual({ message: 'with attachment' });
+      expect(messageBody.files).toBeUndefined();
+
+      uploadSpy.mockRestore();
     });
 
     it('should forward template context values via createChat', async () => {
@@ -318,6 +348,28 @@ describe('agent/api', () => {
   });
 
   describe('fetchChat', () => {
+    it('should preserve channel_context from Chat.Get responses', async () => {
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        channel_context: {
+          channel_type: 'slack',
+          channel_metadata: { channel_id: 'C123', thread_ts: '1234.5678' },
+        },
+      };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.channel_context?.channel_type).toBe('slack');
+      expect(result?.channel_context?.channel_metadata).toEqual({
+        channel_id: 'C123',
+        thread_ts: '1234.5678',
+      });
+    });
+
     it('should fetch messages separately when Chat.Get does not preload them', async () => {
       const chat = { id: 'chat-1', status: 'idle' };
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
@@ -350,6 +402,23 @@ describe('agent/api', () => {
       expect((result as unknown as Record<string, unknown>)._hasOlderMessages).toBe(true);
     });
 
+    it('should preserve harness_session_id when fetching chat', async () => {
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        harness_session_id: 'sess-resume-42',
+        forked_from_message_id: 'msg-root',
+      };
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      mockJsonResponse(chat);
+      mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.harness_session_id).toBe('sess-resume-42');
+      expect(result?.forked_from_message_id).toBe('msg-root');
+    });
+
     it('should skip message fetch when chat_messages are already preloaded', async () => {
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
       const chat = { id: 'chat-1', status: 'idle', chat_messages: messages };
@@ -358,6 +427,24 @@ describe('agent/api', () => {
       const result = await fetchChat(makeClient(), 'chat-1');
 
       expect(result).toEqual(chat);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should preserve work_dir when chat is preloaded with harness metadata', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
+      const chat = {
+        id: 'chat-1',
+        status: 'idle',
+        chat_messages: messages,
+        harness_session_id: 'resume-id',
+        work_dir: '/tmp/harness-wd',
+      };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-1');
+
+      expect(result?.work_dir).toBe('/tmp/harness-wd');
+      expect(result?.harness_session_id).toBe('resume-id');
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 

@@ -340,6 +340,12 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.method).toBeUndefined();
   });
 
+  it('omits http.auth when no auth() is configured (same as type none)', () => {
+    const t = httpTool('public_fetch', 'https://api.example.com/open').build();
+
+    expect(t.http?.auth).toBeUndefined();
+  });
+
   it('should attach credential auth with provider and credential id', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
       .auth({ credential: CredentialProviderGoogle, credentialId: 'int-123' })
@@ -351,6 +357,18 @@ describe('HTTPToolBuilder (httpTool)', () => {
       provider: CredentialProviderGoogle,
       credential_id: 'int-123',
     });
+  });
+
+  it('ignores removed integration / integrationId auth options (v0.8.0)', () => {
+    const t = httpTool('calendar_read', 'https://api.example.com/calendar')
+      // Legacy callers may still pass old keys at runtime after upgrading.
+      .auth({
+        integration: CredentialProviderGoogleSA,
+        integrationId: 'sa-int-1',
+      } as never)
+      .build();
+
+    expect(t.http?.auth).toBeUndefined();
   });
 
   it('should attach api key auth with default header', () => {
@@ -505,6 +523,16 @@ describe('InternalToolsBuilder (internalTools)', () => {
   it('enables remote tools', () => {
     const config = internalTools().remote().build();
     expect(config).toEqual({ remote: true });
+  });
+
+  it('allows explicit disable of remote tools', () => {
+    const config = internalTools().remote(false).build();
+    expect(config).toEqual({ remote: false });
+  });
+
+  it('does not enable remote tools when using all()', () => {
+    const config = internalTools().all().build();
+    expect(config.remote).toBeUndefined();
   });
 
   it('chains multiple tool enables', () => {

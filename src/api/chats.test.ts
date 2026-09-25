@@ -3,6 +3,7 @@ import {
   AgentRunStateInputRequired,
   AgentRunStateWorking,
   ChatStatusBusy,
+  ChannelTypeSlack,
   GraphEdgeTypeInput,
   GraphEdgeTypeOutput,
   GraphEdgeTypeReferences,
@@ -193,6 +194,44 @@ describe('ChatsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve work_dir on get() responses for harness chats', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: 'open',
+      harness_session_id: 'sess-abc',
+      work_dir: '/var/workspaces/run-3',
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.harness_session_id).toBe('sess-abc');
+    expect(result.data.work_dir).toBe('/var/workspaces/run-3');
+  });
+
+  it('should preserve channel_context on channel-originated chats in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: 'idle',
+      channel_context: {
+        channel_type: ChannelTypeSlack,
+        channel_metadata: {
+          channel_id: 'C123',
+          thread_ts: '1234.5678',
+        },
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.channel_context?.channel_type).toBe('slack');
+    expect(result.data.channel_context?.channel_metadata).toEqual({
+      channel_id: 'C123',
+      thread_ts: '1234.5678',
+    });
+  });
+
   it('should preserve active_run with interrupt details in get() responses', async () => {
     const chat = {
       id: 'chat-1',
@@ -213,6 +252,42 @@ describe('ChatsAPI', () => {
     expect(result.data.active_run?.state).toBe(AgentRunStateInputRequired);
     expect(result.data.active_run?.interrupt_reason).toBe(InterruptReasonToolApproval);
     expect(result.data.active_run?.interrupt_tool_id).toBe('tool-call-7');
+  });
+
+  it('should preserve harness_session_id and forked_from_message_id in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      harness_session_id: 'claude-resume-id',
+      forked_from_message_id: 'msg-fork-9',
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.harness_session_id).toBe('claude-resume-id');
+    expect(result.data.forked_from_message_id).toBe('msg-fork-9');
+  });
+
+  it('should preserve profile_id and remote_id on active_run in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      active_run: {
+        id: 'run-1',
+        agent_id: 'agent-1',
+        chat_id: 'chat-1',
+        state: AgentRunStateWorking,
+        profile_id: 'prof-harness',
+        remote_id: 'remote-1',
+      },
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.active_run?.profile_id).toBe('prof-harness');
+    expect(result.data.active_run?.remote_id).toBe('remote-1');
   });
 
   it('should preserve agent_run_id on chat messages in get() responses', async () => {

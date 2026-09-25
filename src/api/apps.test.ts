@@ -124,6 +124,20 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'New App' });
   });
 
+  it('should forward title in create() body', async () => {
+    const app = { id: 'app-new', name: 'veo-3-1', title: 'Veo 3.1' };
+    mockJsonResponse(app);
+
+    const result = await api().create({ name: 'veo-3-1', title: 'Veo 3.1' });
+
+    expect(result.data).toEqual(app);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'veo-3-1',
+      title: 'Veo 3.1',
+    });
+  });
+
   it('should POST /apps/{id} for update()', async () => {
     const app = { id: 'app-1', description: 'updated' };
     mockJsonResponse(app);

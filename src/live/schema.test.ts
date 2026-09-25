@@ -58,6 +58,27 @@ describe('splitLiveSchema', () => {
     expect(events.alternatives.every((alternative) => alternative.$defs === talkInput.$defs)).toBe(true);
   });
 
+  it('keeps nested $ref fields on an alternative when the root $defs travel with it', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        Tag: { type: 'string', const: 'a' },
+        Message: { type: 'object', properties: { tag: { $ref: '#/$defs/Tag' } } },
+      },
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: { anyOf: [{ $ref: '#/$defs/Message' }] },
+        },
+      },
+    };
+    const [message] = splitLiveSchema(schema).live[0].alternatives;
+    expect(message.$defs).toBe(schema.$defs);
+    expect(message.properties?.tag).toEqual({ $ref: '#/$defs/Tag' });
+    expect('$ref' in message).toBe(false);
+  });
+
   it('leaves a schema without live fields alone', () => {
     const plain: JsonSchema = { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] };
     const { ordinary, live } = splitLiveSchema(plain);
@@ -71,6 +92,69 @@ describe('splitLiveSchema', () => {
     expect(alternativeLabel({ title: 'Word' }, 0)).toBe('Word');
     expect(alternativeLabel({}, 2)).toBe('option 3');
     expect(isLiveField({ format: 'file' })).toBe(false);
+  });
+
+  it('resolves oneOf $ref alternatives without leaving $ref on the result', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        Ping: { type: 'object', title: 'Ping', properties: { type: { const: 'ping', type: 'string' } } },
+        Pong: { type: 'object', title: 'Pong', properties: { type: { const: 'pong', type: 'string' } } },
+      },
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: { oneOf: [{ $ref: '#/$defs/Ping' }, { $ref: '#/$defs/Pong' }] },
+        },
+      },
+    };
+    const events = splitLiveSchema(schema).live[0];
+    expect(events.alternatives.map((alternative, index) => alternativeLabel(alternative, index))).toEqual(['ping', 'pong']);
+    expect(events.alternatives.every((alternative) => !('$ref' in alternative))).toBe(true);
+  });
+
+  it('lets fields on a $ref override the target and still drops the $ref', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        Base: { type: 'object', title: 'FromDef', description: 'from def' },
+      },
+      properties: {
+        events: {
+          type: 'array',
+          format: 'stream',
+          items: {
+            anyOf: [{ $ref: '#/$defs/Base', title: 'Overlay', description: 'from ref' }],
+          },
+        },
+      },
+    };
+    const [alternative] = splitLiveSchema(schema).live[0].alternatives;
+    expect(alternative.title).toBe('Overlay');
+    expect(alternative.description).toBe('from ref');
+    expect('$ref' in alternative).toBe(false);
+  });
+
+  it('follows nested $defs references until fully expanded', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      $defs: {
+        Outer: { $ref: '#/$defs/Inner', title: 'Outer' },
+        Inner: { type: 'object', properties: { value: { type: 'string' } } },
+      },
+      properties: {
+        payload: {
+          type: 'array',
+          format: 'stream',
+          items: { $ref: '#/$defs/Outer' },
+        },
+      },
+    };
+    const [alternative] = splitLiveSchema(schema).live[0].alternatives;
+    expect(alternative.title).toBe('Outer');
+    expect(alternative.properties?.value).toEqual({ type: 'string' });
+    expect('$ref' in alternative).toBe(false);
   });
 });
 
