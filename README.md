@@ -523,6 +523,14 @@ const output = await agent.run('Analyze: Great product!');
 | `disconnect()` | Stop active stream/poll connections |
 | `reset()` | Disconnect and clear chat state so the next message starts a new chat |
 
+Messages that arrive through a channel integration (Slack, Telegram, a wearable) can carry `channel_context` so the reply is routed back the same way. The API records it on the chat the first time it sees it, so later turns inherit it:
+
+```typescript
+await agent.sendMessage(text, {
+  channel_context: { channel_type: 'slack', channel_metadata: { channel: 'C123', thread_ts: '1700000000.000100' } },
+});
+```
+
 ## API Reference
 
 ### `inference(config)`
