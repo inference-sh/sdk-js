@@ -8,6 +8,7 @@ import {
   AppStatusMaintenance,
   AppStatusRetired,
   AppStoreListingDTO,
+  CredentialCompleteOAuthRequest,
   DeviceAuthInitRequest,
   DeviceAuthPollResponse,
   DeviceAuthStatusApproved,
@@ -937,6 +938,74 @@ describe('PlanVersionDTO and PlanDTO active_version', () => {
     expect(version.active).toBe(false);
     expect(version.amount_monthly).toBe(1900);
     expect(version.provider_price_id_monthly).toBe('price_stripe_legacy');
+  });
+});
+
+describe('CredentialCompleteOAuthRequest callback params (INF-786)', () => {
+  it('models the standard OAuth code exchange without extra callback params', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'github',
+      type: 'oauth',
+      code: 'auth-code',
+      state: 'csrf-state',
+      code_verifier: 'pkce-verifier',
+    };
+
+    expect(request.params).toBeUndefined();
+    expect(request.code_verifier).toBe('pkce-verifier');
+  });
+
+  it('forwards provider-specific callback query params for auth scheme {{callback.*}} lookups', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'quickbooks',
+      type: 'oauth',
+      code: 'qb-code',
+      state: 'qb-state',
+      params: {
+        realmId: '4620816365003870360',
+      },
+    };
+
+    expect(request.params?.realmId).toBe('4620816365003870360');
+  });
+
+  it('carries multiple callback params such as Shopify shop subdomain', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'shopify',
+      type: 'oauth',
+      code: 'shp-code',
+      state: 'shp-state',
+      params: {
+        shop: 'acme-widgets.myshopify.com',
+        timestamp: '1690000000',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CredentialCompleteOAuthRequest;
+
+    expect(parsed.params).toEqual({
+      shop: 'acme-widgets.myshopify.com',
+      timestamp: '1690000000',
+    });
+  });
+
+  it('preserves code, state, and verifier alongside callback params through JSON round-trip', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'custom-saas',
+      type: 'oauth',
+      code: 'exchange-code',
+      state: 'signed-state',
+      code_verifier: 'verifier-xyz',
+      params: { tenant: 'eu-west', org: 'org_abc' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CredentialCompleteOAuthRequest;
+
+    expect(parsed.provider).toBe('custom-saas');
+    expect(parsed.code).toBe('exchange-code');
+    expect(parsed.state).toBe('signed-state');
+    expect(parsed.code_verifier).toBe('verifier-xyz');
+    expect(parsed.params).toEqual({ tenant: 'eu-west', org: 'org_abc' });
   });
 });
 
