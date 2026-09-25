@@ -2150,6 +2150,16 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.remote_id).toBe('dev-machine');
   });
 
+  it('should preserve title on getByName() responses separate from name slug', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Support Bot' };
+    mockJsonResponse(agent);
+
+    const result = await api().getByName('acme', 'support-bot');
+
+    expect(result.data.title).toBe('Support Bot');
+    expect(result.data.name).toBe('support-bot');
+  });
+
   it('should POST /agents/list for list()', async () => {
     const page = { items: [{ id: 'agent-1' }], next_cursor: null };
     mockJsonResponse(page);
@@ -2181,6 +2191,16 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().get('agent-1');
 
     expect(result.data.harness).toBe('inference');
+  });
+
+  it('should preserve title on get() responses separate from name slug', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Support Bot' };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.title).toBe('Support Bot');
+    expect(result.data.name).toBe('support-bot');
   });
 
   it('should preserve profile_id and remote_id on agent get() responses', async () => {
@@ -2217,6 +2237,17 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().update('agent-1', payload as never);
 
     expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward title in update() body', async () => {
+    const payload = { title: 'Renamed Support Bot' };
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Renamed Support Bot' };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
