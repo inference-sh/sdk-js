@@ -9,9 +9,6 @@ import {
   ApiAgentRunRequest,
   ChatDTO,
   ChatMessageDTO,
-  ChatMessageStatusCancelled,
-  ChatMessageStatusFailed,
-  ChatMessageStatusReady,
   ChannelContext,
   DeltaEvent,
   LLMDelta,
@@ -30,9 +27,7 @@ import {
   CursorListRequest,
   CursorListResponse,
 } from '../types';
-import { isChatBusy } from '../utils';
-
-const terminalMessageStatuses = new Set([ChatMessageStatusReady, ChatMessageStatusFailed, ChatMessageStatusCancelled]);
+import { isChatBusy, isMessageTerminal } from '../utils';
 
 /**
  * Decides when one sendMessage() turn is over.
@@ -55,7 +50,7 @@ class TurnGate {
   }
 
   observeMessage(message: ChatMessageDTO): void {
-    if (message.id === this.assistantMessageId && terminalMessageStatuses.has(message.status)) {
+    if (message.id === this.assistantMessageId && isMessageTerminal(message.status)) {
       this.assistantDone = true;
     }
   }
@@ -407,7 +402,7 @@ export class Agent {
 
       this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
         // A terminal message receives no further deltas.
-        if (terminalMessageStatuses.has(message.status)) deltaAccums.delete(message.id);
+        if (isMessageTerminal(message.status)) deltaAccums.delete(message.id);
         gate.observeMessage(message);
         options.onMessage?.(message);
         if (idlePending && gate.settled) resolve();

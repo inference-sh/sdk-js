@@ -9,6 +9,13 @@ import {
   AgentRunStateCompleted,
   AgentRunStateFailed,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
+  AgentRunStateCanceled,
+  AgentRunStateRejected,
+  ChatMessageStatusReady,
+  ChatMessageStatusFailed,
+  ChatMessageStatusCancelled,
+  ChatMessageStatusPending,
 } from './types';
 import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types';
 import {
@@ -17,7 +24,17 @@ import {
   InterruptStatusPending,
   InterruptStatusResolved,
 } from './types';
-import { isTerminalStatus, parseStatus, isChatBusy, pendingApprovals } from './utils';
+import {
+  isTerminalStatus,
+  parseStatus,
+  isChatBusy,
+  isAwaitingHuman,
+  isRunTerminal,
+  isRunInterrupted,
+  isRunSettled,
+  isMessageTerminal,
+  pendingApprovals,
+} from './utils';
 
 describe('pendingApprovals', () => {
   const interrupt = (overrides: Partial<InterruptDTO>): InterruptDTO =>
@@ -129,8 +146,10 @@ describe('isChatBusy', () => {
     expect(isChatBusy(chatWithRun(AgentRunStateWorking))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateSubmitted))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateInputRequired))).toBe(true);
+    expect(isChatBusy(chatWithRun(AgentRunStateAuthRequired))).toBe(true);
     expect(isChatBusy(chatWithRun(AgentRunStateCompleted))).toBe(false);
     expect(isChatBusy(chatWithRun(AgentRunStateFailed))).toBe(false);
+    expect(isChatBusy(chatWithRun(AgentRunStateRejected))).toBe(false);
   });
 
   it('should fall back to chat.status when no active_run', () => {
@@ -143,5 +162,29 @@ describe('isChatBusy', () => {
   it('should return false for null/undefined chat', () => {
     expect(isChatBusy(null)).toBe(false);
     expect(isChatBusy(undefined)).toBe(false);
+  });
+});
+
+describe('run and message state predicates', () => {
+  const terminal = [AgentRunStateCompleted, AgentRunStateFailed, AgentRunStateCanceled, AgentRunStateRejected];
+  const interrupted = [AgentRunStateInputRequired, AgentRunStateAuthRequired];
+  const working = [AgentRunStateWorking, AgentRunStateSubmitted];
+
+  it('matches Go AgentRunState.IsTerminal/IsInterrupted/IsSettled', () => {
+    for (const s of terminal) expect([isRunTerminal(s), isRunInterrupted(s), isRunSettled(s)]).toEqual([true, false, true]);
+    for (const s of interrupted) expect([isRunTerminal(s), isRunInterrupted(s), isRunSettled(s)]).toEqual([false, true, true]);
+    for (const s of working) expect([isRunTerminal(s), isRunInterrupted(s), isRunSettled(s)]).toEqual([false, false, false]);
+  });
+
+  it('matches Go ChatMessageStatus.IsTerminal', () => {
+    expect([ChatMessageStatusReady, ChatMessageStatusFailed, ChatMessageStatusCancelled].every(isMessageTerminal)).toBe(true);
+    expect(isMessageTerminal(ChatMessageStatusPending)).toBe(false);
+  });
+
+  it('isAwaitingHuman reads the run, then chat.status', () => {
+    expect(isAwaitingHuman({ active_run: { state: AgentRunStateAuthRequired } } as unknown as ChatDTO)).toBe(true);
+    expect(isAwaitingHuman({ active_run: { state: AgentRunStateWorking } } as unknown as ChatDTO)).toBe(false);
+    expect(isAwaitingHuman({ status: 'awaiting_input' } as unknown as ChatDTO)).toBe(true);
+    expect(isAwaitingHuman(null)).toBe(false);
   });
 });

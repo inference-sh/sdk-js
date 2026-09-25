@@ -7,17 +7,11 @@
 
 import type { AgentRunDTO, ChatDTO, ChatMessageDTO, DeltaEvent, ResourceStatusDTO } from '../types';
 import {
-  AgentRunStateWorking,
-  AgentRunStateSubmitted,
-  AgentRunStateInputRequired,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
-  ChatMessageStatusReady,
-  ChatMessageStatusFailed,
-  ChatMessageStatusCancelled,
 } from '../types';
-import { isChatBusy } from '../utils';
+import { isChatBusy, isMessageTerminal } from '../utils';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
@@ -187,9 +181,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       // A message that has reached a terminal state will receive no further
       // deltas, so its accumulator is done. This bounds the map by the number
       // of messages streaming at once rather than by chat length.
-      if (message.status === ChatMessageStatusReady
-        || message.status === ChatMessageStatusFailed
-        || message.status === ChatMessageStatusCancelled) {
+      if (isMessageTerminal(message.status)) {
         deltaAccums.delete(message.id);
       }
       updateMessage(message, fields);
@@ -198,8 +190,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // Listen for AgentRun updates (state transitions, output)
     manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
       dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
-      const isRunActive = run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
-      callbacks.onStatusChange?.(isRunActive ? 'streaming' : 'idle');
+      callbacks.onStatusChange?.(isChatBusy({ active_run: run } as ChatDTO) ? 'streaming' : 'idle');
       const currentChat = getState().chat;
       if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });
     });

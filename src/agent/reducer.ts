@@ -5,13 +5,14 @@
  */
 
 import type { AgentRunDTO, ChatStatus } from '../types';
-import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle, AgentRunStateWorking, AgentRunStateSubmitted } from '../types';
+import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types';
+import { isRunInterrupted, isRunWorking } from '../utils';
 import type { AgentChatState, ChatAction } from './types';
 
 function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
   if (!run) return ChatStatusIdle;
-  if (run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted) return ChatStatusBusy;
-  if (run.state === 'input_required' || run.state === 'auth_required') return ChatStatusAwaitingInput;
+  if (isRunWorking(run.state)) return ChatStatusBusy;
+  if (isRunInterrupted(run.state)) return ChatStatusAwaitingInput;
   return ChatStatusIdle;
 }
 

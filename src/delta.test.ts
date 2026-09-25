@@ -1,4 +1,6 @@
-import { createLLMDeltaAccumulator } from './delta';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { createLLMDeltaAccumulator, DeltaAccumulator } from './delta';
 
 describe('LLM delta accumulator', () => {
   it('concatenates response tokens', () => {
@@ -71,5 +73,18 @@ describe('LLM delta accumulator', () => {
     expect(acc.toOutput().response).toBe('text');
     acc.reset();
     expect(acc.toOutput()).toEqual({});
+  });
+});
+
+// Shared with sdk-py (tests/fixtures/delta_golden.json): every client must
+// reconstruct the same state from the same delta sequence.
+describe('delta golden fixture', () => {
+  const golden = JSON.parse(readFileSync(join(__dirname, 'testdata', 'delta-golden.json'), 'utf8'));
+  const accumulators: Record<string, () => DeltaAccumulator> = { LLMDelta: createLLMDeltaAccumulator };
+
+  it.each(golden.cases as any[])('$name', (c) => {
+    const acc = c.type ? accumulators[c.type]() : new DeltaAccumulator({});
+    for (const d of c.deltas) acc.apply(d);
+    expect(acc.toOutput()).toEqual(c.expected);
   });
 });

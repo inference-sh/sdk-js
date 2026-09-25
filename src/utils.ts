@@ -24,10 +24,18 @@ import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
+  AgentRunStateCompleted,
+  AgentRunStateFailed,
+  AgentRunStateCanceled,
+  AgentRunStateRejected,
+  ChatMessageStatusReady,
+  ChatMessageStatusFailed,
+  ChatMessageStatusCancelled,
   ChatStatusBusy,
   ChatStatusAwaitingInput,
 } from './types';
-import type { ChatDTO } from './types';
+import type { AgentRunState, ChatDTO, ChatMessageStatus } from './types';
 
 /** Map string status names to TaskStatus values (for future string-based API) */
 const STATUS_STRING_MAP: Record<string, TaskStatus> = {
@@ -72,12 +80,46 @@ export function isTerminalStatus(status: number | string | undefined | null): bo
   return parsed === TaskStatusCompleted || parsed === TaskStatusFailed || parsed === TaskStatusCancelled;
 }
 
+// Run and message state predicates. Ports of the Go methods AgentRunState.IsTerminal/
+// IsInterrupted/IsSettled and ChatMessageStatus.IsTerminal; every consumer uses these.
+
+export function isRunTerminal(state: AgentRunState | null | undefined): boolean {
+  return state === AgentRunStateCompleted || state === AgentRunStateFailed || state === AgentRunStateCanceled || state === AgentRunStateRejected;
+}
+
+/** Parked on a human: a tool approval or input (input_required) or an authorization (auth_required). */
+export function isRunInterrupted(state: AgentRunState | null | undefined): boolean {
+  return state === AgentRunStateInputRequired || state === AgentRunStateAuthRequired;
+}
+
+/** The run produces no further events this turn: terminal or interrupted. */
+export function isRunSettled(state: AgentRunState | null | undefined): boolean {
+  return isRunTerminal(state) || isRunInterrupted(state);
+}
+
+/** The run is executing: submitted or working. */
+export function isRunWorking(state: AgentRunState | null | undefined): boolean {
+  return state === AgentRunStateWorking || state === AgentRunStateSubmitted;
+}
+
+export function isMessageTerminal(status: ChatMessageStatus | null | undefined): boolean {
+  return status === ChatMessageStatusReady || status === ChatMessageStatusFailed || status === ChatMessageStatusCancelled;
+}
+
+/** The turn is still open: the run is working or parked on a human (approval, input, authorization). */
 export function isChatBusy(chat: ChatDTO | null | undefined): boolean {
   const run = chat?.active_run;
   if (run) {
-    return run.state === AgentRunStateWorking || run.state === AgentRunStateSubmitted || run.state === AgentRunStateInputRequired;
+    return isRunWorking(run.state) || isRunInterrupted(run.state);
   }
   return chat?.status === ChatStatusBusy || chat?.status === ChatStatusAwaitingInput;
+}
+
+/** The chat is blocked on a human: nothing more arrives until someone approves, answers or authorizes. */
+export function isAwaitingHuman(chat: ChatDTO | null | undefined): boolean {
+  const run = chat?.active_run;
+  if (run) return isRunInterrupted(run.state);
+  return chat?.status === ChatStatusAwaitingInput;
 }
 
 /** A tool invocation gated on human approval, projected from the chat's pending interrupts. */
