@@ -108,7 +108,7 @@ export interface ClientToolConfig {
 /**
  * ToolAuthType says how an HTTP tool authenticates.
  */
-export type ToolAuthType = string;
+export type ToolAuthType = "none" | "credential" | "api_key" | "bearer";
 /**
  * ToolAuthTypeNone sends no credentials (same as leaving type empty).
  */
@@ -317,7 +317,7 @@ export interface APIResponse<T extends any> {
   error?: APIError;
 }
 export interface APIError {
-  code: string;
+  code: ErrorCode;
   message: string;
   suggestions?: string[];
   meta?: { [key: string]: any};
@@ -658,7 +658,58 @@ export interface EstimateCostResponse {
 /**
  * Scope represents an API key permission scope string.
  */
-export type Scope = string;
+export type Scope =
+  | "*"
+  | "agents"
+  | "apps"
+  | "conversations"
+  | "files"
+  | "datastores"
+  | "templates"
+  | "flows"
+  | "projects"
+  | "teams"
+  | "billing"
+  | "artifacts"
+  | "agents:read"
+  | "agents:write"
+  | "agents:execute"
+  | "apps:read"
+  | "apps:write"
+  | "apps:execute"
+  | "conversations:read"
+  | "conversations:write"
+  | "files:read"
+  | "files:write"
+  | "datastores:read"
+  | "datastores:write"
+  | "flows:read"
+  | "flows:write"
+  | "flows:execute"
+  | "projects:read"
+  | "projects:write"
+  | "teams:read"
+  | "teams:write"
+  | "billing:read"
+  | "billing:write"
+  | "secrets:read"
+  | "secrets:write"
+  | "credentials:read"
+  | "credentials:write"
+  | "engines:read"
+  | "engines:write"
+  | "remotes:read"
+  | "remotes:write"
+  | "apikeys:read"
+  | "apikeys:write"
+  | "knowledge:read"
+  | "knowledge:write"
+  | "artifacts:read"
+  | "artifacts:write"
+  | "user:read"
+  | "user:write"
+  | "settings:read"
+  | "settings:write";
 /**
  * API Key Scopes - hierarchical permission system.
  * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
@@ -931,7 +982,25 @@ export const ScopeSettingsWrite: Scope = "settings:write";
 /**
  * ScopeGroup identifies a category of scopes for UI grouping
  */
-export type ScopeGroup = string;
+export type ScopeGroup =
+  | "agents"
+  | "apps"
+  | "conversations"
+  | "files"
+  | "datastores"
+  | "flows"
+  | "projects"
+  | "teams"
+  | "billing"
+  | "secrets"
+  | "credentials"
+  | "engines"
+  | "remotes"
+  | "apikeys"
+  | "knowledge"
+  | "artifacts"
+  | "user"
+  | "settings";
 export const ScopeGroupAgents: ScopeGroup = "agents";
 export const ScopeGroupApps: ScopeGroup = "apps";
 export const ScopeGroupConversations: ScopeGroup = "conversations";
@@ -1986,6 +2055,106 @@ export interface EntitlementErrorMeta {
   addon_plan_price?: number /* int */;
 }
 /**
+ * ErrorCode is the machine-readable error code of an API error: the last
+ * segment of the problem+json type URI (https://api.inference.sh/errors/<code>)
+ * and APIError.Code on the legacy envelope. Clients branch on these, so a
+ * code is a named const here, where it generates into models and the SDKs.
+ */
+export type ErrorCode =
+  | "invalid_request"
+  | "validation_error"
+  | "unauthorized"
+  | "forbidden"
+  | "not_found"
+  | "conflict"
+  | "name_conflict"
+  | "already_exists"
+  | "not_configured"
+  | "method_not_allowed"
+  | "rate_limited"
+  | "internal_error"
+  | "team_role_required"
+  | "blocked_by_usage_policy"
+  | "otp_required"
+  | "mcp_auth_expired"
+  | "limit_exceeded"
+  | "feature_not_available"
+  | "entitlement_unavailable"
+  | "payment_required"
+  | "payment_method_required"
+  | "agents_disabled"
+  | "remote_offline"
+  | "remote_timeout"
+  | "harness_not_drivable"
+  | "harness_too_old";
+export const ErrorCodeInvalidRequest: ErrorCode = "invalid_request";
+export const ErrorCodeValidationError: ErrorCode = "validation_error";
+export const ErrorCodeUnauthorized: ErrorCode = "unauthorized";
+export const ErrorCodeForbidden: ErrorCode = "forbidden";
+export const ErrorCodeNotFound: ErrorCode = "not_found";
+export const ErrorCodeConflict: ErrorCode = "conflict";
+export const ErrorCodeNameConflict: ErrorCode = "name_conflict";
+export const ErrorCodeAlreadyExists: ErrorCode = "already_exists";
+export const ErrorCodeNotConfigured: ErrorCode = "not_configured";
+export const ErrorCodeMethodNotAllowed: ErrorCode = "method_not_allowed";
+export const ErrorCodeRateLimited: ErrorCode = "rate_limited";
+export const ErrorCodeInternalError: ErrorCode = "internal_error";
+/**
+ * ErrorCodeTeamRoleRequired: the caller's team role or org-admin status
+ * does not allow the action. Meta is TeamRoleRequiredMeta when a
+ * capability gate refused it.
+ */
+export const ErrorCodeTeamRoleRequired: ErrorCode = "team_role_required";
+/**
+ * ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
+ * usage policy. The message names who to ask.
+ */
+export const ErrorCodeBlockedByUsagePolicy: ErrorCode = "blocked_by_usage_policy";
+export const ErrorCodeOTPRequired: ErrorCode = "otp_required";
+export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
+/**
+ * Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
+ * EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
+ * not be checked and the request is retriable.
+ */
+export const ErrorCodeLimitExceeded: ErrorCode = "limit_exceeded";
+export const ErrorCodeFeatureNotAvailable: ErrorCode = "feature_not_available";
+export const ErrorCodeEntitlementUnavailable: ErrorCode = "entitlement_unavailable";
+export const ErrorCodePaymentRequired: ErrorCode = "payment_required";
+/**
+ * ErrorCodePaymentMethodRequired (402): a bounty program requires a saved
+ * payment method and the caller's team has none. Meta is
+ * PaymentMethodRequiredMeta; clients send the user to BillingPage.
+ */
+export const ErrorCodePaymentMethodRequired: ErrorCode = "payment_method_required";
+/**
+ * Remote harness refusals.
+ */
+export const ErrorCodeAgentsDisabled: ErrorCode = "agents_disabled";
+export const ErrorCodeRemoteOffline: ErrorCode = "remote_offline";
+export const ErrorCodeRemoteTimeout: ErrorCode = "remote_timeout";
+export const ErrorCodeHarnessNotDrivable: ErrorCode = "harness_not_drivable";
+export const ErrorCodeHarnessTooOld: ErrorCode = "harness_too_old";
+/**
+ * TeamRoleRequiredMeta is the meta of a team_role_required error from a
+ * capability gate. Only Capability is always set: a team that does not
+ * resolve answers with the capability alone, so clients must not assume
+ * RequiredRole is present.
+ */
+export interface TeamRoleRequiredMeta {
+  capability: TeamCapability;
+  actual_role?: TeamRole;
+  required_role?: TeamRole;
+  requires_org_admin?: boolean;
+}
+/**
+ * PaymentMethodRequiredMeta is the meta of a payment_method_required error.
+ */
+export interface PaymentMethodRequiredMeta {
+  bounty_id: string;
+  billing_page: string;
+}
+/**
  * FileMetadata holds probed media metadata cached on File records.
  */
 export interface FileMetadata {
@@ -2112,7 +2281,26 @@ export interface FlowRunDTO extends BaseModelDTO, PermissionModelDTO {
 /**
  * FlowActionType is the string type for action constants.
  */
-export type FlowActionType = string;
+export type FlowActionType =
+  | "node.add"
+  | "node.remove"
+  | "node.move"
+  | "node.move_many"
+  | "node.duplicate"
+  | "node.rename"
+  | "node.set_app"
+  | "node.update"
+  | "node.set_input"
+  | "node.clear_input"
+  | "edge.add"
+  | "edge.remove"
+  | "flow.set_input_schema"
+  | "flow.set_output_schema"
+  | "flow.set_output_mapping"
+  | "flow.remove_output_mapping"
+  | "flow.rename_output_field"
+  | "undo"
+  | "redo";
 /**
  * Flow graph action type constants.
  */
@@ -2571,7 +2759,7 @@ export interface InputRequest {
 /**
  * ElicitAction is the user's response to an elicitation request.
  */
-export type ElicitAction = string;
+export type ElicitAction = "accept" | "decline" | "cancel";
 export const ElicitActionAccept: ElicitAction = "accept";
 export const ElicitActionDecline: ElicitAction = "decline";
 export const ElicitActionCancel: ElicitAction = "cancel";
@@ -2586,7 +2774,7 @@ export interface ElicitResult {
  * ResultType is the kind of result a response carries, required on every result
  * from 2026-07-28 onward.
  */
-export type ResultType = string;
+export type ResultType = "complete" | "input_required";
 /**
  * ResultTypeComplete marks an ordinary, finished result.
  */
@@ -2600,7 +2788,7 @@ export const ResultTypeInputRequired: ResultType = "input_required";
  * CacheScope says who may reuse a cached result, per MCP 2026-07-28 (SEP-2549).
  * Analogous to HTTP Cache-Control public/private; the spec defines exactly these.
  */
-export type CacheScope = string;
+export type CacheScope = "public" | "private";
 /**
  * CacheScopePublic marks a response as free of user-specific data, so any
  * client or shared intermediary may cache it across authorization contexts.
@@ -2679,7 +2867,12 @@ export interface ToolCallResponse {
 /**
  * ToolContentType is the kind of a content block. The spec defines exactly these.
  */
-export type ToolContentType = string;
+export type ToolContentType =
+  | "text"
+  | "image"
+  | "audio"
+  | "resource_link"
+  | "resource";
 export const ToolContentTypeText: ToolContentType = "text";
 export const ToolContentTypeImage: ToolContentType = "image";
 export const ToolContentTypeAudio: ToolContentType = "audio";
@@ -2723,6 +2916,11 @@ export interface MCPServerDTO {
   default_scopes: StringSlice;
   documentation_url: string;
   connection_status?: string;
+  /**
+   * ConnectionScope is who the caller's connection to this server belongs
+   * to (user, team, org, platform); empty when not connected.
+   */
+  connection_scope?: CredentialScope;
 }
 /**
  * NotificationDTO is the data transfer object
@@ -2912,7 +3110,7 @@ export interface PlanLimit {
 /**
  * PlanLimits maps entitlement resources to their limits
  */
-export type PlanLimits = { [key: EntitlementResource]: PlanLimit};
+export type PlanLimits = { [key in EntitlementResource]?: PlanLimit};
 /**
  * PlanDTO for API responses
  */
@@ -3130,7 +3328,7 @@ export interface SuggestResult {
 /**
  * RequirementType identifies the kind of missing requirement.
  */
-export type RequirementType = string;
+export type RequirementType = "secret" | "credential" | "scope";
 /**
  * Requirement error types
  */
@@ -3155,7 +3353,7 @@ export interface RequirementError {
 /**
  * SetupActionType identifies the kind of action needed to resolve a requirement.
  */
-export type SetupActionType = string;
+export type SetupActionType = "add_secret" | "connect" | "add_scopes";
 export const SetupActionAddSecret: SetupActionType = "add_secret";
 export const SetupActionConnect: SetupActionType = "connect";
 export const SetupActionAddScopes: SetupActionType = "add_scopes";
@@ -3727,7 +3925,28 @@ export interface UserMetadataDTO {
  * Alias of shared.A2UISurface so the type generation pipeline picks it up.
  */
 export type Widget = A2UISurface;
-export type A2UIComponentType = string;
+export type A2UIComponentType =
+  | "Row"
+  | "Column"
+  | "List"
+  | "Text"
+  | "Image"
+  | "Icon"
+  | "Divider"
+  | "Button"
+  | "TextField"
+  | "CheckBox"
+  | "Slider"
+  | "DateTimeInput"
+  | "ChoicePicker"
+  | "Card"
+  | "Modal"
+  | "Tabs"
+  | "Badge"
+  | "Spacer"
+  | "Chart"
+  | "Form"
+  | "Artifact";
 export const A2UIRow: A2UIComponentType = "Row";
 export const A2UIColumn: A2UIComponentType = "Column";
 export const A2UIList: A2UIComponentType = "List";
@@ -3900,7 +4119,15 @@ export interface A2UISurface {
   components: A2UIComponent[];
   dataModel?: any;
 }
-export type AppCategory = string;
+export type AppCategory =
+  | "image"
+  | "video"
+  | "audio"
+  | "text"
+  | "chat"
+  | "3d"
+  | "other"
+  | "flow";
 export const AppCategoryImage: AppCategory = "image";
 export const AppCategoryVideo: AppCategory = "video";
 export const AppCategoryAudio: AppCategory = "audio";
@@ -3909,12 +4136,18 @@ export const AppCategoryChat: AppCategory = "chat";
 export const AppCategory3D: AppCategory = "3d";
 export const AppCategoryOther: AppCategory = "other";
 export const AppCategoryFlow: AppCategory = "flow";
-export type AppStatus = string;
+export type AppStatus = "active" | "maintenance" | "deprecated" | "retired";
 export const AppStatusActive: AppStatus = "active";
 export const AppStatusMaintenance: AppStatus = "maintenance";
 export const AppStatusDeprecated: AppStatus = "deprecated";
 export const AppStatusRetired: AppStatus = "retired";
-export type GPUType = string;
+export type GPUType =
+  | "any"
+  | "none"
+  | "intel"
+  | "nvidia"
+  | "amd"
+  | "apple";
 export const GPUTypeAny: GPUType = "any";
 export const GPUTypeNone: GPUType = "none";
 export const GPUTypeIntel: GPUType = "intel";
@@ -3924,7 +4157,12 @@ export const GPUTypeApple: GPUType = "apple";
 /**
  * Visibility represents the visibility level of a resource
  */
-export type Visibility = string;
+export type Visibility =
+  | "private"
+  | "team"
+  | "org"
+  | "public"
+  | "unlisted";
 export const VisibilityPrivate: Visibility = "private";
 export const VisibilityTeam: Visibility = "team";
 /**
@@ -3937,7 +4175,7 @@ export const VisibilityUnlisted: Visibility = "unlisted";
 /**
  * Permission represents a permission level for access checks.
  */
-export type Permission = string;
+export type Permission = "read" | "write" | "use";
 export const PermRead: Permission = "read";
 export const PermWrite: Permission = "write";
 /**
@@ -3947,25 +4185,35 @@ export const PermWrite: Permission = "write";
  * governed by their team/org usage policy (reach, INF-808).
  */
 export const PermUse: Permission = "use";
-export type SubscriptionStatus = string;
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "paused";
 export const SubscriptionStatusTrialing: SubscriptionStatus = "trialing";
 export const SubscriptionStatusActive: SubscriptionStatus = "active";
 export const SubscriptionStatusPastDue: SubscriptionStatus = "past_due";
 export const SubscriptionStatusCanceled: SubscriptionStatus = "canceled";
 export const SubscriptionStatusPaused: SubscriptionStatus = "paused";
-export type SubscriptionInterval = string;
+export type SubscriptionInterval = "monthly" | "yearly";
 export const SubscriptionIntervalMonthly: SubscriptionInterval = "monthly";
 export const SubscriptionIntervalYearly: SubscriptionInterval = "yearly";
-export type PlanType = string;
+export type PlanType = "base" | "addon";
 export const PlanTypeBase: PlanType = "base";
 export const PlanTypeAddon: PlanType = "addon";
-export type EntitlementSource = string;
+export type EntitlementSource =
+  | "tier"
+  | "override"
+  | "whitelist"
+  | "trial"
+  | "addon";
 export const EntitlementSourceTier: EntitlementSource = "tier";
 export const EntitlementSourceOverride: EntitlementSource = "override";
 export const EntitlementSourceWhitelist: EntitlementSource = "whitelist";
 export const EntitlementSourceTrial: EntitlementSource = "trial";
 export const EntitlementSourceAddon: EntitlementSource = "addon";
-export type EntitlementType = string;
+export type EntitlementType = "boolean" | "limit";
 export const EntitlementTypeBoolean: EntitlementType = "boolean";
 export const EntitlementTypeLimit: EntitlementType = "limit";
 /**
@@ -3974,24 +4222,30 @@ export const EntitlementTypeLimit: EntitlementType = "limit";
  * ownership pattern used across the codebase; resolution matches all scopes
  * visible from an AuthContext in one query and mergeEntitlements arbitrates.
  */
-export type EntitlementScope = string;
+export type EntitlementScope = "org" | "team" | "member";
 export const EntitlementScopeOrg: EntitlementScope = "org";
 export const EntitlementScopeTeam: EntitlementScope = "team";
 export const EntitlementScopeMember: EntitlementScope = "member";
-export type EnforcementMode = string;
+export type EnforcementMode = "block" | "warn";
 export const EnforcementBlock: EnforcementMode = "block";
 export const EnforcementWarn: EnforcementMode = "warn";
-export type ChatStatus = string;
+export type ChatStatus = "busy" | "idle" | "awaiting_input" | "completed";
 export const ChatStatusBusy: ChatStatus = "busy";
 export const ChatStatusIdle: ChatStatus = "idle";
 export const ChatStatusAwaitingInput: ChatStatus = "awaiting_input";
 export const ChatStatusCompleted: ChatStatus = "completed";
-export type PlanStepStatus = string;
+export type PlanStepStatus = "pending" | "in_progress" | "completed" | "cancelled";
 export const PlanStepStatusPending: PlanStepStatus = "pending";
 export const PlanStepStatusInProgress: PlanStepStatus = "in_progress";
 export const PlanStepStatusCompleted: PlanStepStatus = "completed";
 export const PlanStepStatusCancelled: PlanStepStatus = "cancelled";
-export type ChatMessageRole = string;
+export type ChatMessageRole =
+  | "system"
+  | "user"
+  | "assistant"
+  | "tool"
+  | "injection"
+  | "compaction";
 /**
  * LLM wire-protocol roles
  */
@@ -4001,23 +4255,34 @@ export const ChatMessageRoleAssistant: ChatMessageRole = "assistant";
 export const ChatMessageRoleTool: ChatMessageRole = "tool";
 /**
  * Internal bookkeeping roles — never sent to the LLM provider.
- * BuildContext converts these to system messages or skips them.
+ * BuildContext folds injections into the user turn and replaces
+ * compaction markers with their summary.
  */
 export const ChatMessageRoleInjection: ChatMessageRole = "injection";
 export const ChatMessageRoleCompaction: ChatMessageRole = "compaction";
-export type ChatMessageStatus = string;
+export type ChatMessageStatus =
+  | "pending"
+  | "queued"
+  | "ready"
+  | "failed"
+  | "cancelled";
 export const ChatMessageStatusPending: ChatMessageStatus = "pending";
 export const ChatMessageStatusQueued: ChatMessageStatus = "queued";
 export const ChatMessageStatusReady: ChatMessageStatus = "ready";
 export const ChatMessageStatusFailed: ChatMessageStatus = "failed";
 export const ChatMessageStatusCancelled: ChatMessageStatus = "cancelled";
-export type ChatMessageContentType = string;
+export type ChatMessageContentType =
+  | "text"
+  | "reasoning"
+  | "image"
+  | "file"
+  | "tool";
 export const ChatMessageContentTypeText: ChatMessageContentType = "text";
 export const ChatMessageContentTypeReasoning: ChatMessageContentType = "reasoning";
 export const ChatMessageContentTypeImage: ChatMessageContentType = "image";
 export const ChatMessageContentTypeFile: ChatMessageContentType = "file";
 export const ChatMessageContentTypeTool: ChatMessageContentType = "tool";
-export type ChannelType = string;
+export type ChannelType = "slack" | "discord" | "teams" | "telegram";
 export const ChannelTypeSlack: ChannelType = "slack";
 export const ChannelTypeDiscord: ChannelType = "discord";
 export const ChannelTypeTeams: ChannelType = "teams";
@@ -4063,7 +4328,14 @@ export interface ChannelContext {
 /**
  * EngineStatus represents the status of an engine.
  */
-export type EngineStatus = string;
+export type EngineStatus =
+  | "running"
+  | "pending"
+  | "draining"
+  | "disconnected"
+  | "restarting"
+  | "stopping"
+  | "stopped";
 export const EngineStatusRunning: EngineStatus = "running";
 export const EngineStatusPending: EngineStatus = "pending";
 export const EngineStatusDraining: EngineStatus = "draining";
@@ -4074,7 +4346,7 @@ export const EngineStatusStopped: EngineStatus = "stopped";
 /**
  * WorkerStatus represents the status of a worker.
  */
-export type WorkerStatus = string;
+export type WorkerStatus = "reserved" | "busy" | "idle" | "inactive";
 export const WorkerStatusReserved: WorkerStatus = "reserved";
 export const WorkerStatusBusy: WorkerStatus = "busy";
 export const WorkerStatusIdle: WorkerStatus = "idle";
@@ -4170,7 +4442,17 @@ export interface SelectorConfig {
   mode: string;
   index?: number /* int */;
 }
-export type GraphNodeType = string;
+export type GraphNodeType =
+  | "unknown"
+  | "join"
+  | "split"
+  | "execution"
+  | "resource"
+  | "approval"
+  | "conditional"
+  | "flow_node"
+  | "trigger"
+  | "credential_requirement";
 export const GraphNodeTypeUnknown: GraphNodeType = "unknown";
 export const GraphNodeTypeJoin: GraphNodeType = "join";
 export const GraphNodeTypeSplit: GraphNodeType = "split";
@@ -4184,7 +4466,15 @@ export const GraphNodeTypeCredentialRequirement: GraphNodeType = "credential_req
 /**
  * GraphNodeStatus represents the status of a node
  */
-export type GraphNodeStatus = string;
+export type GraphNodeStatus =
+  | "pending"
+  | "ready"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "skipped"
+  | "blocked";
 export const GraphNodeStatusPending: GraphNodeStatus = "pending";
 export const GraphNodeStatusReady: GraphNodeStatus = "ready";
 export const GraphNodeStatusRunning: GraphNodeStatus = "running";
@@ -4196,14 +4486,25 @@ export const GraphNodeStatusBlocked: GraphNodeStatus = "blocked";
 /**
  * ResourceType identifies what kind of resource a graph node represents.
  */
-export type ResourceType = string;
+export type ResourceType = "knowledge" | "app" | "agent";
 export const ResourceTypeKnowledge: ResourceType = "knowledge";
 export const ResourceTypeApp: ResourceType = "app";
 export const ResourceTypeAgent: ResourceType = "agent";
 /**
  * GraphEdgeType defines the type of edge relationship
  */
-export type GraphEdgeType = string;
+export type GraphEdgeType =
+  | "dependency"
+  | "flow"
+  | "conditional"
+  | "execution"
+  | "parent"
+  | "ancestor"
+  | "duplicate"
+  | "references"
+  | "supersedes"
+  | "input"
+  | "output";
 export const GraphEdgeTypeDependency: GraphEdgeType = "dependency";
 export const GraphEdgeTypeFlow: GraphEdgeType = "flow";
 export const GraphEdgeTypeConditional: GraphEdgeType = "conditional";
@@ -4218,7 +4519,7 @@ export const GraphEdgeTypeOutput: GraphEdgeType = "output";
 /**
  * MergeStrategy defines how a delta field should be merged by consumers.
  */
-export type MergeStrategy = string;
+export type MergeStrategy = "concat" | "replace" | "indexed" | "nested";
 export const MergeStrategyConcat: MergeStrategy = "concat";
 export const MergeStrategyReplace: MergeStrategy = "replace";
 export const MergeStrategyIndexed: MergeStrategy = "indexed";
@@ -4288,7 +4589,7 @@ export const ToolCallFunctionDelta_fieldTags = {
 /**
  * ToolChoiceMode controls whether the model must call a tool this turn.
  */
-export type ToolChoiceMode = string;
+export type ToolChoiceMode = "none" | "auto" | "required" | "function";
 export const ToolChoiceModeNone: ToolChoiceMode = "none";
 export const ToolChoiceModeAuto: ToolChoiceMode = "auto";
 export const ToolChoiceModeRequired: ToolChoiceMode = "required";
@@ -4305,7 +4606,7 @@ export interface ToolChoice {
 /**
  * ResponseFormatType selects how the model's output is constrained.
  */
-export type ResponseFormatType = string;
+export type ResponseFormatType = "text" | "json_object" | "json_schema";
 export const ResponseFormatTypeText: ResponseFormatType = "text";
 export const ResponseFormatTypeJSONObject: ResponseFormatType = "json_object";
 export const ResponseFormatTypeJSONSchema: ResponseFormatType = "json_schema";
@@ -4378,7 +4679,7 @@ export interface LLMContextMessage {
 /**
  * SecretScope defines the visibility/purpose of a secret
  */
-export type SecretScope = string;
+export type SecretScope = "team" | "internal" | "system";
 /**
  * SecretScopeTeam is a normal user secret, visible in team secret lists
  */
@@ -4400,7 +4701,7 @@ export const PageStatusScheduled: PageStatus = 4;
 /**
  * PageType represents the type of page content
  */
-export type PageType = string;
+export type PageType = "doc" | "blog" | "page" | "announcement";
 export const PageTypeDoc: PageType = "doc";
 export const PageTypeBlog: PageType = "blog";
 export const PageTypePage: PageType = "page";
@@ -4410,7 +4711,34 @@ export const CommentStatusUnknown: CommentStatus = 0;
 export const CommentStatusDraft: CommentStatus = 1;
 export const CommentStatusPublished: CommentStatus = 2;
 export const CommentStatusArchived: CommentStatus = 3;
-export type InstanceCloudProvider = string;
+export type InstanceCloudProvider =
+  | "aws"
+  | "amaya"
+  | "azure"
+  | "boostrun"
+  | "crusoe"
+  | "datacrunch"
+  | "denvr"
+  | "digitalocean"
+  | "excesssupply"
+  | "horizon"
+  | "hyperstack"
+  | "imwt"
+  | "jarvislabs"
+  | "lambdalabs"
+  | "latitude"
+  | "massedcompute"
+  | "nebius"
+  | "oblivus"
+  | "paperspace"
+  | "phyntec"
+  | "runpod"
+  | "scaleway"
+  | "shade"
+  | "tensordock"
+  | "verda"
+  | "voltagepark"
+  | "vultr";
 export const CloudAWS: InstanceCloudProvider = "aws";
 export const CloudAmaya: InstanceCloudProvider = "amaya";
 export const CloudAzure: InstanceCloudProvider = "azure";
@@ -4438,7 +4766,14 @@ export const CloudTensorDock: InstanceCloudProvider = "tensordock";
 export const CloudVerda: InstanceCloudProvider = "verda";
 export const CloudVoltagePark: InstanceCloudProvider = "voltagepark";
 export const CloudVultr: InstanceCloudProvider = "vultr";
-export type InstanceStatus = string;
+export type InstanceStatus =
+  | "creating"
+  | "pending_provider"
+  | "pending"
+  | "active"
+  | "error"
+  | "deleting"
+  | "deleted";
 export const InstanceStatusCreating: InstanceStatus = "creating";
 export const InstanceStatusPendingProvider: InstanceStatus = "pending_provider";
 export const InstanceStatusPending: InstanceStatus = "pending";
@@ -4446,29 +4781,34 @@ export const InstanceStatusActive: InstanceStatus = "active";
 export const InstanceStatusError: InstanceStatus = "error";
 export const InstanceStatusDeleting: InstanceStatus = "deleting";
 export const InstanceStatusDeleted: InstanceStatus = "deleted";
-export type InstanceTypeDeploymentType = string;
+export type InstanceTypeDeploymentType = "vm" | "container" | "baremetal";
 export const InstanceTypeDeploymentTypeVM: InstanceTypeDeploymentType = "vm";
 export const InstanceTypeDeploymentTypeContainer: InstanceTypeDeploymentType = "container";
 export const InstanceTypeDeploymentTypeBaremetal: InstanceTypeDeploymentType = "baremetal";
-export type AppSessionStatus = string;
+export type AppSessionStatus = "active" | "ended" | "expired";
 export const AppSessionStatusActive: AppSessionStatus = "active";
 export const AppSessionStatusEnded: AppSessionStatus = "ended";
 export const AppSessionStatusExpired: AppSessionStatus = "expired";
 /**
  * ProjectType represents different types of projects
  */
-export type ProjectType = string;
+export type ProjectType = "agent" | "app" | "flow" | "other";
 export const ProjectTypeAgent: ProjectType = "agent";
 export const ProjectTypeApp: ProjectType = "app";
 export const ProjectTypeFlow: ProjectType = "flow";
 export const ProjectTypeOther: ProjectType = "other";
-export type UsageEventResourceTier = string;
+export type UsageEventResourceTier = "private" | "cloud";
 export const UsageEventResourceTierPrivate: UsageEventResourceTier = "private";
 export const UsageEventResourceTierCloud: UsageEventResourceTier = "cloud";
 /**
  * MetaItemType is the type discriminator for MetaItem
  */
-export type MetaItemType = string;
+export type MetaItemType =
+  | "text"
+  | "image"
+  | "video"
+  | "audio"
+  | "raw";
 export const MetaItemTypeText: MetaItemType = "text";
 export const MetaItemTypeImage: MetaItemType = "image";
 export const MetaItemTypeVideo: MetaItemType = "video";
@@ -4477,7 +4817,12 @@ export const MetaItemTypeRaw: MetaItemType = "raw";
 /**
  * VideoResolution represents standard video resolution presets
  */
-export type VideoResolution = string;
+export type VideoResolution =
+  | "480p"
+  | "720p"
+  | "1080p"
+  | "1440p"
+  | "4k";
 export const VideoRes480P: VideoResolution = "480p";
 export const VideoRes720P: VideoResolution = "720p";
 export const VideoRes1080P: VideoResolution = "1080p";
@@ -4486,20 +4831,25 @@ export const VideoRes4K: VideoResolution = "4k";
 /**
  * MCPServerAuthType describes how a server authenticates clients.
  */
-export type MCPServerAuthType = string;
+export type MCPServerAuthType = "oauth" | "api_key" | "none";
 export const MCPServerAuthOAuth: MCPServerAuthType = "oauth";
 export const MCPServerAuthAPIKey: MCPServerAuthType = "api_key";
 export const MCPServerAuthNone: MCPServerAuthType = "none";
 /**
  * TeamInviteStatus represents the status of a team invitation
  */
-export type TeamInviteStatus = string;
+export type TeamInviteStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "revoked";
 export const TeamInviteStatusPending: TeamInviteStatus = "pending";
 export const TeamInviteStatusAccepted: TeamInviteStatus = "accepted";
 export const TeamInviteStatusDeclined: TeamInviteStatus = "declined";
 export const TeamInviteStatusExpired: TeamInviteStatus = "expired";
 export const TeamInviteStatusRevoked: TeamInviteStatus = "revoked";
-export type RefRouteType = string;
+export type RefRouteType = "app" | "agent" | "skill" | "url";
 export const RefRouteTypeApp: RefRouteType = "app";
 export const RefRouteTypeAgent: RefRouteType = "agent";
 export const RefRouteTypeSkill: RefRouteType = "skill";
@@ -4508,10 +4858,18 @@ export const RefRouteTypeSkill: RefRouteType = "skill";
  * /docs/api/sdk/files). Alias and target are literal paths, not refs.
  */
 export const RefRouteTypeURL: RefRouteType = "url";
-export type RefRouteMode = string;
+export type RefRouteMode = "rewrite" | "redirect";
 export const RefRouteModeRewrite: RefRouteMode = "rewrite";
 export const RefRouteModeRedirect: RefRouteMode = "redirect";
-export type KnowledgeType = string;
+export type KnowledgeType =
+  | "concept"
+  | "skill"
+  | "observation"
+  | "preference"
+  | "reference"
+  | "person"
+  | "project"
+  | "agent-config";
 export const KnowledgeTypeConcept: KnowledgeType = "concept";
 export const KnowledgeTypeSkill: KnowledgeType = "skill";
 export const KnowledgeTypeObservation: KnowledgeType = "observation";
@@ -4520,7 +4878,7 @@ export const KnowledgeTypeReference: KnowledgeType = "reference";
 export const KnowledgeTypePerson: KnowledgeType = "person";
 export const KnowledgeTypeProject: KnowledgeType = "project";
 export const KnowledgeTypeAgentConfig: KnowledgeType = "agent-config";
-export type KnowledgeLifecycle = string;
+export type KnowledgeLifecycle = "permanent" | "decay" | "draft" | "deprecated";
 export const KnowledgeLifecyclePermanent: KnowledgeLifecycle = "permanent";
 export const KnowledgeLifecycleDecay: KnowledgeLifecycle = "decay";
 export const KnowledgeLifecycleDraft: KnowledgeLifecycle = "draft";
@@ -4528,10 +4886,26 @@ export const KnowledgeLifecycleDeprecated: KnowledgeLifecycle = "deprecated";
 /**
  * ArtifactType is the source format of an artifact page.
  */
-export type ArtifactType = string;
+export type ArtifactType = "html" | "markdown";
 export const ArtifactTypeHTML: ArtifactType = "html";
 export const ArtifactTypeMarkdown: ArtifactType = "markdown";
-export type FilterOperator = string;
+export type FilterOperator =
+  | "eq"
+  | "neq"
+  | "in"
+  | "not_in"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "like"
+  | "ilike"
+  | "contains"
+  | "not_contains"
+  | "is_null"
+  | "is_not_null"
+  | "is_empty"
+  | "is_not_empty";
 export const OpEqual: FilterOperator = "eq";
 export const OpNotEqual: FilterOperator = "neq";
 export const OpIn: FilterOperator = "in";
@@ -4548,7 +4922,14 @@ export const OpIsNull: FilterOperator = "is_null";
 export const OpIsNotNull: FilterOperator = "is_not_null";
 export const OpIsEmpty: FilterOperator = "is_empty";
 export const OpIsNotEmpty: FilterOperator = "is_not_empty";
-export type DeviceAuthStatus = string;
+export type DeviceAuthStatus =
+  | "pending"
+  | "approved"
+  | "expired"
+  | "denied"
+  | "valid"
+  | "invalid"
+  | "loading";
 export const DeviceAuthStatusPending: DeviceAuthStatus = "pending";
 export const DeviceAuthStatusApproved: DeviceAuthStatus = "approved";
 export const DeviceAuthStatusExpired: DeviceAuthStatus = "expired";
@@ -4559,7 +4940,7 @@ export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
 /**
  * DeviceTokenKind selects the credential minted when a device auth flow is approved.
  */
-export type DeviceTokenKind = string;
+export type DeviceTokenKind = "session" | "api_key";
 /**
  * DeviceTokenKindSession mints a revocable CLI session (acts as the user,
  * supports team switching via X-Team-ID).
@@ -4570,7 +4951,26 @@ export const DeviceTokenKindSession: DeviceTokenKind = "session";
  * TODO: retire once CLIs older than the session-token release are gone.
  */
 export const DeviceTokenKindAPIKey: DeviceTokenKind = "api_key";
-export type EntitlementResource = string;
+export type EntitlementResource =
+  | "api_keys"
+  | "connectors"
+  | "knowledge_bases"
+  | "storage_mb"
+  | "concurrency"
+  | "rate_per_min"
+  | "seats"
+  | "triggers"
+  | "retention_days"
+  | "private_apps"
+  | "task_executions"
+  | "feature:byok"
+  | "feature:seedance"
+  | "feature:scopes"
+  | "feature:webhooks"
+  | "feature:team_billing"
+  | "feature:auto_recharge"
+  | "feature:invoices"
+  | "feature:publish_apps";
 /**
  * Capacity limits — scale with tier
  */
@@ -4602,7 +5002,14 @@ export const ResourceFeatureTeamBilling: EntitlementResource = "feature:team_bil
 export const ResourceFeatureAutoRecharge: EntitlementResource = "feature:auto_recharge";
 export const ResourceFeatureInvoices: EntitlementResource = "feature:invoices";
 export const ResourceFeaturePublishApps: EntitlementResource = "feature:publish_apps";
-export type ContentRating = string;
+export type ContentRating =
+  | "safe"
+  | "sexual_suggestive"
+  | "sexual_explicit"
+  | "violence_non_graphic"
+  | "violence_graphic"
+  | "gore"
+  | "unrated";
 export const ContentSafe: ContentRating = "safe";
 export const ContentSexualSuggestive: ContentRating = "sexual_suggestive";
 export const ContentSexualExplicit: ContentRating = "sexual_explicit";
@@ -4613,7 +5020,19 @@ export const ContentUnrated: ContentRating = "unrated";
 /**
  * CredentialProvider names the external service a credential is for.
  */
-export type CredentialProvider = string;
+export type CredentialProvider =
+  | "google"
+  | "google-sa"
+  | "slack"
+  | "notion"
+  | "github"
+  | "x"
+  | "microsoft"
+  | "salesforce"
+  | "discord"
+  | "gcp"
+  | "mcp"
+  | "reddit";
 /**
  * Credential.Provider is a plain string; cast with string(...) when assigning.
  */
@@ -4665,7 +5084,12 @@ export const CredentialProviderReddit: CredentialProvider = "reddit";
 /**
  * CredentialType describes the credential category.
  */
-export type CredentialType = string;
+export type CredentialType =
+  | "oauth"
+  | "api_key"
+  | "mcp"
+  | "service_account"
+  | "wif";
 export const CredentialTypeOAuth: CredentialType = "oauth";
 export const CredentialTypeAPIKey: CredentialType = "api_key";
 export const CredentialTypeMCP: CredentialType = "mcp";
@@ -4674,7 +5098,12 @@ export const CredentialTypeWIF: CredentialType = "wif";
 /**
  * CredentialStatus represents the lifecycle state of a credential.
  */
-export type CredentialStatus = string;
+export type CredentialStatus =
+  | "pending"
+  | "connected"
+  | "disconnected"
+  | "expired"
+  | "error";
 export const CredentialStatusPending: CredentialStatus = "pending";
 export const CredentialStatusConnected: CredentialStatus = "connected";
 export const CredentialStatusDisconnected: CredentialStatus = "disconnected";
@@ -4683,7 +5112,12 @@ export const CredentialStatusError: CredentialStatus = "error";
 /**
  * CredentialScope controls resolution priority and ownership.
  */
-export type CredentialScope = string;
+export type CredentialScope =
+  | "platform"
+  | "org"
+  | "team"
+  | "user"
+  | "agent";
 export const CredentialScopePlatform: CredentialScope = "platform";
 /**
  * CredentialScopeOrg: shared across all teams of an org. In the enum for
@@ -4701,7 +5135,7 @@ export const CredentialScopeAgent: CredentialScope = "agent";
  * the logins made through it (owned by a team or a user). Every other
  * credential type is a token row.
  */
-export type CredentialGrant = string;
+export type CredentialGrant = "credentials" | "token";
 /**
  * CredentialGrantCredentials: an OAuth app. Never a connection.
  */
@@ -4714,7 +5148,7 @@ export const CredentialGrantToken: CredentialGrant = "token";
 /**
  * NotificationChannel represents a delivery channel
  */
-export type NotificationChannel = string;
+export type NotificationChannel = "email" | "sms" | "push" | "slack";
 export const NotificationChannelEmail: NotificationChannel = "email";
 export const NotificationChannelSMS: NotificationChannel = "sms";
 export const NotificationChannelPush: NotificationChannel = "push";
@@ -4722,7 +5156,7 @@ export const NotificationChannelSlack: NotificationChannel = "slack";
 /**
  * NotificationPriority represents notification priority
  */
-export type NotificationPriority = string;
+export type NotificationPriority = "low" | "normal" | "high" | "critical";
 export const NotificationPriorityLow: NotificationPriority = "low";
 export const NotificationPriorityNormal: NotificationPriority = "normal";
 export const NotificationPriorityHigh: NotificationPriority = "high";
@@ -4730,7 +5164,36 @@ export const NotificationPriorityCritical: NotificationPriority = "critical";
 /**
  * NotificationType represents the type/category of notification
  */
-export type NotificationType = string;
+export type NotificationType =
+  | "low_balance"
+  | "auto_recharge"
+  | "payment_success"
+  | "payment_failed"
+  | "usage_summary"
+  | "spending_limit"
+  | "invoice"
+  | "credit_note"
+  | "subscription_created"
+  | "subscription_credit"
+  | "subscription_canceled"
+  | "subscription_payment_failed"
+  | "subscription_trial_ending"
+  | "welcome"
+  | "welcome_agents"
+  | "welcome_apps"
+  | "welcome_flows"
+  | "welcome_sdk"
+  | "password_reset"
+  | "email_verify"
+  | "security_alert"
+  | "task_complete"
+  | "task_failed"
+  | "data_export"
+  | "system_alert"
+  | "maintenance"
+  | "tos_update"
+  | "service_notice"
+  | "team_invite";
 /**
  * Billing notifications
  */
@@ -4781,7 +5244,14 @@ export const NotificationTypeTeamInvite: NotificationType = "team_invite";
 /**
  * NotificationStatus represents the status of a notification
  */
-export type NotificationStatus = string;
+export type NotificationStatus =
+  | "pending"
+  | "processing"
+  | "sent"
+  | "delivered"
+  | "failed"
+  | "bounced"
+  | "cancelled";
 export const NotificationStatusPending: NotificationStatus = "pending";
 export const NotificationStatusProcessing: NotificationStatus = "processing";
 export const NotificationStatusSent: NotificationStatus = "sent";
@@ -4792,7 +5262,7 @@ export const NotificationStatusCancelled: NotificationStatus = "cancelled";
 /**
  * FunctionKind is how an app function talks to its caller.
  */
-export type FunctionKind = string;
+export type FunctionKind = "run" | "stream";
 /**
  * FunctionKindRun takes an input and returns an output (optionally
  * yielding progress on the way). The zero value means this.
@@ -4806,7 +5276,7 @@ export const FunctionKindStream: FunctionKind = "stream";
 /**
  * SocketStatus is where a socket is in its life.
  */
-export type SocketStatus = string;
+export type SocketStatus = "pending" | "open" | "closed";
 /**
  * SocketStatusPending: opened, and the two ends have not met yet. An end
  * that gave up waiting may dial again, so an unpaired end does not close
@@ -4824,7 +5294,12 @@ export const SocketStatusClosed: SocketStatus = "closed";
 /**
  * SocketOutcome is why a socket closed.
  */
-export type SocketOutcome = string;
+export type SocketOutcome =
+  | "client_closed"
+  | "worker_closed"
+  | "drained"
+  | "never_paired"
+  | "task_ended";
 export const SocketOutcomeClientClosed: SocketOutcome = "client_closed";
 export const SocketOutcomeWorkerClosed: SocketOutcome = "worker_closed";
 /**
@@ -4895,7 +5370,7 @@ export const TaskStatusCancelled: TaskStatus = 12;
 /**
  * Infra defines where a task should run.
  */
-export type Infra = string;
+export type Infra = "private" | "cloud" | "private_first";
 export const InfraPrivate: Infra = "private";
 export const InfraCloud: Infra = "cloud";
 export const InfraPrivateFirst: Infra = "private_first";
@@ -4922,7 +5397,7 @@ export interface TaskAction {
 export interface TaskMetadata {
   action?: TaskAction;
 }
-export type TeamType = string;
+export type TeamType = "personal" | "team" | "system" | "org";
 export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
 export const TeamTypeSystem: TeamType = "system";
@@ -4934,20 +5409,61 @@ export const TeamTypeSystem: TeamType = "system";
  * teams exist.
  */
 export const TeamTypeOrg: TeamType = "org";
-export type TeamStatus = string;
+export type TeamStatus = "active" | "suspended" | "terminated";
 export const TeamStatusActive: TeamStatus = "active";
 export const TeamStatusSuspended: TeamStatus = "suspended";
 export const TeamStatusTerminated: TeamStatus = "terminated";
-export type TeamRole = string;
+export type TeamRole = "owner" | "admin" | "member";
 export const TeamRoleOwner: TeamRole = "owner";
 export const TeamRoleAdmin: TeamRole = "admin";
 export const TeamRoleMember: TeamRole = "member";
-export type Role = string;
+/**
+ * TeamCapability is one thing a caller may do to a team's settings. The set is
+ * closed; team.Subject.Can is the only place that grants them.
+ */
+export type TeamCapability =
+  | "edit_profile"
+  | "manage_members"
+  | "view_members"
+  | "manage_keys"
+  | "manage_vault"
+  | "view_billing"
+  | "manage_billing"
+  | "view_policy"
+  | "manage_policy"
+  | "manage_org"
+  | "manage_sso"
+  | "archive"
+  | "create_team"
+  | "create_org"
+  | "connect_org_credential"
+  | "connect_platform_credential";
+export const TeamCapabilityEditProfile: TeamCapability = "edit_profile";
+export const TeamCapabilityManageMembers: TeamCapability = "manage_members";
+export const TeamCapabilityViewMembers: TeamCapability = "view_members";
+export const TeamCapabilityManageKeys: TeamCapability = "manage_keys";
+export const TeamCapabilityManageVault: TeamCapability = "manage_vault";
+export const TeamCapabilityViewBilling: TeamCapability = "view_billing";
+export const TeamCapabilityManageBilling: TeamCapability = "manage_billing";
+export const TeamCapabilityViewPolicy: TeamCapability = "view_policy";
+export const TeamCapabilityManagePolicy: TeamCapability = "manage_policy";
+export const TeamCapabilityManageOrg: TeamCapability = "manage_org";
+export const TeamCapabilityManageSSO: TeamCapability = "manage_sso";
+export const TeamCapabilityArchive: TeamCapability = "archive";
+export const TeamCapabilityCreateTeam: TeamCapability = "create_team";
+export const TeamCapabilityCreateOrg: TeamCapability = "create_org";
+/**
+ * Connecting a credential the whole org, or the whole platform, resolves.
+ * The workspace level is manage_vault.
+ */
+export const TeamCapabilityConnectOrgCredential: TeamCapability = "connect_org_credential";
+export const TeamCapabilityConnectPlatformCredential: TeamCapability = "connect_platform_credential";
+export type Role = "guest" | "user" | "admin" | "system";
 export const RoleGuest: Role = "guest";
 export const RoleUser: Role = "user";
 export const RoleAdmin: Role = "admin";
 export const RoleSystem: Role = "system";
-export type UtilityPreset = string;
+export type UtilityPreset = "gate" | "selector" | "merge" | "constant";
 export const UtilityPresetGate: UtilityPreset = "gate";
 export const UtilityPresetSelector: UtilityPreset = "selector";
 export const UtilityPresetMerge: UtilityPreset = "merge";
@@ -4970,7 +5486,20 @@ export interface UtilityConfig {
  * These are the backbone protocol events — every consumer (A2A, SDK, frontend)
  * projects from this set.
  */
-export type AgentEventType = string;
+export type AgentEventType =
+  | "run.started"
+  | "run.state_changed"
+  | "turn.started"
+  | "turn.completed"
+  | "content.delta"
+  | "tool.started"
+  | "tool.completed"
+  | "approval.required"
+  | "approval.resolved"
+  | "hook.executed"
+  | "usage.updated"
+  | "context.compacted"
+  | "error";
 /**
  * Run lifecycle
  */
@@ -5049,7 +5578,7 @@ export interface ContentDeltaPayload {
   kind: ContentDeltaKind;
   delta: string;
 }
-export type ContentDeltaKind = string;
+export type ContentDeltaKind = "text" | "reasoning";
 export const ContentDeltaText: ContentDeltaKind = "text";
 export const ContentDeltaReasoning: ContentDeltaKind = "reasoning";
 export interface ToolStartedPayload {
@@ -5103,7 +5632,15 @@ export interface ErrorPayload {
  * AgentRunState tracks the lifecycle of an agent run (one user→agent turn).
  * Maps to A2A TaskState and AG-UI Run outcome for protocol compliance.
  */
-export type AgentRunState = string;
+export type AgentRunState =
+  | "submitted"
+  | "working"
+  | "input_required"
+  | "auth_required"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | "rejected";
 export const AgentRunStateSubmitted: AgentRunState = "submitted";
 export const AgentRunStateWorking: AgentRunState = "working";
 export const AgentRunStateInputRequired: AgentRunState = "input_required";
@@ -5116,7 +5653,13 @@ export const AgentRunStateRejected: AgentRunState = "rejected";
  * InterruptReason describes why an agent run is in an interrupted state.
  * Aligns with AG-UI interrupt outcome reasons.
  */
-export type InterruptReason = string;
+export type InterruptReason =
+  | "tool_approval"
+  | "client_tool"
+  | "widget"
+  | "auth"
+  | "confirmation"
+  | "hook_gate";
 export const InterruptReasonToolApproval: InterruptReason = "tool_approval";
 export const InterruptReasonClientTool: InterruptReason = "client_tool";
 export const InterruptReasonWidget: InterruptReason = "widget";
@@ -5127,7 +5670,7 @@ export type StringEncodedMap = { [key: string]: any};
 /**
  * InterruptStatus tracks the lifecycle of an interrupt gate.
  */
-export type InterruptStatus = string;
+export type InterruptStatus = "pending" | "resolved" | "expired" | "cancelled";
 export const InterruptStatusPending: InterruptStatus = "pending";
 export const InterruptStatusResolved: InterruptStatus = "resolved";
 export const InterruptStatusExpired: InterruptStatus = "expired";
@@ -5135,13 +5678,13 @@ export const InterruptStatusCancelled: InterruptStatus = "cancelled";
 /**
  * InterruptResolution records how a pending interrupt was resolved.
  */
-export type InterruptResolution = string;
+export type InterruptResolution = "allow" | "deny";
 export const InterruptResolutionAllow: InterruptResolution = "allow";
 export const InterruptResolutionDeny: InterruptResolution = "deny";
 /**
  * InterruptResourceType identifies the kind of resource an interrupt gates.
  */
-export type InterruptResourceType = string;
+export type InterruptResourceType = "tool_invocation" | "hook_event";
 export const InterruptResourceToolInvocation: InterruptResourceType = "tool_invocation";
 export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
 /**
@@ -5149,7 +5692,17 @@ export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
  * Events fire at well-defined points in the turn cycle, giving external
  * handlers the ability to observe, inject context, or halt execution.
  */
-export type HookEvent = string;
+export type HookEvent =
+  | "agent.start"
+  | "agent.turn_start"
+  | "agent.tool_call"
+  | "agent.tool_result"
+  | "agent.turn_complete"
+  | "agent.error"
+  | "agent.complete"
+  | "agent.idle"
+  | "agent.pre_compact"
+  | "agent.post_compact";
 export const HookEventAgentStart: HookEvent = "agent.start";
 export const HookEventTurnStart: HookEvent = "agent.turn_start";
 export const HookEventToolCall: HookEvent = "agent.tool_call";
@@ -5171,7 +5724,7 @@ export interface HookEventDefinition {
 /**
  * HookDecision is the handler's verdict on whether execution should continue.
  */
-export type HookDecision = string;
+export type HookDecision = "allow" | "deny" | "stop" | "suspend";
 export const HookDecisionAllow: HookDecision = "allow";
 export const HookDecisionDeny: HookDecision = "deny";
 export const HookDecisionStop: HookDecision = "stop";
@@ -5179,10 +5732,36 @@ export const HookDecisionSuspend: HookDecision = "suspend";
 /**
  * HookHandlerType distinguishes how a lifecycle hook is executed.
  */
-export type HookHandlerType = string;
+export type HookHandlerType = "webhook" | "task" | "gate" | "builtin";
 export const HookHandlerWebhook: HookHandlerType = "webhook";
 export const HookHandlerTask: HookHandlerType = "task";
 export const HookHandlerGate: HookHandlerType = "gate";
+export const HookHandlerBuiltin: HookHandlerType = "builtin";
+/**
+ * BuiltinHook names a hook handler the platform implements itself. A builtin
+ * runs in-process on the turn that fired it: no URL to host, no round trip, no
+ * agent spawn. That is what lets it return an injection at all — a task hook
+ * spawns an agent and discards its answer, so only webhook, gate and builtin
+ * can put anything into context.
+ * This registry is the single source of truth. The runtime dispatches from it,
+ * agent config is validated against it, and clients enumerate it to show what
+ * an agent can switch on without hosting anything.
+ */
+export type BuiltinHook = "belt:suggest";
+export const BuiltinHookBeltSuggest: BuiltinHook = "belt:suggest";
+/**
+ * BuiltinHookDefinition describes a builtin hook and where it may be used.
+ */
+export interface BuiltinHookDefinition {
+  name: BuiltinHook;
+  description: string;
+  /**
+   * Events the builtin may be attached to. A builtin that reads the turn's
+   * prompt is meaningless on agent.complete, so the set is part of its
+   * definition rather than a convention.
+   */
+  events: HookEvent[];
+}
 /**
  * LifecycleHookConfig registers a handler for an agent lifecycle event.
  * Stored on AgentVersion alongside Tools and Skills.
@@ -5230,6 +5809,14 @@ export interface ContextInjection {
   role?: string; // default "system"
   ttl_turns?: number /* int */; // 0 = permanent
   dedup_key?: string; // new injection with same key supersedes prior
+  /**
+   * Items names what this injection put in front of the model — resource
+   * refs, file paths, whatever the producer deals in. A hook that offers the
+   * same things every turn reads its own past Items back to see what it has
+   * already offered, instead of keeping a ledger somewhere else and hoping
+   * the two stay in step.
+   */
+  items?: string[];
 }
 /**
  * ToolCallEventData is the typed payload for agent.tool_call events.
@@ -5255,7 +5842,14 @@ export interface ErrorEventData {
 /**
  * ToolInvocationStatus represents the execution status of a tool invocation
  */
-export type ToolInvocationStatus = string;
+export type ToolInvocationStatus =
+  | "pending"
+  | "in_progress"
+  | "awaiting_input"
+  | "awaiting_approval"
+  | "completed"
+  | "failed"
+  | "cancelled";
 export const ToolInvocationStatusPending: ToolInvocationStatus = "pending";
 export const ToolInvocationStatusInProgress: ToolInvocationStatus = "in_progress";
 export const ToolInvocationStatusAwaitingInput: ToolInvocationStatus = "awaiting_input";
@@ -5266,7 +5860,16 @@ export const ToolInvocationStatusCancelled: ToolInvocationStatus = "cancelled";
 /**
  * ToolType represents the type of tool (used in both AgentTool definition and ToolInvocation)
  */
-export type ToolType = string;
+export type ToolType =
+  | "app"
+  | "agent"
+  | "hook"
+  | "http"
+  | "call"
+  | "mcp"
+  | "client"
+  | "internal"
+  | "harness";
 export const ToolTypeApp: ToolType = "app";
 export const ToolTypeAgent: ToolType = "agent";
 export const ToolTypeHook: ToolType = "hook";
@@ -5275,14 +5878,22 @@ export const ToolTypeCall: ToolType = "call";
 export const ToolTypeMCP: ToolType = "mcp";
 export const ToolTypeClient: ToolType = "client";
 export const ToolTypeInternal: ToolType = "internal";
+export const ToolTypeHarness: ToolType = "harness";
 /**
  * ToolCallType represents the type field on a tool call (wire format).
  */
-export type ToolCallType = string;
+export type ToolCallType = "function";
 /**
  * ToolParamType represents a JSON Schema parameter type for tool definitions.
  */
-export type ToolParamType = string;
+export type ToolParamType =
+  | "object"
+  | "string"
+  | "integer"
+  | "number"
+  | "boolean"
+  | "array"
+  | "null";
 /**
  * Tool call types
  */
