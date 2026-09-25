@@ -12,7 +12,7 @@ import {
   AgentRunStateCompleted,
   AgentRunStateWorking,
 } from '../types';
-import type { AgentRunDTO, ChannelContext } from '../types';
+import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
@@ -1332,11 +1332,11 @@ describe('Agent.sendMessage channel_context passthrough', () => {
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
   }
 
-  function runBody(): Record<string, unknown> {
+  function runBody(): ApiAgentRunRequest {
     const runCall = mockFetch.mock.calls.find(([url]) =>
       String(url).includes('/agents/run')
     ) as [string, RequestInit];
-    return JSON.parse(String(runCall[1].body)) as Record<string, unknown>;
+    return JSON.parse(String(runCall[1].body)) as ApiAgentRunRequest;
   }
 
   it('should POST channel_context when replying through a routed channel', async () => {
@@ -1416,7 +1416,7 @@ describe('Agent.sendMessage (template ref)', () => {
     expect(body.agent).toBe('inference/my-agent');
     expect(body.agent_config).toBeUndefined();
     expect(body.context).toEqual({ tenant: 'acme' });
-    expect(body.chat_id).toBeNull();
+    expect(body.chat_id).toBeUndefined();
     expect(body.input.text).toBe('hello');
   });
 

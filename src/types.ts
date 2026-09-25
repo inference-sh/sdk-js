@@ -364,6 +364,10 @@ export interface ApiAgentRunRequest {
   input: LLMInput;
   context?: { [key: string]: string};
   stream?: boolean;
+  /**
+   * ChannelContext is recorded on the chat the first time it is seen.
+   */
+  channel_context?: ChannelContext;
 }
 /**
  * CreateAgentMessageRequest is the request for creating agent messages.
@@ -720,6 +724,12 @@ export const ScopeTeams: Scope = "teams";
  */
 export const ScopeBilling: Scope = "billing";
 /**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeArtifacts: Scope = "artifacts";
+/**
  * Action-level scopes for Agents
  */
 export const ScopeAgentsRead: Scope = "agents:read";
@@ -859,6 +869,16 @@ export const ScopeEnginesRead: Scope = "engines:read";
  */
 export const ScopeEnginesWrite: Scope = "engines:write";
 /**
+ * Action-level scopes for Remotes
+ */
+export const ScopeRemotesRead: Scope = "remotes:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeRemotesWrite: Scope = "remotes:write";
+/**
  * Action-level scopes for API Keys
  */
 export const ScopeApiKeysRead: Scope = "apikeys:read";
@@ -880,12 +900,6 @@ export const ScopeKnowledgeRead: Scope = "knowledge:read";
 export const ScopeKnowledgeWrite: Scope = "knowledge:write";
 /**
  * Action-level scopes for Artifacts (published HTML/Markdown pages)
- */
-export const ScopeArtifacts: Scope = "artifacts";
-/**
- * API Key Scopes - hierarchical permission system.
- * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
- * Empty scopes = full access (for backwards compatibility with existing keys).
  */
 export const ScopeArtifactsRead: Scope = "artifacts:read";
 /**
@@ -930,6 +944,7 @@ export const ScopeGroupBilling: ScopeGroup = "billing";
 export const ScopeGroupSecrets: ScopeGroup = "secrets";
 export const ScopeGroupCredentials: ScopeGroup = "credentials";
 export const ScopeGroupEngines: ScopeGroup = "engines";
+export const ScopeGroupRemotes: ScopeGroup = "remotes";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
 export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupArtifacts: ScopeGroup = "artifacts";

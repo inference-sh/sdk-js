@@ -6,6 +6,7 @@ import { FilesAPI } from './files';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
 import {
   AgentRunDTO,
+  ApiAgentRunRequest,
   ChatDTO,
   ChatMessageDTO,
   ChatMessageStatusCancelled,
@@ -14,6 +15,7 @@ import {
   ChannelContext,
   DeltaEvent,
   LLMDelta,
+  LLMInput,
   LLMOutput,
   ResourceStatusDTO,
   AgentConfigInput as AgentConfig,
@@ -209,23 +211,19 @@ export class Agent {
       if (others.length > 0) fileUris = others.map((f) => f.uri);
     }
 
-    const body: Record<string, unknown> = isTemplate
-      ? {
-        chat_id: this.chatId,
-        agent: this.config as string,
-        context: this.context,
-        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-      }
-      : {
-        chat_id: this.chatId,
-        agent_config: this.config as AgentConfig,
-        agent_name: this.agentName ?? (this.config as AgentConfig).name,
-        context: this.context,
-        input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
-      };
-    if (options.channel_context !== undefined) {
-      body.channel_context = options.channel_context;
-    }
+    const input: LLMInput = { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 };
+    const body: ApiAgentRunRequest = {
+      chat_id: this.chatId ?? undefined,
+      context: this.context,
+      input,
+      channel_context: options.channel_context,
+      ...(isTemplate
+        ? { agent: this.config as string }
+        : {
+          agent_config: this.config as AgentConfig,
+          agent_name: this.agentName ?? (this.config as AgentConfig).name,
+        }),
+    };
 
     const useStream = options.stream ?? this.http.getStreamDefault();
     const shouldWait = useStream === false || hasCallbacks;
