@@ -2023,6 +2023,33 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize default_enabled on getInternalTools() entries', async () => {
+    const tools = [
+      {
+        id: 'render',
+        name: 'render',
+        description: 'Render HTML',
+        tools: ['browser'],
+        scope: 'agent',
+        default_enabled: false,
+      },
+      {
+        id: 'search',
+        name: 'search',
+        description: 'Search the web',
+        tools: ['web_search'],
+        scope: 'agent',
+        default_enabled: true,
+      },
+    ];
+    mockJsonResponse(tools);
+
+    const result = await api().getInternalTools();
+
+    expect(result.data[0]?.default_enabled).toBe(false);
+    expect(result.data[1]?.default_enabled).toBe(true);
+  });
+
   it('should GET /agents/{id}/card for getA2ACard()', async () => {
     const card = {
       name: 'support-bot',
@@ -2062,6 +2089,17 @@ describe('AgentsAPI (template CRUD)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents');
     expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward title in createAgent() body', async () => {
+    const payload = { name: 'support-bot', title: 'Support Bot', core_app: { ref: 'app/ref' } };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 

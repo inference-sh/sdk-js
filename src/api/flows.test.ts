@@ -90,6 +90,16 @@ describe('FlowsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
 
+  it('should forward title in update() body', async () => {
+    const flow = { id: 'flow-1', title: 'Customer Onboarding' };
+    mockJsonResponse(flow);
+
+    await api().update('flow-1', { title: 'Customer Onboarding' });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Customer Onboarding' });
+  });
+
   it('should POST visibility for updateVisibility()', async () => {
     const flow = { id: 'flow-1', visibility: 'public' };
     mockJsonResponse(flow);

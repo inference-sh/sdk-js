@@ -216,6 +216,9 @@ import {
   ChannelTypeDiscord,
   ChannelTypeTelegram,
   CreateAgentMessageRequest,
+  CreateAgentRequest,
+  FlowDTO,
+  PublicAppStoreDTO,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -445,6 +448,96 @@ describe('regenerated type constants and DTO shapes', () => {
     const parsed = JSON.parse(JSON.stringify(request)) as CreateAppRequest;
 
     expect(parsed.title).toBe('Veo 3.1');
+  });
+
+  it('requires title on AgentDTO distinct from the immutable name slug', () => {
+    const agent = makeAgent({
+      name: 'support-bot',
+      title: 'Support Bot',
+    });
+
+    expect(agent.name).toBe('support-bot');
+    expect(agent.title).toBe('Support Bot');
+
+    const parsed = JSON.parse(JSON.stringify(agent)) as AgentDTO;
+
+    expect(parsed.title).toBe('Support Bot');
+    expect(parsed.name).toBe('support-bot');
+  });
+
+  it('allows empty title on AgentDTO for name fallback semantics', () => {
+    const agent = makeAgent({ name: 'support-bot', title: '' });
+
+    expect(agent.title).toBe('');
+
+    const parsed = JSON.parse(JSON.stringify(agent)) as AgentDTO;
+
+    expect(parsed.title).toBe('');
+  });
+
+  it('accepts optional title on CreateAgentRequest payloads', () => {
+    const request: CreateAgentRequest = {
+      name: 'support-bot',
+      title: 'Support Bot',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CreateAgentRequest;
+
+    expect(parsed.title).toBe('Support Bot');
+    expect(parsed.name).toBe('support-bot');
+  });
+
+  it('preserves title on FlowDTO JSON round-trip separate from name slug', () => {
+    const flow: FlowDTO = {
+      id: 'flow-1',
+      short_id: 'f1',
+      created_at: '2026-07-25T00:00:00Z',
+      updated_at: '2026-07-25T00:00:00Z',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      namespace: 'acme',
+      name: 'onboarding',
+      title: 'Customer Onboarding',
+      description: 'Onboarding automation',
+      card_image: '',
+      thumbnail: '',
+      banner_image: '',
+      draft_version_id: 'draft-1',
+      published_version_id: 'pub-1',
+      input_schema: {},
+      input: {},
+      output_schema: {},
+      output_mappings: {},
+      node_data: {},
+      nodes: [],
+      edges: [],
+    };
+
+    const parsed = JSON.parse(JSON.stringify(flow)) as FlowDTO;
+
+    expect(parsed.title).toBe('Customer Onboarding');
+    expect(parsed.name).toBe('onboarding');
+  });
+
+  it('preserves title on PublicAppStoreDTO for store listings', () => {
+    const listing: PublicAppStoreDTO = {
+      id: 'app-store-1',
+      category: 'video',
+      namespace: 'acme',
+      name: 'veo-3-1',
+      title: 'Veo 3.1',
+      description: 'Video generation',
+      images: { card: '', thumbnail: '', banner: '' },
+      is_featured: false,
+      rank: 10,
+      has_approved_version: true,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(listing)) as PublicAppStoreDTO;
+
+    expect(parsed.title).toBe('Veo 3.1');
+    expect(parsed.name).toBe('veo-3-1');
   });
 
   it('accepts rewrite and redirect modes on RefRouteDTO responses', () => {
