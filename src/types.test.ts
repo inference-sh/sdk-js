@@ -85,6 +85,17 @@ import {
   HookHandlerWebhook,
   HookEventDefinition,
   HookDecisionSuspend,
+  CredentialConfigDTO,
+  CredentialDTO,
+  CredentialGrantCredentials,
+  CredentialGrantToken,
+  CredentialScopeTeam,
+  CredentialScopeUser,
+  CredentialStatusConnected,
+  CredentialTypeOAuth,
+  MCPServerAuthNone,
+  MCPServerDTO,
+  VisibilityPrivate,
 } from './types';
 
 function makePlanVersion(overrides: Partial<PlanVersionDTO> = {}): PlanVersionDTO {
@@ -1571,5 +1582,113 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+function makeCredentialRow(overrides: Partial<CredentialDTO> = {}): CredentialDTO {
+  return {
+    id: 'cred-1',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: VisibilityPrivate,
+    provider: 'github',
+    type: CredentialTypeOAuth,
+    grant: CredentialGrantToken,
+    scope: CredentialScopeUser,
+    status: CredentialStatusConnected,
+    display_name: 'GitHub',
+    scopes: ['repo'],
+    is_primary: true,
+    ...overrides,
+  };
+}
+
+function makeCredentialConfig(overrides: Partial<CredentialConfigDTO> = {}): CredentialConfigDTO {
+  return {
+    slug: 'github',
+    provider: 'github',
+    type: 'oauth',
+    name: 'GitHub',
+    short_name: 'GitHub',
+    description: 'Connect GitHub',
+    allows_byok: false,
+    available: true,
+    has_managed: true,
+    connection_scope: CredentialScopeTeam,
+    ...overrides,
+  };
+}
+
+describe('CredentialGrant and OAuth app vs connection rows (api 53509cc2)', () => {
+  it('exports grant layer constants for OAuth app vs connection/token rows', () => {
+    expect(CredentialGrantCredentials).toBe('credentials');
+    expect(CredentialGrantToken).toBe('token');
+  });
+
+  it('models CredentialDTO connections with required grant and optional app_credential_id', () => {
+    const row = makeCredentialRow({
+      grant: CredentialGrantToken,
+      app_credential_id: 'cred-app-github',
+    });
+
+    const parsed = JSON.parse(JSON.stringify(row)) as CredentialDTO;
+
+    expect(parsed.grant).toBe('token');
+    expect(parsed.app_credential_id).toBe('cred-app-github');
+    expect(parsed).not.toHaveProperty('org_id');
+  });
+
+  it('models CredentialConfigDTO with connection_scope default and nested OAuth app row', () => {
+    const appRow = makeCredentialRow({
+      id: 'cred-app',
+      grant: CredentialGrantCredentials,
+      scope: CredentialScopeTeam,
+      display_name: 'GitHub OAuth app',
+      app_credential_id: undefined,
+    });
+    const config = makeCredentialConfig({
+      connection_scope: CredentialScopeUser,
+      app: appRow,
+      credential: makeCredentialRow({
+        id: 'cred-login',
+        grant: CredentialGrantToken,
+        app_credential_id: 'cred-app',
+      }),
+    });
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.connection_scope).toBe('user');
+    expect(parsed.app?.grant).toBe('credentials');
+    expect(parsed.credential?.grant).toBe('token');
+    expect(parsed.credential?.app_credential_id).toBe('cred-app');
+    expect(parsed).not.toHaveProperty('grant');
+  });
+});
+
+describe('PermissionModelDTO embed without org_id (api 53509cc2)', () => {
+  it('models MCPServerDTO permission fields without org_id on the wire', () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      slug: 'docs',
+      name: 'docs',
+      title: 'Docs MCP',
+      description: 'Documentation server',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com',
+      auth_type: MCPServerAuthNone,
+      default_scopes: [],
+      documentation_url: 'https://example.com/docs',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.team_id).toBe('team-1');
+    expect(parsed).not.toHaveProperty('org_id');
   });
 });

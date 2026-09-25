@@ -20,6 +20,8 @@ import {
   RefRouteModeRewrite,
   ResourceFeatureSeedance,
   createClient,
+  CredentialGrantCredentials,
+  CredentialGrantToken,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -48,6 +50,11 @@ describe('package type exports', () => {
   it('exports PlanType constants for base and add-on plans', () => {
     expect(PlanTypeBase).toBe('base');
     expect(PlanTypeAddon).toBe('addon');
+  });
+
+  it('exports CredentialGrant constants for OAuth app vs connection rows', () => {
+    expect(CredentialGrantCredentials).toBe('credentials');
+    expect(CredentialGrantToken).toBe('token');
   });
 
   it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
