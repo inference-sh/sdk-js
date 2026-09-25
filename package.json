@@ -89,10 +89,10 @@
     "url": "https://github.com/inference-sh/sdk-js/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   },
   "dependencies": {
-    "eventsource": "^4.0.0"
+    "eventsource": "^5.1.1"
   },
   "devDependencies": {
     "@sveltejs/kit": "^2.60.1",
@@ -100,12 +100,12 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
     "@types/react": "^19.1.12",
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "eslint": "^9.32.0",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^16.5.0",
+    "globals": "^17.12.0",
     "hono": "^4.13.1",
     "jest": "^30.4.2",
     "next": "^16.2.6",

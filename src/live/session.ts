@@ -217,12 +217,14 @@ export class LiveSession {
     const { onClear, onError } = this.handlers;
     if (onClear && typeof record[CLEAR_KEY] === 'string') {
       onClear(record[CLEAR_KEY] as string);
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete record[CLEAR_KEY];
     }
     if (onError) {
       const key = ERROR_KEY in record ? ERROR_KEY : this.legacyError(record) ? 'error' : undefined;
       if (key) {
         const err = record[key];
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete record[key];
         const { field = null, message } = (err && typeof err === 'object' ? err : { message: String(err) }) as { field?: string | null; message?: unknown };
         onError(field, typeof message === 'string' ? message : JSON.stringify(err));

@@ -173,7 +173,6 @@ import {
   NotificationTypeCreditNote,
   NotificationTypeInvoice,
   NotificationTypeSubscriptionCredit,
-  CredentialScopeOrg,
   SecretProviderRequest,
   SecretDTO,
   SecretUpdateRequest,
@@ -1743,8 +1742,8 @@ describe('AuthResponse signup is_new field', () => {
 });
 
 describe('A2UI component types (HTML removal)', () => {
-  it('does not export removed A2UIHTML component type constant', () => {
-    const types = require('./types') as Record<string, unknown>;
+  it('does not export removed A2UIHTML component type constant', async () => {
+    const types = (await import('./types')) as Record<string, unknown>;
     expect(types.A2UIHTML).toBeUndefined();
   });
 
