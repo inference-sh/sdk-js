@@ -80,4 +80,4 @@ export default [
       // Add any custom rule overrides here
     },
   },
-]; 
+];
