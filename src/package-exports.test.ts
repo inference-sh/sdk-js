@@ -6,10 +6,15 @@ import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf8')
 ) as {
+  engines?: { node?: string };
   exports: Record<string, { types: string; 'inference-src'?: string; default: string }>;
 };
 
 describe('package export surface', () => {
+  it('requires Node >=22.12 for eventsource 5 (ESM-only dependency)', () => {
+    expect(packageJson.engines?.node).toBe('>=22.12.0');
+  });
+
   describe('inference-src export conditions', () => {
     it('maps main barrel, agent, remix proxy, and internal upload to source files', () => {
       expect(packageJson.exports['.']).toEqual(
