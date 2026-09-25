@@ -566,12 +566,19 @@ export interface CredentialConnectRequest {
    */
   connection_scope?: CredentialScope;
 }
+/**
+ * CredentialCompleteOAuthRequest is what the provider's redirect delivered:
+ * the code and state, the PKCE verifier the client kept, and every other
+ * query param the callback carried (QuickBooks' realmId, Shopify's shop),
+ * which a scheme reads as {{callback.*}}.
+ */
 export interface CredentialCompleteOAuthRequest {
   provider: string;
   type: string;
   code: string;
   state: string;
   code_verifier?: string;
+  params?: { [key: string]: string};
 }
 export interface CredentialConnectResponse {
   credential?: CredentialDTO;
