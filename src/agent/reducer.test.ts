@@ -22,7 +22,7 @@ function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageD
     visibility: 'private',
     chat_id: chatId,
     order,
-    status: 'completed',
+    status: 'ready',
     role: 'user',
     content: [{ type: 'text', text: `message ${id}` }],
   } as ChatMessageDTO;
