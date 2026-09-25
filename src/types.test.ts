@@ -2,6 +2,18 @@ import {
   APIError,
   AppCategoryOther,
   AppDTO,
+  CredentialCompleteOAuthRequest,
+  CredentialConfigDTO,
+  CredentialConnectResponse,
+  CredentialRequirement,
+  SecretCreateRequest,
+  SecretProviderRequest,
+  SetupAction,
+  SetupActionAddSecret,
+  SetupActionAddScopes,
+  SetupActionConnect,
+  CredentialScopeTeam,
+  CredentialScopeUser,
   AppPricing,
   AppStatusActive,
   AppStatusDeprecated,
@@ -1571,5 +1583,226 @@ describe('flow utility node type contracts (v0.7.86)', () => {
 
     expect(node.utility).toBeUndefined();
     expect(node.selector_config).toBeUndefined();
+  });
+});
+
+describe('auth schemes as data (INF-786)', () => {
+  it('includes auth_scheme_id on CredentialConfigDTO when the provider is team-defined', () => {
+    const config: CredentialConfigDTO = {
+      slug: 'acme-oauth',
+      provider: 'acme',
+      type: 'oauth',
+      name: 'Acme CRM',
+      short_name: 'Acme',
+      description: 'Connect Acme CRM',
+      allows_byok: false,
+      available: true,
+      has_managed: false,
+      connection_scope: CredentialScopeTeam,
+      auth_scheme_id: 'scheme-uuid-123',
+    };
+
+    expect(config.auth_scheme_id).toBe('scheme-uuid-123');
+  });
+
+  it('allows CredentialConfigDTO without auth_scheme_id for platform-defined providers', () => {
+    const config: CredentialConfigDTO = {
+      slug: 'google-oauth',
+      provider: 'google',
+      type: 'oauth',
+      name: 'Google',
+      short_name: 'Google',
+      description: 'Connect Google',
+      allows_byok: false,
+      available: true,
+      has_managed: true,
+      connection_scope: CredentialScopeUser,
+    };
+
+    expect(config.auth_scheme_id).toBeUndefined();
+  });
+
+  it('preserves auth_scheme_id after JSON round-trip', () => {
+    const config: CredentialConfigDTO = {
+      slug: 'custom-provider',
+      provider: 'custom',
+      type: 'api_key',
+      name: 'Custom Provider',
+      short_name: 'Custom',
+      description: 'A team-defined provider',
+      allows_byok: true,
+      available: true,
+      has_managed: false,
+      connection_scope: CredentialScopeTeam,
+      auth_scheme_id: 'scheme-abc-456',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(config)) as CredentialConfigDTO;
+
+    expect(parsed.auth_scheme_id).toBe('scheme-abc-456');
+    expect(parsed.slug).toBe('custom-provider');
+  });
+});
+
+describe('OAuth callback params (INF-786)', () => {
+  it('captures extra callback query params for multi-tenant providers', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'quickbooks',
+      type: 'oauth',
+      code: 'auth-code-abc',
+      state: 'state-xyz',
+      code_verifier: 'pkce-verifier',
+      params: {
+        realmId: '1234567890',
+      },
+    };
+
+    expect(request.params?.realmId).toBe('1234567890');
+  });
+
+  it('captures Shopify shop param from OAuth callback', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'shopify',
+      type: 'oauth',
+      code: 'shop-auth-code',
+      state: 'state-abc',
+      params: {
+        shop: 'my-store.myshopify.com',
+      },
+    };
+
+    expect(request.params?.shop).toBe('my-store.myshopify.com');
+    expect(request.code_verifier).toBeUndefined();
+  });
+
+  it('allows CredentialCompleteOAuthRequest without params for standard OAuth providers', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'github',
+      type: 'oauth',
+      code: 'github-code',
+      state: 'github-state',
+    };
+
+    expect(request.params).toBeUndefined();
+  });
+
+  it('preserves callback params through JSON round-trip', () => {
+    const request: CredentialCompleteOAuthRequest = {
+      provider: 'quickbooks',
+      type: 'oauth',
+      code: 'code-123',
+      state: 'state-456',
+      code_verifier: 'verifier-789',
+      params: { realmId: '9999', extra: 'value' },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CredentialCompleteOAuthRequest;
+
+    expect(parsed.params?.realmId).toBe('9999');
+    expect(parsed.params?.extra).toBe('value');
+    expect(parsed.code_verifier).toBe('verifier-789');
+  });
+
+  it('models CredentialConnectResponse with OAuth redirect fields', () => {
+    const response: CredentialConnectResponse = {
+      auth_url: 'https://accounts.google.com/o/oauth2/auth?...',
+      state: 'state-token',
+      code_verifier: 'pkce-verifier',
+    };
+
+    expect(response.auth_url).toContain('accounts.google.com');
+    expect(response.credential).toBeUndefined();
+  });
+});
+
+describe('provider_website for logo lookups on custom credentials (INF-786)', () => {
+  it('accepts provider_website on SecretCreateRequest for unlisted providers', () => {
+    const req: SecretCreateRequest = {
+      key: 'ACME_API_KEY',
+      value: 'secret-value',
+      provider: 'acme',
+      provider_name: 'Acme CRM',
+      provider_website: 'acme.com',
+    };
+
+    expect(req.provider_website).toBe('acme.com');
+    expect(req.provider_name).toBe('Acme CRM');
+  });
+
+  it('allows SecretCreateRequest without provider_website for known providers', () => {
+    const req: SecretCreateRequest = {
+      key: 'GITHUB_TOKEN',
+      value: 'ghp_secret',
+      provider: 'github',
+    };
+
+    expect(req.provider_website).toBeUndefined();
+    expect(req.provider_name).toBeUndefined();
+  });
+
+  it('accepts provider_website on SecretProviderRequest when attaching to unlisted provider', () => {
+    const req: SecretProviderRequest = {
+      provider: 'custom-crm',
+      connection_scope: CredentialScopeTeam,
+      provider_name: 'Custom CRM',
+      provider_website: 'custom-crm.io',
+    };
+
+    expect(req.provider_website).toBe('custom-crm.io');
+  });
+
+  it('accepts provider_website on SetupAction for add_secret actions', () => {
+    const action: SetupAction = {
+      type: SetupActionAddSecret,
+      provider: 'acme',
+      provider_name: 'Acme CRM',
+      secrets: ['ACME_API_KEY'],
+      provider_website: 'acme.com',
+    };
+
+    expect(action.type).toBe('add_secret');
+    expect(action.provider_website).toBe('acme.com');
+  });
+
+  it('allows SetupAction without provider_website for platform-known providers', () => {
+    const connectAction: SetupAction = {
+      type: SetupActionConnect,
+      provider: 'slack',
+    };
+
+    const scopeAction: SetupAction = {
+      type: SetupActionAddScopes,
+      provider: 'google',
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+    };
+
+    expect(connectAction.provider_website).toBeUndefined();
+    expect(scopeAction.provider_website).toBeUndefined();
+  });
+
+  it('accepts website on CredentialRequirement for unlisted providers', () => {
+    const req: CredentialRequirement = {
+      name: 'Acme CRM',
+      website: 'acme.com',
+      secrets: ['ACME_API_KEY'],
+    };
+
+    expect(req.website).toBe('acme.com');
+    expect(req.provider).toBeUndefined();
+  });
+
+  it('preserves provider_website through JSON round-trip on SecretCreateRequest', () => {
+    const req: SecretCreateRequest = {
+      key: 'SHOP_KEY',
+      value: 'val',
+      provider: 'shopify',
+      provider_name: 'My Shopify Store',
+      provider_website: 'mystore.myshopify.com',
+    };
+
+    const parsed = JSON.parse(JSON.stringify(req)) as SecretCreateRequest;
+
+    expect(parsed.provider_website).toBe('mystore.myshopify.com');
+    expect(parsed.provider_name).toBe('My Shopify Store');
   });
 });
