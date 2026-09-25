@@ -11,7 +11,7 @@ import {
   ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types';
-import { isChatBusy, isMessageTerminal } from '../utils';
+import { isChatBusy, isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
@@ -190,7 +190,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // Listen for AgentRun updates (state transitions, output)
     manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
       dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
-      callbacks.onStatusChange?.(isChatBusy({ active_run: run } as ChatDTO) ? 'streaming' : 'idle');
+      callbacks.onStatusChange?.(isRunWorking(run.state) || isRunInterrupted(run.state) ? 'streaming' : 'idle');
       const currentChat = getState().chat;
       if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });
     });
