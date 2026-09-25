@@ -11,6 +11,7 @@ import {
   ChatMessageStatusCancelled,
   ChatMessageStatusFailed,
   ChatMessageStatusReady,
+  ChannelContext,
   DeltaEvent,
   LLMDelta,
   LLMOutput,
@@ -125,6 +126,11 @@ export interface SendMessageOptions {
    * cannot resolve those is the typical caller.
    */
   signal?: AbortSignal;
+  /**
+   * Channel routing metadata when replying through Slack, Telegram, or other
+   * integrations — forwarded to POST /agents/run as `channel_context`.
+   */
+  channel_context?: ChannelContext;
 }
 
 export interface AgentRunOptions extends Omit<SendMessageOptions, 'stream'> {
@@ -214,6 +220,10 @@ export class Agent {
         context: this.context,
         input: { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 },
       };
+
+    if (options.channel_context !== undefined) {
+      body.channel_context = options.channel_context;
+    }
 
     const useStream = options.stream ?? this.http.getStreamDefault();
     const shouldWait = useStream === false || hasCallbacks;

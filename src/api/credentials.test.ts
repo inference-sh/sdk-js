@@ -149,6 +149,22 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward connection_scope on connect() for team vs user credential binding', async () => {
+    const payload = {
+      provider: 'github',
+      type: 'oauth',
+      scopes: ['repo'],
+      connection_scope: CredentialScopeTeam,
+    };
+    const response = { credential: { provider: 'github' }, redirect_url: 'https://github.com/login/oauth/authorize' };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload);
+
+    expect(result.data).toEqual(response);
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
+  });
+
   it('should deserialize grant and app_credential_id on get()', async () => {
     const credential = {
       id: 'cred-1',
