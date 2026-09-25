@@ -103,6 +103,7 @@ import {
   ResourceFeatureSeedance,
   ResourceSeats,
   ResultMeta,
+  RoleUser,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ScopeAgentsRead,
@@ -129,6 +130,7 @@ import {
   TeamRoleAdmin,
   TeamRoleMember,
   TeamRoleOwner,
+  TeamTypeOrg,
   ToolCallResponse,
   ToolContentTypeAudio,
   ToolContentTypeImage,
@@ -3734,6 +3736,46 @@ describe('PermissionModelDTO embed without org_id (api 53509cc2)', () => {
 
     expect(parsed.team_id).toBe('team-1');
     expect(parsed).not.toHaveProperty('org_id');
+  });
+
+  it('preserves optional user and team relations on MCPServerDTO', () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: VisibilityPrivate,
+      slug: 'docs',
+      name: 'docs',
+      title: 'Docs MCP',
+      description: 'Documentation server',
+      icon_url: 'https://example.com/icon.png',
+      server_url: 'https://mcp.example.com',
+      auth_type: MCPServerAuthNone,
+      default_scopes: [],
+      documentation_url: 'https://example.com/docs',
+      user: {
+        id: 'user-1',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        role: RoleUser,
+        avatar_url: '',
+      },
+      team: {
+        id: 'team-1',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        type: TeamTypeOrg,
+        username: 'acme',
+        avatar_url: '',
+        setup_completed: true,
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(server)) as MCPServerDTO;
+
+    expect(parsed.title).toBe('Docs MCP');
+    expect(parsed.user?.id).toBe('user-1');
+    expect(parsed.team?.username).toBe('acme');
   });
 });
 
