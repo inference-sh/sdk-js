@@ -1,4 +1,5 @@
-import { alternativeLabel, alternativeTag, binaryLiveField, CLEAR_KEY, isLiveField, parseMediaType, pcmFormat, splitLiveSchema, type JsonSchema } from './schema';
+import { CLEAR_KEY } from './protocol';
+import { alternativeLabel, alternativeTag, binaryLiveField, isLiveField, parseMediaType, pcmFormat, splitLiveSchema, type JsonSchema } from './schema';
 
 // What pydantic emits for voice-loop-like models (inferencesh >= 0.8.1).
 const talkInput: JsonSchema = {

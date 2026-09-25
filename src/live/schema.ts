@@ -17,18 +17,7 @@
  * JSON Schema type keeps it.
  */
 
-export const STREAM_FORMAT = 'stream';
-
-// Control frames. Reserved keys start with `$`, which no field name can, so a
-// control frame is never mistaken for an output field.
-
-/** `{"$clear": "audio"}`: drop what has been buffered of a live output field. */
-export const CLEAR_KEY = '$clear';
-/**
- * `{"$error": {"field": ..., "message": ...}}`: a refused frame, or anything
- * else the caller should be told went wrong. The stream goes on.
- */
-export const ERROR_KEY = '$error';
+import { STREAM_FORMAT } from './protocol';
 
 /** The part of JSON Schema these helpers read. */
 export interface JsonSchema {

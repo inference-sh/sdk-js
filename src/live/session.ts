@@ -12,7 +12,8 @@
  */
 import type { SocketAccess } from '../types';
 import type { TaskWatch as TasksWatch } from '../api/tasks';
-import { binaryLiveField, CLEAR_KEY, ERROR_KEY, splitLiveSchema, type JsonSchema } from './schema';
+import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './protocol';
+import { binaryLiveField, splitLiveSchema, type JsonSchema } from './schema';
 
 export type LiveState = 'connecting' | 'waiting' | 'live' | 'ended';
 
@@ -104,10 +105,6 @@ export interface LiveSessionOptions {
   outputSchema?: JsonSchema | null;
 }
 
-// 1012: the relay is restarting and closed an end that still waited for its
-// peer. 1013: the peer did not come in time. Both mean "dial again" while the
-// task is alive, and neither means anything once frames have flowed.
-const REDIAL_CODES = new Set([1012, 1013]);
 const MAX_REDIALS = 5;
 
 function globalWebSocket(): WebSocketConstructor {

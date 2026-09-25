@@ -43,10 +43,8 @@ export { MCPServersAPI } from './api/mcp-servers';
 // Live: the socket of a stream task and the live fields of its schemas
 export { LiveSession, accessUrl } from './live/session';
 export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, LiveUpdate, WebSocketLike, WebSocketConstructor } from './live/session';
+export { STREAM_FORMAT, CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './live/protocol';
 export {
-  STREAM_FORMAT,
-  CLEAR_KEY,
-  ERROR_KEY,
   isLiveField,
   parseMediaType,
   pcmFormat,
