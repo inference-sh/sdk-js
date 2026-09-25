@@ -160,7 +160,17 @@ import {
   AgentTool,
   ToolTypeHTTP,
   AgentRunDTO,
+  AgentEvent,
+  AgentEventApprovalRequired,
+  AgentEventContentDelta,
+  AgentEventRunStarted,
+  AgentEventRunStateChanged,
+  AgentEventToolCompleted,
   AgentRunStateCompleted,
+  AgentRunStateWorking,
+  ContentDeltaText,
+  RunStartedPayload,
+  RunStateChangedPayload,
   InternalToolsConfig,
   ChatData,
   ChannelContext,
@@ -3594,5 +3604,53 @@ describe('PermissionModelDTO embed without org_id (api 53509cc2)', () => {
 
     expect(parsed.team_id).toBe('team-1');
     expect(parsed).not.toHaveProperty('org_id');
+  });
+});
+
+describe('AgentEvent backbone protocol (runs/chats event bus)', () => {
+  it('keeps AgentEventType constants on stable wire values', () => {
+    expect(AgentEventRunStarted).toBe('run.started');
+    expect(AgentEventRunStateChanged).toBe('run.state_changed');
+    expect(AgentEventContentDelta).toBe('content.delta');
+    expect(AgentEventToolCompleted).toBe('tool.completed');
+    expect(AgentEventApprovalRequired).toBe('approval.required');
+  });
+
+  it('round-trips AgentEvent envelopes with typed payloads', () => {
+    const runStarted: AgentEvent = {
+      id: 'evt-1',
+      type: AgentEventRunStarted,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      agent_id: 'agent-1',
+      timestamp: '2026-09-25T12:00:00Z',
+      payload: {
+        agent_id: 'agent-1',
+        user_message_id: 'msg-1',
+      } satisfies RunStartedPayload,
+    };
+    const stateChanged: AgentEvent = {
+      id: 'evt-2',
+      type: AgentEventRunStateChanged,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      timestamp: '2026-09-25T12:00:01Z',
+      payload: {
+        from_state: AgentRunStateWorking,
+        to_state: AgentRunStateCompleted,
+      } satisfies RunStateChangedPayload,
+    };
+    const contentDelta: AgentEvent = {
+      id: 'evt-3',
+      type: AgentEventContentDelta,
+      run_id: 'run-1',
+      chat_id: 'chat-1',
+      timestamp: '2026-09-25T12:00:02Z',
+      payload: { kind: ContentDeltaText, delta: 'hello' },
+    };
+
+    expect(JSON.parse(JSON.stringify(runStarted))).toEqual(runStarted);
+    expect(JSON.parse(JSON.stringify(stateChanged))).toEqual(stateChanged);
+    expect(JSON.parse(JSON.stringify(contentDelta))).toEqual(contentDelta);
   });
 });

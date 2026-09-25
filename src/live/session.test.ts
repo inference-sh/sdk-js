@@ -120,6 +120,22 @@ describe('LiveSession', () => {
     expect(states.filter((s) => s.state === 'ended')).toEqual([]);
   });
 
+  it('redials with the same access token when renew is not provided', async () => {
+    const { session, states, ws } = start();
+    ws().open();
+    ws().serverClose(1012, 'restarting');
+    await tick();
+    expect(FakeWebSocket.dialed).toHaveLength(2);
+    expect(FakeWebSocket.dialed[0].url).toBe(FakeWebSocket.dialed[1].url);
+    expect(ws().url).toContain('access_token=tok-1');
+    expect(session.state).toBe('connecting');
+
+    ws().open();
+    ws().message('{}');
+    expect(session.state).toBe('live');
+    expect(states.filter((s) => s.state === 'ended')).toEqual([]);
+  });
+
   it('does not dial again once frames have flowed', async () => {
     const { session, states, ws } = start({ renew: jest.fn() });
     ws().open();
