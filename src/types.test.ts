@@ -15,6 +15,7 @@ import {
   CheckRequirementsRequest,
   CheckRequirementsResponse,
   CredentialCompleteOAuthRequest,
+  CredentialConnectRequest,
   CredentialRequirement,
   AuthResponse,
   A2UIButton,
@@ -1168,6 +1169,32 @@ describe('PlanVersionDTO and PlanDTO active_version', () => {
     expect(version.active).toBe(false);
     expect(version.amount_monthly).toBe(1900);
     expect(version.provider_price_id_monthly).toBe('price_stripe_legacy');
+  });
+});
+
+describe('CredentialConnectRequest connection_scope (api 53509cc2)', () => {
+  it('serializes connection_scope separately from OAuth permission scopes', () => {
+    const request: CredentialConnectRequest = {
+      provider: 'github',
+      type: 'oauth',
+      scopes: ['repo', 'read:org'],
+      connection_scope: CredentialScopeTeam,
+    };
+
+    const parsed = JSON.parse(JSON.stringify(request)) as CredentialConnectRequest;
+
+    expect(parsed.connection_scope).toBe(CredentialScopeTeam);
+    expect(parsed.scopes).toEqual(['repo', 'read:org']);
+  });
+
+  it('allows connect without connection_scope so the provider default applies', () => {
+    const request: CredentialConnectRequest = {
+      provider: 'slack',
+      type: 'oauth',
+    };
+
+    expect(request.connection_scope).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(request))).not.toHaveProperty('connection_scope');
   });
 });
 
