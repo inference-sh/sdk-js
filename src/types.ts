@@ -2745,9 +2745,12 @@ export interface ElicitationCapability {
 }
 /**
  * ClientCapabilities advertises what a client can do.
+ * Extensions carries the extensions the client supports, keyed by identifier
+ * (e.g. ExtensionTasks), each with its extension-defined settings object.
  */
 export interface ClientCapabilities {
   elicitation?: ElicitationCapability;
+  extensions?: { [key: string]: any};
 }
 /**
  * InputRequest is a single server-to-client request inside an InputRequiredResult.
@@ -2774,7 +2777,7 @@ export interface ElicitResult {
  * ResultType is the kind of result a response carries, required on every result
  * from 2026-07-28 onward.
  */
-export type ResultType = "complete" | "input_required";
+export type ResultType = "complete" | "input_required" | "task";
 /**
  * ResultTypeComplete marks an ordinary, finished result.
  */
@@ -2784,6 +2787,11 @@ export const ResultTypeComplete: ResultType = "complete";
  * Recognised so the outbound client never mistakes one for tool output.
  */
 export const ResultTypeInputRequired: ResultType = "input_required";
+/**
+ * ResultTypeTask marks a CreateTaskResult: the server accepted the request
+ * as a task under the tasks extension and the result arrives via tasks/get.
+ */
+export const ResultTypeTask: ResultType = "task";
 /**
  * CacheScope says who may reuse a cached result, per MCP 2026-07-28 (SEP-2549).
  * Analogous to HTTP Cache-Control public/private; the spec defines exactly these.
