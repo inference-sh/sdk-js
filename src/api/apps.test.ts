@@ -150,6 +150,26 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ description: 'updated' });
   });
 
+  it('should forward title in update() body', async () => {
+    const app = { id: 'app-1', name: 'veo-3-1', title: 'Veo 3.1 (Updated)' };
+    mockJsonResponse(app);
+
+    await api().update('app-1', { title: 'Veo 3.1 (Updated)' });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Veo 3.1 (Updated)' });
+  });
+
+  it('should preserve title on get() responses separate from name slug', async () => {
+    const app = { id: 'app-1', name: 'veo-3-1', title: 'Veo 3.1' };
+    mockJsonResponse(app);
+
+    const result = await api().get('app-1');
+
+    expect(result.data.title).toBe('Veo 3.1');
+    expect(result.data.name).toBe('veo-3-1');
+  });
+
   it('should DELETE /apps/{id} for delete()', async () => {
     mockJsonResponse(null);
 

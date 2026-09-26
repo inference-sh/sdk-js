@@ -79,6 +79,21 @@ describe('FlowsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve title on get() responses separate from name slug', async () => {
+    const flow = {
+      id: 'flow-1',
+      namespace: 'acme',
+      name: 'onboarding',
+      title: 'Customer Onboarding',
+    };
+    mockJsonResponse(flow);
+
+    const result = await api().get('flow-1');
+
+    expect(result.data.title).toBe('Customer Onboarding');
+    expect(result.data.name).toBe('onboarding');
+  });
+
   it('should POST /flows/{id} for update()', async () => {
     const flow = { id: 'flow-1', name: 'Renamed' };
     mockJsonResponse(flow);
