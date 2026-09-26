@@ -24,11 +24,12 @@ fi
 
 new_version="${new_tag#v}"
 
-# Only package.json carries the version; pnpm-lock.yaml does not record it, so
-# there is nothing else to keep in sync.
 npm version "$new_version" --no-git-tag-version --allow-same-version >/dev/null
 
-git add package.json
+# Keep the SDK_VERSION constant in sync with package.json.
+sed -i "s/export const SDK_VERSION = .*/export const SDK_VERSION = '$new_version';/" src/version.ts
+
+git add package.json src/version.ts
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"
