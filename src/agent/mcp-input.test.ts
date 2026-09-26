@@ -41,6 +41,12 @@ describe('elicitParams', () => {
     expect(elicitParams(state.input_requests.login)?.url).toBe('https://example.com/auth');
   });
 
+  it('defaults message to an empty string when omitted', () => {
+    expect(
+      elicitParams({ method: 'elicitation/create', params: { mode: 'form' } })?.message
+    ).toBe('');
+  });
+
   it('returns null for other methods', () => {
     expect(elicitParams({ method: 'sampling/createMessage', params: {} })).toBeNull();
   });
