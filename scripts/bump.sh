@@ -24,11 +24,12 @@ fi
 
 new_version="${new_tag#v}"
 
-# Only package.json carries the version; pnpm-lock.yaml does not record it, so
-# there is nothing else to keep in sync.
+# package.json is the source of truth; the X-Client-Source header in
+# src/http/client.ts must match so telemetry reflects the real SDK version.
 npm version "$new_version" --no-git-tag-version --allow-same-version >/dev/null
+sed -i "s|inference-sdk-js/[0-9]*\.[0-9]*\.[0-9]*|inference-sdk-js/${new_version}|g" src/http/client.ts
 
-git add package.json
+git add package.json src/http/client.ts
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"
