@@ -5,6 +5,7 @@ import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
   AgentRunStateCompleted,
   ChatMessageStatusReady,
   ToolInvocationStatusAwaitingInput,
@@ -17,6 +18,7 @@ import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
 const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
+const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import * as agentApi from './api';
@@ -1618,9 +1620,10 @@ describe('createActions', () => {
       onAgentRun(workingRun);
       onAgentRun(submittedRun);
       onAgentRun(inputRequiredRun);
+      onAgentRun(authRequiredRun);
 
       expect(onStatusChange).toHaveBeenCalledWith('streaming');
-      expect(onStatusChange).toHaveBeenCalledTimes(3);
+      expect(onStatusChange).toHaveBeenCalledTimes(4);
     });
 
     it('should call onStatusChange with idle when agent run completes', async () => {
