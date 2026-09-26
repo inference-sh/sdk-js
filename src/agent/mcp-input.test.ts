@@ -27,6 +27,11 @@ describe('parseMCPInputState', () => {
     expect(parseMCPInputState({ ...state, round: undefined })?.round).toBe(1);
   });
 
+  it('preserves request_state from the runtime payload', () => {
+    expect(parseMCPInputState(state)?.request_state).toBe('opaque');
+    expect(parseMCPInputState({ ...state, request_state: undefined })?.request_state).toBeUndefined();
+  });
+
   it('rejects data that is not a pending MCP input', () => {
     expect(parseMCPInputState(undefined)).toBeNull();
     expect(parseMCPInputState('not json')).toBeNull();
