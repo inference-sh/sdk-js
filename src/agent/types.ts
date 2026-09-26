@@ -14,6 +14,7 @@ import type {
   AgentConfigInput as GeneratedAgentConfig,
   CoreAppConfigInput as CoreAppConfig,
   FileRef,
+  ElicitResult,
 } from '../types';
 import type { HttpClient } from '../http/client';
 import type { StreamableManager } from '../http/streamable';
@@ -163,6 +164,8 @@ export interface AgentChatActions {
   clearError: () => void;
   /** Submit a tool result (for widgets/awaiting input) - usually called automatically by SDK */
   submitToolResult: (toolInvocationId: string, result: string) => Promise<void>;
+  /** Answer an MCP tool call's input requests (AwaitingInput status with MCPInputState data) */
+  submitMCPInput: (toolInvocationId: string, responses: Record<string, ElicitResult>) => Promise<void>;
   /** Approve a tool (for HIL approval - AwaitingApproval status) */
   approveTool: (toolInvocationId: string) => Promise<void>;
   /** Reject a tool (for HIL approval - AwaitingApproval status) */

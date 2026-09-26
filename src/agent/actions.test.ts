@@ -19,6 +19,7 @@ const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
 const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
+import { InferenceError } from '../http/errors';
 import * as agentApi from './api';
 import { PollManager } from '../http/poll';
 import { StreamableManager } from '../http/streamable';
@@ -1945,5 +1946,51 @@ describe('getClientToolHandlers', () => {
 
     expect(map.size).toBe(1);
     expect(map.get('browser')).toBe(handler);
+  });
+});
+
+describe('submitMCPInput', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('submits the responses as the tool result', async () => {
+    mockAgentApi.submitToolResult.mockResolvedValue(undefined);
+    const { ctx, dispatch } = createTestContext();
+    const { publicActions } = createActions(ctx);
+
+    await publicActions.submitMCPInput('inv-1', {
+      login: { action: 'accept' },
+      details: { action: 'accept', content: { name: 'ada' } },
+    });
+
+    expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+      ctx.client,
+      'inv-1',
+      JSON.stringify({ login: { action: 'accept' }, details: { action: 'accept', content: { name: 'ada' } } }),
+    );
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a 400 without marking the connection as failed', async () => {
+    mockAgentApi.submitToolResult.mockRejectedValue(new InferenceError(400, 'missing response for "login"'));
+    const onError = jest.fn();
+    const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+    const { publicActions } = createActions(ctx);
+
+    await expect(publicActions.submitMCPInput('inv-1', {})).rejects.toThrow('missing response');
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('reports other failures like submitToolResult does', async () => {
+    mockAgentApi.submitToolResult.mockRejectedValue(new InferenceError(500, 'boom'));
+    const onError = jest.fn();
+    const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+    const { publicActions } = createActions(ctx);
+
+    await expect(publicActions.submitMCPInput('inv-1', { a: { action: 'cancel' } })).rejects.toThrow('boom');
+    expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+    expect(onError).toHaveBeenCalled();
   });
 });

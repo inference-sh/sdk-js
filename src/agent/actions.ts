@@ -5,7 +5,7 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO, DeltaEvent, ResourceStatusDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, DeltaEvent, ElicitResult, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -24,6 +24,8 @@ import type {
 } from './types';
 import { isAdHocConfig, extractClientToolHandlers } from './types';
 import * as api from './api';
+import { buildMCPInputResult } from './mcp-input';
+import { isInferenceError } from '../http/errors';
 
 // =============================================================================
 // Action Creators
@@ -365,6 +367,22 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       } catch (error) {
         console.error('[AgentSDK] Failed to submit tool result:', error);
         const err = error instanceof Error ? error : new Error('Failed to submit tool result');
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_ERROR', payload: err.message });
+        callbacks.onError?.(err);
+        throw error;
+      }
+    },
+
+    submitMCPInput: async (toolInvocationId: string, responses: Record<string, ElicitResult>) => {
+      try {
+        await api.submitToolResult(client, toolInvocationId, buildMCPInputResult(responses));
+      } catch (error) {
+        // A 400 means the answers were rejected and the call is still waiting:
+        // the caller shows it next to the form, the connection is fine.
+        if (isInferenceError(error) && error.statusCode === 400) throw error;
+        console.error('[AgentSDK] Failed to submit MCP input:', error);
+        const err = error instanceof Error ? error : new Error('Failed to submit MCP input');
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);

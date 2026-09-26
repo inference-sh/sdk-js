@@ -87,3 +87,16 @@ export {
   extractToolSchemas,
   extractClientToolHandlers,
 } from './types';
+
+// MCP input requests
+export {
+  MCPMethodElicitationCreate,
+  parseMCPInputState,
+  elicitParams,
+  isURLElicitation,
+  buildMCPInputResult,
+  type MCPInputState,
+  type ElicitRequestParams,
+  type ElicitRequestedSchema,
+  type ElicitPropertySchema,
+} from './mcp-input';
