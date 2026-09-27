@@ -220,6 +220,13 @@ describe('Inference', () => {
         text: () => Promise.resolve(JSON.stringify(responseData)),
         json: () => Promise.resolve(responseData),
       });
+      // wait: false fetches the full task after /apps/run
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(responseData)),
+        json: () => Promise.resolve(responseData),
+      });
 
       const client = new Inference({ apiKey: 'test-api-key' });
       // Use input that won't trigger base64 detection (contains spaces/special chars)
@@ -357,6 +364,12 @@ describe('Inference', () => {
           status: 200,
           text: () => Promise.resolve(JSON.stringify(mockTask)),
           json: () => Promise.resolve(mockTask),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(mockTask)),
+          json: () => Promise.resolve(mockTask),
         });
 
       const client = new Inference({ apiKey: 'test-api-key' });
@@ -367,7 +380,7 @@ describe('Inference', () => {
       );
 
       expect(result.id).toBe('task-456');
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenCalledTimes(4);
       const runCall = mockFetch.mock.calls.find((call) =>
         String(call[0]).includes('/apps/run')
       );
