@@ -236,6 +236,7 @@ describe('Inference', () => {
       );
 
       expect(result.id).toBe('task-123');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/run'),
         expect.objectContaining({
@@ -245,6 +246,11 @@ describe('Inference', () => {
             'Content-Type': 'application/json',
           }),
         })
+      );
+      // verify the second call fetches the full task (GET /tasks/{id})
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123'),
+        expect.objectContaining({ method: 'GET' })
       );
     });
 
