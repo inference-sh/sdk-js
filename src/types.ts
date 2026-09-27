@@ -5995,7 +5995,25 @@ export interface ToolParameters {
 }
 export type ToolParameterProperties = { [key: string]: ToolParameterProperty};
 export interface ToolParameterProperty {
-  type: ToolParamType;
+  /**
+   * Type is the JSON Schema type of the value. Empty when AnyOf is set: the
+   * value then has one of several shapes, and naming a single type would be
+   * telling the model something untrue about what it may send.
+   */
+  type?: ToolParamType;
+  /**
+   * AnyOf lists the shapes a value may take, each described as a property of
+   * its own. Anthropic and OpenAI both accept anyOf in tool schemas. Before
+   * this field existed the converter picked one branch and dropped the rest,
+   * so an app that accepted "401" or 401 could only tell the model about one.
+   */
+  anyOf?: ToolParameterProperty[];
+  /**
+   * Enum is the closed set of values a scalar may take, kept as data so a
+   * consumer choosing arguments does not have to parse it back out of the
+   * description.
+   */
+  enum?: any[];
   title: string;
   description: string;
   properties?: ToolParameterProperties;
