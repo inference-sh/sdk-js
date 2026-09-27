@@ -507,6 +507,22 @@ export interface DeviceAuthPollResponse {
   session_token?: string;
   team_id?: string;
 }
+export interface MeResponse {
+  user?: UserDTO;
+  team?: TeamDTO;
+  /**
+   * Org of the current team, when the team belongs to one. Team.Role and
+   * Org.IsAdmin are left unset: what the caller may do is TeamView.Can
+   * and TeamView.Org.Can.
+   */
+  org?: OrgDTO;
+  /**
+   * TeamView is the current team as the caller sees it in settings: kind,
+   * governance and capabilities (GET /teams/{id}/view).
+   */
+  team_view?: TeamViewDTO;
+  diagnostics?: DiagnosticsConfig;
+}
 export interface TeamCreateRequest {
   name: string;
   username: string;
@@ -2985,6 +3001,24 @@ export interface UpdateNotificationPreferencesRequest {
   timezone?: string;
 }
 /**
+ * OrgDTO is the API response for an org (enterprise layer above teams).
+ */
+export interface OrgDTO extends BaseModelDTO {
+  slug: string;
+  name: string;
+  avatar_url?: string;
+  default_team_id?: string;
+  /**
+   * UsagePolicyID of the org's usage policy ('' = ungoverned, INF-808).
+   */
+  usage_policy_id?: string;
+  /**
+   * IsAdmin: whether the CALLER is on this org's admin grant list. Set on
+   * caller-scoped responses.
+   */
+  is_admin?: boolean;
+}
+/**
  * PageMetadata holds metadata for a page
  */
 export interface PageMetadata {
@@ -3165,6 +3199,9 @@ export interface ProjectDTO extends BaseModelDTO, PermissionModelDTO {
   parent_id?: string;
   parent?: ProjectDTO;
   children: (ProjectDTO | undefined)[];
+}
+export interface DiagnosticsConfig {
+  level: number /* int */;
 }
 /**
  * RefRouteDTO for API responses
@@ -3757,6 +3794,34 @@ export interface TaskTimingsDTO {
   events: TaskTimingEvent[];
 }
 /**
+ * TeamDTO is the API response for a full team.
+ */
+export interface TeamDTO extends BaseModelDTO {
+  type: TeamType;
+  name: string;
+  username: string;
+  avatar_url: string;
+  email: string;
+  setup_completed: boolean;
+  max_concurrency: number /* int */;
+  status: TeamStatus;
+  /**
+   * Role is the CALLER's role on this team (owner/admin/member), set on
+   * caller-scoped responses (/teams, /users/me). Empty when not applicable
+   * (public team views, platform-admin impersonation).
+   */
+  role?: TeamRole;
+  /**
+   * OrgID of the org this team belongs to ('' = standalone team).
+   */
+  org_id?: string;
+  /**
+   * UsagePolicyID of the team's own usage policy ('' = inherit the org's,
+   * or ungoverned when standalone, INF-808).
+   */
+  usage_policy_id?: string;
+}
+/**
  * TeamMemberDTO is the API response for a team member.
  */
 export interface TeamMemberDTO {
@@ -3816,6 +3881,48 @@ export interface TeamInviteDTO {
 export interface TeamInviteCreateRequest {
   email: string;
   role: TeamRole;
+}
+/**
+ * GovernanceSource says who decides one aspect of a team. By is
+ * shared.GovernedBySelf (the team itself) or shared.GovernedByOrg; TeamID is
+ * the deciding team: the team itself, or the org's workspace.
+ */
+export interface GovernanceSource {
+  by: string;
+  team_id: string;
+}
+/**
+ * TeamGovernance is who decides a team's billing and usage policy.
+ */
+export interface TeamGovernance {
+  billing: GovernanceSource;
+  policy: GovernanceSource;
+}
+/**
+ * TeamViewOrg is the org a team belongs to, as the caller sees it.
+ */
+export interface TeamViewOrg {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_url: string;
+  /**
+   * Can is what the caller may do on the org's workspace, by the same
+   * table as TeamViewDTO.Can: the org's settings and billing live there.
+   */
+  can: TeamCapability[];
+}
+/**
+ * TeamViewDTO is a team as the caller sees it in settings: what kind of
+ * workspace it is, who governs it, and what the caller may do there. Can is computed by the same table the API's route
+ * gates evaluate, so clients read permissions instead of re-deriving them.
+ */
+export interface TeamViewDTO {
+  team_id: string;
+  kind: TeamKind;
+  org?: TeamViewOrg;
+  governance: TeamGovernance;
+  can: TeamCapability[];
 }
 export interface TelemetryReportDTO extends BaseModelDTO, PermissionModelDTO {
   ip: string;
@@ -5425,6 +5532,29 @@ export type TeamRole = "owner" | "admin" | "member";
 export const TeamRoleOwner: TeamRole = "owner";
 export const TeamRoleAdmin: TeamRole = "admin";
 export const TeamRoleMember: TeamRole = "member";
+/**
+ * TeamKind is what a team is from the caller's side of settings: the team
+ * type plus whether it sits inside an org. Capabilities and governance key
+ * on it (see team.Subject).
+ */
+export type TeamKind = "personal" | "team" | "org_member" | "org";
+/**
+ * TeamKindPersonal is an account's own workspace.
+ */
+export const TeamKindPersonal: TeamKind = "personal";
+/**
+ * TeamKindTeam is a shared workspace outside any org.
+ */
+export const TeamKindTeam: TeamKind = "team";
+/**
+ * TeamKindOrgMember is a shared workspace inside an org: billed by the
+ * org and governed by the org's usage policy.
+ */
+export const TeamKindOrgMember: TeamKind = "org_member";
+/**
+ * TeamKindOrg is an org's own workspace (TeamTypeOrg).
+ */
+export const TeamKindOrg: TeamKind = "org";
 /**
  * TeamCapability is one thing a caller may do to a team's settings. The set is
  * closed; team.Subject.Can is the only place that grants them.
