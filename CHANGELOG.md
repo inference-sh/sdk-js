@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tasks.create()` returns `TaskResultDTO`, what `POST /apps/run` sends (id, status, output, socket), instead of claiming a full `Task`. `run(..., { wait: false })` fetches the full task with `GET /tasks/{id}` before returning it.
+- `teams.list()`, `get()`, `create()` and `update()` return `TeamDTO`, what the server sends, instead of `TeamRelationDTO`.
+- `MeResponse` is the generated type (adds `org`, `team_view` and `diagnostics`; `team` is a `TeamDTO`) instead of a hand-written one.
+
 ## [0.8.0] - 2026-09-24
 
 ### Removed

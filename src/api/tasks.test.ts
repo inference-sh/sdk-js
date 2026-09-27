@@ -185,8 +185,9 @@ describe('TasksAPI.run (general)', () => {
 
   const streamingApi = () => new TasksAPI(new HttpClient({ apiKey: 'test-key', stream: true }));
 
-  it('should return immediately when wait is false', async () => {
+  it('should return without watching when wait is false', async () => {
     const task = makeTask();
+    mockJsonResponse(task);
     mockJsonResponse(task);
 
     const result = await streamingApi().run(
@@ -196,7 +197,8 @@ describe('TasksAPI.run (general)', () => {
     );
 
     expect(result.id).toBe('task-1');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // POST /apps/run, then GET /tasks/{id}; no stream
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -378,6 +380,7 @@ describe('TasksAPI.run (HTTP contract)', () => {
 
   it('should POST /apps/run with merged params and processedInput', async () => {
     const task = makeTask();
+    mockJsonResponse({ id: 'task-1', status: TaskStatusRunning, output: null });
     mockJsonResponse(task);
 
     const result = await api().run(
@@ -395,6 +398,20 @@ describe('TasksAPI.run (HTTP contract)', () => {
       version_id: 'ver-2',
       input: { prompt: 'sunset', width: 512 },
     });
+  });
+
+  it('should fetch the full task after /apps/run when not waiting', async () => {
+    // /apps/run answers with a TaskResultDTO: no input, logs or session.
+    mockJsonResponse({ id: 'task-1', status: TaskStatusRunning, output: null });
+    mockJsonResponse(makeTask({ session_id: 'sess-full' }));
+
+    const result = await api().run({ app: 'test-app', input: {} }, {}, { wait: false });
+
+    expect(result.session_id).toBe('sess-full');
+    expect(result.input).toEqual({ prompt: 'hi' });
+    const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1');
+    expect(init.method).toBe('GET');
   });
 });
 

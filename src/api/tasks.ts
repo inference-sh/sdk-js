@@ -8,6 +8,7 @@ import {
   TaskTimingsDTO,
   ResourceStatusDTO,
   ApiAppRunRequest,
+  TaskResultDTO,
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
@@ -86,10 +87,12 @@ export class TasksAPI {
   }
 
   /**
-   * Create and run a task
+   * Create and run a task. POST /apps/run answers with the task result
+   * (id, status, output, and the socket for a stream function), not the
+   * full task; `get` fetches that.
    */
-  async create(data: ApiAppRunRequest): Promise<Response<Task>> {
-    return this.http.request<Task>('post', '/apps/run', { data });
+  async create(data: ApiAppRunRequest): Promise<Response<TaskResultDTO>> {
+    return this.http.request<TaskResultDTO>('post', '/apps/run', { data });
   }
 
   /**
@@ -123,20 +126,16 @@ export class TasksAPI {
   ): Promise<Task> {
     const { wait = true } = options;
 
-    const resp = await this.http.request<Task>('post', '/apps/run', {
-      data: {
-        ...params,
-        input: processedInput,
-      },
-    });
-    const task = resp.data;
+    const { data: created } = await this.create({ ...params, input: processedInput });
 
-    // Return immediately if not waiting
+    // POST /apps/run answers with a TaskResultDTO, not the full task:
+    // fetch that when returning now, or let the watch fill it in.
     if (!wait) {
+      const { data: task } = await this.get(created.id);
       return stripTask(task);
     }
 
-    return this.watch(task, options).done;
+    return this.watch(created, options).done;
   }
 
   /**

@@ -32,7 +32,7 @@ export { FlowRunsAPI } from './api/flow-runs';
 export { EnginesAPI } from './api/engines';
 export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
 export { ArtifactsAPI } from './api/artifacts';
-export { TeamsAPI, type MeResponse } from './api/teams';
+export { TeamsAPI } from './api/teams';
 export { SecretsAPI } from './api/secrets';
 export { ApiKeysAPI } from './api/api-keys';
 export { CredentialsAPI } from './api/credentials';

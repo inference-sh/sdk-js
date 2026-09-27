@@ -1,8 +1,8 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
 import {
-  UserDTO,
-  TeamRelationDTO,
+  MeResponse,
+  TeamDTO,
   TeamMemberDTO,
   TeamInviteDTO,
   TeamCreateRequest,
@@ -10,11 +10,6 @@ import {
   TeamInviteCreateRequest,
   AvailabilityResponse,
 } from '../types';
-
-export interface MeResponse {
-  user: UserDTO;
-  team?: TeamRelationDTO;
-}
 
 /**
  * Teams API
@@ -32,29 +27,29 @@ export class TeamsAPI {
   /**
    * List user's teams
    */
-  async list(): Promise<Response<TeamRelationDTO[]>> {
-    return this.http.request<TeamRelationDTO[]>('get', '/teams');
+  async list(): Promise<Response<TeamDTO[]>> {
+    return this.http.request<TeamDTO[]>('get', '/teams');
   }
 
   /**
    * Get a team by ID
    */
-  async get(teamId: string): Promise<Response<TeamRelationDTO>> {
-    return this.http.request<TeamRelationDTO>('get', `/teams/${teamId}`);
+  async get(teamId: string): Promise<Response<TeamDTO>> {
+    return this.http.request<TeamDTO>('get', `/teams/${teamId}`);
   }
 
   /**
    * Create a new team
    */
-  async create(data: TeamCreateRequest): Promise<Response<TeamRelationDTO>> {
-    return this.http.request<TeamRelationDTO>('post', '/teams', { data });
+  async create(data: TeamCreateRequest): Promise<Response<TeamDTO>> {
+    return this.http.request<TeamDTO>('post', '/teams', { data });
   }
 
   /**
    * Update a team
    */
-  async update(teamId: string, data: Partial<TeamCreateRequest>): Promise<Response<TeamRelationDTO>> {
-    return this.http.request<TeamRelationDTO>('post', `/teams/${teamId}`, { data });
+  async update(teamId: string, data: Partial<TeamCreateRequest>): Promise<Response<TeamDTO>> {
+    return this.http.request<TeamDTO>('post', `/teams/${teamId}`, { data });
   }
 
   /**
