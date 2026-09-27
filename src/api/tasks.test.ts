@@ -423,12 +423,23 @@ describe('TasksAPI.create', () => {
   const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key' }));
 
   it('should POST /apps/run for create()', async () => {
-    const task = makeTask();
-    mockJsonResponse(task);
+    const created = {
+      id: 'task-1',
+      short_id: 't1',
+      status: TaskStatusRunning,
+      status_text: 'running',
+      output: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      socket: { id: 'sock-1', url: 'wss://example/ws' },
+    };
+    mockJsonResponse(created);
 
     const result = await api().create({ app: 'test-app', input: { prompt: 'hi' } });
 
-    expect(result.data).toEqual(task);
+    expect(result.data).toEqual(created);
+    expect(result.data).not.toHaveProperty('input');
+    expect(result.data).not.toHaveProperty('logs');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/run');
     expect(init.method).toBe('POST');

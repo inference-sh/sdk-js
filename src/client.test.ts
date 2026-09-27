@@ -246,6 +246,10 @@ describe('Inference', () => {
           }),
         })
       );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123'),
+        expect.objectContaining({ method: 'GET' })
+      );
     });
 
     it('should throw error on API failure', async () => {

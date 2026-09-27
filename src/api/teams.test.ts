@@ -31,6 +31,47 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve org, team_view, and diagnostics on me()', async () => {
+    const me = {
+      user: { id: 'user-1', email: 'dev@example.com' },
+      team: {
+        id: 'team-1',
+        type: 'team',
+        name: 'Acme',
+        username: 'acme',
+        role: 'owner',
+        org_id: 'org-1',
+      },
+      org: { id: 'org-1', slug: 'acme-corp', name: 'Acme Corp', is_admin: true },
+      team_view: {
+        team_id: 'team-1',
+        kind: 'org_member',
+        governance: {
+          billing: { by: 'org', team_id: 'org-ws-1' },
+          policy: { by: 'self', team_id: 'team-1' },
+        },
+        can: ['manage_members', 'manage_billing'],
+        org: {
+          id: 'org-1',
+          name: 'Acme Corp',
+          slug: 'acme-corp',
+          avatar_url: '',
+          can: ['manage_billing'],
+        },
+      },
+      diagnostics: { level: 2 },
+    };
+    mockJsonResponse(me);
+
+    const result = await api().me();
+
+    expect(result.data).toEqual(me);
+    expect(result.data.org?.is_admin).toBe(true);
+    expect(result.data.team_view?.kind).toBe('org_member');
+    expect(result.data.team?.role).toBe('owner');
+    expect(result.data.diagnostics?.level).toBe(2);
+  });
+
   it('should GET /teams for list()', async () => {
     const teams = [{ id: 'team-1', name: 'Acme' }];
     mockJsonResponse(teams);
@@ -41,6 +82,32 @@ describe('TeamsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve TeamDTO caller-scoped fields on list()', async () => {
+    const teams = [
+      {
+        id: 'team-1',
+        type: 'team',
+        name: 'Shared',
+        username: 'shared',
+        avatar_url: '',
+        email: 'team@example.com',
+        setup_completed: true,
+        max_concurrency: 4,
+        status: 'active',
+        role: 'admin',
+        org_id: '',
+        usage_policy_id: 'pol-1',
+      },
+    ];
+    mockJsonResponse(teams);
+
+    const result = await api().list();
+
+    expect(result.data).toEqual(teams);
+    expect(result.data[0].role).toBe('admin');
+    expect(result.data[0].usage_policy_id).toBe('pol-1');
   });
 
   it('should POST /teams for create()', async () => {
