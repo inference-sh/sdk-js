@@ -32,6 +32,19 @@ function makeTask(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeTaskResult(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'task-1',
+    short_id: 't1',
+    status: TaskStatusRunning,
+    status_text: 'running',
+    output: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
 describe('TasksAPI.run (polling mode)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -45,6 +58,27 @@ describe('TasksAPI.run (polling mode)', () => {
         pollIntervalMs: 20,
       })
     );
+
+  it('should watch to completion when POST /apps/run returns TaskResultDTO', async () => {
+    const completedTask = makeTask({ status: TaskStatusCompleted, output: { ok: true } });
+
+    mockJsonResponse(makeTaskResult());
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
+    mockJsonResponse(completedTask);
+
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      { prompt: 'hi' },
+      { wait: true, stream: false }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(result.output).toEqual({ ok: true });
+    expect(result.session_id).toBe('sess-1');
+    const [runUrl] = mockFetch.mock.calls[0] as [string];
+    expect(String(runUrl)).toContain('/apps/run');
+  });
 
   it('should resolve when status polling detects completion', async () => {
     const runningTask = makeTask();

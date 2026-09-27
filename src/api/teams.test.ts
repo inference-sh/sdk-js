@@ -197,6 +197,30 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve TeamDTO caller-scoped fields on get()', async () => {
+    const team = {
+      id: 'team-9',
+      type: 'team',
+      name: 'Workspace',
+      username: 'workspace',
+      avatar_url: '',
+      email: 'ws@example.com',
+      setup_completed: false,
+      max_concurrency: 2,
+      status: 'active',
+      role: 'member',
+      org_id: 'org-42',
+      usage_policy_id: 'pol-9',
+    };
+    mockJsonResponse(team);
+
+    const result = await api().get('team-9');
+
+    expect(result.data).toEqual(team);
+    expect(result.data.role).toBe('member');
+    expect(result.data.org_id).toBe('org-42');
+  });
+
   it('should POST /teams/{id} for update()', async () => {
     const team = { id: 'team-1', name: 'Acme Updated' };
     mockJsonResponse(team);
