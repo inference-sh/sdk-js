@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-27
+
 ### Fixed
 
 - `tasks.create()` returns `TaskResultDTO`, what `POST /apps/run` sends (id, status, output, socket), instead of claiming a full `Task`. `run(..., { wait: false })` fetches the full task with `GET /tasks/{id}` before returning it.
