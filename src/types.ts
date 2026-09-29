@@ -4368,7 +4368,8 @@ export type ChatMessageRole =
   | "assistant"
   | "tool"
   | "injection"
-  | "compaction";
+  | "compaction"
+  | "event";
 /**
  * LLM wire-protocol roles
  */
@@ -4379,10 +4380,12 @@ export const ChatMessageRoleTool: ChatMessageRole = "tool";
 /**
  * Internal bookkeeping roles — never sent to the LLM provider.
  * BuildContext folds injections into the user turn and replaces
- * compaction markers with their summary.
+ * compaction markers with their summary. Event messages are display-only
+ * system info (a hook ran, ...) and BuildContext skips them.
  */
 export const ChatMessageRoleInjection: ChatMessageRole = "injection";
 export const ChatMessageRoleCompaction: ChatMessageRole = "compaction";
+export const ChatMessageRoleEvent: ChatMessageRole = "event";
 export type ChatMessageStatus =
   | "pending"
   | "queued"
@@ -4399,12 +4402,14 @@ export type ChatMessageContentType =
   | "reasoning"
   | "image"
   | "file"
-  | "tool";
+  | "tool"
+  | "event";
 export const ChatMessageContentTypeText: ChatMessageContentType = "text";
 export const ChatMessageContentTypeReasoning: ChatMessageContentType = "reasoning";
 export const ChatMessageContentTypeImage: ChatMessageContentType = "image";
 export const ChatMessageContentTypeFile: ChatMessageContentType = "file";
 export const ChatMessageContentTypeTool: ChatMessageContentType = "tool";
+export const ChatMessageContentTypeEvent: ChatMessageContentType = "event";
 export type ChannelType = "slack" | "discord" | "teams" | "telegram";
 export const ChannelTypeSlack: ChannelType = "slack";
 export const ChannelTypeDiscord: ChannelType = "discord";
@@ -4438,6 +4443,34 @@ export interface ChatMessageContent {
   image?: string;
   file?: string;
   tool_calls?: ToolCall[];
+  event?: ChatEvent;
+}
+export type ChatEventType = "hook";
+export const ChatEventTypeHook: ChatEventType = "hook";
+/**
+ * ChatEvent is the payload of an event-role message: system info shown in the
+ * chat but never sent to the model.
+ */
+export interface ChatEvent {
+  type: ChatEventType;
+  hook?: ChatHookEvent;
+}
+/**
+ * ChatHookEvent records one lifecycle hook handler run.
+ */
+export interface ChatHookEvent {
+  event: HookEvent;
+  handler_type: HookHandlerType;
+  /**
+   * Handler names what ran: the builtin or agent ref, or a webhook's host
+   * (never its full URL, which can carry credentials).
+   */
+  handler: string;
+  decision?: HookDecision;
+  reason?: string;
+  injected?: boolean;
+  error?: string;
+  duration_ms: number /* int64 */;
 }
 /**
  * ChannelContext records which channel a chat or message came through
