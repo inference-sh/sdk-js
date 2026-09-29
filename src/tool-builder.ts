@@ -392,6 +392,36 @@ class InternalToolsBuilder {
     return this;
   }
 
+  /** Enable knowledge tools (search, read and save the user's skills and knowledge entries) */
+  knowledge(enabled = true): this {
+    this.config.knowledge = enabled;
+    return this;
+  }
+
+  /** Enable skill_get for the skills configured on the agent (on by default) */
+  skills(enabled = true): this {
+    this.config.skills = enabled;
+    return this;
+  }
+
+  /** Enable artifact tools (publish shareable HTML/Markdown pages) */
+  artifact(enabled = true): this {
+    this.config.artifact = enabled;
+    return this;
+  }
+
+  /** Enable the agent tool (run a copy of this agent on a side task) */
+  agent(enabled = true): this {
+    this.config.agent = enabled;
+    return this;
+  }
+
+  /** Enable host context tools (read context from the embedding page) - top-level only */
+  hostContext(enabled = true): this {
+    this.config.host_context = enabled;
+    return this;
+  }
+
   /** Enable all internal tools */
   all(): this {
     this.config.plan = true;

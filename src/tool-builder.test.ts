@@ -535,6 +535,21 @@ describe('InternalToolsBuilder (internalTools)', () => {
     expect(config.remote).toBeUndefined();
   });
 
+  it('enables knowledge tools', () => {
+    const config = internalTools().knowledge().build();
+    expect(config).toEqual({ knowledge: true });
+  });
+
+  it('does not enable knowledge tools when using all()', () => {
+    const config = internalTools().all().build();
+    expect(config.knowledge).toBeUndefined();
+  });
+
+  it('sets the remaining opt-in categories', () => {
+    const config = internalTools().skills(false).artifact().agent().hostContext().build();
+    expect(config).toEqual({ skills: false, artifact: true, agent: true, host_context: true });
+  });
+
   it('chains multiple tool enables', () => {
     const config = internalTools().plan().memory().widget().build();
     expect(config).toEqual({ plan: true, memory: true, widget: true });
