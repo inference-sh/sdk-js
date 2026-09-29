@@ -422,7 +422,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Enable all internal tools */
+  /** Enable the default core tools (plan, memory, widget, finish). Opt-in tools (skills, artifact, agent, hostContext, meta, remote, knowledge) are not affected. */
   all(): this {
     this.config.plan = true;
     this.config.memory = true;
@@ -431,7 +431,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Disable all internal tools */
+  /** Disable the default core tools (plan, memory, widget, finish). Opt-in tools (skills, artifact, agent, hostContext, meta, remote, knowledge) are not affected. */
   none(): this {
     this.config.plan = false;
     this.config.memory = false;
