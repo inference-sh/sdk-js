@@ -322,11 +322,6 @@ export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name,
 /** Create a call tool — makes authenticated HTTP requests. Preferred name for httpTool. */
 export const callTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
 
-/** Create an MCP connector tool (calls a tool on a connected MCP server) */
-/** `credentialId` is the MCP credential the tool runs through. */
-export const mcpTool = (name: string, credentialId: string, toolName: string) =>
-  new MCPToolBuilder(name, credentialId, toolName);
-
 class MCPToolBuilder extends ToolBuilder {
   private credentialId: string;
   private toolName: string;
@@ -348,6 +343,11 @@ class MCPToolBuilder extends ToolBuilder {
     };
   }
 }
+
+/** Create an MCP connector tool (calls a tool on a connected MCP server) */
+/** `credentialId` is the MCP credential the tool runs through. */
+export const mcpTool = (name: string, credentialId: string, toolName: string) =>
+  new MCPToolBuilder(name, credentialId, toolName);
 
 // =============================================================================
 // Internal Tools Builder
@@ -422,7 +422,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Enable all internal tools */
+  /** Enable the default core tools (plan, memory, widget, finish). Opt-in tools (skills, artifact, agent, hostContext, meta, remote, knowledge) are not affected. */
   all(): this {
     this.config.plan = true;
     this.config.memory = true;
@@ -431,7 +431,7 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Disable all internal tools */
+  /** Disable the default core tools (plan, memory, widget, finish). Opt-in tools (skills, artifact, agent, hostContext, meta, remote, knowledge) are not affected. */
   none(): this {
     this.config.plan = false;
     this.config.memory = false;
