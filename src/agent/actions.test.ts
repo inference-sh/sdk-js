@@ -10,6 +10,11 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  ChatMessageRoleEvent,
+  ChatMessageContentTypeEvent,
+  ChatEventTypeHook,
+  HookEventToolCall,
+  HookHandlerGate,
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
@@ -212,6 +217,52 @@ describe('createActions', () => {
         type: 'UPDATE_MESSAGE',
         payload: expect.objectContaining({ content: 'streaming chunk' }),
       });
+    });
+
+    it('should forward display-only event-role hook messages into UPDATE_MESSAGE', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const hook = {
+        event: HookEventToolCall,
+        handler_type: HookHandlerGate,
+        handler: 'policy-gate',
+        duration_ms: 7,
+      };
+      const eventMessage = makeMessage({
+        id: 'msg-event',
+        chat_id: 'chat-short',
+        role: ChatMessageRoleEvent,
+        content: [
+          {
+            type: ChatMessageContentTypeEvent,
+            event: { type: ChatEventTypeHook, hook },
+          },
+        ],
+      });
+      onMessage(eventMessage);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({
+          id: 'msg-event',
+          role: 'event',
+          content: [
+            expect.objectContaining({
+              type: 'event',
+              event: { type: ChatEventTypeHook, hook },
+            }),
+          ],
+        }),
+      });
+      expect(mockAgentApi.submitToolResult).not.toHaveBeenCalled();
     });
 
     it('should run the handler and submit its result when a client tool is available', async () => {

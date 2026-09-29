@@ -11,6 +11,12 @@ import {
   GraphNodeStatusCompleted,
   GraphNodeTypeResource,
   InterruptReasonToolApproval,
+  ChatMessageRoleEvent,
+  ChatMessageContentTypeEvent,
+  ChatEventTypeHook,
+  HookEventTurnComplete,
+  HookHandlerBuiltin,
+  HookDecisionAllow,
 } from '../types';
 import { ChatsAPI } from './chats';
 
@@ -318,6 +324,46 @@ describe('ChatsAPI', () => {
 
     expect(result.data.chat_messages[0]?.agent_run_id).toBe('run-1');
     expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
+  });
+
+  it('should preserve event-role hook messages in get() responses', async () => {
+    const hookEvent = {
+      event: HookEventTurnComplete,
+      handler_type: HookHandlerBuiltin,
+      handler: 'audit-log',
+      decision: HookDecisionAllow,
+      reason: 'allowed by policy',
+      injected: false,
+      duration_ms: 42,
+    };
+    const chat = {
+      id: 'chat-1',
+      status: 'idle',
+      chat_messages: [
+        {
+          id: 'msg-hook',
+          chat_id: 'chat-1',
+          order: 3,
+          status: 'ready',
+          role: ChatMessageRoleEvent,
+          content: [
+            {
+              type: ChatMessageContentTypeEvent,
+              event: { type: ChatEventTypeHook, hook: hookEvent },
+            },
+          ],
+        },
+      ],
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    const message = result.data.chat_messages[0];
+    expect(message?.role).toBe('event');
+    expect(message?.content[0]?.type).toBe('event');
+    expect(message?.content[0]?.event?.type).toBe(ChatEventTypeHook);
+    expect(message?.content[0]?.event?.hook).toEqual(hookEvent);
   });
 
   it('should POST /chats/{id} for update()', async () => {
