@@ -3017,10 +3017,6 @@ export interface OrgDTO extends BaseModelDTO {
   avatar_url?: string;
   default_team_id?: string;
   /**
-   * UsagePolicyID of the org's usage policy ('' = ungoverned, INF-808).
-   */
-  usage_policy_id?: string;
-  /**
    * IsAdmin: whether the CALLER is on this org's admin grant list. Set on
    * caller-scoped responses.
    */
