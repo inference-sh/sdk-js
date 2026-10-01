@@ -546,8 +546,8 @@ describe('InternalToolsBuilder (internalTools)', () => {
   });
 
   it('sets the remaining opt-in categories', () => {
-    const config = internalTools().skills(false).artifact().agent().hostContext().build();
-    expect(config).toEqual({ skills: false, artifact: true, agent: true, host_context: true });
+    const config = internalTools().skills(false).artifact().agent().build();
+    expect(config).toEqual({ skills: false, artifact: true, agent: true });
   });
 
   it('chains multiple tool enables', () => {

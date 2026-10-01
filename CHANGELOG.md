@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-01
+
+### Added
+
+- `internalTools()` builder methods for every category: `knowledge()` (search, read, save and delete skills and knowledge entries), `agent()` (run a copy of the agent on a side task), `skills()`, `artifact()` and `remote()`.
+- `InternalToolsConfig.knowledge` and `InternalToolsConfig.agent`.
+
+### Changed
+
+- `InternalToolsConfig.spawn` is now `agent`. The API still reads a stored or sent `spawn` as `agent`.
+
+### Deprecated
+
+- `InternalToolsConfig.host_context`: the API ignores it and no longer offers `get_host_context` or `send_to_host`.
+
 ## [0.14.0] - 2026-09-27
 
 ### Fixed
