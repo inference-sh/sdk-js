@@ -2584,6 +2584,11 @@ export interface InstanceTypeDTO extends BaseModelDTO, PermissionModelDTO {
    * for this rental type. Empty on the raw catalog.
    */
   rental_type?: InstanceRentalType;
+  /**
+   * Options lists every in-stock provider for an engine-picker offer,
+   * cheapest first; the offer itself is the first one. Empty on the raw catalog.
+   */
+  options?: InstanceTypeOptionDTO[];
   configuration?: InstanceTypeConfiguration;
   availability: InstanceTypeAvailability[];
   boot_time?: InstanceTypeBootTime;
@@ -2608,6 +2613,28 @@ export interface InstanceTypeAvailability {
    * HourlyPrice is the spot price in cents, set on spot entries only.
    */
   hourly_price?: number /* int */;
+}
+/**
+ * InstanceTypeOptionDTO is one launchable provider behind an engine-picker
+ * offer. Launch with its cloud and shade_instance_type, one of its regions and
+ * the offer's rental_type.
+ */
+export interface InstanceTypeOptionDTO {
+  cloud: InstanceCloudProvider;
+  cloud_logo_url?: string;
+  shade_instance_type: string;
+  cloud_instance_type: string;
+  hourly_price: number /* int */; // cents, cheapest region
+  configuration?: InstanceTypeConfiguration;
+  regions: InstanceTypeOptionRegion[];
+}
+/**
+ * InstanceTypeOptionRegion is an in-stock region and its hourly price in
+ * cents. Spot prices can differ by region.
+ */
+export interface InstanceTypeOptionRegion {
+  region: string;
+  hourly_price: number /* int */;
 }
 export interface InstanceTypeBootTime {
   average_seconds: number /* int */;
