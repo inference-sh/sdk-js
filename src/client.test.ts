@@ -38,6 +38,11 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  BuiltinHookBeltSuggest,
+  BuiltinHookBeltExtract,
+  HookHandlerBuiltin,
+  lifecycleHook,
+  learningHooks,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -141,6 +146,15 @@ describe('package type exports', () => {
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports builtin hook constants and builders for belt learning hooks', () => {
+    expect(HookHandlerBuiltin).toBe('builtin');
+    expect(BuiltinHookBeltSuggest).toBe('belt:suggest');
+    expect(BuiltinHookBeltExtract).toBe('belt:extract');
+    expect(lifecycleHook).toEqual(expect.any(Function));
+    expect(learningHooks).toEqual(expect.any(Function));
+    expect(learningHooks({ suggest: true })[0]?.handler).toBe(BuiltinHookBeltSuggest);
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
