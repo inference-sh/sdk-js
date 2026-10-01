@@ -1,5 +1,12 @@
 import { HttpClient } from '../http/client';
-import { EngineStatusRestarting, EngineStatusRunning } from '../types';
+import {
+  CloudShade,
+  EngineStatusRestarting,
+  EngineStatusRunning,
+  InstanceRentalTypeOnDemand,
+  InstanceRentalTypeSpot,
+  InstanceStatusActive,
+} from '../types';
 import { EnginesAPI } from './engines';
 
 const mockFetch = jest.fn();
@@ -41,6 +48,36 @@ function makeEngine(overrides: Record<string, unknown> = {}) {
       engine_internal_api_url: 'http://127.0.0.1:8081',
     },
     workers: [],
+    ...overrides,
+  };
+}
+
+function makeShadeInstance(
+  overrides: Record<string, unknown> = {},
+  rentalType: typeof InstanceRentalTypeSpot | typeof InstanceRentalTypeOnDemand = InstanceRentalTypeSpot
+) {
+  return {
+    id: 'inst-1',
+    short_id: 'inst1',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: 'private',
+    cloud: CloudShade,
+    name: 'gpu-worker',
+    region: 'us-east-1',
+    shade_cloud: true,
+    shade_instance_type: 'A100_80G',
+    cloud_instance_type: 'gpu.a100.80gb',
+    cloud_assigned_id: 'shade-abc',
+    ssh_user: 'ubuntu',
+    ssh_port: 22,
+    ip: '10.0.0.5',
+    status: InstanceStatusActive,
+    cost_estimate: '$1.20/hr',
+    hourly_price: rentalType === InstanceRentalTypeSpot ? 85 : 120,
+    rental_type: rentalType,
     ...overrides,
   };
 }
@@ -259,5 +296,49 @@ describe('EnginesAPI', () => {
 
     expect(result.data.engine_version).toBe('3.0.0');
     expect(result.data.system_info?.engine_version).toBe('2.9.9');
+  });
+
+  it('should preserve spot rental_type on nested instance from get()', async () => {
+    const engine = makeEngine({
+      instance: makeShadeInstance({}, InstanceRentalTypeSpot),
+    });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.instance?.rental_type).toBe(InstanceRentalTypeSpot);
+    expect(result.data.instance?.hourly_price).toBe(85);
+  });
+
+  it('should preserve on_demand rental_type on nested instance in list() responses', async () => {
+    const page = {
+      items: [
+        makeEngine({
+          instance: makeShadeInstance({}, InstanceRentalTypeOnDemand),
+        }),
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data.items[0]?.instance?.rental_type).toBe(InstanceRentalTypeOnDemand);
+    expect(result.data.items[0]?.instance?.hourly_price).toBe(120);
+  });
+
+  it('should preserve spot rental_type on nested instance from getForResources()', async () => {
+    const engines = [
+      makeEngine({
+        id: 'eng-spot',
+        instance: makeShadeInstance({}, InstanceRentalTypeSpot),
+      }),
+    ];
+    mockJsonResponse(engines);
+
+    const result = await api().getForResources({ agent_ids: ['agent-1'] });
+
+    expect(result.data[0]?.instance?.rental_type).toBe(InstanceRentalTypeSpot);
+    expect(result.data[0]?.instance?.hourly_price).toBe(85);
   });
 });
