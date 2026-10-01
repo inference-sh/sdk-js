@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-01
+
 ### Added
 
+- Instance types: `InstanceRentalType` (`on_demand`, `spot`), `rental_type` on availability and engine-picker offers, `hourly_price` on spot entries.
 - `lifecycleHook(event).builtin(name)` for hooks the platform runs itself.
 - `learningHooks({ suggest, learn })`: `suggest` adds the team's matching skills, knowledge and apps to context before each turn (`belt:suggest`); `learn` saves reusable knowledge from the conversation to the team's registry every 10th user turn and before compaction (`belt:extract`). Both are off unless set.
 - `BuiltinHookBeltExtract`.
