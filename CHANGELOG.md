@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `lifecycleHook(event).builtin(name)` for hooks the platform runs itself.
+- `learningHooks({ suggest, learn })`: `suggest` adds the team's matching skills, knowledge and apps to context before each turn (`belt:suggest`); `learn` saves reusable knowledge from the conversation to the team's registry every 10th user turn and before compaction (`belt:extract`). Both are off unless set.
+- `BuiltinHookBeltExtract`.
+
 ## [0.14.1] - 2026-10-01
 
 ### Added

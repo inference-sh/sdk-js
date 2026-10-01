@@ -77,7 +77,7 @@ export {
 export type { ClientTool, ClientToolHandler } from './tool-builder';
 
 // Hook Builder (fluent API)
-export { lifecycleHook } from './hook-builder';
+export { lifecycleHook, learningHooks } from './hook-builder';
 export type { LifecycleHookBuilder } from './hook-builder';
 
 // Delta accumulator for streaming responses

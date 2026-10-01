@@ -1,9 +1,15 @@
-import { lifecycleHook } from './hook-builder';
+import { lifecycleHook, learningHooks } from './hook-builder';
 import {
   HookEventAgentStart,
   HookEventTurnComplete,
   HookHandlerWebhook,
   HookHandlerTask,
+  HookHandlerBuiltin,
+  HookEventTurnStart,
+  HookEventAgentComplete,
+  HookEventPreCompact,
+  BuiltinHookBeltSuggest,
+  BuiltinHookBeltExtract,
 } from './types';
 
 describe('LifecycleHookBuilder', () => {
@@ -63,6 +69,28 @@ describe('LifecycleHookBuilder', () => {
       expect(builder.task('acme/agent@v1')).toBe(builder);
       expect(builder.async(true)).toBe(builder);
       expect(builder.timeout(60)).toBe(builder);
+    });
+  });
+
+  describe('builtin', () => {
+    it('sets a builtin handler', () => {
+      const hook = lifecycleHook(HookEventTurnStart).builtin(BuiltinHookBeltSuggest).build();
+      expect(hook).toEqual({ event: HookEventTurnStart, type: HookHandlerBuiltin, handler: BuiltinHookBeltSuggest, async: undefined, timeout: undefined });
+    });
+  });
+
+  describe('learningHooks', () => {
+    it('returns nothing when neither is on', () => {
+      expect(learningHooks({})).toEqual([]);
+    });
+
+    it('attaches suggest to turn start and learn to completion and pre-compaction', () => {
+      const hooks = learningHooks({ suggest: true, learn: true });
+      expect(hooks.map(h => [h.event, h.type, h.handler])).toEqual([
+        [HookEventTurnStart, HookHandlerBuiltin, BuiltinHookBeltSuggest],
+        [HookEventAgentComplete, HookHandlerBuiltin, BuiltinHookBeltExtract],
+        [HookEventPreCompact, HookHandlerBuiltin, BuiltinHookBeltExtract],
+      ]);
     });
   });
 });

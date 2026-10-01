@@ -2,7 +2,20 @@
  * Hook Builder - Fluent API for defining lifecycle hooks
  */
 
-import { LifecycleHookConfig, HookEvent, HookHandlerType, HookHandlerWebhook, HookHandlerTask } from './types';
+import {
+  LifecycleHookConfig,
+  HookEvent,
+  HookHandlerType,
+  HookHandlerWebhook,
+  HookHandlerTask,
+  HookHandlerBuiltin,
+  BuiltinHook,
+  BuiltinHookBeltSuggest,
+  BuiltinHookBeltExtract,
+  HookEventTurnStart,
+  HookEventAgentComplete,
+  HookEventPreCompact,
+} from './types';
 
 // =============================================================================
 // Hook Builder
@@ -30,6 +43,13 @@ export class LifecycleHookBuilder {
   task(agentRef: string): this {
     this.handlerType = HookHandlerTask;
     this.handlerRef = agentRef;
+    return this;
+  }
+
+  /** Set handler to a builtin the platform runs itself (e.g. belt:suggest) */
+  builtin(name: BuiltinHook): this {
+    this.handlerType = HookHandlerBuiltin;
+    this.handlerRef = name;
     return this;
   }
 
@@ -62,3 +82,23 @@ export class LifecycleHookBuilder {
 
 /** Create a lifecycle hook for an agent event */
 export const lifecycleHook = (event: HookEvent) => new LifecycleHookBuilder(event);
+
+/**
+ * The built-in learning hooks, attached to the events each one runs on.
+ * - `suggest`: before each turn, add the team's matching skills, knowledge and apps to context.
+ * - `learn`: every 10th user turn and before compaction, save reusable knowledge from the
+ *   conversation to the team's registry, deduplicated. Runs on the agent's own model, and only
+ *   for chats by the agent's owning team.
+ */
+export function learningHooks(opts: { suggest?: boolean; learn?: boolean }): LifecycleHookConfig[] {
+  const hooks: LifecycleHookConfig[] = [];
+  if (opts.suggest) {
+    hooks.push(lifecycleHook(HookEventTurnStart).builtin(BuiltinHookBeltSuggest).build());
+  }
+  if (opts.learn) {
+    for (const event of [HookEventAgentComplete, HookEventPreCompact]) {
+      hooks.push(lifecycleHook(event).builtin(BuiltinHookBeltExtract).build());
+    }
+  }
+  return hooks;
+}
