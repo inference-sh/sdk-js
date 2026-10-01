@@ -27,6 +27,30 @@ describe('package export surface', () => {
       }
     });
 
+    it('uses inference-src, types, default key order on monorepo typecheck entrypoints', () => {
+      for (const path of ['.', './agent', './proxy/remix', './internal/upload']) {
+        expect(Object.keys(packageJson.exports[path])).toEqual([
+          'inference-src',
+          'types',
+          'default',
+        ]);
+      }
+    });
+
+    it('keeps types-first maps on npm subpaths that do not define inference-src', () => {
+      for (const path of [
+        './proxy',
+        './proxy/nextjs',
+        './proxy/express',
+        './proxy/hono',
+        './proxy/svelte',
+      ]) {
+        const keys = Object.keys(packageJson.exports[path]);
+        expect(keys).toEqual(['types', 'default']);
+        expect(keys).not.toContain('inference-src');
+      }
+    });
+
     it('maps main barrel, agent, remix proxy, and internal upload to source files', () => {
       expect(packageJson.exports['.']).toEqual(
         expect.objectContaining({
@@ -80,8 +104,8 @@ describe('package export surface', () => {
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {
     it('is mapped to api/files in package.json exports', () => {
       expect(packageJson.exports['./internal/upload']).toEqual({
-        types: './dist/api/files.d.ts',
         'inference-src': './src/api/files.ts',
+        types: './dist/api/files.d.ts',
         default: './dist/api/files.js',
       });
     });
