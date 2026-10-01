@@ -12,6 +12,10 @@ export interface InternalToolsConfig {
   widget?: boolean;
   finish?: boolean;
   skills?: boolean;
+  /**
+   * Deprecated: ignored. Host context is disabled until embed context has a
+   * replacement; agents are never offered get_host_context or send_to_host.
+   */
   host_context?: boolean;
   meta?: boolean;
   artifact?: boolean;
@@ -2553,6 +2557,7 @@ export interface InstanceDTO extends BaseModelDTO, PermissionModelDTO {
   status: InstanceStatus;
   cost_estimate: string;
   hourly_price: number /* int */;
+  rental_type?: InstanceRentalType;
   template_id?: string;
   volume_ids?: string[];
   tags?: string[];
@@ -2574,6 +2579,11 @@ export interface InstanceTypeDTO extends BaseModelDTO, PermissionModelDTO {
   cloud_instance_type: string;
   deployment_type: InstanceTypeDeploymentType;
   hourly_price: number /* int */;
+  /**
+   * RentalType is set on engine-picker offers: Region and HourlyPrice are
+   * for this rental type. Empty on the raw catalog.
+   */
+  rental_type?: InstanceRentalType;
   configuration?: InstanceTypeConfiguration;
   availability: InstanceTypeAvailability[];
   boot_time?: InstanceTypeBootTime;
@@ -2593,6 +2603,11 @@ export interface InstanceTypeConfiguration {
 export interface InstanceTypeAvailability {
   available: boolean;
   region: string;
+  rental_type?: InstanceRentalType;
+  /**
+   * HourlyPrice is the spot price in cents, set on spot entries only.
+   */
+  hourly_price?: number /* int */;
 }
 export interface InstanceTypeBootTime {
   average_seconds: number /* int */;
@@ -4938,6 +4953,13 @@ export type InstanceTypeDeploymentType = "vm" | "container" | "baremetal";
 export const InstanceTypeDeploymentTypeVM: InstanceTypeDeploymentType = "vm";
 export const InstanceTypeDeploymentTypeContainer: InstanceTypeDeploymentType = "container";
 export const InstanceTypeDeploymentTypeBaremetal: InstanceTypeDeploymentType = "baremetal";
+/**
+ * InstanceRentalType is how a Shadeform instance is rented. Spot is discounted
+ * but can be reclaimed at any time.
+ */
+export type InstanceRentalType = "on_demand" | "spot";
+export const InstanceRentalTypeOnDemand: InstanceRentalType = "on_demand";
+export const InstanceRentalTypeSpot: InstanceRentalType = "spot";
 export type AppSessionStatus = "active" | "ended" | "expired";
 export const AppSessionStatusActive: AppSessionStatus = "active";
 export const AppSessionStatusEnded: AppSessionStatus = "ended";
