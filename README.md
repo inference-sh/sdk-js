@@ -378,7 +378,7 @@ Use the fluent builders to define `AgentTool` schemas. Client tools (`tool`) run
 | `httpTool(name, url)` / `callTool(name, url)` | Server | HTTP request with credential injection (preferred over `webhookTool`) |
 | `webhookTool(name, url)` | Server | Unsigned webhook (legacy; use `httpTool` for new tools) |
 | `mcpTool(name, credentialId, toolName)` | Server | Call a tool through a connected MCP credential |
-| `internalTools()` | Server | Built-in tools: plan, memory, widget, finish, skills, meta, remote, knowledge, artifact, agent, hostContext |
+| `internalTools()` | Server | Built-in tools: plan, memory, widget, finish, skills, meta, remote, knowledge, artifact, agent |
 
 ```typescript
 import {

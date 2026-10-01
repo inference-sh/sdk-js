@@ -416,7 +416,10 @@ class InternalToolsBuilder {
     return this;
   }
 
-  /** Enable host context tools (read context from the embedding page) - top-level only */
+  /**
+   * @deprecated Host context is disabled server-side and the flag is ignored:
+   * agents are no longer offered get_host_context or send_to_host.
+   */
   hostContext(enabled = true): this {
     this.config.host_context = enabled;
     return this;
