@@ -31,6 +31,21 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize needs_username and personal_team_id on me()', async () => {
+    const me = {
+      user: { id: 'user-new' },
+      team: { id: 'team-invite' },
+      personal_team_id: 'team-personal',
+      needs_username: true,
+    };
+    mockJsonResponse(me);
+
+    const result = await api().me();
+
+    expect(result.data.personal_team_id).toBe('team-personal');
+    expect(result.data.needs_username).toBe(true);
+  });
+
   it('should GET /teams for list()', async () => {
     const teams = [{ id: 'team-1', name: 'Acme' }];
     mockJsonResponse(teams);
@@ -41,6 +56,18 @@ describe('TeamsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize org_name on team list entries', async () => {
+    const teams = [
+      { id: 'team-eng', name: 'Engineering', org_id: 'org-1', org_name: 'Acme Org' },
+    ];
+    mockJsonResponse(teams);
+
+    const result = await api().list();
+
+    expect(result.data[0].org_name).toBe('Acme Org');
+    expect(result.data[0].org_id).toBe('org-1');
   });
 
   it('should POST /teams for create()', async () => {

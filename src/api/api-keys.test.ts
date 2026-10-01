@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { ApiKeyScopeUser, ApiKeyScopeWorkspace } from '../types';
 import { ApiKeysAPI } from './api-keys';
 
 const mockFetch = jest.fn();
@@ -43,6 +44,61 @@ describe('ApiKeysAPI', () => {
     expect(url).toContain('/apikeys');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward workspace scope on create() for service-account keys', async () => {
+    const payload = {
+      name: 'ci-deploy',
+      scopes: ['apikeys:read'],
+      scope: ApiKeyScopeWorkspace,
+    };
+    const key = {
+      id: 'key-ws',
+      ...payload,
+      scope: ApiKeyScopeWorkspace,
+      created_by: 'user-admin',
+      scopes: [],
+      key: 'inf_sk_workspace',
+    };
+    mockJsonResponse(key);
+
+    const result = await api().create(payload);
+
+    expect(result.data?.scope).toBe(ApiKeyScopeWorkspace);
+    expect(result.data?.created_by).toBe('user-admin');
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(
+      payload
+    );
+  });
+
+  it('should deserialize personal vs workspace keys on list()', async () => {
+    const page = {
+      items: [
+        {
+          id: 'key-personal',
+          name: 'laptop',
+          scope: ApiKeyScopeUser,
+          created_by: 'user-1',
+          scopes: ['tasks:read'],
+        },
+        {
+          id: 'key-workspace',
+          name: 'automation',
+          scope: ApiKeyScopeWorkspace,
+          created_by: 'user-admin',
+          creator: { id: 'user-admin', name: 'Admin', email: 'admin@example.com' },
+          scopes: ['apikeys:read'],
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data?.items[0].scope).toBe(ApiKeyScopeUser);
+    expect(result.data?.items[1].scope).toBe(ApiKeyScopeWorkspace);
+    expect(result.data?.items[1].creator?.email).toBe('admin@example.com');
   });
 
   it('should DELETE /apikeys/{id} for delete()', async () => {
