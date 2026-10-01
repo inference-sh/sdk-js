@@ -1107,7 +1107,10 @@ export interface ScopePreset {
 export interface ApiKeyDTO extends BaseModelDTO, PermissionModelDTO {
   name: string;
   key: string;
-  last_used_at: string /* RFC3339 */;
+  /**
+   * LastUsedAt is absent for a key that has never been used.
+   */
+  last_used_at?: string /* RFC3339 */;
   expires_at?: string /* RFC3339 */;
   scopes: Scope[];
   source?: string;
