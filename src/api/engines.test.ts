@@ -1,5 +1,14 @@
 import { HttpClient } from '../http/client';
-import { EngineStatusRestarting, EngineStatusRunning } from '../types';
+import {
+  CloudLambdaLabs,
+  CloudRunPod,
+  EngineStatusRestarting,
+  EngineStatusRunning,
+  InstanceRentalTypeOnDemand,
+  InstanceRentalTypeSpot,
+  InstanceTypeDeploymentTypeVM,
+  type InstanceTypeDTO,
+} from '../types';
 import { EnginesAPI } from './engines';
 
 const mockFetch = jest.fn();
@@ -43,6 +52,52 @@ function makeEngine(overrides: Record<string, unknown> = {}) {
     workers: [],
     ...overrides,
   };
+}
+
+function makeEnginePickerOffer(
+  overrides: Record<string, unknown> = {}
+): InstanceTypeDTO {
+  return {
+    id: 'picker.h100-80gb',
+    short_id: 'pkh100',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    user_id: 'user-1',
+    team_id: 'team-1',
+    visibility: 'private',
+    cloud: CloudRunPod,
+    cloud_logo_url: 'https://cloud.inference.sh/logos/runpod.com.png',
+    region: 'us-east-1',
+    shade_instance_type: 'NVIDIA H100 80GB HBM3',
+    cloud_instance_type: 'gpu_1x_h100_sxm5',
+    deployment_type: InstanceTypeDeploymentTypeVM,
+    hourly_price: 285,
+    rental_type: InstanceRentalTypeSpot,
+    options: [
+      {
+        cloud: CloudRunPod,
+        cloud_logo_url: 'https://cloud.inference.sh/logos/runpod.com.png',
+        shade_instance_type: 'NVIDIA H100 80GB HBM3',
+        cloud_instance_type: 'gpu_1x_h100_sxm5',
+        hourly_price: 285,
+        regions: [
+          { region: 'us-east-1', hourly_price: 285 },
+          { region: 'eu-west-1', hourly_price: 310 },
+        ],
+      },
+      {
+        cloud: CloudLambdaLabs,
+        shade_instance_type: 'gpu_1x_h100_sxm5',
+        cloud_instance_type: 'gpu_1x_h100',
+        hourly_price: 299,
+        regions: [{ region: 'us-west-2', hourly_price: 299 }],
+      },
+    ],
+    availability: [
+      { available: true, region: 'us-east-1', rental_type: InstanceRentalTypeSpot, hourly_price: 285 },
+    ],
+    ...overrides,
+  } as InstanceTypeDTO;
 }
 
 describe('EnginesAPI', () => {
@@ -259,5 +314,62 @@ describe('EnginesAPI', () => {
 
     expect(result.data.engine_version).toBe('3.0.0');
     expect(result.data.system_info?.engine_version).toBe('2.9.9');
+  });
+});
+
+describe('GET /engines/types engine-picker catalog', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const http = () => new HttpClient({ apiKey: 'test-key' });
+
+  it('should deserialize provider options cheapest-first with per-region spot prices', async () => {
+    const catalog = [makeEnginePickerOffer()];
+    mockJsonResponse(catalog);
+
+    const result = await http().request<InstanceTypeDTO[]>('get', '/engines/types');
+
+    expect(result.data).toHaveLength(1);
+    const offer = result.data![0];
+    expect(offer.rental_type).toBe(InstanceRentalTypeSpot);
+    expect(offer.options).toHaveLength(2);
+    expect(offer.options![0].cloud).toBe(CloudRunPod);
+    expect(offer.options![0].hourly_price).toBe(285);
+    expect(offer.options![0].regions).toEqual([
+      { region: 'us-east-1', hourly_price: 285 },
+      { region: 'eu-west-1', hourly_price: 310 },
+    ]);
+    expect(offer.options![1].cloud).toBe(CloudLambdaLabs);
+    expect(offer.options![1].regions[0].hourly_price).toBe(299);
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/types');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should preserve on_demand rental_type when options list a single provider', async () => {
+    const catalog = [
+      makeEnginePickerOffer({
+        rental_type: InstanceRentalTypeOnDemand,
+        hourly_price: 420,
+        options: [
+          {
+            cloud: CloudRunPod,
+            shade_instance_type: 'NVIDIA H100 80GB HBM3',
+            cloud_instance_type: 'gpu_1x_h100_sxm5',
+            hourly_price: 420,
+            regions: [{ region: 'us-east-1', hourly_price: 420 }],
+          },
+        ],
+      }),
+    ];
+    mockJsonResponse(catalog);
+
+    const result = await http().request<InstanceTypeDTO[]>('get', '/engines/types');
+
+    expect(result.data![0].rental_type).toBe(InstanceRentalTypeOnDemand);
+    expect(result.data![0].options).toHaveLength(1);
+    expect(result.data![0].options![0].hourly_price).toBe(420);
   });
 });
