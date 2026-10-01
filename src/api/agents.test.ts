@@ -2121,6 +2121,28 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should pass internal_tools through createAgent()', async () => {
+    const internal_tools = {
+      knowledge: true,
+      agent: false,
+      skills: true,
+      artifact: true,
+      meta: true,
+      remote: true,
+    };
+    const payload = { name: 'support-bot', core_app: { ref: 'app/ref' }, internal_tools };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.internal_tools).toEqual(internal_tools);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.internal_tools).toEqual(internal_tools);
+    expect(body.internal_tools).not.toHaveProperty('spawn');
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -2198,6 +2220,32 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.remote_id).toBe('remote-dev-machine');
   });
 
+  it('should preserve internal_tools on agent get() responses', async () => {
+    const internal_tools = {
+      knowledge: true,
+      agent: true,
+      skills: false,
+      host_context: true,
+    };
+    const agent = { id: 'agent-1', name: 'support-bot', internal_tools };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.internal_tools).toEqual(internal_tools);
+    expect(result.data.internal_tools).not.toHaveProperty('spawn');
+  });
+
+  it('should preserve legacy spawn on agent get() responses without client-side rename', async () => {
+    const internal_tools = { spawn: true, knowledge: false };
+    const agent = { id: 'agent-1', name: 'legacy-bot', internal_tools };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.internal_tools).toEqual(internal_tools);
+  });
+
   it('should POST /agents/{id} for update()', async () => {
     const agent = { id: 'agent-1', name: 'updated' };
     mockJsonResponse(agent);
@@ -2219,6 +2267,27 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.harness).toBe('codex');
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should pass internal_tools through update()', async () => {
+    const payload = {
+      internal_tools: {
+        knowledge: false,
+        skills: false,
+        agent: true,
+        artifact: true,
+      },
+    };
+    const agent = { id: 'agent-1', name: 'coder', ...payload };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', payload as never);
+
+    expect(result.data.internal_tools).toEqual(payload.internal_tools);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.internal_tools).toEqual(payload.internal_tools);
+    expect(body.internal_tools).not.toHaveProperty('spawn');
   });
 
   it('should DELETE /agents/{id} for delete()', async () => {
