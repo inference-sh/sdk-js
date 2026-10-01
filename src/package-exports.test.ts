@@ -16,6 +16,17 @@ describe('package export surface', () => {
   });
 
   describe('inference-src export conditions', () => {
+    // Resolution takes the first matching key. The app typechecks with
+    // customConditions ["inference-src"]; listed after "types" it never
+    // matched, and the typecheck read a dist left behind by older builds.
+    it('lists inference-src before types so a typecheck that asks for source gets it', () => {
+      for (const [path, conditions] of Object.entries(packageJson.exports)) {
+        const keys = Object.keys(conditions);
+        if (!keys.includes('inference-src')) continue;
+        expect([path, keys.indexOf('inference-src') < keys.indexOf('types')]).toEqual([path, true]);
+      }
+    });
+
     it('maps main barrel, agent, remix proxy, and internal upload to source files', () => {
       expect(packageJson.exports['.']).toEqual(
         expect.objectContaining({

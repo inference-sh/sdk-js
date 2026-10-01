@@ -8,8 +8,8 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "inference-src": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./proxy": {
@@ -29,8 +29,8 @@
       "default": "./dist/proxy/hono.js"
     },
     "./proxy/remix": {
-      "types": "./dist/proxy/remix.d.ts",
       "inference-src": "./src/proxy/remix.ts",
+      "types": "./dist/proxy/remix.d.ts",
       "default": "./dist/proxy/remix.js"
     },
     "./proxy/svelte": {
@@ -38,13 +38,13 @@
       "default": "./dist/proxy/svelte.js"
     },
     "./agent": {
-      "types": "./dist/agent/index.d.ts",
       "inference-src": "./src/agent/index.ts",
+      "types": "./dist/agent/index.d.ts",
       "default": "./dist/agent/index.js"
     },
     "./internal/upload": {
-      "types": "./dist/api/files.d.ts",
       "inference-src": "./src/api/files.ts",
+      "types": "./dist/api/files.d.ts",
       "default": "./dist/api/files.js"
     }
   },
