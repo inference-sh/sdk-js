@@ -1802,6 +1802,37 @@ export interface ChatSettingsRequest {
   forget_memory?: string[];
 }
 /**
+ * ChatSettingsDTO is what POST /chats/{id}/settings answers with: the chat's
+ * settings after the change, every field the endpoint writes and nothing
+ * else. A client merges it into the chat it holds.
+ */
+export interface ChatSettingsDTO {
+  chat_id: string;
+  name: string;
+  visibility: Visibility;
+  /**
+   * AllowAllTools and DisableHooks are agent_data.allow_all_tools and
+   * agent_data.disable_hooks on the chat.
+   */
+  allow_all_tools: boolean;
+  disable_hooks: boolean;
+  /**
+   * Memory is agent_data.memory after forget_memory removed its keys.
+   */
+  memory: StringEncodedMap;
+}
+/**
+ * ChatAgentDTO is what POST /chats/{id}/agent answers with: the agent the
+ * chat now runs on. A client merges it into the chat it holds.
+ */
+export interface ChatAgentDTO {
+  chat_id: string;
+  agent_id: string;
+  agent?: AgentDTO;
+  agent_version_id: string;
+  agent_version?: AgentVersionDTO;
+}
+/**
  * ChatDTO for API responses
  */
 export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
@@ -1822,7 +1853,12 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
   agent_version?: AgentVersionDTO;
   name: string;
   description: string;
-  chat_messages: ChatMessageDTO[];
+  /**
+   * ChatMessages is left out when the messages were not loaded. The chat
+   * endpoints do not load them; read them from GET /chats/{id}/messages.
+   * An absent field says nothing about whether the chat has messages.
+   */
+  chat_messages?: ChatMessageDTO[];
   agent_data: ChatData;
   active_run?: AgentRunDTO;
   pending_interrupts?: InterruptDTO[];
