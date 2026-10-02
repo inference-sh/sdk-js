@@ -149,6 +149,7 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.setAgent.mockResolvedValue({ id: 'chat-short', agent_id: 'agent-2' } as never);
     mockAgentApi.updateChatSettings.mockResolvedValue({ id: 'chat-short', agent_data: { allow_all_tools: true } } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
@@ -1347,6 +1348,24 @@ describe('createActions', () => {
         type: 'SET_CHAT',
         payload: { id: 'chat-short', agent_data: { allow_all_tools: true } },
       });
+    });
+
+    it('switchAgent should hand the chat to the agent and store the chat it returns', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.switchAgent('okaris/editor');
+
+      expect(mockAgentApi.setAgent).toHaveBeenCalledWith(ctx.client, 'chat-short', 'okaris/editor');
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CHAT', payload: { id: 'chat-short', agent_id: 'agent-2' } });
+    });
+
+    it('switchAgent should rethrow a refusal', async () => {
+      mockAgentApi.setAgent.mockRejectedValueOnce(new Error('a chat can switch only to agents that run on inference'));
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.switchAgent('okaris/claude')).rejects.toThrow('switch only');
     });
 
     it('alwaysAllowTool should call API when chatId exists', async () => {

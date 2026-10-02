@@ -175,6 +175,8 @@ export interface AgentChatActions {
   alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
   /** Change this chat's settings, e.g. allow_all_tools (switching it on approves the calls waiting) */
   updateChatSettings: (settings: ChatSettingsRequest) => Promise<void>;
+  /** Hand this chat to another agent (namespace/name); the next message goes to it. Agents our loop runs only. */
+  switchAgent: (agentRef: string) => Promise<void>;
   /** Cancel a queued message before the agent processes it */
   cancelMessage: (messageId: string) => Promise<void>;
   /** Resolve an interrupt gate (allow or deny) */

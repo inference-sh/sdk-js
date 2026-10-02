@@ -1795,6 +1795,11 @@ export interface ChatSettingsRequest {
    * webhooks, gates) firing in this chat.
    */
   disable_hooks?: boolean;
+  /**
+   * ForgetMemory removes these keys from the chat's memory, the notes the
+   * agent keeps for this conversation. A key that is not there is ignored.
+   */
+  forget_memory?: string[];
 }
 /**
  * ChatDTO for API responses

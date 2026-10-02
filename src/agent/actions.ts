@@ -455,6 +455,25 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     },
 
+    switchAgent: async (agentRef: string) => {
+      const chatId = getChatId();
+
+      if (!chatId) {
+        console.error('[AgentSDK] Cannot switch the agent without a chatId');
+        return;
+      }
+
+      try {
+        setChat(await api.setAgent(client, chatId, agentRef));
+      } catch (error) {
+        console.error('[AgentSDK] Failed to switch the agent:', error);
+        const err = error instanceof Error ? error : new Error('Failed to switch the agent');
+        dispatch({ type: 'SET_ERROR', payload: err.message });
+        callbacks.onError?.(err);
+        throw error;
+      }
+    },
+
     cancelMessage: async (messageId: string) => {
       try {
         await api.cancelMessage(client, messageId);
