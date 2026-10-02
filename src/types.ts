@@ -1790,6 +1790,11 @@ export interface ChatSettingsRequest {
    * approves the calls already waiting.
    */
   allow_all_tools?: boolean;
+  /**
+   * DisableHooks stops the agent's lifecycle hooks (suggest, learn,
+   * webhooks, gates) firing in this chat.
+   */
+  disable_hooks?: boolean;
 }
 /**
  * ChatDTO for API responses
@@ -3063,6 +3068,15 @@ export interface MCPServerDTO {
   auth_type: MCPServerAuthType;
   oauth_client_id?: string;
   default_scopes: StringSlice;
+  /**
+   * Headers are static HTTP headers sent on every request to the server,
+   * set by the team's admins (e.g. X-MCP-Toolsets, X-MCP-Readonly).
+   */
+  headers?: { [key: string]: string};
+  /**
+   * Setup is what the server's directory entry knows about setting it up.
+   */
+  setup?: MCPServerSetup;
   documentation_url: string;
   connection_status?: string;
   /**
@@ -3070,6 +3084,25 @@ export interface MCPServerDTO {
    * to (user, team, org, platform); empty when not connected.
    */
   connection_scope?: CredentialScope;
+}
+/**
+ * MCPServerSetup is what a server's directory entry knows about setting the
+ * server up, as data: shown to whoever connects a server on the same host,
+ * so no server's specifics live in code.
+ */
+export interface MCPServerSetup {
+  /**
+   * ResourceAppID is the id the server's API has at its authorization
+   * server, which an organization must know before it can approve access
+   * (for a Microsoft Entra resource: the application id a tenant needs a
+   * service principal for).
+   */
+  resource_app_id?: string;
+  /**
+   * RecommendedHeaders are the least-privilege static headers the server
+   * documents (e.g. X-MCP-Toolsets), offered by the headers editor.
+   */
+  recommended_headers?: { [key: string]: string};
 }
 /**
  * NotificationDTO is the data transfer object
@@ -4568,6 +4601,12 @@ export interface ChatData {
    * person switches it in the chat's settings, and off again at any time.
    */
   allow_all_tools: boolean;
+  /**
+   * DisableHooks stops the agent's lifecycle hooks firing in this chat. A
+   * review branch is opened with it set, so a review cannot fire the hook
+   * that reviews it.
+   */
+  disable_hooks?: boolean;
 }
 /**
  * PlanStep represents a step in an agent's execution plan
