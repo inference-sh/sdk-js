@@ -77,11 +77,49 @@ describe('LifecycleHookBuilder', () => {
       const hook = lifecycleHook(HookEventTurnStart).builtin(BuiltinHookBeltSuggest).build();
       expect(hook).toEqual({ event: HookEventTurnStart, type: HookHandlerBuiltin, handler: BuiltinHookBeltSuggest, async: undefined, timeout: undefined });
     });
+
+    it('supports belt:extract with async and timeout options', () => {
+      const hook = lifecycleHook(HookEventAgentComplete)
+        .builtin(BuiltinHookBeltExtract)
+        .async(true)
+        .timeout(120)
+        .build();
+
+      expect(hook).toEqual({
+        event: HookEventAgentComplete,
+        type: HookHandlerBuiltin,
+        handler: BuiltinHookBeltExtract,
+        async: true,
+        timeout: 120,
+      });
+    });
   });
 
   describe('learningHooks', () => {
     it('returns nothing when neither is on', () => {
       expect(learningHooks({})).toEqual([]);
+      expect(learningHooks({ suggest: false, learn: false })).toEqual([]);
+    });
+
+    it('attaches only suggest when learn is off', () => {
+      const hooks = learningHooks({ suggest: true });
+      expect(hooks).toHaveLength(1);
+      expect(hooks[0]).toEqual({
+        event: HookEventTurnStart,
+        type: HookHandlerBuiltin,
+        handler: BuiltinHookBeltSuggest,
+        async: undefined,
+        timeout: undefined,
+      });
+    });
+
+    it('attaches extract on completion and pre-compaction when suggest is off', () => {
+      const hooks = learningHooks({ learn: true });
+      expect(hooks.map(h => [h.event, h.handler])).toEqual([
+        [HookEventAgentComplete, BuiltinHookBeltExtract],
+        [HookEventPreCompact, BuiltinHookBeltExtract],
+      ]);
+      expect(hooks.every(h => h.type === HookHandlerBuiltin)).toBe(true);
     });
 
     it('attaches suggest to turn start and learn to completion and pre-compaction', () => {
