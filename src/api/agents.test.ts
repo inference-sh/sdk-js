@@ -13,6 +13,13 @@ import {
   AgentRunStateWorking,
 } from '../types';
 import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types';
+import { learningHooks, lifecycleHook } from '../hook-builder';
+import {
+  BuiltinHookBeltExtract,
+  BuiltinHookBeltSuggest,
+  HookEventTurnStart,
+  HookHandlerBuiltin,
+} from '../types';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
@@ -2121,6 +2128,20 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should pass learningHooks() builtin hooks through createAgent()', async () => {
+    const hooks = learningHooks({ suggest: true, learn: true });
+    const payload = { name: 'learning-bot', core_app: { ref: 'app/ref' }, hooks };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.hooks).toEqual(hooks);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.hooks).toEqual(hooks);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -2198,6 +2219,22 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.remote_id).toBe('remote-dev-machine');
   });
 
+  it('should preserve builtin lifecycle hooks on agent get() responses', async () => {
+    const hooks = [
+      lifecycleHook(HookEventTurnStart).builtin(BuiltinHookBeltSuggest).async(true).timeout(45).build(),
+    ];
+    const agent = { id: 'agent-1', name: 'learning-bot', hooks };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.hooks).toEqual(hooks);
+    expect(result.data.hooks?.[0]?.type).toBe(HookHandlerBuiltin);
+    expect(result.data.hooks?.[0]?.handler).toBe(BuiltinHookBeltSuggest);
+    expect(result.data.hooks?.[0]?.async).toBe(true);
+    expect(result.data.hooks?.[0]?.timeout).toBe(45);
+  });
+
   it('should POST /agents/{id} for update()', async () => {
     const agent = { id: 'agent-1', name: 'updated' };
     mockJsonResponse(agent);
@@ -2217,6 +2254,19 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().update('agent-1', payload as never);
 
     expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should pass lifecycle hooks through update()', async () => {
+    const hooks = learningHooks({ suggest: true });
+    const payload = { hooks };
+    const agent = { id: 'agent-1', name: 'learning-bot', ...payload };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', payload as never);
+
+    expect(result.data.hooks).toEqual(hooks);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
