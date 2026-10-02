@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   tool,
   appTool,
@@ -543,6 +545,38 @@ describe('InternalToolsBuilder (internalTools)', () => {
   it('does not enable knowledge tools when using all()', () => {
     const config = internalTools().all().build();
     expect(config.knowledge).toBeUndefined();
+  });
+
+  it('does not enable other opt-in categories when using all()', () => {
+    const config = internalTools().all().build();
+    expect(config.agent).toBeUndefined();
+    expect(config.artifact).toBeUndefined();
+    expect(config.skills).toBeUndefined();
+    expect(config.meta).toBeUndefined();
+    expect(config.remote).toBeUndefined();
+  });
+
+  it('does not clear opt-in categories when using none()', () => {
+    const config = internalTools().knowledge().agent().none().build();
+    expect(config).toEqual({
+      plan: false,
+      memory: false,
+      widget: false,
+      finish: false,
+      knowledge: true,
+      agent: true,
+    });
+  });
+
+  it('maps agent() to the agent config key (not spawn)', () => {
+    const config = internalTools().agent(false).build();
+    expect(config).toEqual({ agent: false });
+    expect(config).not.toHaveProperty('spawn');
+  });
+
+  it('does not expose hostContext() on the builder (removed in v0.14.1)', () => {
+    const source = readFileSync(join(__dirname, 'tool-builder.ts'), 'utf8');
+    expect(source).not.toMatch(/\bhostContext\s*\(/);
   });
 
   it('sets the remaining opt-in categories', () => {
