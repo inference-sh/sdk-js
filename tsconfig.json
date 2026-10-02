@@ -14,7 +14,8 @@
     // per-file, so type-only re-exports must be marked `export type`.
     "isolatedModules": true,
     "types": ["node", "jest"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "resolveJsonModule": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
