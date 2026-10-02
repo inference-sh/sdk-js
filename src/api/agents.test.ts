@@ -1896,6 +1896,69 @@ describe('Agent.getChat', () => {
     expect(result?.channel_context?.channel_metadata).toEqual({ chat_id: 42, message_id: 99 });
   });
 
+  it('should preserve tool function parameters with anyOf branches and enum on getChat() messages', async () => {
+    const assistantWithToolSchema = makeMessage({
+      role: 'assistant',
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'set_status',
+            description: 'Set HTTP status',
+            parameters: {
+              type: 'object',
+              title: 'StatusInput',
+              properties: {
+                code: {
+                  title: 'Status code',
+                  description: 'String or integer status code',
+                  anyOf: [
+                    {
+                      type: 'string',
+                      title: 'String code',
+                      description: 'e.g. "401"',
+                    },
+                    {
+                      type: 'integer',
+                      title: 'Numeric code',
+                      description: 'e.g. 401',
+                    },
+                  ],
+                },
+                severity: {
+                  type: 'string',
+                  title: 'Severity',
+                  description: 'Log level',
+                  enum: ['low', 'high'],
+                },
+              },
+              required: ['code'],
+            },
+          },
+        },
+      ],
+    });
+    const chat = {
+      id: 'chat-42',
+      status: 'idle',
+      chat_messages: [assistantWithToolSchema],
+    };
+    mockJsonResponse(chat);
+
+    const result = await agent().getChat('chat-42');
+    const message = result?.chat_messages?.[0];
+    const codeParam = message?.tools?.[0]?.function?.parameters?.properties?.code;
+
+    expect(codeParam?.anyOf).toHaveLength(2);
+    expect(codeParam?.anyOf?.[0]?.type).toBe('string');
+    expect(codeParam?.anyOf?.[1]?.type).toBe('integer');
+    expect(codeParam?.type).toBeUndefined();
+    expect(message?.tools?.[0]?.function?.parameters?.properties?.severity?.enum).toEqual([
+      'low',
+      'high',
+    ]);
+  });
+
   it('should expose currentChatId after sendMessage establishes a chat', async () => {
     const agentInstance = agent();
 

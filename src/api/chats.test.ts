@@ -209,6 +209,62 @@ describe('ChatsAPI', () => {
     expect(result.data.work_dir).toBe('/var/workspaces/run-3');
   });
 
+  it('should preserve tool parameter anyOf and enum on chat messages in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: 'idle',
+      chat_messages: [
+        {
+          id: 'msg-1',
+          chat_id: 'chat-1',
+          role: 'assistant',
+          content: [],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'accept_code',
+                description: 'Accept status code',
+                parameters: {
+                  type: 'object',
+                  title: 'CodeInput',
+                  properties: {
+                    value: {
+                      title: 'Code',
+                      description: '401 as string or number',
+                      anyOf: [
+                        { type: 'string', title: 'String', description: '"401"' },
+                        { type: 'integer', title: 'Integer', description: '401' },
+                      ],
+                    },
+                    mode: {
+                      type: 'string',
+                      title: 'Mode',
+                      description: 'Handling mode',
+                      enum: ['strict', 'lenient'],
+                    },
+                  },
+                  required: ['value'],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+    const valueParam = result.data.chat_messages?.[0]?.tools?.[0]?.function?.parameters?.properties
+      ?.value;
+
+    expect(valueParam?.anyOf?.map((branch) => branch.type)).toEqual(['string', 'integer']);
+    expect(valueParam?.type).toBeUndefined();
+    expect(
+      result.data.chat_messages?.[0]?.tools?.[0]?.function?.parameters?.properties?.mode?.enum
+    ).toEqual(['strict', 'lenient']);
+  });
+
   it('should preserve channel_context on channel-originated chats in get() responses', async () => {
     const chat = {
       id: 'chat-1',
