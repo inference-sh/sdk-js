@@ -1368,6 +1368,56 @@ describe('createActions', () => {
       await expect(publicActions.switchAgent('okaris/claude')).rejects.toThrow('switch only');
     });
 
+    it('switchAgent should no-op without a chatId', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.switchAgent('okaris/editor');
+
+      expect(mockAgentApi.setAgent).not.toHaveBeenCalled();
+    });
+
+    it('switchAgent should set error state when API fails without marking connection error', async () => {
+      mockAgentApi.setAgent.mockRejectedValueOnce(new Error('switch failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.switchAgent('okaris/editor')).rejects.toThrow('switch failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'switch failed',
+      });
+      expect(dispatch).not.toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'switch failed' }));
+    });
+
+    it('updateChatSettings should forward forget_memory keys to clear chat memory', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        id: 'chat-short',
+        agent_data: { forget_memory: ['topic_budget'] },
+      } as never);
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ forget_memory: ['topic_budget', 'old_context'] });
+
+      expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', {
+        forget_memory: ['topic_budget', 'old_context'],
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT',
+        payload: { id: 'chat-short', agent_data: { forget_memory: ['topic_budget'] } },
+      });
+    });
+
     it('alwaysAllowTool should call API when chatId exists', async () => {
       const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
