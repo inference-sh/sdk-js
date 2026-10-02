@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-02
+
+### Added
+
+- `useAgentActions().updateChatSettings(settings)`: change a chat's name, visibility, `allow_all_tools` (run every tool without asking; switching it on approves the calls already waiting), `disable_hooks` and `forget_memory` (`POST /chats/{id}/settings`).
+- `useAgentActions().switchAgent(agentRef)`: hand the chat to another agent our loop runs; the next message goes to it. A harness agent is refused.
+- Types: `ChatSettingsRequest`; `ChatData.allow_all_tools` and `disable_hooks`; per-server MCP headers; API key scope and an optional `last_used_at`; engine-picker provider options.
+
+### Changed
+
+- The `inference-src` export condition is listed before `types`, so a bundler that sets it resolves the TypeScript source.
+
 ## [0.14.2] - 2026-10-01
 
 ### Added
