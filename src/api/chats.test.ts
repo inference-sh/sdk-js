@@ -316,7 +316,7 @@ describe('ChatsAPI', () => {
 
     const result = await api().get('chat-1');
 
-    expect(result.data.chat_messages[0]?.agent_run_id).toBe('run-1');
+    expect(result.data.chat_messages?.[0]?.agent_run_id).toBe('run-1');
     expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
   });
 

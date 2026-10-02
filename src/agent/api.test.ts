@@ -553,13 +553,16 @@ describe('agent/api', () => {
       expect(JSON.parse(String(init.body))).toEqual({});
     });
 
-    it('updateChatSettings should POST the settings and return the chat', async () => {
-      mockJsonResponse({ success: true, data: { id: 'chat-1', agent_data: { allow_all_tools: true } } });
-      const chat = await updateChatSettings(makeClient(), 'chat-1', { allow_all_tools: true });
+    it('updateChatSettings should POST the settings and return the settings', async () => {
+      mockJsonResponse({
+        success: true,
+        data: { chat_id: 'chat-1', name: 'c', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} },
+      });
+      const settings = await updateChatSettings(makeClient(), 'chat-1', { allow_all_tools: true });
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/settings');
       expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
-      expect(chat.agent_data.allow_all_tools).toBe(true);
+      expect(settings).toEqual({ chat_id: 'chat-1', name: 'c', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} });
     });
   });
 
@@ -600,11 +603,11 @@ describe('agent/api', () => {
 
   describe('setAgent', () => {
     it('should POST agent ref to /chats/{id}/agent', async () => {
-      mockJsonResponse({ id: 'chat-1', status: 'idle' });
+      mockJsonResponse({ chat_id: 'chat-1', agent_id: 'agent-2', agent_version_id: 'version-2' });
 
       const result = await setAgent(makeClient(), 'chat-1', 'infsh/new-agent');
 
-      expect(result.id).toBe('chat-1');
+      expect(result).toEqual({ chat_id: 'chat-1', agent_id: 'agent-2', agent_version_id: 'version-2' });
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/agent');
       expect(init.method).toBe('POST');

@@ -434,6 +434,10 @@ export class Agent {
     const intervalMs = options.pollIntervalMs ?? this.http.getPollIntervalMs();
     let prevStatus: string | null = null;
     let knownMessageIds = new Set<string>();
+    // Returned by the poll when nothing changed. Compared by identity: a
+    // fetched chat never carries chat_messages, so their absence cannot tell
+    // the two apart.
+    const unchanged = {} as ChatDTO;
 
     return new Promise((resolve) => {
       this.poller?.stop();
@@ -445,17 +449,14 @@ export class Agent {
           const status = statusResp.data;
           // Unchanged status is skipped — unless the turn is still ungated: a run
           // that started and finished between two polls only shows in the messages.
-          if (status.status === prevStatus && gate.settled) {
-            // No change — return a stub to skip processing
-            return { status: status.status } as ChatDTO;
-          }
+          if (status.status === prevStatus && gate.settled) return unchanged;
           // Status changed — fetch full chat
           const chatResp = await this.http.request<ChatDTO>('get', `/chats/${this.chatId}`);
           return chatResp.data;
         },
         intervalMs,
         onData: (chat) => {
-          if ((chat as any).status === prevStatus && !(chat as any).chat_messages) return;
+          if (chat === unchanged) return;
           prevStatus = chat.status;
 
           options.onChat?.(chat);

@@ -151,8 +151,10 @@ describe('createActions', () => {
     mockAgentApi.alwaysAllowTool.mockResolvedValue({ rules: [] });
     mockAgentApi.getAlwaysAllowOptions.mockResolvedValue({ options: [], default: '' } as never);
     mockAgentApi.explainTool.mockResolvedValue({ risk_level: 'low', explanation: 'e', reasoning: 'r', risk: 'x' } as never);
-    mockAgentApi.setAgent.mockResolvedValue({ id: 'chat-short', agent_id: 'agent-2' } as never);
-    mockAgentApi.updateChatSettings.mockResolvedValue({ id: 'chat-short', agent_data: { allow_all_tools: true } } as never);
+    mockAgentApi.setAgent.mockResolvedValue({ chat_id: 'chat-full', agent_id: 'agent-2', agent_version_id: 'version-2' } as never);
+    mockAgentApi.updateChatSettings.mockResolvedValue({
+      chat_id: 'chat-full', name: 'a chat', visibility: 'private', allow_all_tools: true, disable_hooks: false, memory: {},
+    } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
@@ -1339,31 +1341,34 @@ describe('createActions', () => {
       expect(mockAgentApi.updateChatSettings).not.toHaveBeenCalled();
     });
 
-    it('updateChatSettings should send the settings and store the chat it returns', async () => {
+    it('updateChatSettings should send the settings and merge the settings it returns', async () => {
       const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
 
       await publicActions.updateChatSettings({ allow_all_tools: true });
 
       expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', { allow_all_tools: true });
-      // The settings response has no messages: the chat is updated, never
-      // replaced, so the conversation stays on screen.
       expect(dispatch).toHaveBeenCalledWith({
-        type: 'UPDATE_CHAT',
-        payload: { id: 'chat-short', agent_data: { allow_all_tools: true } },
+        type: 'MERGE_CHAT_SETTINGS',
+        payload: { chat_id: 'chat-full', name: 'a chat', visibility: 'private', allow_all_tools: true, disable_hooks: false, memory: {} },
       });
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
     });
 
-    it('switchAgent should hand the chat to the agent and store the chat it returns', async () => {
+    it('switchAgent should hand the chat to the agent and merge the agent it returns', async () => {
       const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
 
       await publicActions.switchAgent('okaris/editor');
 
       expect(mockAgentApi.setAgent).toHaveBeenCalledWith(ctx.client, 'chat-short', 'okaris/editor');
-      expect(dispatch).toHaveBeenCalledWith({ type: 'UPDATE_CHAT', payload: { id: 'chat-short', agent_id: 'agent-2' } });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'MERGE_CHAT_AGENT',
+        payload: { chat_id: 'chat-full', agent_id: 'agent-2', agent_version_id: 'version-2' },
+      });
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
     });
 
     it('switchAgent should rethrow a refusal', async () => {

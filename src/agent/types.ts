@@ -11,8 +11,10 @@ import type {
   AlwaysAllowOptionsDTO,
   AlwaysAllowResultDTO,
   ToolExplanationDTO,
+  ChatAgentDTO,
   ChatDTO,
   ChatMessageDTO,
+  ChatSettingsDTO,
   ChatSettingsRequest,
   AgentTool,
   AgentConfigInput as GeneratedAgentConfig,
@@ -307,6 +309,8 @@ export type ChatAction =
   | { type: 'SET_CHAT_ID'; payload: string | null }
   | { type: 'SET_CHAT'; payload: ChatDTO | null }
   | { type: 'UPDATE_CHAT'; payload: ChatDTO | null }
+  | { type: 'MERGE_CHAT_SETTINGS'; payload: ChatSettingsDTO }
+  | { type: 'MERGE_CHAT_AGENT'; payload: ChatAgentDTO }
   | { type: 'UPDATE_ACTIVE_RUN'; payload: AgentRunDTO }
   | { type: 'SET_MESSAGES'; payload: ChatMessageDTO[] }
   | { type: 'UPDATE_MESSAGE'; payload: ChatMessageDTO; partial?: boolean }

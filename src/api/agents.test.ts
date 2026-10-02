@@ -97,6 +97,41 @@ describe('Agent.sendMessage (polling mode)', () => {
     );
   });
 
+  // The api leaves chat_messages out of a fetched chat. A chat fetched while
+  // the turn is still ungated, with the status unchanged, must still be
+  // handled: only the poll's own "nothing changed" answer is skipped.
+  it('should handle a fetched chat without chat_messages when the status is unchanged', async () => {
+    const agentInstance = agent();
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }), assistant_message: makeMessage({ id: 'asst-1' }),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle });
+    await agentInstance.sendMessage('first', { stream: false });
+
+    // Continuing the chat: idle twice before the run shows as busy.
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-2', role: 'user' }), assistant_message: makeMessage({ id: 'asst-2' }),
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, name: 'before' });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, name: 'still idle' });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, active_run: completedRun });
+
+    const onChat = jest.fn();
+    await agentInstance.sendMessage('second', { stream: false, onChat });
+
+    expect(onChat.mock.calls.map(([chat]) => chat.name ?? chat.status)).toEqual([
+      'before', 'still idle', ChatStatusBusy, ChatStatusIdle,
+    ]);
+  });
+
   it('should forward harness work_dir metadata through onChat while polling', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });

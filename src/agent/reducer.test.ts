@@ -80,6 +80,72 @@ describe('chatReducer', () => {
     expect(next).toBe(withChat);
   });
 
+  it('SET_CHAT without chat_messages should leave no messages', () => {
+    const { chat_messages: _omitted, ...chat } = makeChat();
+    const next = chatReducer(initialState, { type: 'SET_CHAT', payload: chat as ChatDTO });
+    expect(next.messages).toEqual([]);
+  });
+
+  it('MERGE_CHAT_SETTINGS should merge the settings and keep the rest of the chat and the messages', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({
+        agent_data: {
+          plan_steps: [], always_allowed_tools: ['search'], memory: { goal: 'ship', old: 'x' }, allow_all_tools: false,
+        } as ChatDTO['agent_data'],
+      }),
+    });
+
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_SETTINGS',
+      payload: {
+        chat_id: 'chat-1', name: 'renamed', visibility: 'public', allow_all_tools: true, disable_hooks: true, memory: { goal: 'ship' },
+      },
+    });
+
+    expect(next.chat).toEqual({
+      ...state.chat,
+      name: 'renamed',
+      visibility: 'public',
+      agent_data: { plan_steps: [], always_allowed_tools: ['search'], memory: { goal: 'ship' }, allow_all_tools: true, disable_hooks: true },
+    });
+    expect(next.messages).toBe(state.messages);
+  });
+
+  it('MERGE_CHAT_SETTINGS for another chat should leave state unchanged', () => {
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: makeChat() });
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_SETTINGS',
+      payload: { chat_id: 'chat-2', name: 'other', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} },
+    });
+    expect(next).toBe(state);
+  });
+
+  it('MERGE_CHAT_AGENT should set the agent and keep the rest of the chat and the messages', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({ agent_id: 'agent-1', agent_version_id: 'version-1', agent: { id: 'agent-1' } as ChatDTO['agent'] }),
+    });
+    const agent = { id: 'agent-2', name: 'editor' } as ChatDTO['agent'];
+    const version = { id: 'version-2' } as ChatDTO['agent_version'];
+
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_AGENT',
+      payload: { chat_id: 'chat-1', agent_id: 'agent-2', agent, agent_version_id: 'version-2', agent_version: version },
+    });
+
+    expect(next.chat).toEqual({ ...state.chat, agent_id: 'agent-2', agent, agent_version_id: 'version-2', agent_version: version });
+    expect(next.messages).toBe(state.messages);
+  });
+
+  it('MERGE_CHAT_AGENT without a chat should leave state unchanged', () => {
+    const next = chatReducer(initialState, {
+      type: 'MERGE_CHAT_AGENT',
+      payload: { chat_id: 'chat-1', agent_id: 'agent-2', agent_version_id: 'version-2' },
+    });
+    expect(next).toBe(initialState);
+  });
+
   it('UPDATE_ACTIVE_RUN should update active_run output without replacing messages', () => {
     const chat = makeChat();
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });

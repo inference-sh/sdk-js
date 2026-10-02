@@ -57,6 +57,43 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       return { ...state, chat };
     }
 
+    // The settings and set-agent endpoints answer with only what they wrote.
+    // Merge it into the chat it belongs to; a chat switched away from in the
+    // meantime is left alone.
+    case 'MERGE_CHAT_SETTINGS': {
+      const settings = action.payload;
+      if (!state.chat || state.chat.id !== settings.chat_id) return state;
+      return {
+        ...state,
+        chat: {
+          ...state.chat,
+          name: settings.name,
+          visibility: settings.visibility,
+          agent_data: {
+            ...state.chat.agent_data,
+            allow_all_tools: settings.allow_all_tools,
+            disable_hooks: settings.disable_hooks,
+            memory: settings.memory,
+          },
+        },
+      };
+    }
+
+    case 'MERGE_CHAT_AGENT': {
+      const agent = action.payload;
+      if (!state.chat || state.chat.id !== agent.chat_id) return state;
+      return {
+        ...state,
+        chat: {
+          ...state.chat,
+          agent_id: agent.agent_id,
+          agent: agent.agent,
+          agent_version_id: agent.agent_version_id,
+          agent_version: agent.agent_version,
+        },
+      };
+    }
+
     case 'UPDATE_ACTIVE_RUN': {
       if (!state.chat) return state;
       return { ...state, chat: { ...state.chat, active_run: action.payload, status: deriveChatStatus(action.payload) } };

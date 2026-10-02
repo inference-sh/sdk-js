@@ -466,9 +466,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
 
       try {
-        // The response carries the chat without its messages: update the
-        // chat and keep the conversation on screen.
-        dispatch({ type: 'UPDATE_CHAT', payload: await api.updateChatSettings(client, chatId, settings) });
+        dispatch({ type: 'MERGE_CHAT_SETTINGS', payload: await api.updateChatSettings(client, chatId, settings) });
       } catch (error) {
         console.error('[AgentSDK] Failed to change chat settings:', error);
         const err = error instanceof Error ? error : new Error('Failed to change chat settings');
@@ -487,7 +485,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
 
       try {
-        dispatch({ type: 'UPDATE_CHAT', payload: await api.setAgent(client, chatId, agentRef) });
+        dispatch({ type: 'MERGE_CHAT_AGENT', payload: await api.setAgent(client, chatId, agentRef) });
       } catch (error) {
         console.error('[AgentSDK] Failed to switch the agent:', error);
         const err = error instanceof Error ? error : new Error('Failed to switch the agent');

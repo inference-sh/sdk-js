@@ -13,8 +13,10 @@ import type {
   AlwaysAllowOptionsDTO,
   AlwaysAllowRequest,
   AlwaysAllowResultDTO,
+  ChatAgentDTO,
   ChatDTO,
   ChatMessageDTO,
+  ChatSettingsDTO,
   ChatSettingsRequest,
   InterruptDTO,
   ToolExplanationDTO,
@@ -197,8 +199,9 @@ export async function cancelMessage(client: AgentClient, messageId: string): Pro
   await client.http.request<void>('post', `/chats/messages/${messageId}/cancel`);
 }
 
-export async function setAgent(client: AgentClient, chatId: string, agentRef: string): Promise<ChatDTO> {
-  const resp = await client.http.request<ChatDTO>('post', `/chats/${chatId}/agent`, {
+/** Hand the chat to another agent. Answers with the agent the chat now runs on. */
+export async function setAgent(client: AgentClient, chatId: string, agentRef: string): Promise<ChatAgentDTO> {
+  const resp = await client.http.request<ChatAgentDTO>('post', `/chats/${chatId}/agent`, {
     data: { agent: agentRef },
   });
   return resp.data;
@@ -278,12 +281,13 @@ export async function explainTool(
   return resp.data;
 }
 
+/** Change the chat's settings. Answers with the settings as they now are. */
 export async function updateChatSettings(
   client: AgentClient,
   chatId: string,
   settings: ChatSettingsRequest
-): Promise<ChatDTO> {
-  const resp = await client.http.request<ChatDTO>('post', `/chats/${chatId}/settings`, { data: settings });
+): Promise<ChatSettingsDTO> {
+  const resp = await client.http.request<ChatSettingsDTO>('post', `/chats/${chatId}/settings`, { data: settings });
   return resp.data;
 }
 
