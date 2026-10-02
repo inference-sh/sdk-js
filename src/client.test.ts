@@ -41,7 +41,8 @@ import {
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
-import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking } from './types';
+import type { WebSocketLike } from './live/session';
+import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking, TaskStatusRunning } from './types';
 import type { AgentRunDTO } from './types';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
@@ -49,6 +50,20 @@ const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+class FakeWebSocket implements WebSocketLike {
+  static dialed: FakeWebSocket[] = [];
+  binaryType = 'blob';
+  readyState = 0;
+  onopen: ((event: unknown) => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  onclose: ((event: { code: number; reason: string }) => void) | null = null;
+  constructor(readonly url: string) {
+    FakeWebSocket.dialed.push(this);
+  }
+  send(_data?: string | ArrayBuffer | ArrayBufferView): void {}
+  close(): void {}
+}
 
 describe('package type exports', () => {
   it('exports GraphEdgeTypeSupersedes for version lineage graph edges', () => {
@@ -246,6 +261,10 @@ describe('Inference', () => {
           }),
         })
       );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123'),
+        expect.objectContaining({ method: 'GET' })
+      );
     });
 
     it('should throw error on API failure', async () => {
@@ -387,6 +406,78 @@ describe('Inference', () => {
       expect(runCall).toBeDefined();
       const runBody = JSON.parse(runCall![1].body as string);
       expect(runBody.input.image).toBe('inf://files/blob');
+    });
+  });
+
+  describe('live', () => {
+    beforeEach(() => {
+      FakeWebSocket.dialed = [];
+    });
+
+    it('should run without waiting, fetch the full task, then open the stream socket', async () => {
+      const fullTask = {
+        id: 'task-live',
+        status: TaskStatusRunning,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        input: { effect: 'robot' },
+        output: null,
+        logs: [],
+        session_id: 'sess-live',
+      };
+      const access = {
+        id: 'sock-1',
+        url: 'wss://relay.test/sockets/sock-1',
+        token: 'tok',
+        expires_at: '2030-01-01T00:00:00Z',
+      };
+
+      const mockJson = (body: unknown) => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(body)),
+          json: () => Promise.resolve(body),
+        });
+      };
+
+      mockJson({
+        id: 'task-live',
+        short_id: 'tl',
+        status: TaskStatusRunning,
+        status_text: 'running',
+        output: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+      mockJson(fullTask);
+      mockJson({ items: [{ id: 'sock-1', task_id: 'task-live' }] });
+      mockJson(access);
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const { task, session } = await client.live(
+        { app: 'infsh/voice-loop', input: { effect: 'robot' } },
+        {},
+        { webSocket: FakeWebSocket, watchTask: false }
+      );
+
+      expect(task.id).toBe('task-live');
+      expect(task.session_id).toBe('sess-live');
+      expect(session.state).toBe('connecting');
+      expect(FakeWebSocket.dialed[0].url).toBe(
+        'wss://relay.test/sockets/sock-1?access_token=tok'
+      );
+
+      const paths = mockFetch.mock.calls.map(([url, init]) => {
+        const method = (init as RequestInit).method ?? 'GET';
+        return `${method} ${new URL(String(url)).pathname}`;
+      });
+      expect(paths).toEqual([
+        'POST /apps/run',
+        'GET /tasks/task-live',
+        'POST /sockets/list',
+        'POST /sockets/sock-1/access',
+      ]);
     });
   });
 
