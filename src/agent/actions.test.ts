@@ -1344,10 +1344,13 @@ describe('createActions', () => {
       await publicActions.updateChatSettings({ allow_all_tools: true });
 
       expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', { allow_all_tools: true });
+      // The settings response has no messages: the chat is updated, never
+      // replaced, so the conversation stays on screen.
       expect(dispatch).toHaveBeenCalledWith({
-        type: 'SET_CHAT',
+        type: 'UPDATE_CHAT',
         payload: { id: 'chat-short', agent_data: { allow_all_tools: true } },
       });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
     });
 
     it('switchAgent should hand the chat to the agent and store the chat it returns', async () => {
@@ -1357,7 +1360,8 @@ describe('createActions', () => {
       await publicActions.switchAgent('okaris/editor');
 
       expect(mockAgentApi.setAgent).toHaveBeenCalledWith(ctx.client, 'chat-short', 'okaris/editor');
-      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CHAT', payload: { id: 'chat-short', agent_id: 'agent-2' } });
+      expect(dispatch).toHaveBeenCalledWith({ type: 'UPDATE_CHAT', payload: { id: 'chat-short', agent_id: 'agent-2' } });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
     });
 
     it('switchAgent should rethrow a refusal', async () => {
