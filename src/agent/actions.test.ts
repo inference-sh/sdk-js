@@ -1349,6 +1349,25 @@ describe('createActions', () => {
       });
     });
 
+    it('updateChatSettings should forward disable_hooks to stop lifecycle hooks in this chat', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        id: 'chat-review',
+        agent_data: { allow_all_tools: false, disable_hooks: true },
+      } as never);
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-review' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ disable_hooks: true });
+
+      expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-review', {
+        disable_hooks: true,
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT',
+        payload: { id: 'chat-review', agent_data: { allow_all_tools: false, disable_hooks: true } },
+      });
+    });
+
     it('alwaysAllowTool should call API when chatId exists', async () => {
       const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);

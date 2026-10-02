@@ -431,6 +431,23 @@ describe('agent/api', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
+    it('should preserve agent_data.disable_hooks on review branch chats', async () => {
+      const messages = [{ id: 'm1', chat_id: 'chat-review', role: 'user', content: 'review' }];
+      const chat = {
+        id: 'chat-review',
+        status: 'idle',
+        agent_data: { allow_all_tools: false, disable_hooks: true },
+        chat_messages: messages,
+      };
+      mockJsonResponse(chat);
+
+      const result = await fetchChat(makeClient(), 'chat-review');
+
+      expect(result?.agent_data?.disable_hooks).toBe(true);
+      expect(result).toEqual(chat);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should preserve work_dir when chat is preloaded with harness metadata', async () => {
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
       const chat = {
@@ -523,6 +540,22 @@ describe('agent/api', () => {
       expect(url).toContain('/chats/chat-1/settings');
       expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
       expect(chat.agent_data.allow_all_tools).toBe(true);
+    });
+
+    it('updateChatSettings should POST disable_hooks for review chats', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          id: 'chat-review',
+          agent_data: { allow_all_tools: false, disable_hooks: true },
+        },
+      });
+
+      const chat = await updateChatSettings(makeClient(), 'chat-review', { disable_hooks: true });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+
+      expect(JSON.parse(String(init.body))).toEqual({ disable_hooks: true });
+      expect(chat.agent_data.disable_hooks).toBe(true);
     });
   });
 
