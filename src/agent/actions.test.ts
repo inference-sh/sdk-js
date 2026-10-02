@@ -1353,6 +1353,14 @@ describe('createActions', () => {
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
     });
 
+    it('updateChatSettings should rethrow on API failure', async () => {
+      mockAgentApi.updateChatSettings.mockRejectedValueOnce(new Error('settings update failed'));
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.updateChatSettings({ allow_all_tools: true })).rejects.toThrow('settings update failed');
+    });
+
     it('switchAgent should hand the chat to the agent and store the chat it returns', async () => {
       const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
