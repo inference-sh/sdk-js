@@ -1349,6 +1349,57 @@ describe('createActions', () => {
       });
     });
 
+    it('updateChatSettings should forward name and visibility to the API', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        id: 'chat-short',
+        name: 'Renamed chat',
+        visibility: 'public',
+        agent_data: { allow_all_tools: false },
+      } as never);
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ name: 'Renamed chat', visibility: 'public' });
+
+      expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', {
+        name: 'Renamed chat',
+        visibility: 'public',
+      });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT',
+        payload: {
+          id: 'chat-short',
+          name: 'Renamed chat',
+          visibility: 'public',
+          agent_data: { allow_all_tools: false },
+        },
+      });
+    });
+
+    it('updateChatSettings should set error state when API fails without marking connection error', async () => {
+      mockAgentApi.updateChatSettings.mockRejectedValueOnce(new Error('settings failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(
+        publicActions.updateChatSettings({ allow_all_tools: true })
+      ).rejects.toThrow('settings failed');
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_ERROR',
+        payload: 'settings failed',
+      });
+      expect(dispatch).not.toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'settings failed' }));
+    });
+
     it('alwaysAllowTool should call API when chatId exists', async () => {
       const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
