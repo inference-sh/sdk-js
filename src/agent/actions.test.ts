@@ -1364,6 +1364,46 @@ describe('createActions', () => {
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
     });
 
+    it('updateChatSettings should not invoke setChat lifecycle hooks', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        id: 'chat-short',
+        status: ChatStatusIdle,
+        agent_data: { allow_all_tools: true },
+      } as never);
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: true });
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('switchAgent should not invoke setChat lifecycle hooks', async () => {
+      mockAgentApi.setAgent.mockResolvedValueOnce({
+        id: 'chat-short',
+        agent_id: 'agent-2',
+        status: ChatStatusIdle,
+      } as never);
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.switchAgent('okaris/editor');
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
     it('switchAgent should rethrow a refusal', async () => {
       mockAgentApi.setAgent.mockRejectedValueOnce(new Error('a chat can switch only to agents that run on inference'));
       const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
