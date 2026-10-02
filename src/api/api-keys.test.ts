@@ -45,6 +45,56 @@ describe('ApiKeysAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should omit last_used_at on create() for a key that has never been used', async () => {
+    const payload = { name: 'fresh-key', scopes: ['tasks:read'] };
+    const key = {
+      id: 'key-unused',
+      ...payload,
+      key: 'inf_sk_unused',
+      scope: 'user',
+      created_by: 'user-1',
+      scopes: ['tasks:read'],
+    };
+    mockJsonResponse(key);
+
+    const result = await api().create(payload);
+
+    expect(result.data).toEqual(key);
+    expect(result.data).not.toHaveProperty('last_used_at');
+  });
+
+  it('should preserve last_used_at on list() when the key has been used', async () => {
+    const lastUsed = '2026-10-01T12:00:00Z';
+    const page = {
+      items: [
+        {
+          id: 'key-never-used',
+          name: 'unused',
+          key: 'inf_sk_a',
+          scope: 'user',
+          created_by: 'user-1',
+          scopes: ['tasks:read'],
+        },
+        {
+          id: 'key-used',
+          name: 'active',
+          key: 'inf_sk_b',
+          scope: 'user',
+          created_by: 'user-1',
+          scopes: ['tasks:read'],
+          last_used_at: lastUsed,
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data?.items[0]).not.toHaveProperty('last_used_at');
+    expect(result.data?.items[1].last_used_at).toBe(lastUsed);
+  });
+
   it('should DELETE /apikeys/{id} for delete()', async () => {
     mockJsonResponse(null);
 
