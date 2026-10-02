@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   tool,
   appTool,
@@ -548,6 +550,33 @@ describe('InternalToolsBuilder (internalTools)', () => {
   it('sets the remaining opt-in categories', () => {
     const config = internalTools().skills(false).artifact().agent().build();
     expect(config).toEqual({ skills: false, artifact: true, agent: true });
+  });
+
+  it('hostContext(false) still serializes host_context for backward-compatible payloads', () => {
+    const config = internalTools().hostContext(false).build();
+    expect(config).toEqual({ host_context: false });
+  });
+
+  it('does not enable host_context when using all()', () => {
+    expect(internalTools().all().build().host_context).toBeUndefined();
+  });
+
+  it('does not clear host_context when using none()', () => {
+    const config = internalTools().hostContext().none().build();
+    expect(config).toEqual({
+      plan: false,
+      memory: false,
+      widget: false,
+      finish: false,
+      host_context: true,
+    });
+  });
+
+  it('marks hostContext() deprecated because the API ignores host_context', () => {
+    const source = readFileSync(join(__dirname, 'tool-builder.ts'), 'utf8');
+    expect(source).toMatch(
+      /@deprecated Host context is disabled server-side and the flag is ignored:[\s\S]*hostContext\(enabled = true\): this \{/
+    );
   });
 
   it('chains multiple tool enables', () => {
