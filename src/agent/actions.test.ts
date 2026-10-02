@@ -148,7 +148,8 @@ describe('createActions', () => {
     } as never);
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
-    mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.alwaysAllowTool.mockResolvedValue({ rules: [] });
+    mockAgentApi.getAlwaysAllowOptions.mockResolvedValue({ options: [], default: '' } as never);
     mockAgentApi.setAgent.mockResolvedValue({ id: 'chat-short', agent_id: 'agent-2' } as never);
     mockAgentApi.updateChatSettings.mockResolvedValue({ id: 'chat-short', agent_data: { allow_all_tools: true } } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
@@ -1372,18 +1373,51 @@ describe('createActions', () => {
       await expect(publicActions.switchAgent('okaris/claude')).rejects.toThrow('switch only');
     });
 
-    it('alwaysAllowTool should call API when chatId exists', async () => {
+    it('alwaysAllowTool should send the chosen option', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.alwaysAllowTool('inv-allow', { option: 'prefix:abc' });
+
+      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow', 'prefix:abc');
+    });
+
+    it('alwaysAllowTool with the old tool-name argument asks for the default', async () => {
       const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
 
       await publicActions.alwaysAllowTool('inv-allow', 'my_tool');
 
-      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(
-        ctx.client,
-        'chat-short',
-        'inv-allow',
-        'my_tool'
-      );
+      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow', undefined);
+    });
+
+    it('getAlwaysAllowOptions should read the options for the chat', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.getAlwaysAllowOptions('inv-allow');
+
+      expect(mockAgentApi.getAlwaysAllowOptions).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow');
+    });
+
+    it('getAlwaysAllowOptions should be null without a chat', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      expect(await publicActions.getAlwaysAllowOptions('inv-allow')).toBeNull();
+      expect(mockAgentApi.getAlwaysAllowOptions).not.toHaveBeenCalled();
+    });
+
+    it.each([409, 400])('alwaysAllowTool should leave the connection alone on a %i (the call still waits)', async (status) => {
+      mockAgentApi.alwaysAllowTool.mockRejectedValueOnce(new InferenceError(status, 'option is no longer offered'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short', callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.alwaysAllowTool('inv-1', { option: 'prefix:old' })).rejects.toThrow('option is no longer offered');
+
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(onError).not.toHaveBeenCalled();
     });
 
     it('approveTool should set error state when API fails', async () => {

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `useAgentActions().getAlwaysAllowOptions(toolInvocationId)`: what "always allow" can save for a call awaiting approval, narrowest first, computed by the api (`GET /chats/{id}/tools/{toolId}/always-allow/options`). Each option has a `key`, a `scope` (`exact`, `prefix`, `folder`, `remote`, `tool`), a `label` such as "npm run commands on laptop", and the chat `rules` it saves; `default` is the narrowest that answers the call again, and `unavailable` says why there are none.
+- Types: `AlwaysAllowOptionsDTO`, `AlwaysAllowOptionDTO`, `AlwaysAllowScope`, `AlwaysAllowRequest`, `AlwaysAllowResultDTO`, `PolicyRuleDTO` (with `label`), `AlwaysAllowChoice`.
+
+### Changed
+
+- `useAgentActions().alwaysAllowTool(toolInvocationId, { option })` saves the chosen option and resolves to the saved rules. The second argument used to be the tool name; a string is still accepted and means the api's default. A 409 (stale option) or 400 rejects without putting the chat in the error state.
+
 ## [0.15.0] - 2026-10-02
 
 ### Added

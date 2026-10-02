@@ -10,6 +10,9 @@
 
 import type {
   AgentDTO,
+  AlwaysAllowOptionsDTO,
+  AlwaysAllowRequest,
+  AlwaysAllowResultDTO,
   ChatDTO,
   ChatMessageDTO,
   ChatSettingsRequest,
@@ -221,15 +224,40 @@ export async function rejectTool(client: AgentClient, toolInvocationId: string, 
   await client.http.request<void>('post', `/tools/${toolInvocationId}/reject`, { data: { reason } });
 }
 
+/**
+ * What "always allow" can save for a call awaiting approval, narrowest first.
+ * The api computes the options from the call; each one, saved, answers it again.
+ */
+export async function getAlwaysAllowOptions(
+  client: AgentClient,
+  chatId: string,
+  toolInvocationId: string
+): Promise<AlwaysAllowOptionsDTO> {
+  const resp = await client.http.request<AlwaysAllowOptionsDTO>(
+    'get',
+    `/chats/${chatId}/tools/${toolInvocationId}/always-allow/options`
+  );
+  return resp.data;
+}
+
+/**
+ * Save an "always allow" option (a key from getAlwaysAllowOptions) as chat
+ * rules and approve the call once. Without an option the api saves its old
+ * default: the command exactly for remote_exec, the whole tool otherwise.
+ */
 export async function alwaysAllowTool(
   client: AgentClient,
   chatId: string,
   toolInvocationId: string,
-  toolName: string
-): Promise<void> {
-  await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
-    data: { tool_name: toolName }
-  });
+  option?: string
+): Promise<AlwaysAllowResultDTO> {
+  const data: AlwaysAllowRequest = option ? { option } : {};
+  const resp = await client.http.request<AlwaysAllowResultDTO>(
+    'post',
+    `/chats/${chatId}/tools/${toolInvocationId}/always-allow`,
+    { data }
+  );
+  return resp.data;
 }
 
 export async function updateChatSettings(

@@ -71,6 +71,7 @@ export type {
   // State
   AgentChatState,
   AgentChatActions,
+  AlwaysAllowChoice,
   ChatStatus,
   // Props
   AgentChatProviderProps,

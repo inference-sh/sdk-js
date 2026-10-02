@@ -17,6 +17,7 @@ import { PollManager } from '../http/poll';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
 import type {
   AgentChatActions,
+  AlwaysAllowChoice,
   ActionsContext,
   ActionsResult,
   InternalActions,
@@ -416,17 +417,31 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     },
 
-    alwaysAllowTool: async (toolInvocationId: string, toolName: string) => {
+    getAlwaysAllowOptions: async (toolInvocationId: string) => {
+      const chatId = getChatId();
+      if (!chatId) return null;
+      return api.getAlwaysAllowOptions(client, chatId, toolInvocationId);
+    },
+
+    alwaysAllowTool: async (toolInvocationId: string, choice?: AlwaysAllowChoice | string) => {
       const chatId = getChatId();
 
       if (!chatId) {
         console.error('[AgentSDK] Cannot always-allow tool without a chatId');
-        return;
+        return undefined;
       }
 
+      // A string is the tool name older callers passed; the api reads the
+      // tool from the call, so it only means "the default option".
+      const option = typeof choice === 'string' ? undefined : choice?.option;
       try {
-        await api.alwaysAllowTool(client, chatId, toolInvocationId, toolName);
+        return await api.alwaysAllowTool(client, chatId, toolInvocationId, option);
       } catch (error) {
+        // 409: the option is stale (the rules changed since it was read);
+        // 400: nothing can be always-allowed here. The call is still
+        // waiting and the connection is fine: the caller reads the options
+        // again or shows why.
+        if (isInferenceError(error) && (error.statusCode === 409 || error.statusCode === 400)) throw error;
         console.error('[AgentSDK] Failed to always-allow tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to always-allow tool');
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });

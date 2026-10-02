@@ -9,6 +9,7 @@ import {
   approveTool,
   rejectTool,
   alwaysAllowTool,
+  getAlwaysAllowOptions,
   updateChatSettings,
   fetchChat,
   fetchMessages,
@@ -508,12 +509,37 @@ describe('agent/api', () => {
       expect(JSON.parse(String(init.body))).toEqual({ reason: 'not safe' });
     });
 
-    it('alwaysAllowTool should POST tool_name', async () => {
-      mockJsonResponse(null);
-      await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'browser_tool');
+    it('getAlwaysAllowOptions should GET the options for the call', async () => {
+      const options = {
+        options: [
+          { key: 'exact:1', scope: 'exact', label: 'npm run build on laptop', rules: [] },
+          { key: 'prefix:2', scope: 'prefix', label: 'npm run commands on laptop', rules: [] },
+        ],
+        default: 'exact:1',
+      };
+      mockJsonResponse({ success: true, data: options });
+      const out = await getAlwaysAllowOptions(makeClient(), 'chat-1', 'inv-allow');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow/options');
+      expect(init.method).toBe('GET');
+      expect(out).toEqual(options);
+    });
+
+    it('alwaysAllowTool should POST the chosen option and return what was saved', async () => {
+      const saved = { rules: [{ id: 'r1', kind: 'RemoteExec', specifier: 'npm run:*', label: 'npm run commands on laptop' }] };
+      mockJsonResponse({ success: true, data: saved });
+      const out = await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'prefix:2');
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
-      expect(JSON.parse(String(init.body))).toEqual({ tool_name: 'browser_tool' });
+      expect(JSON.parse(String(init.body))).toEqual({ option: 'prefix:2' });
+      expect(out).toEqual(saved);
+    });
+
+    it('alwaysAllowTool without an option sends an empty body (the api default)', async () => {
+      mockJsonResponse({ success: true, data: { rules: [] } });
+      await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow');
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({});
     });
 
     it('updateChatSettings should POST the settings and return the chat', async () => {

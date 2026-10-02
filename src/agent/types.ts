@@ -8,6 +8,8 @@ import type { Dispatch } from 'react';
 import type {
   AgentRunDTO,
   AgentVersionDTO,
+  AlwaysAllowOptionsDTO,
+  AlwaysAllowResultDTO,
   ChatDTO,
   ChatMessageDTO,
   ChatSettingsRequest,
@@ -23,6 +25,11 @@ import type { PollManager } from '../http/poll';
 
 // Re-export FileRef for convenience
 export type { FileRef } from '../types';
+
+/** The "always allow" option to save: a key from getAlwaysAllowOptions. */
+export interface AlwaysAllowChoice {
+  option?: string;
+}
 
 // =============================================================================
 // Client Interface
@@ -171,8 +178,23 @@ export interface AgentChatActions {
   approveTool: (toolInvocationId: string) => Promise<void>;
   /** Reject a tool (for HIL approval - AwaitingApproval status) */
   rejectTool: (toolInvocationId: string, reason?: string) => Promise<void>;
-  /** Always allow a tool for this chat (approves + auto-approves future invocations) */
-  alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
+  /**
+   * What "always allow" can save for a call awaiting approval, narrowest
+   * first, as computed by the api (null without a chat). Show the options'
+   * labels in order; `default` is the narrowest that answers the call again.
+   */
+  getAlwaysAllowOptions: (toolInvocationId: string) => Promise<AlwaysAllowOptionsDTO | null>;
+  /**
+   * Always allow a call: save the chosen option's chat rules (`{ option: key }`
+   * from getAlwaysAllowOptions) and approve the call once. Without an option the
+   * api saves its default. A string is accepted from older callers (it was the
+   * tool name) and means the default. Rejects with a 409 when the option is
+   * stale: read the options again.
+   */
+  alwaysAllowTool: (
+    toolInvocationId: string,
+    choice?: AlwaysAllowChoice | string
+  ) => Promise<AlwaysAllowResultDTO | undefined>;
   /** Change this chat's settings, e.g. allow_all_tools (switching it on approves the calls waiting) */
   updateChatSettings: (settings: ChatSettingsRequest) => Promise<void>;
   /** Hand this chat to another agent (namespace/name); the next message goes to it. Agents our loop runs only. */
