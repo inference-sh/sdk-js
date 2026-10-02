@@ -9,6 +9,7 @@ import {
   approveTool,
   rejectTool,
   alwaysAllowTool,
+  updateChatSettings,
   fetchChat,
   fetchMessages,
   fetchMessagesPage,
@@ -513,6 +514,15 @@ describe('agent/api', () => {
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
       expect(JSON.parse(String(init.body))).toEqual({ tool_name: 'browser_tool' });
+    });
+
+    it('updateChatSettings should POST the settings and return the chat', async () => {
+      mockJsonResponse({ success: true, data: { id: 'chat-1', agent_data: { allow_all_tools: true } } });
+      const chat = await updateChatSettings(makeClient(), 'chat-1', { allow_all_tools: true });
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/settings');
+      expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
+      expect(chat.agent_data.allow_all_tools).toBe(true);
     });
   });
 

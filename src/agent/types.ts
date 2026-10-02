@@ -10,6 +10,7 @@ import type {
   AgentVersionDTO,
   ChatDTO,
   ChatMessageDTO,
+  ChatSettingsRequest,
   AgentTool,
   AgentConfigInput as GeneratedAgentConfig,
   CoreAppConfigInput as CoreAppConfig,
@@ -172,6 +173,8 @@ export interface AgentChatActions {
   rejectTool: (toolInvocationId: string, reason?: string) => Promise<void>;
   /** Always allow a tool for this chat (approves + auto-approves future invocations) */
   alwaysAllowTool: (toolInvocationId: string, toolName: string) => Promise<void>;
+  /** Change this chat's settings, e.g. allow_all_tools (switching it on approves the calls waiting) */
+  updateChatSettings: (settings: ChatSettingsRequest) => Promise<void>;
   /** Cancel a queued message before the agent processes it */
   cancelMessage: (messageId: string) => Promise<void>;
   /** Resolve an interrupt gate (allow or deny) */

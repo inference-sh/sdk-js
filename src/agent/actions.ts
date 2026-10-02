@@ -5,7 +5,7 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO, DeltaEvent, ElicitResult, ResourceStatusDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ChatSettingsRequest, DeltaEvent, ElicitResult, ResourceStatusDTO } from '../types';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
@@ -430,6 +430,25 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         console.error('[AgentSDK] Failed to always-allow tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to always-allow tool');
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_ERROR', payload: err.message });
+        callbacks.onError?.(err);
+        throw error;
+      }
+    },
+
+    updateChatSettings: async (settings: ChatSettingsRequest) => {
+      const chatId = getChatId();
+
+      if (!chatId) {
+        console.error('[AgentSDK] Cannot change chat settings without a chatId');
+        return;
+      }
+
+      try {
+        setChat(await api.updateChatSettings(client, chatId, settings));
+      } catch (error) {
+        console.error('[AgentSDK] Failed to change chat settings:', error);
+        const err = error instanceof Error ? error : new Error('Failed to change chat settings');
         dispatch({ type: 'SET_ERROR', payload: err.message });
         callbacks.onError?.(err);
         throw error;

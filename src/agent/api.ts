@@ -12,6 +12,7 @@ import type {
   AgentDTO,
   ChatDTO,
   ChatMessageDTO,
+  ChatSettingsRequest,
   InterruptDTO,
 } from '../types';
 import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types';
@@ -229,6 +230,15 @@ export async function alwaysAllowTool(
   await client.http.request<void>('post', `/chats/${chatId}/tools/${toolInvocationId}/always-allow`, {
     data: { tool_name: toolName }
   });
+}
+
+export async function updateChatSettings(
+  client: AgentClient,
+  chatId: string,
+  settings: ChatSettingsRequest
+): Promise<ChatDTO> {
+  const resp = await client.http.request<ChatDTO>('post', `/chats/${chatId}/settings`, { data: settings });
+  return resp.data;
 }
 
 // =========================================================================

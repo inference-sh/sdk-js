@@ -149,6 +149,7 @@ describe('createActions', () => {
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue(undefined);
+    mockAgentApi.updateChatSettings.mockResolvedValue({ id: 'chat-short', agent_data: { allow_all_tools: true } } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
@@ -1324,6 +1325,28 @@ describe('createActions', () => {
       await publicActions.alwaysAllowTool('inv-allow', 'my_tool');
 
       expect(mockAgentApi.alwaysAllowTool).not.toHaveBeenCalled();
+    });
+
+    it('updateChatSettings should no-op without a chatId', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: true });
+
+      expect(mockAgentApi.updateChatSettings).not.toHaveBeenCalled();
+    });
+
+    it('updateChatSettings should send the settings and store the chat it returns', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: true });
+
+      expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', { allow_all_tools: true });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SET_CHAT',
+        payload: { id: 'chat-short', agent_data: { allow_all_tools: true } },
+      });
     });
 
     it('alwaysAllowTool should call API when chatId exists', async () => {

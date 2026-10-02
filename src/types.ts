@@ -1772,6 +1772,26 @@ export interface SubmitBountyResponse {
   granted_amount?: number /* int64 */;
 }
 /**
+ * ChatSettingsRequest changes a chat's settings. A field left out is left as
+ * it is.
+ */
+export interface ChatSettingsRequest {
+  /**
+   * Name renames the chat. It cannot be empty.
+   */
+  name?: string;
+  /**
+   * Visibility is who can open the chat: private (only you), team (your
+   * workspace) or public (anyone with the link).
+   */
+  visibility?: Visibility;
+  /**
+   * AllowAllTools runs every tool call without asking. Switching it on also
+   * approves the calls already waiting.
+   */
+  allow_all_tools?: boolean;
+}
+/**
  * ChatDTO for API responses
  */
 export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
@@ -4543,6 +4563,11 @@ export interface ChatData {
   plan_steps: PlanStep[];
   memory: StringEncodedMap;
   always_allowed_tools: string[];
+  /**
+   * AllowAllTools runs every tool call in this chat without asking. The
+   * person switches it in the chat's settings, and off again at any time.
+   */
+  allow_all_tools: boolean;
 }
 /**
  * PlanStep represents a step in an agent's execution plan
