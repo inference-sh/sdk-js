@@ -37,6 +37,33 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should preserve admin headers and directory setup metadata in list() items', async () => {
+    const page = {
+      items: [
+        {
+          slug: 'msgraph',
+          headers: { 'X-MCP-Toolsets': 'mail', 'X-MCP-Readonly': 'true' },
+          setup: {
+            resource_app_id: '00000000-0000-0000-0000-000000000001',
+            recommended_headers: { 'X-MCP-Toolsets': 'mail' },
+          },
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+    const server = result.data.items[0];
+
+    expect(server.headers).toEqual({
+      'X-MCP-Toolsets': 'mail',
+      'X-MCP-Readonly': 'true',
+    });
+    expect(server.setup?.resource_app_id).toBe('00000000-0000-0000-0000-000000000001');
+    expect(server.setup?.recommended_headers).toEqual({ 'X-MCP-Toolsets': 'mail' });
+  });
+
   it('should GET /mcps/{slug}/tools for listTools()', async () => {
     const tools = [{ name: 'read_file' }];
     mockJsonResponse(tools);
@@ -150,6 +177,27 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve admin headers and setup on get()', async () => {
+    const server = {
+      slug: 'msgraph',
+      name: 'Microsoft Graph',
+      headers: { 'X-MCP-Readonly': 'true' },
+      setup: {
+        resource_app_id: 'entra-app-id',
+        recommended_headers: { 'X-MCP-Toolsets': 'calendar' },
+      },
+    };
+    mockJsonResponse(server);
+
+    const result = await api().get('msgraph');
+
+    expect(result.data.headers).toEqual({ 'X-MCP-Readonly': 'true' });
+    expect(result.data.setup).toEqual({
+      resource_app_id: 'entra-app-id',
+      recommended_headers: { 'X-MCP-Toolsets': 'calendar' },
+    });
   });
 
   it('should POST /mcp-servers/list for listOwned()', async () => {
