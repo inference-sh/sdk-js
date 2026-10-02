@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-02
+
 ### Changed
 
 - `updateChatSettings` and `switchAgent` merge what the api now answers with into the chat they hold: `ChatSettingsDTO` (`chat_id`, `name`, `visibility`, `allow_all_tools`, `disable_hooks`, `memory`) from `POST /chats/{id}/settings` and `ChatAgentDTO` (`chat_id`, `agent_id`, `agent`, `agent_version_id`, `agent_version`) from `POST /chats/{id}/agent`. The reducer has `MERGE_CHAT_SETTINGS` and `MERGE_CHAT_AGENT` for them; a response for a chat other than the one on screen is ignored. The low-level `updateChatSettings` and `setAgent` in the agent api return those types. Needs an api that answers with them.
