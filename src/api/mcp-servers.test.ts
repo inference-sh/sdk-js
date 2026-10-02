@@ -152,6 +152,47 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize title and nested user/team on get()', async () => {
+    const server = {
+      id: 'mcp-fs',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      slug: 'filesystem',
+      name: 'filesystem',
+      title: 'Filesystem MCP',
+      description: 'Local files',
+      icon_url: '',
+      server_url: 'https://mcp.example/fs',
+      auth_type: 'none',
+      default_scopes: [],
+      documentation_url: '',
+      user: {
+        id: 'user-1',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        role: 'user',
+        avatar_url: '',
+      },
+      team: {
+        id: 'team-1',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        type: 'organization',
+        username: 'acme',
+        avatar_url: '',
+        setup_completed: true,
+      },
+    };
+    mockJsonResponse(server);
+
+    const result = await api().get('filesystem');
+
+    expect(result.data.title).toBe('Filesystem MCP');
+    expect(result.data.user?.id).toBe('user-1');
+    expect(result.data.team?.username).toBe('acme');
+  });
+
   it('should POST /mcp-servers/list for listOwned()', async () => {
     const page = { items: [{ id: 'mcp-1' }], next_cursor: null };
     mockJsonResponse(page);
@@ -174,6 +215,30 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcp-servers/mcp-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize title on getOwned() responses', async () => {
+    const server = {
+      id: 'mcp-1',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'private',
+      slug: 'my-docs',
+      name: 'my-docs',
+      title: 'Team Docs MCP',
+      description: '',
+      icon_url: '',
+      server_url: 'https://mcp.example/docs',
+      auth_type: 'none',
+      default_scopes: [],
+      documentation_url: '',
+    };
+    mockJsonResponse(server);
+
+    const result = await api().getOwned('mcp-1');
+
+    expect(result.data.title).toBe('Team Docs MCP');
+    expect(result.data.name).toBe('my-docs');
   });
 
   it('should DELETE /mcp-servers/{id} for delete()', async () => {
