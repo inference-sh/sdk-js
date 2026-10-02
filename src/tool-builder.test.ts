@@ -545,6 +545,33 @@ describe('InternalToolsBuilder (internalTools)', () => {
     expect(config.knowledge).toBeUndefined();
   });
 
+  it('does not enable other opt-in categories when using all()', () => {
+    const config = internalTools().all().build();
+    expect(config.agent).toBeUndefined();
+    expect(config.artifact).toBeUndefined();
+    expect(config.skills).toBeUndefined();
+    expect(config.host_context).toBeUndefined();
+    expect(config.meta).toBeUndefined();
+  });
+
+  it('does not clear opt-in categories when using none()', () => {
+    const config = internalTools().knowledge().agent().none().build();
+    expect(config).toEqual({
+      plan: false,
+      memory: false,
+      widget: false,
+      finish: false,
+      knowledge: true,
+      agent: true,
+    });
+  });
+
+  it('maps agent() to the agent config key (not spawn)', () => {
+    const config = internalTools().agent(false).build();
+    expect(config).toEqual({ agent: false });
+    expect(config).not.toHaveProperty('spawn');
+  });
+
   it('sets the remaining opt-in categories', () => {
     const config = internalTools().skills(false).artifact().agent().build();
     expect(config).toEqual({ skills: false, artifact: true, agent: true });
