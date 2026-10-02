@@ -1364,12 +1364,93 @@ describe('createActions', () => {
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
     });
 
+    it('updateChatSettings should not invoke setChat lifecycle hooks', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        id: 'chat-short',
+        status: ChatStatusIdle,
+        agent_data: { allow_all_tools: true },
+      } as never);
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: true });
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('switchAgent should not invoke setChat lifecycle hooks', async () => {
+      mockAgentApi.setAgent.mockResolvedValueOnce({
+        id: 'chat-short',
+        agent_id: 'agent-2',
+        status: ChatStatusIdle,
+      } as never);
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.switchAgent('okaris/editor');
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
     it('switchAgent should rethrow a refusal', async () => {
       mockAgentApi.setAgent.mockRejectedValueOnce(new Error('a chat can switch only to agents that run on inference'));
-      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
 
       await expect(publicActions.switchAgent('okaris/claude')).rejects.toThrow('switch only');
+
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+    });
+
+    it('updateChatSettings should not update chat state when the API fails', async () => {
+      mockAgentApi.updateChatSettings.mockRejectedValueOnce(new Error('settings failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.updateChatSettings({ allow_all_tools: true })).rejects.toThrow('settings failed');
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'settings failed' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'settings failed' }));
+    });
+
+    it('switchAgent should not update chat state when the API fails', async () => {
+      mockAgentApi.setAgent.mockRejectedValueOnce(new Error('switch failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.switchAgent('okaris/editor')).rejects.toThrow('switch failed');
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'switch failed' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'switch failed' }));
     });
 
     it('alwaysAllowTool should call API when chatId exists', async () => {

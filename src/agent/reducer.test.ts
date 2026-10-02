@@ -71,6 +71,42 @@ describe('chatReducer', () => {
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
   });
 
+  it('SET_CHAT with a message-less chat payload should clear the conversation', () => {
+    const chat = makeChat();
+    const withMessages = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const settingsResponse = makeChat({
+      agent_data: { allow_all_tools: true } as ChatDTO['agent_data'],
+      chat_messages: [],
+    });
+    const next = chatReducer(withMessages, { type: 'SET_CHAT', payload: settingsResponse });
+
+    expect(next.chat?.agent_data?.allow_all_tools).toBe(true);
+    expect(next.messages).toEqual([]);
+  });
+
+  it('UPDATE_CHAT should apply switchAgent and settings fields without clearing messages', () => {
+    const chat = makeChat();
+    const withMessages = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const switchResponse = makeChat({
+      agent_id: 'agent-2',
+      chat_messages: [],
+    });
+    const afterSwitch = chatReducer(withMessages, { type: 'UPDATE_CHAT', payload: switchResponse });
+    expect(afterSwitch.chat?.agent_id).toBe('agent-2');
+    expect(afterSwitch.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+
+    const settingsResponse = makeChat({
+      agent_id: 'agent-2',
+      agent_data: { allow_all_tools: true } as ChatDTO['agent_data'],
+      chat_messages: [],
+    });
+    const afterSettings = chatReducer(afterSwitch, { type: 'UPDATE_CHAT', payload: settingsResponse });
+    expect(afterSettings.chat?.agent_data?.allow_all_tools).toBe(true);
+    expect(afterSettings.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
+  });
+
   it('UPDATE_CHAT with null payload should leave state unchanged', () => {
     const chat = makeChat();
     const withChat = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
