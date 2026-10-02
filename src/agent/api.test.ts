@@ -516,13 +516,37 @@ describe('agent/api', () => {
       expect(JSON.parse(String(init.body))).toEqual({ tool_name: 'browser_tool' });
     });
 
-    it('updateChatSettings should POST the settings and return the chat', async () => {
+  });
+
+  describe('updateChatSettings', () => {
+    it('should POST allow_all_tools and return the updated chat', async () => {
       mockJsonResponse({ success: true, data: { id: 'chat-1', agent_data: { allow_all_tools: true } } });
       const chat = await updateChatSettings(makeClient(), 'chat-1', { allow_all_tools: true });
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/settings');
+      expect(init.method).toBe('POST');
       expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
       expect(chat.agent_data.allow_all_tools).toBe(true);
+    });
+
+    it('should POST name and visibility without requiring other settings fields', async () => {
+      mockJsonResponse({
+        success: true,
+        data: { id: 'chat-1', name: 'Pricing review', visibility: 'team', agent_data: { allow_all_tools: false } },
+      });
+
+      const chat = await updateChatSettings(makeClient(), 'chat-1', {
+        name: 'Pricing review',
+        visibility: 'team',
+      });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({
+        name: 'Pricing review',
+        visibility: 'team',
+      });
+      expect(chat.name).toBe('Pricing review');
+      expect(chat.visibility).toBe('team');
     });
   });
 
