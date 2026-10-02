@@ -38,6 +38,15 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  ApiKeyScopeUser,
+  ApiKeyScopeWorkspace,
+  ErrorCodePersonRequired,
+  ErrorCodeLastOwner,
+  ErrorCodeAccountDeactivated,
+  ErrorCodeAccountBanned,
+  TeamCapabilityCreateKeys,
+  TeamCapabilityManageAdmins,
+  TeamCapabilityManageKeys,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -141,6 +150,24 @@ describe('package type exports', () => {
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports ApiKeyScope constants for personal vs workspace API keys (INF-966)', () => {
+    expect(ApiKeyScopeUser).toBe('user');
+    expect(ApiKeyScopeWorkspace).toBe('workspace');
+  });
+
+  it('exports person and account guardrail ErrorCode values from api key scope regen', () => {
+    expect(ErrorCodePersonRequired).toBe('person_required');
+    expect(ErrorCodeLastOwner).toBe('last_owner');
+    expect(ErrorCodeAccountDeactivated).toBe('account_deactivated');
+    expect(ErrorCodeAccountBanned).toBe('account_banned');
+  });
+
+  it('exports split TeamCapability key-management constants', () => {
+    expect(TeamCapabilityCreateKeys).toBe('create_keys');
+    expect(TeamCapabilityManageKeys).toBe('manage_keys');
+    expect(TeamCapabilityManageAdmins).toBe('manage_admins');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
