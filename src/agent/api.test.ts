@@ -524,6 +524,26 @@ describe('agent/api', () => {
       expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
       expect(chat.agent_data.allow_all_tools).toBe(true);
     });
+
+    it('updateChatSettings should POST forget_memory keys to drop from chat memory', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          id: 'chat-1',
+          agent_data: { forget_memory: ['user_pref_theme'] },
+        },
+      });
+
+      const chat = await updateChatSettings(makeClient(), 'chat-1', {
+        forget_memory: ['user_pref_theme', 'stale_note'],
+      });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+
+      expect(JSON.parse(String(init.body))).toEqual({
+        forget_memory: ['user_pref_theme', 'stale_note'],
+      });
+      expect(chat.agent_data.forget_memory).toEqual(['user_pref_theme']);
+    });
   });
 
   describe('getChatStreamConfig', () => {
