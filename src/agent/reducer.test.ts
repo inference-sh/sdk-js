@@ -121,6 +121,35 @@ describe('chatReducer', () => {
     expect(next).toBe(state);
   });
 
+  it('MERGE_CHAT_SETTINGS should replace agent_data.memory from the settings DTO (e.g. after forget_memory)', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({
+        agent_data: {
+          plan_steps: [],
+          always_allowed_tools: [],
+          memory: { goal: 'ship', user_pref_theme: 'dark' },
+          allow_all_tools: false,
+        } as ChatDTO['agent_data'],
+      }),
+    });
+
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_SETTINGS',
+      payload: {
+        chat_id: 'chat-1',
+        name: 'c',
+        visibility: 'private',
+        allow_all_tools: false,
+        disable_hooks: false,
+        memory: { goal: 'ship' },
+      },
+    });
+
+    expect(next.chat?.agent_data?.memory).toEqual({ goal: 'ship' });
+    expect(next.messages).toBe(state.messages);
+  });
+
   it('MERGE_CHAT_AGENT should set the agent and keep the rest of the chat and the messages', () => {
     const state = chatReducer(initialState, {
       type: 'SET_CHAT',

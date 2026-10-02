@@ -1498,6 +1498,22 @@ describe('createActions', () => {
       expect(mockAgentApi.getAlwaysAllowOptions).not.toHaveBeenCalled();
     });
 
+    it('getAlwaysAllowOptions should propagate API failures without putting the chat in the error state', async () => {
+      mockAgentApi.getAlwaysAllowOptions.mockRejectedValueOnce(new Error('options failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.getAlwaysAllowOptions('inv-allow')).rejects.toThrow('options failed');
+
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'options failed' });
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it.each([409, 400])('alwaysAllowTool should leave the connection alone on a %i (the call still waits)', async (status) => {
       mockAgentApi.alwaysAllowTool.mockRejectedValueOnce(new InferenceError(status, 'option is no longer offered'));
       const onError = jest.fn();
