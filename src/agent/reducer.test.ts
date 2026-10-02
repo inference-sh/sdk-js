@@ -146,6 +146,19 @@ describe('chatReducer', () => {
     expect(next).toBe(initialState);
   });
 
+  it('MERGE_CHAT_AGENT for another chat should leave state unchanged', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({ agent_id: 'agent-1', agent_version_id: 'version-1' }),
+    });
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_AGENT',
+      payload: { chat_id: 'chat-2', agent_id: 'agent-2', agent_version_id: 'version-2' },
+    });
+    expect(next).toBe(state);
+    expect(next.chat?.agent_id).toBe('agent-1');
+  });
+
   it('UPDATE_ACTIVE_RUN should update active_run output without replacing messages', () => {
     const chat = makeChat();
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
