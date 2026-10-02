@@ -10,6 +10,7 @@ import {
   rejectTool,
   alwaysAllowTool,
   getAlwaysAllowOptions,
+  explainTool,
   updateChatSettings,
   fetchChat,
   fetchMessages,
@@ -533,6 +534,16 @@ describe('agent/api', () => {
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
       expect(JSON.parse(String(init.body))).toEqual({ option: 'prefix:2' });
       expect(out).toEqual(saved);
+    });
+
+    it('explainTool should POST to the call\'s explain route', async () => {
+      const explanation = { risk_level: 'medium', explanation: 'Builds it.', reasoning: 'Release.', risk: 'Install scripts run.' };
+      mockJsonResponse({ success: true, data: explanation });
+      const out = await explainTool(makeClient(), 'chat-1', 'inv-x');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-1/tools/inv-x/explain');
+      expect(init.method).toBe('POST');
+      expect(out).toEqual(explanation);
     });
 
     it('alwaysAllowTool without an option sends an empty body (the api default)', async () => {

@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `useAgentActions().getAlwaysAllowOptions(toolInvocationId)`: what "always allow" can save for a call awaiting approval, narrowest first, computed by the api (`GET /chats/{id}/tools/{toolId}/always-allow/options`). Each option has a `key`, a `scope` (`exact`, `prefix`, `folder`, `remote`, `tool`), a `label` such as "npm run commands on laptop", and the chat `rules` it saves; `default` is the narrowest that answers the call again, and `unavailable` says why there are none.
-- Types: `AlwaysAllowOptionsDTO`, `AlwaysAllowOptionDTO`, `AlwaysAllowScope`, `AlwaysAllowRequest`, `AlwaysAllowResultDTO`, `PolicyRuleDTO` (with `label`), `AlwaysAllowChoice`.
+- `useAgentActions().explainTool(toolInvocationId)`: a plain-words explanation of a call awaiting approval, `{ risk_level: 'low' | 'medium' | 'high', explanation, reasoning, risk }` (`POST /chats/{id}/tools/{toolId}/explain`). A model writes it the first time it is asked for and the api keeps it for the call; call it only when the person asks.
+- Types: `ToolExplanationDTO`, `ToolRiskLevel`, `AlwaysAllowOptionsDTO`, `AlwaysAllowOptionDTO`, `AlwaysAllowScope`, `AlwaysAllowRequest`, `AlwaysAllowResultDTO`, `PolicyRuleDTO` (with `label`), `AlwaysAllowChoice`.
 
 ### Changed
 

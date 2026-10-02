@@ -2009,6 +2009,42 @@ export interface AlwaysAllowResultDTO {
   rules: PolicyRuleDTO[];
 }
 /**
+ * ToolRiskLevel is how risky an explained call is.
+ */
+export type ToolRiskLevel = "low" | "medium" | "high";
+/**
+ * ToolRiskLow: safe development workflows (reads, builds, tests).
+ */
+export const ToolRiskLow: ToolRiskLevel = "low";
+/**
+ * ToolRiskMedium: changes that can be undone.
+ */
+export const ToolRiskMedium: ToolRiskLevel = "medium";
+/**
+ * ToolRiskHigh: dangerous or irreversible changes.
+ */
+export const ToolRiskHigh: ToolRiskLevel = "high";
+/**
+ * ToolExplanationDTO is POST /chats/{id}/tools/{toolId}/explain: a model's
+ * plain-words reading of a call awaiting approval (Claude Code's permission
+ * explainer). Generated once, when the person asks, and kept for the call.
+ */
+export interface ToolExplanationDTO {
+  risk_level: ToolRiskLevel;
+  /**
+   * Explanation is what the call does, in one or two sentences.
+   */
+  explanation: string;
+  /**
+   * Reasoning is why the agent appears to be making it.
+   */
+  reasoning: string;
+  /**
+   * Risk is what could go wrong, in a few words.
+   */
+  risk: string;
+}
+/**
  * CredentialDTO is the API response for a credential (never exposes secrets).
  */
 export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {

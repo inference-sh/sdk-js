@@ -423,6 +423,12 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       return api.getAlwaysAllowOptions(client, chatId, toolInvocationId);
     },
 
+    explainTool: async (toolInvocationId: string) => {
+      const chatId = getChatId();
+      if (!chatId) throw new Error('Cannot explain a tool call without a chat');
+      return api.explainTool(client, chatId, toolInvocationId);
+    },
+
     alwaysAllowTool: async (toolInvocationId: string, choice?: AlwaysAllowChoice | string) => {
       const chatId = getChatId();
 

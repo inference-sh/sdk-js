@@ -10,6 +10,7 @@ import type {
   AgentVersionDTO,
   AlwaysAllowOptionsDTO,
   AlwaysAllowResultDTO,
+  ToolExplanationDTO,
   ChatDTO,
   ChatMessageDTO,
   ChatSettingsRequest,
@@ -184,6 +185,12 @@ export interface AgentChatActions {
    * labels in order; `default` is the narrowest that answers the call again.
    */
   getAlwaysAllowOptions: (toolInvocationId: string) => Promise<AlwaysAllowOptionsDTO | null>;
+  /**
+   * Explain a call awaiting approval (risk level, what it does, why, what could
+   * go wrong). A model generates it the first time it is asked for; later calls
+   * return the kept answer. Call it only when the person asks.
+   */
+  explainTool: (toolInvocationId: string) => Promise<ToolExplanationDTO>;
   /**
    * Always allow a call: save the chosen option's chat rules (`{ option: key }`
    * from getAlwaysAllowOptions) and approve the call once. Without an option the

@@ -150,6 +150,7 @@ describe('createActions', () => {
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue({ rules: [] });
     mockAgentApi.getAlwaysAllowOptions.mockResolvedValue({ options: [], default: '' } as never);
+    mockAgentApi.explainTool.mockResolvedValue({ risk_level: 'low', explanation: 'e', reasoning: 'r', risk: 'x' } as never);
     mockAgentApi.setAgent.mockResolvedValue({ id: 'chat-short', agent_id: 'agent-2' } as never);
     mockAgentApi.updateChatSettings.mockResolvedValue({ id: 'chat-short', agent_data: { allow_all_tools: true } } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
@@ -1398,6 +1399,16 @@ describe('createActions', () => {
       await publicActions.getAlwaysAllowOptions('inv-allow');
 
       expect(mockAgentApi.getAlwaysAllowOptions).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow');
+    });
+
+    it('explainTool should ask for the call in this chat', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      const out = await publicActions.explainTool('inv-x');
+
+      expect(mockAgentApi.explainTool).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-x');
+      expect(out.risk_level).toBe('low');
     });
 
     it('getAlwaysAllowOptions should be null without a chat', async () => {
