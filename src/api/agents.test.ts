@@ -9,6 +9,7 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  ToolTypeApp,
   AgentRunStateCompleted,
   AgentRunStateWorking,
 } from '../types';
@@ -2196,6 +2197,82 @@ describe('AgentsAPI (template CRUD)', () => {
 
     expect(result.data.profile_id).toBe('prof-default');
     expect(result.data.remote_id).toBe('remote-dev-machine');
+  });
+
+  it('should preserve app.fixed_input separately from input on agent get()', async () => {
+    const tools = [
+      {
+        name: 'generate',
+        description: 'Generate media',
+        type: ToolTypeApp,
+        app: {
+          ref: 'infsh/flux@v1',
+          input: { width: 512 },
+          fixed_input: { team_id: 'team-ops', model: 'flux-pro' },
+        },
+      },
+    ];
+    const agent = { id: 'agent-1', name: 'media-bot', tools };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.tools).toEqual(tools);
+    expect(result.data.tools?.[0]?.app?.input).toEqual({ width: 512 });
+    expect(result.data.tools?.[0]?.app?.fixed_input).toEqual({
+      team_id: 'team-ops',
+      model: 'flux-pro',
+    });
+  });
+
+  it('should forward app.fixed_input on tools through createAgent()', async () => {
+    const payload = {
+      name: 'media-bot',
+      core_app: { ref: 'openrouter/claude@latest' },
+      tools: [
+        {
+          name: 'generate',
+          description: 'Generate media',
+          type: ToolTypeApp,
+          app: {
+            ref: 'infsh/flux@v1',
+            fixed_input: { api_key_id: 'cred-1' },
+          },
+        },
+      ],
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.tools?.[0]?.app?.fixed_input).toEqual({ api_key_id: 'cred-1' });
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward app.fixed_input on tools through update()', async () => {
+    const payload = {
+      tools: [
+        {
+          name: 'generate',
+          description: 'Generate media',
+          type: ToolTypeApp,
+          app: {
+            ref: 'infsh/flux@v1',
+            fixed_input: { quality: 'hd' },
+          },
+        },
+      ],
+    };
+    const agent = { id: 'agent-1', name: 'media-bot', ...payload };
+    mockJsonResponse(agent);
+
+    const result = await api().update('agent-1', payload as never);
+
+    expect(result.data.tools?.[0]?.app?.fixed_input).toEqual({ quality: 'hd' });
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
   it('should POST /agents/{id} for update()', async () => {
