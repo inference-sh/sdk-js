@@ -11,6 +11,7 @@ import {
   ToolTypeClient,
   AgentRunStateCompleted,
   AgentRunStateWorking,
+  AgentRunStateAuthRequired,
 } from '../types';
 import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types';
 import { FilesAPI } from './files';
@@ -18,6 +19,7 @@ import { AgentsAPI } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -166,6 +168,61 @@ describe('Agent.sendMessage (polling mode)', () => {
       ([url]) => typeof url === 'string' && url.includes('/status')
     );
     expect(statusPolls.length).toBe(1);
+  });
+
+  it('should keep polling while active_run is auth_required', async () => {
+    jest.useFakeTimers();
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+
+    mockJsonResponse({
+      user_message: userMessage,
+      assistant_message: assistantMessage,
+    });
+    mockFetch.mockImplementation((url: string) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+        });
+      }
+      if (urlStr.includes('/chats/') && !urlStr.includes('/status')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'chat-1',
+                status: ChatStatusBusy,
+                active_run: authRequiredRun,
+                chat_messages: [],
+              })
+            ),
+        });
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+    });
+
+    const turn = agent().sendMessage('needs oauth', { stream: false });
+
+    for (let i = 0; i < 8; i++) {
+      await Promise.resolve();
+      jest.advanceTimersByTime(20);
+      await Promise.resolve();
+    }
+
+    let settled = false;
+    turn.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    jest.useRealTimers();
+    turn.catch(() => undefined);
   });
 
   it('should skip full GET /chats when poll status is unchanged', async () => {
@@ -2150,6 +2207,16 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.remote_id).toBe('dev-machine');
   });
 
+  it('should preserve title on getByName() responses separate from name slug', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Support Bot' };
+    mockJsonResponse(agent);
+
+    const result = await api().getByName('acme', 'support-bot');
+
+    expect(result.data.title).toBe('Support Bot');
+    expect(result.data.name).toBe('support-bot');
+  });
+
   it('should POST /agents/list for list()', async () => {
     const page = { items: [{ id: 'agent-1' }], next_cursor: null };
     mockJsonResponse(page);
@@ -2181,6 +2248,16 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().get('agent-1');
 
     expect(result.data.harness).toBe('inference');
+  });
+
+  it('should preserve title on get() responses separate from name slug', async () => {
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Support Bot' };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-1');
+
+    expect(result.data.title).toBe('Support Bot');
+    expect(result.data.name).toBe('support-bot');
   });
 
   it('should preserve profile_id and remote_id on agent get() responses', async () => {
@@ -2217,6 +2294,17 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().update('agent-1', payload as never);
 
     expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward title in update() body', async () => {
+    const payload = { title: 'Renamed Support Bot' };
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Renamed Support Bot' };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
