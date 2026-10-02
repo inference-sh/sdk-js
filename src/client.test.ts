@@ -38,6 +38,8 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  InstanceRentalTypeOnDemand,
+  InstanceRentalTypeSpot,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -79,6 +81,11 @@ describe('package type exports', () => {
 
   it('exports EntitlementSourceAddon for add-on-sourced entitlements', () => {
     expect(EntitlementSourceAddon).toBe('addon');
+  });
+
+  it('exports InstanceRentalType constants for on-demand vs spot Shadeform instances', () => {
+    expect(InstanceRentalTypeOnDemand).toBe('on_demand');
+    expect(InstanceRentalTypeSpot).toBe('spot');
   });
 
   it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
