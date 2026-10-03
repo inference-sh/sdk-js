@@ -564,6 +564,30 @@ describe('agent/api', () => {
       expect(JSON.parse(String(init.body))).toEqual({ allow_all_tools: true });
       expect(settings).toEqual({ chat_id: 'chat-1', name: 'c', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} });
     });
+
+    it('updateChatSettings should POST forget_memory and return memory after keys are dropped', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          chat_id: 'chat-1',
+          name: 'c',
+          visibility: 'team',
+          allow_all_tools: false,
+          disable_hooks: false,
+          memory: { goal: 'ship' },
+        },
+      });
+
+      const settings = await updateChatSettings(makeClient(), 'chat-1', {
+        forget_memory: ['user_pref_theme', 'stale_note'],
+      });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+
+      expect(JSON.parse(String(init.body))).toEqual({
+        forget_memory: ['user_pref_theme', 'stale_note'],
+      });
+      expect(settings.memory).toEqual({ goal: 'ship' });
+    });
   });
 
   describe('getChatStreamConfig', () => {
