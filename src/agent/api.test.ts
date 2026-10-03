@@ -2,6 +2,12 @@ import { HttpClient } from '../http/client';
 import { FilesAPI } from '../api/files';
 import type { AgentClient } from './types';
 import {
+  PolicyEffectAllow,
+  PolicyKindMcp,
+  PolicyKindRemoteExec,
+  PolicyKindWebFetch,
+} from '../types';
+import {
   sendMessage,
   submitToolResult,
   resolveInterrupt,
@@ -527,13 +533,71 @@ describe('agent/api', () => {
     });
 
     it('alwaysAllowTool should POST the chosen option and return what was saved', async () => {
-      const saved = { rules: [{ id: 'r1', kind: 'RemoteExec', specifier: 'npm run:*', label: 'npm run commands on laptop' }] };
+      const saved = {
+        rules: [
+          {
+            id: 'r1',
+            effect: PolicyEffectAllow,
+            kind: PolicyKindRemoteExec,
+            selector: 'remote:dev-mac',
+            specifier: 'npm run:*',
+            label: 'npm run commands on laptop',
+            created_by: 'user-1',
+          },
+        ],
+      };
       mockJsonResponse({ success: true, data: saved });
       const out = await alwaysAllowTool(makeClient(), 'chat-1', 'inv-allow', 'prefix:2');
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
       expect(JSON.parse(String(init.body))).toEqual({ option: 'prefix:2' });
       expect(out).toEqual(saved);
+    });
+
+    it('getAlwaysAllowOptions should return usage-kind and WebFetch rules on options', async () => {
+      const options = {
+        options: [
+          {
+            key: 'mcp:1',
+            scope: 'tool',
+            label: 'Allow this MCP server',
+            rules: [
+              {
+                id: '',
+                effect: PolicyEffectAllow,
+                kind: PolicyKindMcp,
+                selector: 'mcp-uuid',
+                specifier: '',
+                label: 'MCP server',
+                created_by: '',
+              },
+            ],
+          },
+          {
+            key: 'web:1',
+            scope: 'exact',
+            label: 'Fetch docs.example.com',
+            rules: [
+              {
+                id: '',
+                effect: PolicyEffectAllow,
+                kind: PolicyKindWebFetch,
+                selector: '',
+                specifier: 'docs.example.com',
+                label: 'docs.example.com',
+                created_by: '',
+              },
+            ],
+          },
+        ],
+        default: 'mcp:1',
+        unavailable: '',
+      };
+      mockJsonResponse({ success: true, data: options });
+      const out = await getAlwaysAllowOptions(makeClient(), 'chat-1', 'inv-allow');
+      expect(out).toEqual(options);
+      expect(out.options[0].rules[0].kind).toBe('Mcp');
+      expect(out.options[1].rules[0].kind).toBe('WebFetch');
     });
 
     it('explainTool should POST to the call\'s explain route', async () => {

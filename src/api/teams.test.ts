@@ -130,6 +130,22 @@ describe('TeamsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should deserialize TeamDTO without usage_policy_id (policy is attached separately)', async () => {
+    const team = {
+      id: 'team-1',
+      name: 'Acme',
+      username: 'acme',
+      org_id: 'org-1',
+      org_name: 'Acme Org',
+    };
+    mockJsonResponse(team);
+
+    const result = await api().get('team-1');
+
+    expect(result.data).toEqual(team);
+    expect(result.data).not.toHaveProperty('usage_policy_id');
+  });
+
   it('should POST /teams/{id} for update()', async () => {
     const team = { id: 'team-1', name: 'Acme Updated' };
     mockJsonResponse(team);
