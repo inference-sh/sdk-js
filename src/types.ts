@@ -24,6 +24,20 @@ export interface InternalToolsConfig {
   knowledge?: boolean;
 }
 /**
+ * AgentPermissions is what an agent's new chats may do without asking
+ * (INF-906). Each is copied into a chat when it is created; the chat owns
+ * it from then on. A team or org policy still asks or denies over it.
+ */
+export interface AgentPermissions {
+  /**
+   * AllowAllTools starts each new chat with "allow every tool" on: loop
+   * tools, harness tools and remote_exec commands run without asking. For
+   * agents nobody watches (webhook and cron runs), where an approval would
+   * stall the run.
+   */
+  allow_all_tools?: boolean;
+}
+/**
  * AgentTool represents a unified tool that can be used by an agent
  */
 export interface AgentTool {
@@ -255,6 +269,7 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   skills: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
 }
@@ -288,6 +303,7 @@ export interface AgentConfigInput {
   skills?: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
 }
