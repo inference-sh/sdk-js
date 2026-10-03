@@ -1416,6 +1416,52 @@ describe('createActions', () => {
       expect(out.risk_level).toBe('low');
     });
 
+    it('explainTool should throw without a chatId', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.explainTool('inv-x')).rejects.toThrow('without a chat');
+      expect(mockAgentApi.explainTool).not.toHaveBeenCalled();
+    });
+
+    it('explainTool should not put the chat in the error state when the API fails', async () => {
+      mockAgentApi.explainTool.mockRejectedValueOnce(new Error('explain failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.explainTool('inv-x')).rejects.toThrow('explain failed');
+
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_ERROR' }));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('alwaysAllowTool with an empty choice object should request the api default', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.alwaysAllowTool('inv-allow', {});
+
+      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow', undefined);
+    });
+
+    it('alwaysAllowTool should return the saved rules from the API', async () => {
+      const saved = {
+        rules: [{ id: 'r1', kind: 'RemoteExec', specifier: 'npm run:*', label: 'npm run commands' }],
+      };
+      mockAgentApi.alwaysAllowTool.mockResolvedValueOnce(saved as never);
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      const out = await publicActions.alwaysAllowTool('inv-allow', { option: 'prefix:2' });
+
+      expect(out).toEqual(saved);
+    });
+
     it('getAlwaysAllowOptions should be null without a chat', async () => {
       const { ctx } = createTestContext({ getChatId: () => null });
       const { publicActions } = createActions(ctx);

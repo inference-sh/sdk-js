@@ -38,6 +38,14 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  AlwaysAllowScopeExact,
+  AlwaysAllowScopeFolder,
+  AlwaysAllowScopePrefix,
+  AlwaysAllowScopeRemote,
+  AlwaysAllowScopeTool,
+  ToolRiskHigh,
+  ToolRiskLow,
+  ToolRiskMedium,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -97,6 +105,20 @@ describe('package type exports', () => {
 
   it('exports ERROR_KEY for live $error control frames', () => {
     expect(ERROR_KEY).toBe('$error');
+  });
+
+  it('exports AlwaysAllowScope constants for scoped always-allow options (INF-906)', () => {
+    expect(AlwaysAllowScopeExact).toBe('exact');
+    expect(AlwaysAllowScopePrefix).toBe('prefix');
+    expect(AlwaysAllowScopeFolder).toBe('folder');
+    expect(AlwaysAllowScopeRemote).toBe('remote');
+    expect(AlwaysAllowScopeTool).toBe('tool');
+  });
+
+  it('exports ToolRiskLevel constants for tool explanation payloads (INF-906)', () => {
+    expect(ToolRiskLow).toBe('low');
+    expect(ToolRiskMedium).toBe('medium');
+    expect(ToolRiskHigh).toBe('high');
   });
 
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {
