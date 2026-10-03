@@ -1521,6 +1521,40 @@ describe('Agent.sendMessage (ad-hoc config)', () => {
     expect(body.input.text).toBe('hello');
   });
 
+  it('should include permissions on ad-hoc agent_config runs', async () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    const unattended = new AgentsAPI(http, new FilesAPI(http)).create({
+      core_app: { ref: 'openrouter/claude@latest' },
+      system_prompt: 'You are helpful',
+      name: 'adhoc-bot',
+      permissions: { allow_all_tools: true },
+    });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    await unattended.sendMessage('hello', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect((body.agent_config as { permissions?: { allow_all_tools?: boolean } }).permissions).toEqual({
+      allow_all_tools: true,
+    });
+  });
+
   it('should prefer AgentOptions.name over config.name for agent_name', async () => {
     const http = new HttpClient({
       apiKey: 'test-key',
@@ -2156,6 +2190,26 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward version.permissions.allow_all_tools in createAgent()', async () => {
+    const payload = {
+      name: 'cron-bot',
+      core_app: { ref: 'app/ref' },
+      version: {
+        name: 'cron-bot',
+        system_prompt: 'run unattended',
+        permissions: { allow_all_tools: true },
+      },
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    const result = await api().createAgent(payload as never);
+
+    expect(result.data.version?.permissions?.allow_all_tools).toBe(true);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -2300,6 +2354,24 @@ describe('AgentsAPI (template CRUD)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/agents/agent-1/versions/ver-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should preserve permissions on getVersion() responses', async () => {
+    const version = {
+      id: 'ver-1',
+      agent_id: 'agent-1',
+      description: 'webhook runner',
+      system_prompt: 'go',
+      example_prompts: [],
+      tools: [],
+      skills: [],
+      permissions: { allow_all_tools: true },
+    };
+    mockJsonResponse(version);
+
+    const result = await api().getVersion('agent-1', 'ver-1');
+
+    expect(result.data.permissions?.allow_all_tools).toBe(true);
   });
 
   it('should POST visibility for updateVisibility()', async () => {
