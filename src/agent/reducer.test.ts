@@ -91,7 +91,7 @@ describe('chatReducer', () => {
       type: 'SET_CHAT',
       payload: makeChat({
         agent_data: {
-          plan_steps: [], always_allowed_tools: ['search'], memory: { goal: 'ship', old: 'x' }, allow_all_tools: false,
+          plan_steps: [], memory: { goal: 'ship', old: 'x' }, allow_all_tools: false,
         } as ChatDTO['agent_data'],
       }),
     });
@@ -107,7 +107,7 @@ describe('chatReducer', () => {
       ...state.chat,
       name: 'renamed',
       visibility: 'public',
-      agent_data: { plan_steps: [], always_allowed_tools: ['search'], memory: { goal: 'ship' }, allow_all_tools: true, disable_hooks: true },
+      agent_data: { plan_steps: [], memory: { goal: 'ship' }, allow_all_tools: true, disable_hooks: true },
     });
     expect(next.messages).toBe(state.messages);
   });

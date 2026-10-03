@@ -24,9 +24,11 @@ export interface InternalToolsConfig {
   knowledge?: boolean;
 }
 /**
- * AgentPermissions is what an agent's new chats may do without asking
- * (INF-906). Each is copied into a chat when it is created; the chat owns
- * it from then on. A team or org policy still asks or denies over it.
+ * AgentPermissions is what an agent's new chats in its own workspace may do
+ * without asking (INF-906). Each is copied into such a chat when it is
+ * created; the chat owns it from then on. Chats other workspaces start with
+ * the agent get none of it: they run on their own remotes and tools. A team
+ * or org policy still asks or denies over it.
  */
 export interface AgentPermissions {
   /**
@@ -1909,23 +1911,16 @@ export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   tool_invocations?: ToolInvocationDTO[];
 }
 /**
- * PolicyEffect is a rule's outcome: allow, ask or deny.
- */
-export type PolicyEffect = "allow" | "ask" | "deny";
-export const PolicyEffectAllow: PolicyEffect = "allow";
-export const PolicyEffectAsk: PolicyEffect = "ask";
-export const PolicyEffectDeny: PolicyEffect = "deny";
-/**
  * PolicyRuleDTO is one rule, typed form Kind[selector](specifier).
  */
 export interface PolicyRuleDTO {
   id: string;
   effect: PolicyEffect;
   /**
-   * Kind: RemoteExec, Workspace, Harness, Tool (and, from phase 3, App,
-   * Agent, Knowledge, Mcp, Flow, WebFetch).
+   * Kind: what the rule governs (RemoteExec, Workspace, Harness, Tool,
+   * and the usage kinds App, Agent, Knowledge, Mcp, Flow).
    */
-  kind: string;
+  kind: PolicyKind;
   /**
    * Selector narrows the rule to one remote (its id) or a tag (tag:<name>);
    * empty applies everywhere.
@@ -4220,11 +4215,6 @@ export interface TeamDTO extends BaseModelDTO {
    * org it is without belonging to the org workspace.
    */
   org_name?: string;
-  /**
-   * UsagePolicyID of the team's own usage policy ('' = inherit the org's,
-   * or ungoverned when standalone, INF-808).
-   */
-  usage_policy_id?: string;
 }
 /**
  * TeamMemberDTO is the API response for a team member.
@@ -4840,7 +4830,6 @@ export const ChannelTypeTelegram: ChannelType = "telegram";
 export interface ChatData {
   plan_steps: PlanStep[];
   memory: StringEncodedMap;
-  always_allowed_tools: string[];
   /**
    * AllowAllTools runs every tool call in this chat without asking. The
    * person switches it in the chat's settings, and off again at any time.
@@ -5852,6 +5841,56 @@ export const NotificationStatusDelivered: NotificationStatus = "delivered";
 export const NotificationStatusFailed: NotificationStatus = "failed";
 export const NotificationStatusBounced: NotificationStatus = "bounced";
 export const NotificationStatusCancelled: NotificationStatus = "cancelled";
+/**
+ * PolicyEffect is a rule's outcome and a decision's verdict.
+ */
+export type PolicyEffect = "allow" | "ask" | "deny";
+export const PolicyEffectAllow: PolicyEffect = "allow";
+export const PolicyEffectAsk: PolicyEffect = "ask";
+export const PolicyEffectDeny: PolicyEffect = "deny";
+/**
+ * PolicyKind names what a rule governs; each kind has one matcher.
+ */
+export type PolicyKind =
+  | "RemoteExec"
+  | "Workspace"
+  | "Harness"
+  | "Tool"
+  | "App"
+  | "Agent"
+  | "Knowledge"
+  | "Mcp"
+  | "Flow"
+  | "WebFetch";
+/**
+ * PolicyKindRemoteExec: shell commands run on a remote.
+ */
+export const PolicyKindRemoteExec: PolicyKind = "RemoteExec";
+/**
+ * PolicyKindWorkspace: folders on a remote.
+ */
+export const PolicyKindWorkspace: PolicyKind = "Workspace";
+/**
+ * PolicyKindHarness: a harness's own tool approvals, e.g.
+ * Harness(Bash(git status:*)).
+ */
+export const PolicyKindHarness: PolicyKind = "Harness";
+/**
+ * PolicyKindTool: a tool call our own agent loop makes, by tool name.
+ */
+export const PolicyKindTool: PolicyKind = "Tool";
+/**
+ * Usage kinds (UsageCategory.PolicyKind): rules name resolved ids.
+ */
+export const PolicyKindApp: PolicyKind = "App";
+export const PolicyKindAgent: PolicyKind = "Agent";
+export const PolicyKindKnowledge: PolicyKind = "Knowledge";
+export const PolicyKindMcp: PolicyKind = "Mcp";
+export const PolicyKindFlow: PolicyKind = "Flow";
+/**
+ * PolicyKindWebFetch: fetched domains.
+ */
+export const PolicyKindWebFetch: PolicyKind = "WebFetch";
 /**
  * FunctionKind is how an app function talks to its caller.
  */

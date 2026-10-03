@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-04
+
+### Added
+
+- `AgentPermissions` and `permissions` on agent configs: what an agent's new chats may do without asking (`allow_all_tools`).
+- `PolicyKind` (`RemoteExec`, `Workspace`, `Harness`, `Tool`, `WebFetch`, and the usage kinds `App`, `Agent`, `Knowledge`, `Mcp`, `Flow`) with its constants. `PolicyRuleDTO.kind` is a `PolicyKind`.
+
+### Removed
+
+- `ChatData.always_allowed_tools`. A chat's always-allow list became chat rules (`GET /chats/{id}/rules`); the api no longer sends it.
+- `TeamDTO.usage_policy_id`. A workspace's usage policy is a policy attached to it; the org's workspace list carries it.
+
 ## [0.17.0] - 2026-10-02
 
 ### Changed
