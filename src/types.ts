@@ -450,7 +450,6 @@ export interface AppVersionInput {
   output_schema?: any;
   functions?: { [key: string]: AppFunction};
   default_function?: string;
-  variants?: { [key: string]: AppVariant};
   env?: { [key: string]: string};
   kernel?: string;
   required_secrets?: SecretRequirement[];
@@ -1217,16 +1216,6 @@ export interface AppResources {
   ram: number /* int */;
 }
 /**
- * AppVariant is a named resource/env configuration variant.
- */
-export interface AppVariant {
-  name: string;
-  order: number /* int */;
-  resources: AppResources;
-  env: { [key: string]: string};
-  python: string;
-}
-/**
  * SecretRequirement defines a secret that an app requires to run.
  */
 export interface SecretRequirement {
@@ -1298,7 +1287,6 @@ export interface AppVersionDTO extends BaseModelDTO {
   output_schema: any;
   functions?: { [key: string]: AppFunction};
   default_function?: string;
-  variants: { [key: string]: AppVariant};
   env: { [key: string]: string};
   kernel: string;
   required_secrets?: SecretRequirement[];
@@ -4100,7 +4088,6 @@ export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   app?: AppDTO;
   app_version_id: string;
   app_version?: AppVersionDTO;
-  app_variant: string;
   function: string;
   infra: Infra;
   workers: string[];
@@ -5547,6 +5534,7 @@ export type EntitlementResource =
   | "task_executions"
   | "feature:byok"
   | "feature:seedance"
+  | "feature:marketplace_publish"
   | "feature:scopes"
   | "feature:webhooks"
   | "feature:team_billing"
@@ -5575,6 +5563,10 @@ export const ResourceTaskExecutions: EntitlementResource = "task_executions";
  */
 export const ResourceFeatureBYOK: EntitlementResource = "feature:byok";
 export const ResourceFeatureSeedance: EntitlementResource = "feature:seedance";
+/**
+ * Granted per team: the marketplace takes submissions by invitation.
+ */
+export const ResourceFeatureMarketplacePublish: EntitlementResource = "feature:marketplace_publish";
 /**
  * Legacy feature gates — kept for DB compatibility, no longer gated
  */
