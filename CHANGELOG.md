@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-04
+
+### Added
+
+- `ResourceFeatureMarketplacePublish` (`"feature:marketplace_publish"`): entitlement resource granted per team; the marketplace takes submissions by invitation.
+
+### Removed
+
+- `AppVariant` type and the `variants` field on `AppVersion`/`AppVersionDTO`. Named resource/env configuration variants were removed from the API on 2025-12-26.
+- `TaskDTO.app_variant`. The variant field on task records has been removed from the API alongside `AppVariant`.
+
 ## [0.18.0] - 2026-10-04
 
 ### Added
