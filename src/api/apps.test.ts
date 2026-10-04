@@ -172,6 +172,24 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ limit: 20 });
   });
 
+  it('should preserve app version items without variants after v0.19 types regen', async () => {
+    const version = {
+      id: 'ver-1',
+      app_id: 'app-1',
+      kernel: 'python3.11',
+      env: { MODEL: 'large' },
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
+    };
+    const versions = { items: [version], next_cursor: null };
+    mockJsonResponse(versions);
+
+    const result = await api().listVersions('app-1');
+
+    expect(result.data.items[0]).toEqual(version);
+    expect(result.data.items[0]).not.toHaveProperty('variants');
+  });
+
   it('should POST visibility for updateVisibility()', async () => {
     const app = { id: 'app-1', visibility: 'private' };
     mockJsonResponse(app);

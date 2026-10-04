@@ -26,6 +26,7 @@ import {
   RefRouteModeRewrite,
   RefRouteTypeURL,
   ResourceFeatureSeedance,
+  ResourceFeatureMarketplacePublish,
   ToolAuthTypeNone,
   UtilityPresetConstant,
   UtilityPresetGate,
@@ -83,6 +84,10 @@ describe('package type exports', () => {
 
   it('exports ResourceFeatureSeedance for seedance video feature gating', () => {
     expect(ResourceFeatureSeedance).toBe('feature:seedance');
+  });
+
+  it('exports ResourceFeatureMarketplacePublish for marketplace submission entitlements', () => {
+    expect(ResourceFeatureMarketplacePublish).toBe('feature:marketplace_publish');
   });
 
   it('exports CLEAR_KEY for live $clear control frames', () => {

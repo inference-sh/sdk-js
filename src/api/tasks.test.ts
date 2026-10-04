@@ -393,11 +393,13 @@ describe('TasksAPI.run (HTTP contract)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/run');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({
       app: 'image-gen',
       version_id: 'ver-2',
       input: { prompt: 'sunset', width: 512 },
     });
+    expect(body).not.toHaveProperty('variant');
   });
 
   it('should fetch the full task after /apps/run when not waiting', async () => {
@@ -481,6 +483,44 @@ describe('TasksAPI (CRUD and admin)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize v0.19 task payloads without app_variant or version variants', async () => {
+    const task = {
+      id: 'task-1',
+      status: TaskStatusRunning,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      app_id: 'app-1',
+      app_version_id: 'ver-1',
+      app_version: {
+        id: 'ver-1',
+        app_id: 'app-1',
+        kernel: 'python3.11',
+        env: {},
+        input_schema: {},
+        output_schema: {},
+      },
+      function: 'default',
+      infra: 'cloud',
+      workers: [],
+      input: { prompt: 'hi' },
+      output: null,
+      logs: [],
+      rating: 0,
+      events: [],
+      usage_events: [],
+      user_public_key: 'user-pk',
+      engine_public_key: 'engine-pk',
+      is_featured: false,
+    };
+    mockJsonResponse(task);
+
+    const result = await api().get('task-1');
+
+    expect(result.data).toEqual(task);
+    expect(result.data).not.toHaveProperty('app_variant');
+    expect(result.data.app_version).not.toHaveProperty('variants');
   });
 
   it('should DELETE /tasks/{id} for delete()', async () => {
