@@ -557,7 +557,6 @@ Runs a task on inference.sh.
 | `params.input` | `object` | Yes | Input parameters for the app |
 | `params.setup` | `object` | No | Setup parameters (affects worker warmth/scheduling) |
 | `params.infra` | `string` | No | Infrastructure: `'cloud'` or `'private'` |
-| `params.variant` | `string` | No | App variant to use |
 | `params.session` | `string` | No | Session ID or `'new'` to start a new session |
 | `params.session_timeout` | `number` | No | Session timeout in seconds (1-3600, only with `session: 'new'`) |
 
