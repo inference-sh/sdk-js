@@ -38,6 +38,10 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  PolicyEnforcementDefault,
+  PolicyEnforcementEnforced,
+  PolicyEnforcementEvaluate,
+  PolicyEnforcementDisabled,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -141,6 +145,13 @@ describe('package type exports', () => {
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports PolicyEnforcement constants for rule governance modes', () => {
+    expect(PolicyEnforcementDefault).toBe('default');
+    expect(PolicyEnforcementEnforced).toBe('enforced');
+    expect(PolicyEnforcementEvaluate).toBe('evaluate');
+    expect(PolicyEnforcementDisabled).toBe('disabled');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {

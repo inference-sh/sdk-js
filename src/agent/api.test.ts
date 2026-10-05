@@ -2,6 +2,12 @@ import { HttpClient } from '../http/client';
 import { FilesAPI } from '../api/files';
 import type { AgentClient } from './types';
 import {
+  PolicyEffectAllow,
+  PolicyEnforcementDefault,
+  PolicyEnforcementEvaluate,
+  PolicyKindRemoteExec,
+} from '../types';
+import {
   sendMessage,
   submitToolResult,
   resolveInterrupt,
@@ -534,6 +540,39 @@ describe('agent/api', () => {
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
       expect(JSON.parse(String(init.body))).toEqual({ option: 'prefix:2' });
       expect(out).toEqual(saved);
+    });
+
+    it('alwaysAllowTool should preserve enforcement and tag-scoped selectors on saved rules', async () => {
+      const saved = {
+        rules: [
+          {
+            id: 'r-default',
+            effect: PolicyEffectAllow,
+            enforcement: PolicyEnforcementDefault,
+            kind: PolicyKindRemoteExec,
+            selector: 'tag:build-fleet',
+            specifier: 'npm run build',
+            label: 'npm run build on build fleet',
+            created_by: 'user-1',
+          },
+          {
+            id: 'r-eval',
+            effect: PolicyEffectAllow,
+            enforcement: PolicyEnforcementEvaluate,
+            kind: PolicyKindRemoteExec,
+            selector: '',
+            specifier: 'docker compose up:*',
+            label: 'compose up (evaluate)',
+            created_by: 'security',
+          },
+        ],
+      };
+      mockJsonResponse({ success: true, data: saved });
+      const out = await alwaysAllowTool(makeClient(), 'chat-1', 'inv-tag', 'prefix:build');
+      expect(out).toEqual(saved);
+      expect(out.rules[0].enforcement).toBe('default');
+      expect(out.rules[0].selector).toBe('tag:build-fleet');
+      expect(out.rules[1].enforcement).toBe('evaluate');
     });
 
     it('explainTool should POST to the call\'s explain route', async () => {
