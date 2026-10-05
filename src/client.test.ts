@@ -38,6 +38,9 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  ErrorCodeBlockedByUsagePolicy,
+  TeamCapabilityManagePolicy,
+  TeamCapabilityViewPolicy,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -141,6 +144,12 @@ describe('package type exports', () => {
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports usage-policy error and team policy capability constants', () => {
+    expect(ErrorCodeBlockedByUsagePolicy).toBe('blocked_by_usage_policy');
+    expect(TeamCapabilityViewPolicy).toBe('view_policy');
+    expect(TeamCapabilityManagePolicy).toBe('manage_policy');
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {

@@ -1,6 +1,7 @@
 import { HttpClient } from '../http/client';
 import { FilesAPI } from '../api/files';
 import type { AgentClient } from './types';
+import { PolicyEffectAllow, PolicyKindApp } from '../types';
 import {
   sendMessage,
   submitToolResult,
@@ -534,6 +535,36 @@ describe('agent/api', () => {
       expect(url).toContain('/chats/chat-1/tools/inv-allow/always-allow');
       expect(JSON.parse(String(init.body))).toEqual({ option: 'prefix:2' });
       expect(out).toEqual(saved);
+    });
+
+    it('alwaysAllowTool should round-trip usage App rules with publisher specifier and wildcard label', async () => {
+      const saved = {
+        rules: [
+          {
+            id: 'usage-app-1',
+            effect: PolicyEffectAllow,
+            kind: PolicyKindApp,
+            selector: '',
+            specifier: 'publisher:team-bytd',
+            label: 'bytedance/*',
+            created_by: 'user-1',
+          },
+          {
+            id: 'usage-app-2',
+            effect: PolicyEffectAllow,
+            kind: PolicyKindApp,
+            selector: '',
+            specifier: 'app-seedance-id',
+            label: 'bytedance/seedance',
+            created_by: 'user-1',
+          },
+        ],
+      };
+      mockJsonResponse({ success: true, data: saved });
+      const out = await alwaysAllowTool(makeClient(), 'chat-1', 'inv-app', 'app:wildcard');
+      expect(out).toEqual(saved);
+      expect(out.rules[0].specifier).toBe('publisher:team-bytd');
+      expect(out.rules[1].label).toBe('bytedance/seedance');
     });
 
     it('explainTool should POST to the call\'s explain route', async () => {
