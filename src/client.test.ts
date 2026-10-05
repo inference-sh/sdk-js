@@ -38,6 +38,8 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  DescriptionLimitListing,
+  DescriptionLimitSkill,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -141,6 +143,12 @@ describe('package type exports', () => {
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports DescriptionLimit constants aligned with API listing vs skill caps', () => {
+    expect(DescriptionLimitListing).toBe(200);
+    expect(DescriptionLimitSkill).toBe(1024);
+    expect(DescriptionLimitSkill).toBeGreaterThan(DescriptionLimitListing);
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
