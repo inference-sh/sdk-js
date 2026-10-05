@@ -43,6 +43,45 @@ describe('AppsAPI', () => {
     expect(url).toContain('/apps/inference/claude-haiku');
   });
 
+  it('should GET app ref with function suffix for getByName()', async () => {
+    const app = {
+      id: 'app-1',
+      name: 'acme/image-gen',
+      resolved_function: 'upscale',
+    };
+    mockJsonResponse(app);
+
+    const result = await api().getByName('acme/image-gen:upscale');
+
+    expect(result.data).toEqual(app);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/acme/image-gen:upscale');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should preserve resolved_function on getByName() when a route pins a function', async () => {
+    const app = {
+      id: 'app-legacy',
+      name: 'acme/dialogue',
+      resolved_function: 'acme/dialogue-v2:dialogue',
+    };
+    mockJsonResponse(app);
+
+    const result = await api().getByName('acme/dialogue');
+
+    expect(result.data.resolved_function).toBe('acme/dialogue-v2:dialogue');
+  });
+
+  it('should not set resolved_function on getByName() when the caller picks the default', async () => {
+    const app = { id: 'app-1', name: 'acme/image-gen' };
+    mockJsonResponse(app);
+
+    const result = await api().getByName('acme/image-gen');
+
+    expect(result.data).toEqual(app);
+    expect(result.data).not.toHaveProperty('resolved_function');
+  });
+
   it('should POST transfer with team_id for transferOwnership()', async () => {
     const app = { id: 'app-1' };
     mockJsonResponse(app);

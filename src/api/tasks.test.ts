@@ -437,6 +437,24 @@ describe('TasksAPI.create', () => {
       input: { prompt: 'hi' },
     });
   });
+
+  it('should forward function in /apps/run when running a pinned app function', async () => {
+    const task = makeTask();
+    mockJsonResponse(task);
+
+    await api().create({
+      app: 'acme/image-gen:upscale',
+      function: 'upscale',
+      input: { image: 'file-1' },
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/image-gen:upscale',
+      function: 'upscale',
+      input: { image: 'file-1' },
+    });
+  });
 });
 
 describe('TasksAPI (CRUD and admin)', () => {
