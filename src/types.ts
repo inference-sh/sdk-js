@@ -1273,6 +1273,14 @@ export interface AppDTO extends BaseModelDTO, PermissionModelDTO {
   status: AppStatus;
   status_message?: string;
   status_changed_at?: string /* RFC3339 */;
+  /**
+   * ResolvedFunction is the function the requested ref named, when it named
+   * one: "ns/app:fn" in the ref itself, or a route on the name that pins a
+   * function (a retired dialogue app routed to "ns/new-app:dialogue"). Only
+   * set on a lookup by ref; empty means the caller picks, starting from the
+   * version's default.
+   */
+  resolved_function?: string;
 }
 /**
  * AppVersionDTO is the API response for an app version.
