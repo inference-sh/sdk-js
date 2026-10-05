@@ -3729,7 +3729,7 @@ export interface SuggestRequest {
   context?: string; // conversation context for embedding enrichment
   limit?: number /* int */;
   category?: string;
-  agent?: boolean;
+  agent?: boolean; // Deprecated: accepted and ignored. Descriptions are always clipped to shared.DescriptionLimitListing.
   scope?: string[]; // environment signals for overlap ranking (e.g. "git:user/repo", "lang:go")
   origin?: string; // caller's origin (e.g. "claude:853f9a75-..."); results from this origin are excluded
 }
@@ -4887,6 +4887,23 @@ export interface ChannelContext {
   channel_type?: ChannelType;
   channel_metadata?: any;
 }
+/**
+ * DescriptionLimit is the most characters a resource's description may have.
+ */
+export type DescriptionLimit = number /* int */;
+/**
+ * DescriptionLimitListing bounds the description of an app, agent, flow,
+ * MCP server or knowledge entry. A description is shown in listings and
+ * handed to agents as a suggestion, so it is a sentence or two; anything
+ * longer belongs in the resource itself.
+ */
+export const DescriptionLimitListing: DescriptionLimit = 200;
+/**
+ * DescriptionLimitSkill bounds a skill's description. It is the skill's
+ * SKILL.md frontmatter, so it follows the Agent Skills specification
+ * (https://agentskills.io/specification) rather than the listing limit.
+ */
+export const DescriptionLimitSkill: DescriptionLimit = 1024;
 /**
  * EngineStatus represents the status of an engine.
  */
