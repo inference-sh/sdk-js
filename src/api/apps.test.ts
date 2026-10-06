@@ -161,12 +161,22 @@ describe('AppsAPI', () => {
   });
 
   it('should POST /apps/{id}/versions/list for listVersions()', async () => {
-    const versions = { items: [{ id: 'ver-1' }], next_cursor: null };
+    const versions = {
+      items: [
+        {
+          id: 'ver-1',
+          ui: { artifact: 'acme/support-ui' },
+          metadata: { ui: { artifact: 'acme/support-ui' } },
+        },
+      ],
+      next_cursor: null,
+    };
     mockJsonResponse(versions);
 
     const result = await api().listVersions('app-1', { limit: 20 });
 
     expect(result.data).toEqual(versions);
+    expect(result.data.items[0].ui?.artifact).toBe('acme/support-ui');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 20 });
