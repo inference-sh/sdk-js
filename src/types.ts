@@ -2394,9 +2394,55 @@ export interface EntitlementErrorMeta {
   limit?: number /* int */;
   current?: number /* int */;
   upgrade_available: boolean;
+  requestable: boolean;
+  request_state?: string;
   addon_plan_id?: string;
   addon_plan_name?: string;
   addon_plan_price?: number /* int */;
+}
+/**
+ * EntitlementRequestDTO is a team's request for an entitlement, with the
+ * form submission that came with it when there was one, so the admin queue
+ * shows the answers next to the decision.
+ */
+export interface EntitlementRequestDTO extends BaseModelDTO, PermissionModelDTO {
+  resource: EntitlementResource;
+  resource_label?: string;
+  requested: any;
+  submission_id?: string;
+  submission?: FormSubmissionDTO;
+  state: EntitlementRequestState;
+  decided_by?: string;
+  decided_at?: string /* RFC3339 */;
+  note?: string;
+}
+/**
+ * EntitlementRequested is the shape of a request's "requested" field and of
+ * the grant an acceptance makes: a boolean gate switched on, or a limit.
+ */
+export interface EntitlementRequested {
+  type: EntitlementType;
+  enabled?: boolean;
+  limit?: number /* int */;
+}
+/**
+ * CreateEntitlementRequestRequest asks for a resource on behalf of the
+ * caller's team. requested defaults to a switched-on boolean gate. form
+ * (namespace/name or id) with data submits that form first and attaches
+ * the submission; the form's own policy and validation errors apply.
+ */
+export interface CreateEntitlementRequestRequest {
+  resource: EntitlementResource;
+  requested?: any;
+  form?: string;
+  data?: any;
+}
+/**
+ * DecideEntitlementRequestRequest is an admin's accept or decline; the note
+ * reaches the requester by email.
+ */
+export interface DecideEntitlementRequestRequest {
+  note?: string;
 }
 /**
  * ErrorCode is the machine-readable error code of an API error: the last
@@ -2430,6 +2476,10 @@ export type ErrorCode =
   | "entitlement_unavailable"
   | "payment_required"
   | "payment_method_required"
+  | "form_closed"
+  | "already_submitted"
+  | "already_entitled"
+  | "request_open"
   | "agents_disabled"
   | "remote_offline"
   | "remote_timeout"
@@ -2494,6 +2544,18 @@ export const ErrorCodePaymentRequired: ErrorCode = "payment_required";
  * PaymentMethodRequiredMeta; clients send the user to BillingPage.
  */
 export const ErrorCodePaymentMethodRequired: ErrorCode = "payment_method_required";
+/**
+ * Form submissions (409): the form is not open, or its submit policy
+ * already holds the caller's submission.
+ */
+export const ErrorCodeFormClosed: ErrorCode = "form_closed";
+export const ErrorCodeAlreadySubmitted: ErrorCode = "already_submitted";
+/**
+ * Entitlement requests (409): the team already holds the entitlement, or
+ * already has an open request for it.
+ */
+export const ErrorCodeAlreadyEntitled: ErrorCode = "already_entitled";
+export const ErrorCodeRequestOpen: ErrorCode = "request_open";
 /**
  * Remote harness refusals.
  */
@@ -2839,6 +2901,113 @@ export interface RemoveOutputMappingPayload {
 export interface RenameOutputFieldPayload {
   old_field: string;
   new_field: string;
+}
+/**
+ * FormDTO is the API representation of a form: a JSON Schema plus the
+ * settings that say who may submit, and how often.
+ */
+export interface FormDTO extends BaseModelDTO, PermissionModelDTO {
+  namespace: string;
+  name: string;
+  title: string;
+  description: string;
+  schema: any;
+  status: FormStatus;
+  submit_policy: FormSubmitPolicy;
+  bounty_name?: string;
+}
+/**
+ * FormSubmissionDTO is one set of answers to a form.
+ */
+export interface FormSubmissionDTO extends BaseModelDTO, PermissionModelDTO {
+  form_id: string;
+  form_team_id: string;
+  submitter_team_id?: string;
+  data: any;
+  source?: string;
+  agent?: string;
+  context?: string;
+  /**
+   * RewardAmount is the credit reward in microcents (0 when none was earned).
+   */
+  reward_amount?: number /* int64 */;
+  reward_blocked_reason?: string;
+}
+/**
+ * CreateFormRequest creates a form in the caller's team namespace. The name
+ * is the immutable slug behind GET /forms/{namespace}/{name}.
+ */
+export interface CreateFormRequest {
+  name: string;
+  title: string;
+  description?: string;
+  schema?: any;
+  submit_policy?: FormSubmitPolicy;
+  visibility?: Visibility;
+}
+/**
+ * UpdateFormRequest patches a form; nil fields are left as they are.
+ * bounty_name is settable by platform admins only.
+ */
+export interface UpdateFormRequest {
+  title?: string;
+  description?: string;
+  schema?: any;
+  status?: FormStatus;
+  submit_policy?: FormSubmitPolicy;
+  bounty_name?: string;
+}
+/**
+ * SubmitFormRequest is one person's answers to a form. data is validated
+ * against the form's schema.
+ */
+export interface SubmitFormRequest {
+  data: any;
+  source?: string; // "cli", "web" or "api"
+  agent?: string; // agent runtime name (e.g. "claude-code")
+  context?: string; // command/app that was running
+}
+/**
+ * SubmitFormResponse is returned when a submission was recorded.
+ * GrantedAmount is the credit reward in microcents (0 if no reward was
+ * earned). RewardBlockedReason is set when the submission was recorded but
+ * the reward was withheld (see the RewardBlocked* constants).
+ */
+export interface SubmitFormResponse {
+  submission: FormSubmissionDTO;
+  granted_amount?: number /* int64 */;
+  reward_blocked_reason?: string;
+}
+/**
+ * SurveyResponseDTO is the API representation of a survey response.
+ */
+export interface SurveyResponseDTO extends BaseModelDTO, PermissionModelDTO {
+  question_id: string;
+  response: string;
+  agent?: string;
+  source?: string;
+  context?: string;
+}
+/**
+ * SubmitSurveyResponse is returned when submitting a survey answer.
+ * GrantedAmount is the credit reward in microcents (0 if no reward was earned).
+ * RewardBlockedReason is set when the answer was recorded but the reward was
+ * withheld by policy (see RewardBlockedPaymentMethodRequired).
+ */
+export interface SubmitSurveyResponse {
+  response: SurveyResponseDTO;
+  granted_amount?: number /* int64 */;
+  reward_blocked_reason?: string;
+}
+/**
+ * SubmitSurveyRequest is used to submit a single survey answer.
+ */
+export interface SubmitSurveyRequest {
+  question_id: string;
+  response: string;
+  agent?: string;
+  source?: string;
+  context?: string;
 }
 /**
  * GraphNodeDTO is the API representation of a graph node
@@ -3947,37 +4116,6 @@ export interface SubscriptionDTO extends BaseModelDTO {
   credits_per_period: number /* int64 */;
 }
 /**
- * SurveyResponseDTO is the API representation of a survey response.
- */
-export interface SurveyResponseDTO extends BaseModelDTO, PermissionModelDTO {
-  question_id: string;
-  response: string;
-  agent?: string;
-  source?: string;
-  context?: string;
-}
-/**
- * SubmitSurveyResponse is returned when submitting a survey answer.
- * GrantedAmount is the credit reward in microcents (0 if no reward was earned).
- * RewardBlockedReason is set when the answer was recorded but the reward was
- * withheld by policy (see RewardBlockedPaymentMethodRequired).
- */
-export interface SubmitSurveyResponse {
-  response: SurveyResponseDTO;
-  granted_amount?: number /* int64 */;
-  reward_blocked_reason?: string;
-}
-/**
- * SubmitSurveyRequest is used to submit a single survey answer.
- */
-export interface SubmitSurveyRequest {
-  question_id: string;
-  response: string;
-  agent?: string;
-  source?: string;
-  context?: string;
-}
-/**
  * Hardware/System related types
  */
 export interface SystemInfo {
@@ -4439,6 +4577,10 @@ export interface UserRelationDTO {
   created_at: string /* RFC3339 */;
   updated_at: string /* RFC3339 */;
   role: Role;
+  /**
+   * Name is omitted when empty so older generated copies of this DTO stay assignable.
+   */
+  name?: string;
   avatar_url: string;
 }
 /**
@@ -4829,6 +4971,16 @@ export const EntitlementScopeMember: EntitlementScope = "member";
 export type EnforcementMode = "block" | "warn";
 export const EnforcementBlock: EnforcementMode = "block";
 export const EnforcementWarn: EnforcementMode = "warn";
+/**
+ * EntitlementRequestState is where a team's request for an entitlement
+ * stands. A team holds at most one open request per resource; an admin
+ * accepts (which grants) or declines it, or the team withdraws it.
+ */
+export type EntitlementRequestState = "open" | "accepted" | "declined" | "withdrawn";
+export const EntitlementRequestOpen: EntitlementRequestState = "open";
+export const EntitlementRequestAccepted: EntitlementRequestState = "accepted";
+export const EntitlementRequestDeclined: EntitlementRequestState = "declined";
+export const EntitlementRequestWithdrawn: EntitlementRequestState = "withdrawn";
 export type ChatStatus = "busy" | "idle" | "awaiting_input" | "completed";
 export const ChatStatusBusy: ChatStatus = "busy";
 export const ChatStatusIdle: ChatStatus = "idle";
@@ -5086,6 +5238,31 @@ export interface OutputFieldMapping {
  * OutputMappings is a map of output field name to OutputFieldMapping
  */
 export type OutputMappings = { [key: string]: OutputFieldMapping};
+/**
+ * FormStatus is a form's lifecycle. Only an open form takes submissions.
+ */
+export type FormStatus = "draft" | "open" | "closed";
+export const FormStatusDraft: FormStatus = "draft";
+export const FormStatusOpen: FormStatus = "open";
+export const FormStatusClosed: FormStatus = "closed";
+/**
+ * FormSubmitPolicy says how many submissions a form takes from one source.
+ */
+export type FormSubmitPolicy = "once_per_user" | "once_per_team" | "many";
+/**
+ * FormSubmitOncePerUser: one submission per person, whichever team they
+ * selected when they answered.
+ */
+export const FormSubmitOncePerUser: FormSubmitPolicy = "once_per_user";
+/**
+ * FormSubmitOncePerTeam: one submission per team; the submitter's
+ * selected team counts.
+ */
+export const FormSubmitOncePerTeam: FormSubmitPolicy = "once_per_team";
+/**
+ * FormSubmitMany: no limit.
+ */
+export const FormSubmitMany: FormSubmitPolicy = "many";
 /**
  * GateCondition defines a simple boolean condition for gate nodes.
  */
@@ -5633,6 +5810,7 @@ export type EntitlementResource =
   | "feature:byok"
   | "feature:seedance"
   | "feature:marketplace_publish"
+  | "feature:forms"
   | "feature:scopes"
   | "feature:webhooks"
   | "feature:team_billing"
@@ -5665,6 +5843,10 @@ export const ResourceFeatureSeedance: EntitlementResource = "feature:seedance";
  * Granted per team: the marketplace takes submissions by invitation.
  */
 export const ResourceFeatureMarketplacePublish: EntitlementResource = "feature:marketplace_publish";
+/**
+ * Granted per team: creating forms is by invitation for now.
+ */
+export const ResourceFeatureForms: EntitlementResource = "feature:forms";
 /**
  * Legacy feature gates — kept for DB compatibility, no longer gated
  */
@@ -5865,7 +6047,8 @@ export type NotificationType =
   | "maintenance"
   | "tos_update"
   | "service_notice"
-  | "team_invite";
+  | "team_invite"
+  | "entitlement_request";
 /**
  * Billing notifications
  */
@@ -5913,6 +6096,10 @@ export const NotificationTypeServiceNotice: NotificationType = "service_notice";
  * Team notifications
  */
 export const NotificationTypeTeamInvite: NotificationType = "team_invite";
+/**
+ * An admin decided the team's entitlement request
+ */
+export const NotificationTypeEntitlementRequest: NotificationType = "entitlement_request";
 /**
  * NotificationStatus represents the status of a notification
  */
