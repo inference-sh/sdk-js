@@ -1758,9 +1758,15 @@ export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
   max_per_day: number /* int */;
   proof_type: string;
   /**
+   * ProofForm is the form (namespace/name) a "form" program takes a
+   * submission to as proof; empty for every other proof type.
+   */
+  proof_form: string;
+  /**
    * RequiresPaymentMethod withholds the reward until the claimant's team has
-   * a saved payment method. The claim itself is refused with 402
-   * payment_method_required (survey answers are still recorded).
+   * a saved payment method. The claim is refused with 402
+   * payment_method_required and no claim is recorded, so it can be retried
+   * once a card is on file.
    */
   requires_payment_method: boolean;
   status: string;
@@ -1782,7 +1788,10 @@ export interface BountySubmissionDTO extends BaseModelDTO, PermissionModelDTO {
   source?: string;
 }
 /**
- * SubmitBountyRequest is used to claim a bounty reward.
+ * SubmitBountyRequest is used to claim a bounty reward. proof_id names the
+ * proof the program's proof_type asks for: an app (id or namespace/name) for
+ * "app", one of the caller's form submission ids for "form", free text
+ * otherwise.
  */
 export interface SubmitBountyRequest {
   bounty_id: string;
@@ -2477,6 +2486,7 @@ export type ErrorCode =
   | "payment_method_required"
   | "form_closed"
   | "already_submitted"
+  | "already_claimed"
   | "already_entitled"
   | "request_open"
   | "agents_disabled"
@@ -2549,6 +2559,11 @@ export const ErrorCodePaymentMethodRequired: ErrorCode = "payment_method_require
  */
 export const ErrorCodeFormClosed: ErrorCode = "form_closed";
 export const ErrorCodeAlreadySubmitted: ErrorCode = "already_submitted";
+/**
+ * Bounty claims (409): the caller already claimed this proof, or as many
+ * times as the program allows.
+ */
+export const ErrorCodeAlreadyClaimed: ErrorCode = "already_claimed";
 /**
  * Entitlement requests (409): the team already holds the entitlement, or
  * already has an open request for it.
@@ -2913,7 +2928,6 @@ export interface FormDTO extends BaseModelDTO, PermissionModelDTO {
   schema: any;
   status: FormStatus;
   submit_policy: FormSubmitPolicy;
-  bounty_name?: string;
 }
 /**
  * FormSubmissionDTO is one set of answers to a form.
@@ -2926,11 +2940,6 @@ export interface FormSubmissionDTO extends BaseModelDTO, PermissionModelDTO {
   source?: string;
   agent?: string;
   context?: string;
-  /**
-   * RewardAmount is the credit reward in microcents (0 when none was earned).
-   */
-  reward_amount?: number /* int64 */;
-  reward_blocked_reason?: string;
 }
 /**
  * CreateFormRequest creates a form in the caller's team namespace. The name
@@ -2946,7 +2955,6 @@ export interface CreateFormRequest {
 }
 /**
  * UpdateFormRequest patches a form; nil fields are left as they are.
- * bounty_name is settable by platform admins only.
  */
 export interface UpdateFormRequest {
   title?: string;
@@ -2954,7 +2962,6 @@ export interface UpdateFormRequest {
   schema?: any;
   status?: FormStatus;
   submit_policy?: FormSubmitPolicy;
-  bounty_name?: string;
 }
 /**
  * SubmitFormRequest is one person's answers to a form. data is validated
@@ -2968,14 +2975,9 @@ export interface SubmitFormRequest {
 }
 /**
  * SubmitFormResponse is returned when a submission was recorded.
- * GrantedAmount is the credit reward in microcents (0 if no reward was
- * earned). RewardBlockedReason is set when the submission was recorded but
- * the reward was withheld (see the RewardBlocked* constants).
  */
 export interface SubmitFormResponse {
   submission: FormSubmissionDTO;
-  granted_amount?: number /* int64 */;
-  reward_blocked_reason?: string;
 }
 /**
  * SurveyResponseDTO is the API representation of a survey response.
@@ -2989,9 +2991,9 @@ export interface SurveyResponseDTO extends BaseModelDTO, PermissionModelDTO {
 }
 /**
  * SubmitSurveyResponse is returned when submitting a survey answer.
- * GrantedAmount is the credit reward in microcents (0 if no reward was earned).
- * RewardBlockedReason is set when the answer was recorded but the reward was
- * withheld by policy (see RewardBlockedPaymentMethodRequired).
+ * GrantedAmount and RewardBlockedReason are kept for the CLIs that read
+ * them; the alias records answers only, so they are always 0 and empty.
+ * Bounties are claimed through POST /me/bounty.
  */
 export interface SubmitSurveyResponse {
   response: SurveyResponseDTO;
