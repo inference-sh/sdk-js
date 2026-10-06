@@ -1757,7 +1757,6 @@ export interface BountyProgramDTO extends BaseModelDTO, PermissionModelDTO {
   max_per_user: number /* int */;
   max_per_day: number /* int */;
   proof_type: string;
-  proof_min_length: number /* int */;
   /**
    * RequiresPaymentMethod withholds the reward until the claimant's team has
    * a saved payment method. The claim itself is refused with 402
@@ -4769,11 +4768,16 @@ export interface A2UIComponent {
   artifactUrl?: string;
   artifactFavicon?: string;
   /**
-   * Extension: McpApp. The page is stored on the component so the chat
-   * renders it from the message alone; the server, credential and tool name
-   * let the host route the page's tools/call requests.
+   * Extension: McpApp. A remote server's page is named by McpPageHash and
+   * read from GET /mcp-ui-pages/{hash}, so a chat that runs a tool many
+   * times holds one copy of its page, not one per message. McpHtml carries
+   * the page inline instead: an artifact's page, a component written
+   * before pages were stored by hash, or a page that could not be stored.
+   * The server, credential and tool name let the host route the page's
+   * tools/call requests.
    */
   mcpHtml?: string;
+  mcpPageHash?: string;
   mcpCsp?: MCPUICSP;
   mcpResourceUri?: string;
   mcpServerSlug?: string;
