@@ -14,6 +14,8 @@ import {
   TaskStatusCancelled,
   CursorListRequest,
   CursorListResponse,
+  TaskFileDTO,
+  DeleteTaskFilesResponse,
 } from '../types';
 import { parseStatus } from '../utils';
 
@@ -96,10 +98,28 @@ export class TasksAPI {
   }
 
   /**
-   * Delete a task
+   * Delete a task. With `files: true` its input and output files are
+   * deleted too, even when something else still uses them.
    */
-  async delete(taskId: string): Promise<Response<void>> {
-    return this.http.request<void>('delete', `/tasks/${taskId}`);
+  async delete(taskId: string, options?: { files?: boolean }): Promise<Response<void>> {
+    return this.http.request<void>('delete', `/tasks/${taskId}`, {
+      params: options?.files ? { files: true } : undefined,
+    });
+  }
+
+  /**
+   * List the files a task consumed and produced. `role` narrows it to one side.
+   */
+  async files(taskId: string, role?: 'input' | 'output'): Promise<Response<TaskFileDTO[]>> {
+    return this.http.request<TaskFileDTO[]>('get', `/tasks/${taskId}/files`, { params: { role } });
+  }
+
+  /**
+   * Delete a task's files and keep the task. The task must be finished.
+   * A file is deleted even when something else still uses it.
+   */
+  async deleteFiles(taskId: string, role?: 'input' | 'output'): Promise<Response<DeleteTaskFilesResponse>> {
+    return this.http.request<DeleteTaskFilesResponse>('delete', `/tasks/${taskId}/files`, { params: { role } });
   }
 
   /**

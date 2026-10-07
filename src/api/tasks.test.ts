@@ -493,6 +493,38 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('DELETE');
   });
 
+  it('should pass files=true only when asked', async () => {
+    mockJsonResponse(null);
+    await api().delete('task-1');
+    expect((mockFetch.mock.calls[0] as [string, RequestInit])[0]).not.toContain('files');
+
+    mockJsonResponse(null);
+    await api().delete('task-1', { files: true });
+    const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1?files=true');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should GET /tasks/{id}/files for files()', async () => {
+    mockJsonResponse([]);
+
+    await api().files('task-1', 'output');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files?role=output');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should DELETE /tasks/{id}/files for deleteFiles()', async () => {
+    mockJsonResponse({ deleted: [], skipped: [] });
+
+    await api().deleteFiles('task-1');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/tasks\/task-1\/files$/);
+    expect(init.method).toBe('DELETE');
+  });
+
   it('should POST /tasks/{id}/cancel for cancel()', async () => {
     mockJsonResponse(null);
 
