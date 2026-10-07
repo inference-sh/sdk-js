@@ -440,38 +440,6 @@ export interface FileCreateRequest {
   files: PartialFile[];
 }
 /**
- * TaskFileRole says how a task relates to a file.
- */
-export type TaskFileRole = string;
-export const TaskFileRoleInput: TaskFileRole = "input"; // the task consumed this file
-export const TaskFileRoleOutput: TaskFileRole = "output"; // the task produced this file
-/**
- * TaskFileDTO is one file attached to a task, as GET /tasks/{id}/files lists it.
- */
-export interface TaskFileDTO {
-  id: string;
-  created_at: string /* RFC3339 */;
-  role: TaskFileRole;
-  uri: string;
-  filename: string;
-  content_type: string;
-  size: number /* int64 */;
-}
-/**
- * TaskFileSkipped is a file DELETE /tasks/{id}/files left in place.
- */
-export interface TaskFileSkipped {
-  id: string;
-  reason: string;
-}
-/**
- * DeleteTaskFilesResponse reports what DELETE /tasks/{id}/files did.
- */
-export interface DeleteTaskFilesResponse {
-  deleted: string[];
-  skipped: TaskFileSkipped[];
-}
-/**
  * AppVersionInput is the API input shape for app version config (no gorm tags).
  */
 export interface AppVersionInput {
@@ -2656,6 +2624,38 @@ export interface FileDTO extends BaseModelDTO, PermissionModelDTO {
   category: string;
   rating: ContentRating;
   metadata?: FileMetadata;
+}
+/**
+ * TaskFileRole says how a task relates to a file.
+ */
+export type TaskFileRole = "input" | "output";
+export const TaskFileRoleInput: TaskFileRole = "input";
+export const TaskFileRoleOutput: TaskFileRole = "output";
+/**
+ * TaskFileDTO is one file attached to a task, as GET /tasks/{id}/files lists it.
+ */
+export interface TaskFileDTO {
+  id: string;
+  created_at: string /* RFC3339 */;
+  role: TaskFileRole;
+  uri: string;
+  filename: string;
+  content_type: string;
+  size: number /* int64 */;
+}
+/**
+ * TaskFileSkipped is a file DELETE /tasks/{id}/files left in place.
+ */
+export interface TaskFileSkipped {
+  id: string;
+  reason: string;
+}
+/**
+ * DeleteTaskFilesResponse reports what DELETE /tasks/{id}/files did.
+ */
+export interface DeleteTaskFilesResponse {
+  deleted: string[];
+  skipped: TaskFileSkipped[];
 }
 /**
  * FlowNodeData describes a node's data within a flow
