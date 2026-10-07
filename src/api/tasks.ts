@@ -15,6 +15,7 @@ import {
   CursorListRequest,
   CursorListResponse,
   TaskFileDTO,
+  TaskFileRole,
   DeleteTaskFilesResponse,
 } from '../types';
 import { parseStatus } from '../utils';
@@ -110,7 +111,7 @@ export class TasksAPI {
   /**
    * List the files a task consumed and produced. `role` narrows it to one side.
    */
-  async files(taskId: string, role?: 'input' | 'output'): Promise<Response<TaskFileDTO[]>> {
+  async files(taskId: string, role?: TaskFileRole): Promise<Response<TaskFileDTO[]>> {
     return this.http.request<TaskFileDTO[]>('get', `/tasks/${taskId}/files`, { params: { role } });
   }
 
@@ -118,7 +119,7 @@ export class TasksAPI {
    * Delete a task's files and keep the task. The task must be finished.
    * A file is deleted even when something else still uses it.
    */
-  async deleteFiles(taskId: string, role?: 'input' | 'output'): Promise<Response<DeleteTaskFilesResponse>> {
+  async deleteFiles(taskId: string, role?: TaskFileRole): Promise<Response<DeleteTaskFilesResponse>> {
     return this.http.request<DeleteTaskFilesResponse>('delete', `/tasks/${taskId}/files`, { params: { role } });
   }
 
