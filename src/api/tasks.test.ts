@@ -505,11 +505,34 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('DELETE');
   });
 
-  it('should GET /tasks/{id}/files for files()', async () => {
+  it('should GET /tasks/{id}/files without role when files() omits it', async () => {
     mockJsonResponse([]);
 
-    await api().files('task-1', 'output');
+    await api().files('task-1');
 
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files');
+    expect(url).not.toContain('role=');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /tasks/{id}/files for files() with role filter', async () => {
+    const rows = [
+      {
+        id: 'file-out',
+        created_at: '2026-10-07T12:00:00Z',
+        role: 'output',
+        uri: 'inf://files/file-out',
+        filename: 'out.png',
+        content_type: 'image/png',
+        size: 100,
+      },
+    ];
+    mockJsonResponse(rows);
+
+    const result = await api().files('task-1', 'output');
+
+    expect(result.data).toEqual(rows);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1/files?role=output');
     expect(init.method).toBe('GET');
@@ -522,6 +545,22 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toMatch(/\/tasks\/task-1\/files$/);
+    expect(url).not.toContain('role=');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should pass role to DELETE /tasks/{id}/files when deleteFiles() scopes the side', async () => {
+    const body = {
+      deleted: ['file-in'],
+      skipped: [{ id: 'file-out', reason: 'not requested role' }],
+    };
+    mockJsonResponse(body);
+
+    const result = await api().deleteFiles('task-1', 'input');
+
+    expect(result.data).toEqual(body);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files?role=input');
     expect(init.method).toBe('DELETE');
   });
 
