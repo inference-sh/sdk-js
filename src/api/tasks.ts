@@ -46,19 +46,12 @@ export interface TaskWatch {
   stop(): void;
 }
 
-//TODO: This is ugly...
+//TODO: ideally this would narrow the returned object to only the fields
+// callers need (id, status, input, output, logs, session_id, timestamps),
+// but Task has many required fields so we can't omit them without casting.
+// For now this is just a shallow clone that keeps the full shape.
 function stripTask(task: Task): Task {
-  return {
-    ...task,
-    id: task.id,
-    created_at: task.created_at,
-    updated_at: task.updated_at,
-    input: task.input,
-    output: task.output,
-    logs: task.logs,
-    status: task.status,
-    session_id: task.session_id,
-  };
+  return { ...task };
 }
 
 /**
