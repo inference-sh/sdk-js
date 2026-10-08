@@ -4152,6 +4152,23 @@ export interface StatBuckets {
   this_week: number /* int64 */;
   all_time: number /* int64 */;
 }
+export interface StoreCategoryDTO {
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  rank: number /* int */;
+  count: number /* int64 */; // live listings
+}
+/**
+ * StoreTagDTO is one app tag the store lists: a tag at least
+ * shared.MinAppsPerListedTag public apps carry.
+ */
+export interface StoreTagDTO {
+  slug: string;
+  title: string;
+  count: number /* int64 */; // public apps carrying it
+}
 /**
  * SubscriptionDTO for API responses
  */
