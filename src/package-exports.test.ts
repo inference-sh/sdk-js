@@ -70,6 +70,12 @@ describe('package export surface', () => {
       expect(main.FilesAPI).toBe(FilesAPI);
     });
 
+    it('exports HttpClient.fetch for StreamRequest wiring (v0.21 http)', () => {
+      expect(main.HttpClient).toBeDefined();
+      expect(main.createHttpClient).toEqual(expect.any(Function));
+      expect(new main.HttpClient({ apiKey: 'k' }).fetch).toEqual(expect.any(Function));
+    });
+
     it('does not export integration-named aliases removed in v0.8.0', () => {
       expect(main).not.toHaveProperty('IntegrationsAPI');
       expect(main).not.toHaveProperty('IntegrationDTO');

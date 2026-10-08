@@ -618,6 +618,17 @@ describe('HttpClient', () => {
       });
     });
 
+    it('should resolve when onError returns an ok response without calling retry', async () => {
+      mockRawResponse(401, JSON.stringify({ detail: 'session expired' }));
+      const substituted = new Response('stream-body', { status: 200 });
+      const onError = jest.fn(async () => substituted);
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).resolves.toBe(substituted);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should wait for an async getToken', async () => {
       mockRawResponse(200, '');
       await new HttpClient({ getToken: async () => 'tok' }).fetch('/tasks/task-1/stream');

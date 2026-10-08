@@ -1,4 +1,4 @@
-import { HttpClient } from '../http/client';
+import { HttpClient, type FailedRequest } from '../http/client';
 import {
   TaskStatusCancelled,
   TaskStatusCompleted,
@@ -178,6 +178,22 @@ function mockNdjsonStream(chunks: string[]) {
   };
 }
 
+/** NDJSON body as a real Response (needed when http.fetch onError retry returns fetch()). */
+function mockNdjsonFetchResponse(chunks: string[]) {
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(new TextEncoder().encode(chunk));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
 describe('TasksAPI.run (general)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -242,6 +258,89 @@ describe('TasksAPI.run (streaming mode)', () => {
       String(url).includes('/tasks/task-1/stream')
     );
     expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'omit' }));
+  });
+
+  it('should ask async getToken again when opening the task stream', async () => {
+    const tokens = ['run-token', 'stream-token'];
+    const getToken = jest.fn(async () => tokens.shift());
+    const tasksApi = new TasksAPI(new HttpClient({ getToken, stream: true }));
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/apps/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(makeTask())),
+        });
+      }
+      return Promise.resolve(
+        mockNdjsonStream([
+          `${JSON.stringify({ status: TaskStatusCompleted, id: 'task-1', output: {} })}\n`,
+        ])
+      );
+    });
+
+    await tasksApi.run({ app: 'test-app', input: {} }, {}, { wait: true });
+
+    expect(getToken).toHaveBeenCalledTimes(2);
+    const streamCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/tasks/task-1/stream')
+    );
+    expect((streamCall?.[1]?.headers as Record<string, string>).Authorization).toBe(
+      'Bearer stream-token'
+    );
+  });
+
+  it('should route a refused task stream through onError and retry with a fresh token', async () => {
+    let current = 'old-stream-token';
+    let streamAttempts = 0;
+    const onError = jest.fn(
+      async (_error: unknown, retry: () => Promise<unknown>, request: FailedRequest) => {
+        expect(request).toEqual({ token: 'old-stream-token' });
+        current = 'new-stream-token';
+        return retry();
+      }
+    );
+    const tasksApi = new TasksAPI(
+      new HttpClient({ getToken: () => current, stream: true, onError })
+    );
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/apps/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(makeTask())),
+        });
+      }
+      if (String(url).includes('/tasks/task-1/stream')) {
+        streamAttempts += 1;
+        if (streamAttempts === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ detail: 'session expired' }), { status: 401 })
+          );
+        }
+        return Promise.resolve(
+          mockNdjsonFetchResponse([
+            `${JSON.stringify({ status: TaskStatusCompleted, id: 'task-1', output: {} })}\n`,
+          ])
+        );
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+
+    await expect(
+      tasksApi.run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).resolves.toMatchObject({ status: TaskStatusCompleted });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    const streamCalls = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/tasks/task-1/stream')
+    );
+    expect(streamCalls).toHaveLength(2);
+    expect(
+      (streamCalls[1][1]?.headers as Record<string, string>).Authorization
+    ).toBe('Bearer new-stream-token');
   });
 
   it('should reject when NDJSON stream reports failure', async () => {

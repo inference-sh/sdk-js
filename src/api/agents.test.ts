@@ -1,4 +1,4 @@
-import { HttpClient } from '../http/client';
+import { HttpClient, type FailedRequest } from '../http/client';
 import { StreamableManager } from '../http/streamable';
 import { PollManager } from '../http/poll';
 import {
@@ -55,6 +55,21 @@ function mockNdjsonStream(chunks: string[]) {
     status: 200,
     body: { getReader: () => mockReader },
   };
+}
+
+function mockNdjsonFetchResponse(chunks: string[]) {
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(new TextEncoder().encode(chunk));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
 }
 
 describe('Agent.sendMessage (polling mode)', () => {
@@ -645,6 +660,62 @@ describe('Agent.sendMessage (streaming mode)', () => {
     const http = new HttpClient({ apiKey: 'test-key', stream: true });
     return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
   };
+
+  it('should route a refused chat stream through onError and retry with a fresh token', async () => {
+    const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+    const assistantMessage = makeMessage({ id: 'asst-1' });
+    let current = 'old-stream-token';
+    let streamAttempts = 0;
+    const onError = jest.fn(
+      async (_error: unknown, retry: () => Promise<unknown>, request: FailedRequest) => {
+        expect(request).toEqual({ token: 'old-stream-token' });
+        current = 'new-stream-token';
+        return retry();
+      }
+    );
+    const http = new HttpClient({ getToken: () => current, stream: true, onError });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/agents/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                user_message: userMessage,
+                assistant_message: assistantMessage,
+              })
+            ),
+        });
+      }
+      if (String(url).includes('/stream')) {
+        streamAttempts += 1;
+        if (streamAttempts === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ detail: 'session expired' }), { status: 401 })
+          );
+        }
+        return Promise.resolve(
+          mockNdjsonFetchResponse([
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+          ])
+        );
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+
+    await agentInstance.sendMessage('hello', { onChat: jest.fn() });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    const streamCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/stream'));
+    expect(streamCalls).toHaveLength(2);
+    expect(
+      (streamCalls[1][1]?.headers as Record<string, string>).Authorization
+    ).toBe('Bearer new-stream-token');
+  });
 
   it('should forward agent_runs output through onChat callbacks', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
