@@ -180,9 +180,18 @@ export class HttpClient {
   async request<T, P extends object = Record<string, unknown>>(
     method: 'get' | 'post' | 'put' | 'delete',
     endpoint: string,
-    options: {
+    {
+      handleErrors = true,
+      ...options
+    }: {
       params?: P;
       data?: unknown;
+      /**
+       * `false` when the caller handles this request's failure itself: the
+       * client's error handler (onError) is not consulted, so there is no
+       * prompt, no redirect and no retry, and the error is thrown as it is.
+       */
+      handleErrors?: boolean;
     } = {}
   ): Promise<Response<T>> {
     const send = (token: string | undefined) => this.executeRequest<T, P>(method, endpoint, options, token);
@@ -191,7 +200,7 @@ export class HttpClient {
     try {
       return await send(token);
     } catch (error) {
-      if (this.onError) {
+      if (this.onError && handleErrors) {
         return await this.onError(error, async () => send(await this.bearerToken()), { token }) as Response<T>;
       }
       throw error;

@@ -184,6 +184,49 @@ describe('HttpClient', () => {
       expect(getToken).not.toHaveBeenCalled();
     });
 
+    it('should call onError as ever when handleErrors is left out or true', async () => {
+      const onError = jest.fn(async (error: unknown, _retry: () => Promise<unknown>, _request: FailedRequest) => { throw error; });
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      mockJsonResponse({ detail: 'forbidden' }, 403, false);
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toBeInstanceOf(InferenceError);
+      mockJsonResponse({ detail: 'forbidden' }, 403, false);
+      await expect(httpClient.request('get', '/tasks/1', { handleErrors: true })).rejects.toBeInstanceOf(InferenceError);
+
+      expect(onError).toHaveBeenCalledTimes(2);
+      expect(onError.mock.calls[0][2]).toStrictEqual({ token: 'key' });
+      expect(onError.mock.calls[1][2]).toStrictEqual({ token: 'key' });
+    });
+
+    it('should not consult onError with handleErrors: false, and throw the refusal as it is', async () => {
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      mockJsonResponse({ detail: 'verify first' }, 403, false);
+      await expect(
+        httpClient.request('delete', '/tasks/1', { params: { force: true }, data: { why: 'x' }, handleErrors: false })
+      ).rejects.toMatchObject({ name: 'InferenceError', statusCode: 403, message: expect.stringContaining('verify first') });
+
+      expect(onError).not.toHaveBeenCalled();
+      // Sent once, and the option is the client's alone: it is not on the wire.
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api.inference.sh/tasks/1?force=true');
+      expect(init.body).toBe(JSON.stringify({ why: 'x' }));
+      expect(JSON.stringify(init.headers)).not.toContain('handleErrors');
+    });
+
+    it('should throw the very error of a request that got no response with handleErrors: false', async () => {
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const failure = new TypeError('Failed to fetch');
+      mockFetch.mockRejectedValueOnce(failure);
+
+      await expect(new HttpClient({ apiKey: 'key', onError }).request('get', '/tasks/1', { handleErrors: false })).rejects.toBe(failure);
+
+      expect(onError).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should wait for an async getToken, for the request and for its retry', async () => {
       const tokens = ['old-token', 'new-token'];
       const getToken = jest.fn(async () => tokens.shift());

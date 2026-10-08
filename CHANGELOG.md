@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `StreamRequest` and `StreamRequestInit`: a function that sends a stream's request. `StreamableManager` takes `{ request }` in place of `{ url, headers, credentials }`, and `streamable()` / `streamableRaw()` take one in place of the URL. With `(init) => http.fetch(endpoint, init)` the stream carries the token of the moment it connects and a refusal goes through `onError`. Type `StreamableSource`.
 - `onError` gets a third argument, `FailedRequest` (`{ token }`): the bearer token the failed request carried, so a handler that refreshes credentials can tell a request sent before the refresh from one sent after it.
 - `getToken` may be async (`() => string | null | undefined | Promise<string | null | undefined>`). `request()`, `fetch()` and the EventSource handshake wait for it.
+- `HttpClient.request()` takes `handleErrors` (default `true`). With `handleErrors: false` the caller handles the request's failure itself: `onError` is not called for it, nothing is retried, and the error is thrown as it is.
 
 ### Changed
 
