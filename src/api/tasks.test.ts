@@ -624,6 +624,21 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('DELETE');
   });
 
+  it('should pass role to DELETE /tasks/{id}/files when deleteFiles() scopes the side', async () => {
+    const body = {
+      deleted: ['file-in'],
+      skipped: [{ id: 'file-out', reason: 'not requested role' }],
+    };
+    mockJsonResponse(body);
+
+    const result = await api().deleteFiles('task-1', 'input');
+
+    expect(result.data).toEqual(body);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files?role=input');
+    expect(init.method).toBe('DELETE');
+  });
+
   it('should POST /tasks/{id}/cancel for cancel()', async () => {
     mockJsonResponse(null);
 
