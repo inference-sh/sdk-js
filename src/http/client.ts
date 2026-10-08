@@ -1,4 +1,4 @@
-import { RequirementError } from '../types';
+import { RequirementError, type ResponseMessage } from '../types';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import type { Response } from './response';
 import { EventSource, type FetchLike } from 'eventsource';
@@ -330,7 +330,7 @@ export class HttpClient {
     const response = await fetch(fetchUrl, fetchOptions);
     const responseText = await response.text();
 
-    let data: any = null;
+    let data: unknown = null;
     try {
       data = JSON.parse(responseText);
     } catch {
@@ -347,11 +347,12 @@ export class HttpClient {
 
     // Unwrap V3 envelope: {"data": <dto>, "messages": [...]}
     if (data && typeof data === 'object' && 'data' in data && !Array.isArray(data)) {
-      const messages = data.messages ?? [];
+      const envelope = data as { data: unknown; messages?: ResponseMessage[] };
+      const messages = Array.isArray(envelope.messages) ? envelope.messages : [];
       if (this.onMessage && messages.length) {
         this.onMessage(messages);
       }
-      return { data: data.data as T, messages };
+      return { data: envelope.data as T, messages };
     }
 
     return { data: data as T, messages: [] };
