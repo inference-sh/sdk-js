@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { AppCategoryDecision } from '../types';
 import { AppsAPI } from './apps';
 
 const mockFetch = jest.fn();
@@ -135,6 +136,38 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({
       name: 'veo-3-1',
       title: 'Veo 3.1',
+    });
+  });
+
+  it('should forward category and tags in create() body', async () => {
+    const app = { id: 'app-new', name: 'decision-bot' };
+    mockJsonResponse(app);
+
+    await api().create({
+      name: 'decision-bot',
+      category: AppCategoryDecision,
+      tags: ['social-media', 'messaging', 'deep-research'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'decision-bot',
+      category: 'decision',
+      tags: ['social-media', 'messaging', 'deep-research'],
+    });
+  });
+
+  it('should forward tags in update() body for deploy-time replacement', async () => {
+    const app = { id: 'app-1', tags: ['rendering', 'media-utilities'] };
+    mockJsonResponse(app);
+
+    await api().update('app-1', {
+      tags: ['rendering', 'media-utilities', 'evaluation'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      tags: ['rendering', 'media-utilities', 'evaluation'],
     });
   });
 
