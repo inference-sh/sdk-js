@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { AppCategoryDecision, AppTagClassification, AppTagRouting } from '../types';
 import { AppsAPI } from './apps';
 
 const mockFetch = jest.fn();
@@ -135,6 +136,45 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({
       name: 'veo-3-1',
       title: 'Veo 3.1',
+    });
+  });
+
+  it('should forward category and tags in create() body (da8cf99)', async () => {
+    const app = {
+      id: 'app-decision',
+      name: 'intent-router',
+      category: AppCategoryDecision,
+      tags: [AppTagClassification, AppTagRouting],
+    };
+    mockJsonResponse(app);
+
+    const result = await api().create({
+      name: 'intent-router',
+      category: AppCategoryDecision,
+      tags: [AppTagClassification, AppTagRouting, 'custom-slug'],
+    });
+
+    expect(result.data).toEqual(app);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'intent-router',
+      category: 'decision',
+      tags: ['classification', 'routing', 'custom-slug'],
+    });
+  });
+
+  it('should forward tags in update() body (da8cf99)', async () => {
+    const app = {
+      id: 'app-1',
+      tags: [AppTagClassification],
+    };
+    mockJsonResponse(app);
+
+    await api().update('app-1', { tags: [AppTagClassification] });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      tags: ['classification'],
     });
   });
 
