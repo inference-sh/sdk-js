@@ -4,6 +4,8 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusRunning,
+  type DecisionInput,
+  type DecisionOutput,
 } from '../types';
 import { TasksAPI } from './tasks';
 
@@ -412,6 +414,55 @@ describe('TasksAPI.run (HTTP contract)', () => {
     const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should POST DecisionInput and return DecisionOutput for decision apps (1b2e21a)', async () => {
+    const decisionInput: DecisionInput = {
+      state: { message: 'I need a refund' },
+      choices: [
+        {
+          id: 'intent',
+          instructions: 'Classify intent',
+          options: [{ name: 'billing' }, { name: 'other' }],
+        },
+      ],
+    };
+    const decisionOutput: DecisionOutput = {
+      choices: {
+        intent: {
+          choice: 'billing',
+          confidence: 0.95,
+          probabilities: { billing: 0.95, other: 0.05 },
+        },
+      },
+      scores: {},
+      nouls: {},
+      model: 'acme/router',
+      input_tokens: 0,
+    };
+
+    mockJsonResponse({ id: 'task-decision', status: TaskStatusRunning, output: null });
+    mockJsonResponse(
+      makeTask({
+        id: 'task-decision',
+        status: TaskStatusCompleted,
+        input: decisionInput,
+        output: decisionOutput,
+      })
+    );
+
+    const result = await api().run(
+      { app: 'acme/intent-router', input: {} },
+      decisionInput,
+      { wait: false }
+    );
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/intent-router',
+      input: decisionInput,
+    });
+    expect(result.output).toEqual(decisionOutput);
   });
 });
 
