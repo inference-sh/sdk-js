@@ -1,4 +1,10 @@
 import { HttpClient } from '../http/client';
+import {
+  AppCategoryDecision,
+  AppTagDeepResearch,
+  AppTagMessaging,
+  AppTagSocialMedia,
+} from '../types';
 import { AppsAPI } from './apps';
 
 const mockFetch = jest.fn();
@@ -124,6 +130,24 @@ describe('AppsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'New App' });
   });
 
+  it('should forward category and tags in create() body', async () => {
+    const app = { id: 'app-social', name: 'social-suite' };
+    mockJsonResponse(app);
+
+    await api().create({
+      name: 'social-suite',
+      category: AppCategoryDecision,
+      tags: [AppTagSocialMedia, AppTagMessaging, AppTagDeepResearch],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'social-suite',
+      category: 'decision',
+      tags: ['social-media', 'messaging', 'deep-research'],
+    });
+  });
+
   it('should forward title in create() body', async () => {
     const app = { id: 'app-new', name: 'veo-3-1', title: 'Veo 3.1' };
     mockJsonResponse(app);
@@ -148,6 +172,20 @@ describe('AppsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1');
     expect(JSON.parse(init.body as string)).toEqual({ description: 'updated' });
+  });
+
+  it('should forward tags in update() body for deploy-time replacement', async () => {
+    const app = { id: 'app-1', tags: ['rendering', 'media-utilities'] };
+    mockJsonResponse(app);
+
+    await api().update('app-1', {
+      tags: ['rendering', 'media-utilities', 'evaluation'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      tags: ['rendering', 'media-utilities', 'evaluation'],
+    });
   });
 
   it('should DELETE /apps/{id} for delete()', async () => {
