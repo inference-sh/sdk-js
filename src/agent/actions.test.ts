@@ -1371,10 +1371,84 @@ describe('createActions', () => {
 
     it('switchAgent should rethrow a refusal', async () => {
       mockAgentApi.setAgent.mockRejectedValueOnce(new Error('a chat can switch only to agents that run on inference'));
-      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
       const { publicActions } = createActions(ctx);
 
       await expect(publicActions.switchAgent('okaris/claude')).rejects.toThrow('switch only');
+
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'MERGE_CHAT_AGENT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+    });
+
+    it('updateChatSettings should not invoke setChat lifecycle hooks', async () => {
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: true });
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('switchAgent should not invoke setChat lifecycle hooks', async () => {
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const { ctx } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onStatusChange, onTurnEnd },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.switchAgent('okaris/editor');
+
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('updateChatSettings should not merge settings when the API fails', async () => {
+      mockAgentApi.updateChatSettings.mockRejectedValueOnce(new Error('settings failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.updateChatSettings({ allow_all_tools: true })).rejects.toThrow('settings failed');
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'settings failed' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'MERGE_CHAT_SETTINGS' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'settings failed' }));
+    });
+
+    it('switchAgent should not merge agent when the API fails', async () => {
+      mockAgentApi.setAgent.mockRejectedValueOnce(new Error('switch failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.switchAgent('okaris/editor')).rejects.toThrow('switch failed');
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'switch failed' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'MERGE_CHAT_AGENT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+      expect(dispatch).not.toHaveBeenCalledWith({
+        type: 'SET_CONNECTION_STATUS',
+        payload: 'error',
+      });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'switch failed' }));
     });
 
     it('alwaysAllowTool should send the chosen option', async () => {
@@ -1414,12 +1488,74 @@ describe('createActions', () => {
       expect(out.risk_level).toBe('low');
     });
 
+    it('explainTool should throw without a chatId', async () => {
+      const { ctx } = createTestContext({ getChatId: () => null });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.explainTool('inv-x')).rejects.toThrow('without a chat');
+      expect(mockAgentApi.explainTool).not.toHaveBeenCalled();
+    });
+
+    it('explainTool should not put the chat in the error state when the API fails', async () => {
+      mockAgentApi.explainTool.mockRejectedValueOnce(new Error('explain failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.explainTool('inv-x')).rejects.toThrow('explain failed');
+
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_ERROR' }));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('alwaysAllowTool with an empty choice object should request the api default', async () => {
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.alwaysAllowTool('inv-allow', {});
+
+      expect(mockAgentApi.alwaysAllowTool).toHaveBeenCalledWith(ctx.client, 'chat-short', 'inv-allow', undefined);
+    });
+
+    it('alwaysAllowTool should return the saved rules from the API', async () => {
+      const saved = {
+        rules: [{ id: 'r1', kind: 'RemoteExec', specifier: 'npm run:*', label: 'npm run commands' }],
+      };
+      mockAgentApi.alwaysAllowTool.mockResolvedValueOnce(saved as never);
+      const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      const out = await publicActions.alwaysAllowTool('inv-allow', { option: 'prefix:2' });
+
+      expect(out).toEqual(saved);
+    });
+
     it('getAlwaysAllowOptions should be null without a chat', async () => {
       const { ctx } = createTestContext({ getChatId: () => null });
       const { publicActions } = createActions(ctx);
 
       expect(await publicActions.getAlwaysAllowOptions('inv-allow')).toBeNull();
       expect(mockAgentApi.getAlwaysAllowOptions).not.toHaveBeenCalled();
+    });
+
+    it('getAlwaysAllowOptions should propagate API failures without putting the chat in the error state', async () => {
+      mockAgentApi.getAlwaysAllowOptions.mockRejectedValueOnce(new Error('options failed'));
+      const onError = jest.fn();
+      const { ctx, dispatch } = createTestContext({
+        getChatId: () => 'chat-short',
+        callbacks: { onError },
+      });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.getAlwaysAllowOptions('inv-allow')).rejects.toThrow('options failed');
+
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'options failed' });
+      expect(dispatch).not.toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(onError).not.toHaveBeenCalled();
     });
 
     it.each([409, 400])('alwaysAllowTool should leave the connection alone on a %i (the call still waits)', async (status) => {

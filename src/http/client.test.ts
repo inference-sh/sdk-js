@@ -227,6 +227,51 @@ describe('HttpClient', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
+    it('should throw RequirementsNotMetException for 412 without onError when handleErrors is false', async () => {
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 412,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              errors: [{ type: 'secret', key: 'API_KEY', message: 'Missing secret' }],
+            })
+          ),
+      });
+
+      await expect(
+        new HttpClient({ apiKey: 'key', onError }).request('post', '/apps/run', { handleErrors: false })
+      ).rejects.toBeInstanceOf(RequirementsNotMetException);
+
+      expect(onError).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should hand a 412 requirement refusal to onError when handleErrors is true', async () => {
+      const onError = jest.fn(async (error: unknown, _retry: () => Promise<unknown>, _request: FailedRequest) => {
+        throw error;
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 412,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              errors: [{ type: 'secret', key: 'API_KEY', message: 'Missing secret' }],
+            })
+          ),
+      });
+
+      await expect(new HttpClient({ apiKey: 'key', onError }).request('post', '/apps/run')).rejects.toBeInstanceOf(
+        RequirementsNotMetException
+      );
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0]).toBeInstanceOf(RequirementsNotMetException);
+      expect(onError.mock.calls[0][2]).toEqual({ token: 'key' });
+    });
+
     it('should wait for an async getToken, for the request and for its retry', async () => {
       const tokens = ['old-token', 'new-token'];
       const getToken = jest.fn(async () => tokens.shift());
@@ -659,6 +704,17 @@ describe('HttpClient', () => {
         name: 'InferenceError',
         statusCode: 403,
       });
+    });
+
+    it('should resolve when onError returns an ok response without calling retry', async () => {
+      mockRawResponse(401, JSON.stringify({ detail: 'session expired' }));
+      const substituted = new Response('stream-body', { status: 200 });
+      const onError = jest.fn(async () => substituted);
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).resolves.toBe(substituted);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should wait for an async getToken', async () => {

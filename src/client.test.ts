@@ -27,6 +27,8 @@ import {
   RefRouteTypeURL,
   ResourceFeatureSeedance,
   ToolAuthTypeNone,
+  TaskFileRoleInput,
+  TaskFileRoleOutput,
   UtilityPresetConstant,
   UtilityPresetGate,
   UtilityPresetMerge,
@@ -38,6 +40,21 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
+  BuiltinHookBeltSuggest,
+  BuiltinHookBeltExtract,
+  HookHandlerBuiltin,
+  lifecycleHook,
+  learningHooks,
+  AlwaysAllowScopeExact,
+  AlwaysAllowScopeFolder,
+  AlwaysAllowScopePrefix,
+  AlwaysAllowScopeRemote,
+  AlwaysAllowScopeTool,
+  ToolRiskHigh,
+  ToolRiskLow,
+  ToolRiskMedium,
+  DescriptionLimitListing,
+  DescriptionLimitSkill,
 } from './index';
 import { RequirementsNotMetException } from './http/errors';
 import { HttpClient } from './http/client';
@@ -99,6 +116,20 @@ describe('package type exports', () => {
     expect(ERROR_KEY).toBe('$error');
   });
 
+  it('exports AlwaysAllowScope constants for scoped always-allow options (INF-906)', () => {
+    expect(AlwaysAllowScopeExact).toBe('exact');
+    expect(AlwaysAllowScopePrefix).toBe('prefix');
+    expect(AlwaysAllowScopeFolder).toBe('folder');
+    expect(AlwaysAllowScopeRemote).toBe('remote');
+    expect(AlwaysAllowScopeTool).toBe('tool');
+  });
+
+  it('exports ToolRiskLevel constants for tool explanation payloads (INF-906)', () => {
+    expect(ToolRiskLow).toBe('low');
+    expect(ToolRiskMedium).toBe('medium');
+    expect(ToolRiskHigh).toBe('high');
+  });
+
   it('exports RefRouteMode constants for rewrite and redirect routing', () => {
     expect(RefRouteModeRewrite).toBe('rewrite');
     expect(RefRouteModeRedirect).toBe('redirect');
@@ -136,11 +167,31 @@ describe('package type exports', () => {
     expect(ToolAuthTypeNone).toBe('none');
   });
 
+  it('exports TaskFileRole constants for v0.20 task input/output attachments', () => {
+    expect(TaskFileRoleInput).toBe('input');
+    expect(TaskFileRoleOutput).toBe('output');
+  });
+
   it('exports ChannelType constants for channel routing metadata', () => {
     expect(ChannelTypeSlack).toBe('slack');
     expect(ChannelTypeDiscord).toBe('discord');
     expect(ChannelTypeTeams).toBe('teams');
     expect(ChannelTypeTelegram).toBe('telegram');
+  });
+
+  it('exports builtin hook constants and builders for belt learning hooks', () => {
+    expect(HookHandlerBuiltin).toBe('builtin');
+    expect(BuiltinHookBeltSuggest).toBe('belt:suggest');
+    expect(BuiltinHookBeltExtract).toBe('belt:extract');
+    expect(lifecycleHook).toEqual(expect.any(Function));
+    expect(learningHooks).toEqual(expect.any(Function));
+    expect(learningHooks({ suggest: true })[0]?.handler).toBe(BuiltinHookBeltSuggest);
+  });
+
+  it('exports DescriptionLimit constants aligned with API listing vs skill caps', () => {
+    expect(DescriptionLimitListing).toBe(200);
+    expect(DescriptionLimitSkill).toBe(1024);
+    expect(DescriptionLimitSkill).toBeGreaterThan(DescriptionLimitListing);
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
@@ -553,6 +604,9 @@ describe('namespaced APIs', () => {
       expect(typeof client.tasks.cancel).toBe('function');
       expect(typeof client.tasks.list).toBe('function');
       expect(typeof client.tasks.create).toBe('function');
+      expect(typeof client.tasks.delete).toBe('function');
+      expect(typeof client.tasks.files).toBe('function');
+      expect(typeof client.tasks.deleteFiles).toBe('function');
     });
 
     it('should create task via tasks.create()', async () => {
@@ -620,6 +674,68 @@ describe('namespaced APIs', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/tasks/task-123/cancel'),
         expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should list task files via tasks.files()', async () => {
+      const rows = [
+        {
+          id: 'file-out',
+          created_at: '2026-10-07T12:00:00Z',
+          role: 'output',
+          uri: 'inf://files/file-out',
+          filename: 'out.png',
+          content_type: 'image/png',
+          size: 128,
+        },
+      ];
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(rows)),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.tasks.files('task-123', 'output');
+
+      expect(result.data).toEqual(rows);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123/files?role=output'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should delete task files via tasks.deleteFiles()', async () => {
+      const body = { deleted: ['file-in'], skipped: [] };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(body)),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.tasks.deleteFiles('task-123', 'input');
+
+      expect(result.data).toEqual(body);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123/files?role=input'),
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+
+    it('should pass files=true when tasks.delete() drops attachments', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(''),
+      });
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      await client.tasks.delete('task-123', { files: true });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/tasks/task-123?files=true'),
+        expect.objectContaining({ method: 'DELETE' })
       );
     });
   });

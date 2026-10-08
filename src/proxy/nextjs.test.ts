@@ -1,4 +1,4 @@
-import { INF_TARGET_HEADER } from './index';
+import { INF_TARGET_HEADER, INF_TARGET_PARAM } from './index';
 import { handlers, pageHandler } from './nextjs';
 
 type MockPageResponse = {
@@ -97,6 +97,38 @@ describe('nextjs pageHandler', () => {
     expect(res.body).toEqual({ ok: true });
   });
 
+  it('should proxy when target is only in query param (array values use first entry)', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const target = 'https://api.inference.sh/v1/run';
+    const encoded = encodeURIComponent(target);
+    const req = {
+      method: 'POST',
+      body: { prompt: 'hi' },
+      headers: {},
+      query: { [INF_TARGET_PARAM]: [encoded, 'ignored'] },
+    };
+    const res = createMockPageResponse();
+
+    await pageHandler(req as never, res as never);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer nextjs-test-key',
+        }),
+      })
+    );
+  });
+
   it('should proxy non-JSON responses through res.send()', async () => {
     global.fetch = jest.fn().mockResolvedValue(
       new Response('plain text', {
@@ -140,6 +172,115 @@ describe('nextjs handlers (App Router)', () => {
     expect(await response.json()).toEqual({
       error: `Missing ${INF_TARGET_HEADER} header or __inf_target query param`,
     });
+  });
+
+  it('should proxy POST JSON and forward request body text to upstream', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const target = 'https://api.inference.sh/v1/run';
+    const response = await handlers.POST(
+      createMockNextRequest({
+        method: 'POST',
+        headers: { [INF_TARGET_HEADER]: target },
+        body: '{"prompt":"hi"}',
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        method: 'POST',
+        body: '{"prompt":"hi"}',
+        headers: expect.objectContaining({
+          authorization: 'Bearer nextjs-test-key',
+        }),
+      })
+    );
+  });
+
+  it('should accept __inf_target query param when header is missing (SSE clients)', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const target = 'https://api.inference.sh/v1/stream';
+    const encoded = encodeURIComponent(target);
+    const response = await handlers.GET(
+      createMockNextRequest({
+        method: 'GET',
+        url: `http://localhost/api/inference/proxy?${INF_TARGET_PARAM}=${encoded}`,
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        method: 'GET',
+        body: undefined,
+      })
+    );
+  });
+
+  it('should reject non-inference.sh targets before calling upstream', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+
+    const response = await handlers.POST(
+      createMockNextRequest({
+        headers: { [INF_TARGET_HEADER]: 'https://evil.example.com/run' },
+      }) as never
+    );
+
+    expect(response.status).toBe(412);
+    expect(await response.json()).toEqual({
+      error: 'Target must be an inference.sh domain, got: evil.example.com',
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should forward X-API-Version from NextRequest headers to upstream', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    ) as typeof fetch;
+
+    const target = 'https://api.inference.sh/agents/run';
+    const response = await handlers.POST(
+      createMockNextRequest({
+        method: 'POST',
+        headers: {
+          [INF_TARGET_HEADER]: target,
+          'X-API-Version': '2',
+          'X-Client-Source': 'inference-sdk-js/0.19.0',
+        },
+        body: '{}',
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-version': '2',
+          'x-client-source': 'inference-sdk-js/0.19.0',
+        }),
+      })
+    );
   });
 
   it('should passthrough streaming responses via Response body', async () => {
