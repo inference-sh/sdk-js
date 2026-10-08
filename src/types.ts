@@ -2490,6 +2490,7 @@ export type ErrorCode =
   | "account_banned"
   | "person_required"
   | "otp_required"
+  | "impersonation_reason_required"
   | "mcp_auth_expired"
   | "limit_exceeded"
   | "feature_not_available"
@@ -2549,6 +2550,12 @@ export const ErrorCodeAccountBanned: ErrorCode = "account_banned";
  */
 export const ErrorCodePersonRequired: ErrorCode = "person_required";
 export const ErrorCodeOTPRequired: ErrorCode = "otp_required";
+/**
+ * ErrorCodeImpersonationReasonRequired (403): a platform admin named a
+ * team they are not a member of without a live impersonation grant.
+ * Clients stop viewing as the team on it.
+ */
+export const ErrorCodeImpersonationReasonRequired: ErrorCode = "impersonation_reason_required";
 export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
 /**
  * Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
@@ -5174,6 +5181,136 @@ export interface ChatHookEvent {
 export interface ChannelContext {
   channel_type?: ChannelType;
   channel_metadata?: any;
+}
+/**
+ * DecisionChoiceOption is one answer option of a choice question.
+ */
+export interface DecisionChoiceOption {
+  /**
+   * Name is returned as the choice and keys the probabilities.
+   */
+  name: string;
+  /**
+   * Description says what the option covers.
+   */
+  description?: any;
+}
+/**
+ * DecisionChoiceQuestion asks which one of a fixed set of options holds.
+ */
+export interface DecisionChoiceQuestion {
+  /**
+   * ID is the caller's key for the question; its answer comes back under it.
+   */
+  id: string;
+  instructions: any;
+  options: DecisionChoiceOption[];
+}
+/**
+ * DecisionScoreQuestion asks where the state sits on ordered levels.
+ */
+export interface DecisionScoreQuestion {
+  id: string;
+  instructions: any;
+  /**
+   * Levels are described low end to high end; a level's number is its index.
+   */
+  levels: any[];
+}
+/**
+ * DecisionNoulCriteria pins down what yes and no mean for a noul question.
+ */
+export interface DecisionNoulCriteria {
+  true?: any;
+  false?: any;
+}
+/**
+ * DecisionNoulQuestion asks for the probability that something is true.
+ */
+export interface DecisionNoulQuestion {
+  id: string;
+  instructions: any;
+  criteria?: DecisionNoulCriteria;
+}
+/**
+ * DecisionInput is one state and the questions asked of it.
+ */
+export interface DecisionInput {
+  state: any;
+  choices?: DecisionChoiceQuestion[];
+  scores?: DecisionScoreQuestion[];
+  nouls?: DecisionNoulQuestion[];
+}
+/**
+ * DecisionVisionInput is the input of a decision model that also sees
+ * images: a DecisionInput plus the images the questions are about.
+ */
+export interface DecisionVisionInput extends DecisionInput {
+  /**
+   * Images are file URIs. Every question sees them.
+   */
+  images?: string[];
+}
+/**
+ * DecisionChoiceAnswer is the answer to a choice question.
+ */
+export interface DecisionChoiceAnswer {
+  /**
+   * Choice is the highest-probability option.
+   */
+  choice: string;
+  confidence: number /* float64 */;
+  /**
+   * Probabilities maps every option name to its probability.
+   */
+  probabilities: { [key: string]: number /* float64 */};
+}
+/**
+ * DecisionScoreAnswer is the answer to a score question.
+ */
+export interface DecisionScoreAnswer {
+  /**
+   * Score is the probability-weighted level, 0 to the top level number.
+   */
+  score: number /* float64 */;
+  /**
+   * Normalized is Score over the top level number: 0 to 1.
+   */
+  normalized: number /* float64 */;
+  confidence: number /* float64 */;
+  /**
+   * Probabilities maps each level number, as a string, to its probability.
+   */
+  probabilities: { [key: string]: number /* float64 */};
+  /**
+   * Legend maps each level number back to its description.
+   */
+  legend: { [key: string]: any};
+}
+/**
+ * DecisionNoulAnswer is the answer to a noul question.
+ */
+export interface DecisionNoulAnswer {
+  /**
+   * Noul is the probability that the answer is yes.
+   */
+  noul: number /* float64 */;
+}
+/**
+ * DecisionOutput is the answers, keyed by question id within each kind.
+ */
+export interface DecisionOutput {
+  choices: { [key: string]: DecisionChoiceAnswer};
+  scores: { [key: string]: DecisionScoreAnswer};
+  nouls: { [key: string]: DecisionNoulAnswer};
+  /**
+   * Model is the model that answered.
+   */
+  model: string;
+  /**
+   * InputTokens is what the model read; decision models write none.
+   */
+  input_tokens: number /* int */;
 }
 /**
  * DescriptionLimit is the most characters a resource's description may have.
