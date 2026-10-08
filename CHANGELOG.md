@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-08
+
+Breaking: `AgentClient.http` requires `fetch`, the `AppTag*` constants are removed, and `StreamableManagerOptions` is a type alias. See Changed and Removed.
+
 ### Added
 
 - `HttpClient.fetch(endpoint, init?)`: fetches an endpoint with the client's auth, headers and credentials mode and resolves with the raw `Response`, for bodies `request()` does not parse (streams, text). A refused response throws the error `request()` would (`InferenceError`, `RequirementsNotMetException`). Type `HttpFetchInit`.
@@ -14,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `onError` gets a third argument, `FailedRequest` (`{ token }`): the bearer token the failed request carried, so a handler that refreshes credentials can tell a request sent before the refresh from one sent after it.
 - `getToken` may be async (`() => string | null | undefined | Promise<string | null | undefined>`). `request()`, `fetch()` and the EventSource handshake wait for it.
 - `HttpClient.request()` takes `handleErrors` (default `true`). With `handleErrors: false` the caller handles the request's failure itself: `onError` is not called for it, nothing is retried, and the error is thrown as it is.
+
+- Types: `StoreCategoryDTO` and `StoreTagDTO` (`GET /store/categories`, `GET /store/tags`); the decision app contract (`DecisionInput`, `DecisionVisionInput`, `DecisionOutput` and its question and answer types); `ErrorCodeImpersonationReasonRequired`.
 
 ### Changed
 
@@ -23,9 +29,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The EventSource handshake and `fetch()` take what `onError` resolves with only when it is a `Response`; anything else leaves the refused response in place.
 - `StreamableManagerOptions` is a type alias (`StreamableSource & { ... }`), no longer an interface: it cannot be extended with `interface X extends StreamableManagerOptions<T>`; use an intersection.
 
+### Removed
+
+- The `AppTag*` constants (`AppTagTextToImage` and the rest). App tags come from the store: `GET /store/tags`, typed `StoreTagDTO`.
+
 ### Deprecated
 
 - `HttpClient.getStreamableConfig()`: a request made from the config bypasses `onError` and carries the token of the moment the config was read. Use `fetch()` or a `StreamRequest`. It throws when `getToken` is async.
+
+## [0.20.1] - 2026-10-08
+
+### Added
+
+- Types: app tags and the decision app category.
+
+## [0.20.0] - 2026-10-07
+
+### Added
+
+- `tasks.files(id)`, `tasks.deleteFiles(id)` and `tasks.delete(id, { files })`: list a task's files and delete them with or without the task.
+- Types: task files, MCP Apps (`_meta.ui`, `AppUIRef`, the MCP tool call UI fields), remote tags and policy rules, `AppDTO.resolved_function`, `DescriptionLimit`.
+
+### Changed
+
+- Types: forms lose the bounty and reward fields; a bounty's proof form drops `proof_min_length`.
+
+### Security
+
+- `next` ^16.3.6 (resolves 16.3.8) for GHSA-vcvr-r3jv-pc5j.
+
+## [0.19.0] - 2026-10-04
+
+### Changed
+
+- Types regenerated; the run parameters docs drop `params.variant`.
 
 ## [0.18.0] - 2026-10-04
 
