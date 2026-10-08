@@ -25,7 +25,7 @@ export interface PollManagerOptions<T> {
 }
 
 export class PollManager<T> {
-  private options: any;
+  private options: PollManagerOptions<T>;
   private interval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private consecutiveErrors = 0;
