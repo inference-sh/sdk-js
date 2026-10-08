@@ -1,4 +1,4 @@
-import { HttpClient, createHttpClient } from './client';
+import { HttpClient, createHttpClient, type FailedRequest } from './client';
 import { InferenceError, RequirementsNotMetException } from './errors';
 import { EventSource } from 'eventsource';
 
@@ -131,6 +131,72 @@ describe('HttpClient', () => {
       const result = await httpClient.request<{ ok: boolean }>('get', '/tasks/1');
       expect(result.data).toEqual({ ok: true });
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should tell onError which token the failed request carried', async () => {
+      let current = 'old-token';
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => {
+        current = 'new-token';
+        return retry();
+      });
+      const httpClient = new HttpClient({ getToken: () => current, onError });
+
+      mockJsonResponse({ detail: 'session expired' }, 401, false);
+      mockJsonResponse({ ok: true });
+
+      await httpClient.request('get', '/tasks/1');
+
+      expect(onError.mock.calls[0][2]).toEqual({ token: 'old-token' });
+      // The retry reads the token again instead of resending the refused one.
+      const [, retried] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect((retried.headers as Record<string, string>).Authorization).toBe('Bearer new-token');
+    });
+
+    it('should not send a retry that fails back through onError', async () => {
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      mockJsonResponse({ detail: 'session expired' }, 401, false);
+      mockJsonResponse({ detail: 'still expired' }, 401, false);
+
+      await expect(httpClient.request('get', '/tasks/1')).rejects.toMatchObject({
+        statusCode: 401,
+        message: expect.stringContaining('still expired'),
+      });
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][2]).toEqual({ token: 'key' });
+    });
+
+    it('should report no token to onError when the request carried none', async () => {
+      const onError = jest.fn(async (error: unknown, _retry: () => Promise<unknown>, _request: FailedRequest) => { throw error; });
+
+      mockJsonResponse({ detail: 'unauthorized' }, 401, false);
+      await expect(new HttpClient({ getToken: () => '', onError }).request('get', '/tasks/1')).rejects.toBeInstanceOf(InferenceError);
+      expect(onError.mock.calls[0][2]).toEqual({ token: undefined });
+
+      // A proxy adds the credential itself, so getToken is not asked.
+      const getToken = jest.fn(() => 'unused');
+      mockJsonResponse({ detail: 'unauthorized' }, 401, false);
+      await expect(
+        new HttpClient({ proxyUrl: 'https://app.example.com/proxy', getToken, onError }).request('get', '/tasks/1')
+      ).rejects.toBeInstanceOf(InferenceError);
+      expect(onError.mock.calls[1][2]).toEqual({ token: undefined });
+      expect(getToken).not.toHaveBeenCalled();
+    });
+
+    it('should wait for an async getToken, for the request and for its retry', async () => {
+      const tokens = ['old-token', 'new-token'];
+      const getToken = jest.fn(async () => tokens.shift());
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const httpClient = new HttpClient({ getToken, onError });
+
+      mockJsonResponse({ detail: 'session expired' }, 401, false);
+      mockJsonResponse({ ok: true });
+
+      await expect(httpClient.request('get', '/tasks/1')).resolves.toEqual({ data: { ok: true }, messages: [] });
+      expect(onError.mock.calls[0][2]).toEqual({ token: 'old-token' });
+      const sent = mockFetch.mock.calls.map(([, init]) => (init as { headers: Record<string, string> }).headers.Authorization);
+      expect(sent).toEqual(['Bearer old-token', 'Bearer new-token']);
     });
 
     it('should propagate when onError handler rethrows', async () => {
@@ -418,6 +484,194 @@ describe('HttpClient', () => {
     });
   });
 
+  describe('fetch', () => {
+    function mockRawResponse(status: number, body: string) {
+      const response = new Response(body, { status });
+      mockFetch.mockResolvedValueOnce(response);
+      return response;
+    }
+
+    it('should resolve with the raw response, sent with the client auth, headers and credentials', async () => {
+      const response = mockRawResponse(200, 'ignored');
+      const controller = new AbortController();
+      const httpClient = new HttpClient({
+        getToken: () => 'tok',
+        headers: { 'X-Team-ID': () => 'team-1' },
+        credentials: 'omit',
+      });
+
+      const result = await httpClient.fetch('/tasks/task-1/stream', {
+        method: 'POST',
+        headers: { Accept: 'application/x-ndjson' },
+        body: '{}',
+        signal: controller.signal,
+      });
+
+      expect(result).toBe(response);
+      expect(mockFetch).toHaveBeenCalledWith('https://api.inference.sh/tasks/task-1/stream', {
+        method: 'POST',
+        headers: expect.objectContaining({
+          Accept: 'application/x-ndjson',
+          Authorization: 'Bearer tok',
+          'X-Team-ID': 'team-1',
+        }),
+        body: '{}',
+        signal: controller.signal,
+        credentials: 'omit',
+      });
+    });
+
+    it('should route through the proxy with the target as header and query parameter', async () => {
+      mockRawResponse(200, '');
+      await new HttpClient({ proxyUrl: 'https://app.example.com/proxy' }).fetch('/tasks/task-1/stream');
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(new URL(url).searchParams.get('__inf_target')).toBe('https://api.inference.sh/tasks/task-1/stream');
+      const headers = init.headers as Record<string, string>;
+      expect(headers['x-inf-target-url']).toBe('https://api.inference.sh/tasks/task-1/stream');
+      expect(headers.Authorization).toBeUndefined();
+    });
+
+    it('should hand a refused response to onError with the token it carried and resolve with the retry', async () => {
+      let current = 'old-token';
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => {
+        current = 'new-token';
+        return retry();
+      });
+      const httpClient = new HttpClient({ getToken: () => current, onError });
+
+      mockRawResponse(401, JSON.stringify({ detail: 'session expired' }));
+      const retried = mockRawResponse(200, '');
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).resolves.toBe(retried);
+
+      const [error, , request] = onError.mock.calls[0] as unknown as [InferenceError, unknown, unknown];
+      expect(error).toBeInstanceOf(InferenceError);
+      expect(error.statusCode).toBe(401);
+      expect(error.message).toContain('session expired');
+      expect(request).toEqual({ token: 'old-token' });
+      const [, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect((init.headers as Record<string, string>).Authorization).toBe('Bearer new-token');
+    });
+
+    it('should throw when the retry is refused too, without asking onError again', async () => {
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      mockRawResponse(401, JSON.stringify({ detail: 'session expired' }));
+      mockRawResponse(401, JSON.stringify({ detail: 'still expired' }));
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 401,
+        message: expect.stringContaining('still expired'),
+      });
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw when onError settles the error without a retry', async () => {
+      const httpClient = new HttpClient({ apiKey: 'key', onError: async () => undefined });
+
+      mockRawResponse(403, 'forbidden');
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+        message: expect.stringContaining('forbidden'),
+        responseBody: 'forbidden',
+      });
+    });
+
+    it('should read a refused body once, into the error onError sees and fetch throws', async () => {
+      const onError = jest.fn(async (_error: unknown) => undefined);
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      const refused = mockRawResponse(403, JSON.stringify({ detail: 'forbidden' }));
+      const text = jest.spyOn(refused, 'text');
+      const clone = jest.spyOn(refused, 'clone');
+
+      const thrown = await httpClient.fetch('/tasks/task-1/stream').catch((error: unknown) => error);
+
+      expect(thrown).toBeInstanceOf(InferenceError);
+      expect(thrown).toBe(onError.mock.calls[0][0]);
+      expect(text).toHaveBeenCalledTimes(1);
+      expect(clone).not.toHaveBeenCalled();
+    });
+
+    it('should leave no unread body behind when onError throws', async () => {
+      const httpClient = new HttpClient({ apiKey: 'key', onError: async (error) => { throw error; } });
+
+      const refused = mockRawResponse(403, JSON.stringify({ detail: 'forbidden' }));
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toMatchObject({ statusCode: 403 });
+      expect(refused.bodyUsed).toBe(true);
+    });
+
+    it('should keep the refused response when onError resolves with something that is not a response', async () => {
+      const httpClient = new HttpClient({ apiKey: 'key', onError: async () => ({ ok: true, status: 200 }) });
+
+      mockRawResponse(403, 'forbidden');
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 403,
+      });
+    });
+
+    it('should wait for an async getToken', async () => {
+      mockRawResponse(200, '');
+      await new HttpClient({ getToken: async () => 'tok' }).fetch('/tasks/task-1/stream');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+    });
+
+    it('should hand a request that got no response to onError and resolve with the retry', async () => {
+      const failure = new TypeError('Failed to fetch');
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+
+      mockFetch.mockRejectedValueOnce(failure);
+      const retried = mockRawResponse(200, '');
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).resolves.toBe(retried);
+      expect(onError).toHaveBeenCalledWith(failure, expect.any(Function), { token: 'key' });
+    });
+
+    it('should throw the failure of a request that got no response when onError does not retry', async () => {
+      const failure = new TypeError('Failed to fetch');
+      const httpClient = new HttpClient({ apiKey: 'key', onError: async () => undefined });
+
+      mockFetch.mockRejectedValueOnce(failure);
+
+      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toBe(failure);
+    });
+
+    it('should not hand a request its caller aborted to onError', async () => {
+      const onError = jest.fn(async () => undefined);
+      const httpClient = new HttpClient({ apiKey: 'key', onError });
+      const controller = new AbortController();
+      controller.abort();
+      const aborted = new DOMException('The operation was aborted.', 'AbortError');
+
+      mockFetch.mockRejectedValueOnce(aborted);
+
+      await expect(httpClient.fetch('/tasks/task-1/stream', { signal: controller.signal })).rejects.toBe(aborted);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('should throw the error request() would when no onError is configured', async () => {
+      mockRawResponse(503, 'service unavailable');
+      await expect(new HttpClient({ apiKey: 'key' }).fetch('/x')).rejects.toMatchObject({
+        name: 'InferenceError',
+        statusCode: 503,
+      });
+
+      mockRawResponse(412, JSON.stringify({ errors: [{ type: 'secret', key: 'K', message: 'missing' }] }));
+      await expect(new HttpClient({ apiKey: 'key' }).fetch('/x')).rejects.toBeInstanceOf(RequirementsNotMetException);
+    });
+  });
+
   describe('getStreamableConfig', () => {
     it('should include bearer token in direct mode', () => {
       const config = new HttpClient({ apiKey: 'secret-key' }).getStreamableConfig(
@@ -478,6 +732,20 @@ describe('HttpClient', () => {
       }).getStreamableConfig('/tasks/task-1/stream');
 
       expect(config.credentials).toBe('same-origin');
+    });
+  });
+
+  describe('getStreamableConfig with an async getToken', () => {
+    it('should throw, naming fetch() as the way to send the request', () => {
+      const httpClient = new HttpClient({ getToken: async () => 'tok' });
+      expect(() => httpClient.getStreamableConfig('/tasks/task-1/stream')).toThrow(/async getToken.*fetch\(\)/);
+    });
+
+    it('should not ask getToken through a proxy', () => {
+      const getToken = jest.fn(async () => 'tok');
+      const config = new HttpClient({ proxyUrl: 'https://app.example.com/proxy', getToken }).getStreamableConfig('/x');
+      expect(config.headers.Authorization).toBeUndefined();
+      expect(getToken).not.toHaveBeenCalled();
     });
   });
 
@@ -620,13 +888,7 @@ describe('HttpClient', () => {
     });
 
     function mockFailedResponse(status: number, body: string) {
-      return {
-        ok: false,
-        status,
-        clone: () => ({
-          text: () => Promise.resolve(body),
-        }),
-      };
+      return new Response(body, { status });
     }
 
     it('should route failed initial SSE response through onError and return retried response', async () => {
@@ -638,12 +900,13 @@ describe('HttpClient', () => {
 
       const onError = jest.fn(async (_error, retry) => retry());
       const client = new HttpClient({ apiKey: 'sse-key', onError });
+      const retried = new Response(null, { status: 200 });
 
       mockFetch
         .mockResolvedValueOnce(
           mockFailedResponse(403, JSON.stringify({ detail: 'otp_required' }))
         )
-        .mockResolvedValueOnce({ ok: true, status: 200 });
+        .mockResolvedValueOnce(retried);
 
       await client.createEventSource('/tasks/task-1/stream');
       const response = await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {});
@@ -653,8 +916,52 @@ describe('HttpClient', () => {
       expect(error).toBeInstanceOf(InferenceError);
       expect((error as InferenceError).statusCode).toBe(403);
       expect((error as InferenceError).message).toContain('otp_required');
-      expect(response).toEqual({ ok: true, status: 200 });
+      expect(response).toBe(retried);
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should tell onError which token the failed SSE handshake carried, and retry with the current one', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+
+      let current = 'old-token';
+      const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => {
+        current = 'new-token';
+        return retry();
+      });
+      const client = new HttpClient({ getToken: () => current, onError });
+
+      mockFetch
+        .mockResolvedValueOnce(mockFailedResponse(401, JSON.stringify({ detail: 'session expired' })))
+        .mockResolvedValueOnce(mockFailedResponse(401, JSON.stringify({ detail: 'still expired' })));
+
+      await client.createEventSource('/tasks/task-1/stream');
+      const response = await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {});
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][2]).toEqual({ token: 'old-token' });
+      const [, retried] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect((retried.headers as Record<string, string>).Authorization).toBe('Bearer new-token');
+      // The refused retry goes to the EventSource; onError is not asked twice.
+      expect(response.status).toBe(401);
+    });
+
+    it('should wait for an async getToken on the SSE handshake', async () => {
+      let capturedFetch: ((input: string, init?: RequestInit) => Promise<Response>) | undefined;
+      MockEventSource.mockImplementation((_url, options) => {
+        capturedFetch = options?.fetch;
+        return { close: jest.fn(), onmessage: null, onerror: null };
+      });
+      mockFetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+      await new HttpClient({ getToken: async () => 'tok' }).createEventSource('/tasks/task-1/stream');
+      await capturedFetch!('https://api.inference.sh/tasks/task-1/stream', {});
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
     });
 
     it('should return original failed response when onError does not retry', async () => {

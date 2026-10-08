@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `HttpClient.fetch(endpoint, init?)`: fetches an endpoint with the client's auth, headers and credentials mode and resolves with the raw `Response`, for bodies `request()` does not parse (streams, text). A refused response throws the error `request()` would (`InferenceError`, `RequirementsNotMetException`). Type `HttpFetchInit`.
+- `StreamRequest` and `StreamRequestInit`: a function that sends a stream's request. `StreamableManager` takes `{ request }` in place of `{ url, headers, credentials }`, and `streamable()` / `streamableRaw()` take one in place of the URL. With `(init) => http.fetch(endpoint, init)` the stream carries the token of the moment it connects and a refusal goes through `onError`. Type `StreamableSource`.
+- `onError` gets a third argument, `FailedRequest` (`{ token }`): the bearer token the failed request carried, so a handler that refreshes credentials can tell a request sent before the refresh from one sent after it.
+- `getToken` may be async (`() => string | null | undefined | Promise<string | null | undefined>`). `request()`, `fetch()` and the EventSource handshake wait for it.
+
+### Changed
+
+- `AgentClient.http` requires `fetch` and no longer requires `getStreamableConfig`. A hand-built `AgentClient` must add `http.fetch`; `Inference` and `HttpClient` already have it.
+- The streams the SDK opens itself (`tasks.run()` and `tasks.watch()`, `Agent` chat streams, the agent chat in `@inferencesh/sdk/agent`) go through `HttpClient.fetch`. A stream the api refuses now reaches `onError` like a refused request, and fails with an `InferenceError` (`statusCode`, `responseBody`) where it failed with `Error('HTTP <status>: <body>')`.
+- A request that got no response (the network failed) goes to `onError` from `fetch()` and the EventSource handshake too, as it already did from `request()`. The failure is thrown unless the handler's retry resolves with a response. A request aborted through its signal is not handed to `onError`.
+- The EventSource handshake and `fetch()` take what `onError` resolves with only when it is a `Response`; anything else leaves the refused response in place.
+- `StreamableManagerOptions` is a type alias (`StreamableSource & { ... }`), no longer an interface: it cannot be extended with `interface X extends StreamableManagerOptions<T>`; use an intersection.
+
+### Deprecated
+
+- `HttpClient.getStreamableConfig()`: a request made from the config bypasses `onError` and carries the token of the moment the config was read. Use `fetch()` or a `StreamRequest`. It throws when `getToken` is async.
+
 ## [0.18.0] - 2026-10-04
 
 ### Added

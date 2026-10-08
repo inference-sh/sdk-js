@@ -172,7 +172,6 @@ export class TasksAPI {
     const { onUpdate, onPartialUpdate, onDelta } = options;
     // Accumulate state across partial updates to preserve fields like session_id
     let accumulatedTask = { ...task } as Task;
-    const { url, headers, credentials } = this.http.getStreamableConfig(`/tasks/${task.id}/stream`);
 
     let streamManager: StreamableManager<Task>;
     const done = new Promise<Task>((resolve, reject) => {
@@ -189,9 +188,7 @@ export class TasksAPI {
         }
       };
       streamManager = new StreamableManager<Task>({
-        url,
-        headers,
-        credentials,
+        request: (init) => this.http.fetch(`/tasks/${task.id}/stream`, init),
         onDelta,
         onData: (data) => {
           // Merge new data, preserving existing fields if not in update

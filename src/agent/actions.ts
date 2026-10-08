@@ -140,11 +140,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     }
 
     // Single unified stream with TypedEvents (both Chat and ChatMessage events)
-    const { url, headers, credentials } = api.getChatStreamConfig(client, id);
     const manager = new StreamableManager<unknown>({
-      url,
-      headers,
-      credentials,
+      request: api.chatStreamRequest(client, id),
       onError: (error) => {
         console.warn('[AgentSDK] Stream error:', error);
         callbacks.onError?.(error);

@@ -6,6 +6,21 @@
 
 import type { DeltaEvent } from '../types';
 
+/** What a stream asks of whatever sends its request. */
+export interface StreamRequestInit {
+  method: 'GET' | 'POST';
+  headers: Record<string, string>;
+  body?: string;
+  signal?: AbortSignal;
+}
+
+/**
+ * Sends a stream's request in place of a plain fetch of a URL. With
+ * `(init) => http.fetch(endpoint, init)` the request carries the client's
+ * auth and a refusal goes through its error handler.
+ */
+export type StreamRequest = (init: StreamRequestInit) => Promise<Response>;
+
 export interface StreamableOptions {
   /** Additional headers to include */
   headers?: Record<string, string>;
@@ -17,7 +32,7 @@ export interface StreamableOptions {
   signal?: AbortSignal;
   /** Skip heartbeat messages (default: true) */
   skipHeartbeats?: boolean;
-  /** Request credentials mode (for cookie-based auth) */
+  /** Request credentials mode (for cookie-based auth); a StreamRequest brings its own */
   credentials?: RequestCredentials;
 }
 
@@ -32,23 +47,11 @@ export interface StreamableMessage<T = unknown> {
   type?: string;
 }
 
-/**
- * Stream NDJSON from an HTTP endpoint using fetch + ReadableStream.
- * Yields parsed JSON objects, automatically filtering heartbeats.
- */
-export async function* streamable<T = unknown>(
-  url: string,
-  options: StreamableOptions = {}
-): AsyncGenerator<T> {
-  const {
-    headers = {},
-    body,
-    method = body ? 'POST' : 'GET',
-    signal,
-    skipHeartbeats = true,
-    credentials,
-  } = options;
-
+/** Send the stream's request and hand back the body to read. */
+async function openStream(
+  source: string | StreamRequest,
+  { headers = {}, body, method = body ? 'POST' : 'GET', signal, credentials }: StreamableOptions
+): Promise<ReadableStream<Uint8Array>> {
   const requestHeaders: Record<string, string> = {
     Accept: 'application/x-ndjson',
     ...headers,
@@ -58,13 +61,13 @@ export async function* streamable<T = unknown>(
     requestHeaders['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(url, {
+  const init: StreamRequestInit = {
     method,
     headers: requestHeaders,
     body: body ? JSON.stringify(body) : undefined,
     signal,
-    credentials,
-  });
+  };
+  const res = typeof source === 'string' ? await fetch(source, { ...init, credentials }) : await source(init);
 
   if (!res.ok) {
     const text = await res.text();
@@ -75,7 +78,21 @@ export async function* streamable<T = unknown>(
     throw new Error('No response body');
   }
 
-  const reader = res.body.getReader();
+  return res.body;
+}
+
+/**
+ * Stream NDJSON from an HTTP endpoint using fetch + ReadableStream.
+ * Yields parsed JSON objects, automatically filtering heartbeats.
+ * `source` is the URL to fetch, or a StreamRequest that sends the request.
+ */
+export async function* streamable<T = unknown>(
+  source: string | StreamRequest,
+  options: StreamableOptions = {}
+): AsyncGenerator<T> {
+  const { skipHeartbeats = true } = options;
+
+  const reader = (await openStream(source, options)).getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 
@@ -128,13 +145,22 @@ export async function* streamable<T = unknown>(
  * StreamableManager provides a callback-based API similar to StreamManager
  * but uses fetch + ReadableStream instead of EventSource.
  */
-export interface StreamableManagerOptions<T> {
-  /** URL to connect to */
-  url: string;
-  /** Additional headers */
-  headers?: Record<string, string>;
-  /** Request credentials mode (for cookie-based auth) */
-  credentials?: RequestCredentials;
+/** Where a StreamableManager's stream comes from: a URL it fetches, or a StreamRequest. */
+export type StreamableSource =
+  | {
+      /** URL to connect to */
+      url: string;
+      /** Additional headers */
+      headers?: Record<string, string>;
+      /** Request credentials mode (for cookie-based auth) */
+      credentials?: RequestCredentials;
+    }
+  | {
+      /** Sends the request, e.g. `(init) => http.fetch(endpoint, init)` */
+      request: StreamRequest;
+    };
+
+export type StreamableManagerOptions<T> = StreamableSource & {
   /** Request body */
   body?: unknown;
   /** Called for each message */
@@ -149,7 +175,7 @@ export interface StreamableManagerOptions<T> {
   onEnd?: () => void;
   /** Called for delta events (streaming token deltas) */
   onDelta?: (delta: Record<string, any>, seq: number) => void;
-}
+};
 
 export class StreamableManager<T> {
   private options: StreamableManagerOptions<T>;
@@ -191,12 +217,17 @@ export class StreamableManager<T> {
     try {
       this.options.onStart?.();
 
-      for await (const message of streamableRaw<T>(this.options.url, {
-        headers: this.options.headers,
-        body: this.options.body,
-        signal: this.abortController.signal,
-        credentials: this.options.credentials,
-      })) {
+      const { options } = this;
+      const stream = 'request' in options
+        ? streamableRaw<T>(options.request, { body: options.body, signal: this.abortController.signal })
+        : streamableRaw<T>(options.url, {
+            headers: options.headers,
+            body: options.body,
+            signal: this.abortController.signal,
+            credentials: options.credentials,
+          });
+
+      for await (const message of stream) {
         if (!this.isRunning) break;
 
         const wrapper = message as StreamableMessage<T>;
@@ -263,45 +294,12 @@ export class StreamableManager<T> {
  * Use this when you need access to event type or fields.
  */
 export async function* streamableRaw<T = unknown>(
-  url: string,
+  source: string | StreamRequest,
   options: StreamableOptions = {}
 ): AsyncGenerator<StreamableMessage<T> | T> {
-  const {
-    headers = {},
-    body,
-    method = body ? 'POST' : 'GET',
-    signal,
-    skipHeartbeats = true,
-    credentials,
-  } = options;
+  const { skipHeartbeats = true } = options;
 
-  const requestHeaders: Record<string, string> = {
-    Accept: 'application/x-ndjson',
-    ...headers,
-  };
-
-  if (body) {
-    requestHeaders['Content-Type'] = 'application/json';
-  }
-
-  const res = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-    credentials,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-
-  if (!res.body) {
-    throw new Error('No response body');
-  }
-
-  const reader = res.body.getReader();
+  const reader = (await openStream(source, options)).getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 

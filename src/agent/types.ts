@@ -44,7 +44,7 @@ export interface AlwaysAllowChoice {
  */
 export interface AgentClient {
   /** HTTP client for API requests */
-  http: Pick<HttpClient, 'request' | 'getStreamableConfig' | 'getStreamDefault' | 'getPollIntervalMs'>;
+  http: Pick<HttpClient, 'request' | 'fetch' | 'getStreamDefault' | 'getPollIntervalMs'>;
   /** Files API for uploads */
   files: {
     upload: (data: string | Blob | globalThis.File) => Promise<FileRef>;

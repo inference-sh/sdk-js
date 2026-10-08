@@ -61,7 +61,7 @@ function createTestContext(overrides: Partial<ActionsContext> = {}): {
     client: {
       http: {
         request: jest.fn(),
-        getStreamableConfig: jest.fn(() => ({ url: 'https://stream.test', headers: {}, credentials: 'include' as RequestCredentials })),
+        fetch: jest.fn(),
         getStreamDefault: jest.fn(() => true),
         getPollIntervalMs: jest.fn(() => 50),
       },
@@ -84,6 +84,7 @@ function createTestContext(overrides: Partial<ActionsContext> = {}): {
 }
 
 describe('createActions', () => {
+  const chatStream = jest.fn();
   let pollInstances: Array<{
     options: ConstructorParameters<typeof PollManager>[0];
     start: jest.Mock;
@@ -130,11 +131,7 @@ describe('createActions', () => {
     } as unknown as ChatDTO);
     mockAgentApi.fetchMessages.mockResolvedValue([]);
     mockAgentApi.fetchMessagesPage.mockResolvedValue({ items: [], next_cursor: '', has_next: false });
-    mockAgentApi.getChatStreamConfig.mockReturnValue({
-      url: 'https://api.test/chats/chat-full-id-123/stream',
-      headers: {},
-      credentials: 'include' as RequestCredentials,
-    });
+    mockAgentApi.chatStreamRequest.mockReturnValue(chatStream);
     mockAgentApi.sendMessage.mockResolvedValue({
       chatId: 'chat-full-id-123',
       userMessage: makeMessage({ id: 'u1', role: 'user' }),
@@ -581,8 +578,9 @@ describe('createActions', () => {
       await publicActions.sendMessage('hello');
 
       expect(onChatCreated).toHaveBeenCalledWith('chat-full-id-123');
+      expect(mockAgentApi.chatStreamRequest).toHaveBeenCalledWith(expect.anything(), 'chat-full-id-123');
       expect(StreamableManager).toHaveBeenCalledWith(
-        expect.objectContaining({ credentials: 'include' })
+        expect.objectContaining({ request: chatStream })
       );
     });
 

@@ -1,9 +1,9 @@
 // HTTP utilities
-export { HttpClient, type HttpClientConfig, type ErrorHandler, type MessageHandler, createHttpClient } from './http/client';
+export { HttpClient, type HttpClientConfig, type ErrorHandler, type FailedRequest, type HttpFetchInit, type MessageHandler, createHttpClient } from './http/client';
 export type { Response } from './http/response';
 import type { Response } from './http/response';
 export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream';
-export { StreamableManager, type StreamableManagerOptions, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
+export { StreamableManager, type StreamableManagerOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
 export { PollManager, type PollManagerOptions } from './http/poll';
 export {
   InferenceError,

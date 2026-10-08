@@ -3,14 +3,33 @@ import { InferenceError, RequirementsNotMetException } from './errors';
 import type { Response } from './response';
 import { EventSource, type FetchLike } from 'eventsource';
 
+/** What a failed request was sent with, for an error handler that acts on it. */
+export interface FailedRequest {
+  /**
+   * The bearer token the request carried, or undefined when it carried none
+   * (proxy mode, or no apiKey and getToken returned nothing). A handler that
+   * refreshes credentials compares it with the token in hand: when they
+   * differ, the credentials were already replaced and a retry is enough.
+   */
+  token: string | undefined;
+}
+
 /**
  * Error handler that can intercept errors and optionally retry the request.
  * Return a promise to retry with a new result, or throw/rethrow to propagate the error.
+ * `retry` sends the request again with the token of that moment and does not
+ * come back through the handler. `request` describes the attempt that failed.
  */
 export type ErrorHandler = (
   error: unknown,
-  retry: () => Promise<unknown>
+  retry: () => Promise<unknown>,
+  request: FailedRequest
 ) => Promise<unknown>;
+
+/** Options of HttpClient.fetch: a fetch init whose credentials mode is the client's. */
+export type HttpFetchInit = Omit<RequestInit, 'headers' | 'credentials'> & {
+  headers?: Record<string, string>;
+};
 
 export type MessageHandler = (messages: import('../types').ResponseMessage[]) => void;
 
@@ -24,8 +43,11 @@ export interface HttpClientConfig {
    * When set, requests are routed through your proxy server to protect API keys.
    */
   proxyUrl?: string;
-  /** Dynamic token getter (alternative to apiKey) */
-  getToken?: () => string | null | undefined;
+  /**
+   * Dynamic token getter (alternative to apiKey), asked before every request.
+   * It may be async: the request waits for the token.
+   */
+  getToken?: () => string | null | undefined | Promise<string | null | undefined>;
   /** Dynamic headers */
   headers?: Record<string, string | (() => string | undefined)>;
   /** Request credentials mode */
@@ -62,7 +84,7 @@ export class HttpClient {
   private readonly apiKey: string | undefined;
   private readonly baseUrl: string;
   private readonly proxyUrl: string | undefined;
-  private readonly getToken: (() => string | null | undefined) | undefined;
+  private readonly getToken: HttpClientConfig['getToken'];
   private readonly customHeaders: Record<string, string | (() => string | undefined)>;
   private readonly credentials: RequestCredentials;
   private readonly onError: ErrorHandler | undefined;
@@ -123,12 +145,33 @@ export class HttpClient {
     return resolved;
   }
 
-  /** Get authorization token */
-  private getAuthToken(): string | null | undefined {
-    if (this.getToken) {
-      return this.getToken();
+  /** The bearer token a request sent now carries; none through a proxy, which adds its own. */
+  private async bearerToken(): Promise<string | undefined> {
+    if (this.proxyUrl) return undefined;
+    return (this.getToken ? await this.getToken() : this.apiKey) || undefined;
+  }
+
+  /** The configured headers plus what identifies the request: its bearer, or through a proxy its target. */
+  private requestHeaders(targetUrl: URL, token: string | undefined): Record<string, string> {
+    const headers = this.resolveHeaders();
+    if (this.proxyUrl) {
+      headers['x-inf-target-url'] = targetUrl.toString();
+    } else if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    return this.apiKey;
+    return headers;
+  }
+
+  /**
+   * Where a request whose caller cannot set headers (EventSource) or reads
+   * the URL (streams) goes: the API, or the proxy with the target as a query
+   * parameter.
+   */
+  private streamUrl(targetUrl: URL): string {
+    if (!this.proxyUrl) return targetUrl.toString();
+    const proxyUrlWithQuery = new URL(this.proxyUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    proxyUrlWithQuery.searchParams.set('__inf_target', targetUrl.toString());
+    return proxyUrlWithQuery.toString();
   }
 
   /**
@@ -142,16 +185,104 @@ export class HttpClient {
       data?: unknown;
     } = {}
   ): Promise<Response<T>> {
-    const doRequest = () => this.executeRequest<T, P>(method, endpoint, options);
+    const send = (token: string | undefined) => this.executeRequest<T, P>(method, endpoint, options, token);
 
+    const token = await this.bearerToken();
     try {
-      return await doRequest();
+      return await send(token);
     } catch (error) {
       if (this.onError) {
-        return await this.onError(error, doRequest) as Response<T>;
+        return await this.onError(error, async () => send(await this.bearerToken()), { token }) as Response<T>;
       }
       throw error;
     }
+  }
+
+  /**
+   * Fetch an API endpoint with the client's auth, headers and credentials
+   * mode and resolve with the raw response, for bodies request() does not
+   * parse (streams, text). A failure goes through onError like one of
+   * request() does: a refused response, or a request that got no response.
+   * It resolves with the response onError's retry got; when onError resolves
+   * with anything else the failure stands and is thrown, the error request()
+   * would throw. A request aborted through `init.signal` rejects with the
+   * abort and is not an error for onError.
+   */
+  async fetch(endpoint: string, init: HttpFetchInit = {}): Promise<globalThis.Response> {
+    const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
+    const response = await this.fetchHandled(this.streamUrl(targetUrl), targetUrl, init, 'throw');
+    // What onError's retry got is handed over unread, and can be a refusal too.
+    if (!response.ok) throw await this.readError(response);
+    return response;
+  }
+
+  /**
+   * One fetch of `url` on behalf of `targetUrl`. A refused response, or a
+   * request that got none, goes to onError; the result is the response its
+   * retry got. Without one the failure stands: the error of a request that
+   * got no response is thrown, and a refusal is thrown as the error its body
+   * was read into or, for a caller that passes the response on
+   * (`refused: 'return'`), handed back with its body unread.
+   */
+  private async fetchHandled(
+    url: string | URL,
+    targetUrl: URL,
+    init: HttpFetchInit,
+    refused: 'throw' | 'return'
+  ): Promise<globalThis.Response> {
+    const send = (token: string | undefined) => fetch(url, {
+      ...init,
+      headers: { ...init.headers, ...this.requestHeaders(targetUrl, token) },
+      credentials: this.credentials,
+    });
+    const retry = async () => send(await this.bearerToken());
+
+    const token = await this.bearerToken();
+    let response: globalThis.Response;
+    try {
+      response = await send(token);
+    } catch (error) {
+      // The caller aborted the request; nothing failed.
+      if (!this.onError || init.signal?.aborted) throw error;
+      const handled = await this.onError(error, retry, { token });
+      if (handled instanceof globalThis.Response) return handled;
+      throw error;
+    }
+    if (response.ok || (refused === 'return' && !this.onError)) return response;
+    // The body is read once: from a clone only when the response is handed back.
+    const error = await this.readError(refused === 'return' ? response.clone() : response);
+    const handled = await this.onError?.(error, retry, { token });
+    if (handled instanceof globalThis.Response) return handled;
+    if (refused === 'return') return response;
+    throw error;
+  }
+
+  /** The error a refused response stands for, read from its body. */
+  private async readError(response: globalThis.Response): Promise<Error> {
+    const responseText = await response.text().catch(() => '');
+    let data: unknown = null;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      // Not JSON
+    }
+    return this.responseError(response.status, responseText, data);
+  }
+
+  /** HTTP errors → RFC 9457 problem+json */
+  private responseError(status: number, responseText: string, data: unknown): Error {
+    if (status === 412 && data && typeof data === 'object' && 'errors' in data && Array.isArray(data.errors)) {
+      return RequirementsNotMetException.fromResponse(data as { errors: RequirementError[] }, status);
+    }
+
+    let errorDetail: string | undefined;
+    if (data && typeof data === 'object') {
+      errorDetail = this.extractErrorDetail(data) ?? JSON.stringify(data);
+    } else if (responseText) {
+      errorDetail = responseText.slice(0, 500);
+    }
+
+    return new InferenceError(status, errorDetail || 'Request failed', responseText);
   }
 
   /**
@@ -163,7 +294,8 @@ export class HttpClient {
     options: {
       params?: P;
       data?: unknown;
-    } = {}
+    },
+    token: string | undefined
   ): Promise<Response<T>> {
     // Build the target URL (always points to the API)
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
@@ -178,24 +310,12 @@ export class HttpClient {
     }
 
     // In proxy mode, requests go to the proxy with target URL in a header
-    const isProxyMode = !!this.proxyUrl;
-    const fetchUrl = isProxyMode ? this.proxyUrl! : targetUrl.toString();
+    const fetchUrl = this.proxyUrl ?? targetUrl.toString();
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...this.resolveHeaders(),
+      ...this.requestHeaders(targetUrl, token),
     };
-
-    if (isProxyMode) {
-      // Proxy mode: send target URL as header, no auth (proxy handles it)
-      headers['x-inf-target-url'] = targetUrl.toString();
-    } else {
-      // Direct mode: include authorization header
-      const token = this.getAuthToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
 
     const fetchOptions: RequestInit = {
       method: method.toUpperCase(),
@@ -217,20 +337,8 @@ export class HttpClient {
       // Not JSON
     }
 
-    // HTTP errors → RFC 9457 problem+json
     if (!response.ok) {
-      if (response.status === 412 && data && 'errors' in data && Array.isArray(data.errors)) {
-        throw RequirementsNotMetException.fromResponse(data as { errors: RequirementError[] }, response.status);
-      }
-
-      let errorDetail: string | undefined;
-      if (data && typeof data === 'object') {
-        errorDetail = this.extractErrorDetail(data) ?? JSON.stringify(data);
-      } else if (responseText) {
-        errorDetail = responseText.slice(0, 500);
-      }
-
-      throw new InferenceError(response.status, errorDetail || 'Request failed', responseText);
+      throw this.responseError(response.status, responseText, data);
     }
 
     if (response.status === 204 || !responseText) {
@@ -252,28 +360,22 @@ export class HttpClient {
   /**
    * Get URL and headers for NDJSON streaming.
    * Returns the full URL and auth headers needed for streamable requests.
+   * It answers synchronously, so it throws when getToken is async.
+   * @deprecated Use fetch(), or a StreamRequest built on it
+   * (`(init) => http.fetch(endpoint, init)`): a request made from this config
+   * bypasses onError and carries the token of the moment the config was read.
    */
   getStreamableConfig(endpoint: string): { url: string; headers: Record<string, string>; credentials: RequestCredentials } {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
-    const isProxyMode = !!this.proxyUrl;
-
-    let url: string;
-    const headers: Record<string, string> = { ...this.resolveHeaders() };
-
-    if (isProxyMode) {
-      const proxyUrlWithQuery = new URL(this.proxyUrl!, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-      proxyUrlWithQuery.searchParams.set('__inf_target', targetUrl.toString());
-      url = proxyUrlWithQuery.toString();
-      headers['x-inf-target-url'] = targetUrl.toString();
-    } else {
-      url = targetUrl.toString();
-      const token = this.getAuthToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+    const token = this.proxyUrl ? undefined : this.getToken ? this.getToken() : this.apiKey;
+    if (token instanceof Promise) {
+      throw new Error('getStreamableConfig() cannot wait for an async getToken; use fetch() instead');
     }
-
-    return { url, headers, credentials: this.credentials };
+    return {
+      url: this.streamUrl(targetUrl),
+      headers: this.requestHeaders(targetUrl, token || undefined),
+      credentials: this.credentials,
+    };
   }
 
   /**
@@ -288,59 +390,19 @@ export class HttpClient {
 
   /**
    * Create an EventSource for SSE streaming
-   * @deprecated Use getStreamableConfig() with StreamableManager instead
+   * @deprecated Use StreamableManager with a StreamRequest instead
    */
   createEventSource(endpoint: string): Promise<EventSource | null> {
     const targetUrl = new URL(`${this.baseUrl}${endpoint}`);
-    const isProxyMode = !!this.proxyUrl;
-
-    // For proxy mode: Browser EventSource can't send custom headers,
-    // so append target URL as query param instead
-    let fetchUrl: string;
-    if (isProxyMode) {
-      const proxyUrlWithQuery = new URL(this.proxyUrl!, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-      proxyUrlWithQuery.searchParams.set('__inf_target', targetUrl.toString());
-      fetchUrl = proxyUrlWithQuery.toString();
-    } else {
-      fetchUrl = targetUrl.toString();
-    }
-
-    const resolvedHeaders = this.resolveHeaders();
 
     // The EventSource error event omits the response body, so a failed initial
     // connection (e.g. 403 otp_required) is handled here in the fetch wrapper:
     // route it through onError like request() does, and hand the retried
     // response (e.g. after OTP verification) back so the stream connects.
-    const doFetch: FetchLike = async (input, init) => {
-      const headers: Record<string, string> = {
-        ...(init?.headers as Record<string, string>),
-        ...resolvedHeaders,
-      };
+    const doFetch: FetchLike = (input, init) =>
+      this.fetchHandled(input, targetUrl, init ?? {}, 'return') as ReturnType<FetchLike>;
 
-      if (isProxyMode) {
-        headers['x-inf-target-url'] = targetUrl.toString();
-      } else {
-        const token = this.getAuthToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-
-      const response = await fetch(input, { ...init, headers, credentials: this.credentials });
-
-      if (!response.ok && this.onError) {
-        const body = await response.clone().text().catch(() => '');
-        let data: unknown;
-        try { data = JSON.parse(body); } catch { /* non-JSON body */ }
-        const error = new InferenceError(response.status, this.extractErrorDetail(data) ?? 'Request failed', body);
-        const handled = await this.onError(error, () => doFetch(input, init));
-        return (handled as globalThis.Response) ?? response;
-      }
-
-      return response;
-    };
-
-    return Promise.resolve(new EventSource(fetchUrl, { fetch: doFetch }));
+    return Promise.resolve(new EventSource(this.streamUrl(targetUrl), { fetch: doFetch }));
   }
 }
 

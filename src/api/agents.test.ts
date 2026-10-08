@@ -1705,6 +1705,8 @@ describe('Agent lifecycle', () => {
     );
 
     agentInstance.startStreaming({ onChat: jest.fn() });
+    // The request goes out once the client has its token.
+    await new Promise((r) => setImmediate(r));
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/chats/chat-1/stream'),

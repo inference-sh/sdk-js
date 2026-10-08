@@ -22,6 +22,7 @@ import type {
   ToolExplanationDTO,
 } from '../types';
 import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types';
+import type { StreamRequest } from '../http/streamable';
 import { isAdHocConfig } from './types';
 
 export interface SendResult {
@@ -322,6 +323,6 @@ export async function uploadFile(client: AgentClient, file: globalThis.File): Pr
   return client.files.upload(file);
 }
 
-export function getChatStreamConfig(client: AgentClient, chatId: string): { url: string; headers: Record<string, string>; credentials: RequestCredentials } {
-  return client.http.getStreamableConfig(`/chats/${chatId}/stream`);
+export function chatStreamRequest(client: AgentClient, chatId: string): StreamRequest {
+  return (init) => client.http.fetch(`/chats/${chatId}/stream`, init);
 }

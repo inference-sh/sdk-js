@@ -345,15 +345,13 @@ export class Agent {
   private streamUntilIdle(options: SendMessageOptions, gate: TurnGate): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
-    const { url, headers, credentials } = this.http.getStreamableConfig(`/chats/${this.chatId}/stream`);
+    const endpoint = `/chats/${this.chatId}/stream`;
 
     return new Promise((resolve) => {
       this.stream?.stop();
 
       this.stream = new StreamableManager<unknown>({
-        url,
-        headers,
-        credentials,
+        request: (init) => this.http.fetch(endpoint, init),
       });
 
       // Last chat/run observation was idle but the gate wasn't settled yet;

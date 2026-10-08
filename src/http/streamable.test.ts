@@ -410,6 +410,46 @@ describe('streamable', () => {
   });
 });
 
+describe('streamable with a StreamRequest', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('should send the request through it instead of fetch', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as typeof fetch;
+    const request = mockFetch(['{"id":1}\n', '{"type":"heartbeat"}\n', '{"data":{"id":2}}\n']);
+    const controller = new AbortController();
+
+    const results: unknown[] = [];
+    for await (const item of streamable(request, { body: { q: 1 }, signal: controller.signal })) {
+      results.push(item);
+    }
+
+    expect(results).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledWith({
+      method: 'POST',
+      headers: { Accept: 'application/x-ndjson', 'Content-Type': 'application/json' },
+      body: '{"q":1}',
+      signal: controller.signal,
+    });
+  });
+
+  it('should propagate what the request throws', async () => {
+    const refused = new Error('refused');
+    const request = jest.fn().mockRejectedValue(refused);
+
+    await expect(async () => {
+      for await (const _ of streamableRaw(request)) {
+        // drain
+      }
+    }).rejects.toBe(refused);
+  });
+});
+
 describe('streamableRaw', () => {
   const originalFetch = global.fetch;
 
@@ -761,5 +801,26 @@ describe('StreamableManager', () => {
       'http://test.com/stream',
       expect.objectContaining({ credentials: 'include' })
     );
+  });
+  it('should stream through a StreamRequest', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as typeof fetch;
+    const request = mockFetch(['{"id":1}\n']);
+    const onData = jest.fn();
+
+    await new StreamableManager({ request, onData }).start();
+
+    expect(onData).toHaveBeenCalledWith({ id: 1 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
+  });
+
+  it('should call onError with what a StreamRequest throws', async () => {
+    const refused = new Error('refused');
+    const onError = jest.fn();
+
+    await new StreamableManager({ request: jest.fn().mockRejectedValue(refused), onError }).start();
+
+    expect(onError).toHaveBeenCalledWith(refused);
   });
 });

@@ -17,7 +17,7 @@ import {
   fetchMessagesPage,
   cancelMessage,
   stopChat,
-  getChatStreamConfig,
+  chatStreamRequest,
   uploadFile,
   fetchAgentInfo,
   setAgent,
@@ -566,10 +566,17 @@ describe('agent/api', () => {
     });
   });
 
-  describe('getChatStreamConfig', () => {
-    it('should return config for the chat stream path', () => {
-      const config = getChatStreamConfig(makeClient(), 'chat-xyz');
-      expect(config.url).toContain('/chats/chat-xyz/stream');
+  describe('chatStreamRequest', () => {
+    it('should send the chat stream request through the client', async () => {
+      const response = { ok: true, status: 200 };
+      mockFetch.mockResolvedValueOnce(response);
+      const controller = new AbortController();
+      const request = chatStreamRequest(makeClient(), 'chat-xyz');
+      await expect(request({ method: 'GET', headers: { Accept: 'application/x-ndjson' }, signal: controller.signal })).resolves.toBe(response);
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/chats/chat-xyz/stream');
+      expect(init.signal).toBe(controller.signal);
+      expect(init.headers).toMatchObject({ Accept: 'application/x-ndjson' });
     });
   });
 
