@@ -103,6 +103,24 @@ function envApiKey(): string | undefined {
     return process.env.INFERENCE_API_KEY;
 }
 
+/** Loopback hosts, where plain http never leaves the machine (local dev). */
+function isLoopback(hostname: string): boolean {
+    const h = hostname.toLowerCase();
+    return h === "localhost"
+        || h.endsWith(".localhost")
+        || h === "[::1]"
+        || /^127(\.\d{1,3}){3}$/.test(h);
+}
+
+/**
+ * The proxy attaches the site's API key, so the target must be https; plain
+ * http is allowed only to a loopback host (a local API in development).
+ */
+function isAllowedScheme(target: URL): boolean {
+    if (target.protocol === "https:") return true;
+    return target.protocol === "http:" && isLoopback(target.hostname);
+}
+
 /** Check if domain is allowed */
 function isAllowedDomain(host: string, extraDomains?: RegExp[]): boolean {
     if (VALID_DOMAIN_PATTERN.test(host)) return true;
@@ -146,24 +164,30 @@ export async function processProxyRequest<T>(
         });
     }
 
-    // 1b. Rewrite base URL if INFERENCE_API_BASE_URL is set
-    const overrideBase = options?.apiBaseUrl || process.env.INFERENCE_API_BASE_URL;
-    if (overrideBase) {
-        const parsed = new URL(targetUrl);
-        const override = new URL(overrideBase);
-        parsed.protocol = override.protocol;
-        parsed.host = override.host;
-        targetUrl = parsed.toString();
-    }
-
-    // 2. Validate target domain
-    let host: string;
+    // 1b. Parse, and rewrite the base URL if INFERENCE_API_BASE_URL is set
+    let target: URL;
     try {
-        host = new URL(targetUrl).host;
+        target = new URL(targetUrl);
+        const overrideBase = options?.apiBaseUrl || process.env.INFERENCE_API_BASE_URL;
+        if (overrideBase) {
+            const override = new URL(overrideBase);
+            target.protocol = override.protocol;
+            target.host = override.host;
+        }
     } catch {
         return adapter.error(400, { error: "Invalid target URL" });
     }
+    targetUrl = target.toString();
 
+    // 2. Validate the target: https only (the API key rides on this request),
+    // and an inference.sh or explicitly allowed domain.
+    if (!isAllowedScheme(target)) {
+        return adapter.error(412, {
+            error: `Target must use https, got: ${target.protocol}`,
+        });
+    }
+
+    const host = target.host;
     if (!isAllowedDomain(host, options?.allowedDomains)) {
         return adapter.error(412, {
             error: `Target must be an inference.sh domain, got: ${host}`,

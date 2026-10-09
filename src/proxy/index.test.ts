@@ -122,6 +122,80 @@ describe('processProxyRequest', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'http://api.inference.sh/apps/run',
+    'HTTP://api.inference.sh/apps/run',
+    'ws://api.inference.sh/apps/run',
+    'ftp://api.inference.sh/apps/run',
+    'foo://api.inference.sh/apps/run',
+  ])('should refuse a non-https target (%s) before attaching the API key', async (target) => {
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+      })
+    );
+
+    expect(result.status).toBe(412);
+    expect(result.body).toEqual({ error: expect.stringMatching(/^Target must use https/) });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should refuse an http target given in the SSE query param', async () => {
+    const result = await processProxyRequest(
+      createTestAdapter({
+        query: (name) =>
+          name === INF_TARGET_PARAM ? encodeURIComponent('http://api.inference.sh/v1/stream') : undefined,
+      })
+    );
+
+    expect(result.status).toBe(412);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should refuse an http base URL override to a remote host', async () => {
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) =>
+          name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
+      }),
+      { apiBaseUrl: 'http://staging-api.inference.sh' }
+    );
+
+    expect(result.status).toBe(412);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://[::1]:8080',
+    'http://api.localhost:8080',
+  ])('should allow plain http to a loopback API (%s)', async (base) => {
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) =>
+          name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
+      }),
+      { apiBaseUrl: base, allowedDomains: [/^(localhost|127\.0\.0\.1|\[::1\]|api\.localhost):8080$/] }
+    );
+
+    expect(result.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith(`${base}/apps/run`, expect.any(Object));
+  });
+
+  it('should answer 400 for an invalid target when a base URL override is set', async () => {
+    const result = await processProxyRequest(
+      createTestAdapter({
+        header: (name) => (name === INF_TARGET_HEADER ? 'not-a-url' : undefined),
+      }),
+      { apiBaseUrl: 'https://staging-api.inference.sh' }
+    );
+
+    expect(result.status).toBe(400);
+    expect(result.body).toEqual({ error: 'Invalid target URL' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('should reject when no API key is configured', async () => {
     delete process.env.INFERENCE_API_KEY;
 

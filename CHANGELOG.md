@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- The server proxy (`@inferencesh/sdk/proxy`) refuses a target that is not `https:` with 412 before attaching the API key, so a client can no longer make it send `INFERENCE_API_KEY` over plain http. Plain `http:` is allowed only to a loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`), for a local API in development. A malformed target with `apiBaseUrl` set answers 400 instead of throwing.
+
 ## [0.21.0] - 2026-10-08
 
 Breaking: `AgentClient.http` requires `fetch`, the `AppTag*` constants are removed, and `StreamableManagerOptions` is a type alias. See Changed and Removed.
