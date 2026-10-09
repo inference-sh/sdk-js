@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { ApiKeyScopeWorkspace } from '../types';
 import { ApiKeysAPI } from './api-keys';
 
 const mockFetch = jest.fn();
@@ -43,6 +44,28 @@ describe('ApiKeysAPI', () => {
     expect(url).toContain('/apikeys');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward scope and expires_at on create() (CreateApiKeyRequest)', async () => {
+    mockJsonResponse({ id: 'key-ws', name: 'ci-deploy', key: 'inf_sk_workspace' });
+
+    // Literal argument: excess-property checking makes tsc reject fields create() doesn't accept.
+    await api().create({
+      name: 'ci-deploy',
+      scopes: ['apikeys:read'],
+      scope: ApiKeyScopeWorkspace,
+      expires_at: '2027-01-01T00:00:00Z',
+    });
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apikeys');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'ci-deploy',
+      scopes: ['apikeys:read'],
+      scope: 'workspace',
+      expires_at: '2027-01-01T00:00:00Z',
+    });
   });
 
   it('should DELETE /apikeys/{id} for delete()', async () => {
