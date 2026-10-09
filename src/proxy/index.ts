@@ -19,6 +19,8 @@
  * ```
  */
 
+import { isHttpsOrLoopback } from "../http/loopback";
+
 
 // ============================================================================
 // Constants
@@ -455,24 +457,6 @@ function envApiKey(): string | undefined {
     return process.env.INFERENCE_API_KEY;
 }
 
-/** Loopback hosts, where plain http never leaves the machine (local dev). */
-function isLoopback(hostname: string): boolean {
-    const h = hostname.toLowerCase();
-    return h === "localhost"
-        || h.endsWith(".localhost")
-        || h === "[::1]"
-        || /^127(\.\d{1,3}){3}$/.test(h);
-}
-
-/**
- * The proxy attaches the site's API key, so the target must be https; plain
- * http is allowed only to a loopback host (a local API in development).
- */
-function isAllowedScheme(target: URL): boolean {
-    if (target.protocol === "https:") return true;
-    return target.protocol === "http:" && isLoopback(target.hostname);
-}
-
 /** Whether a pattern matches the whole host (no partial or suffix match). */
 function matchesWholeHost(pattern: RegExp, host: string): boolean {
     const whole = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ""));
@@ -563,7 +547,7 @@ export async function processProxyRequest<T, R = unknown>(
 
     // 2. Validate the target: https only (the API key rides on this request),
     // and the configured API's origin or an explicitly allowed host.
-    if (!isAllowedScheme(target)) {
+    if (!isHttpsOrLoopback(target)) {
         return adapter.error(412, {
             error: `Target must use https, got: ${target.protocol}`,
         });

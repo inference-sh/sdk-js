@@ -5,6 +5,7 @@ import type { Response } from './http/response';
 export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream';
 export { StreamableManager, type StreamableManagerOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
 export { PollManager, type PollManagerOptions } from './http/poll';
+export { isLoopbackHost, isHttpsOrLoopback } from './http/loopback';
 export {
   InferenceError,
   RequirementsNotMetException,
