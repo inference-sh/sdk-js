@@ -24,6 +24,8 @@ module.exports = {
     },
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
+  // Relative imports written with .js (for plain Node ESM) resolve to the .ts source.
+  moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
   verbose: true,
 };
 

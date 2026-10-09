@@ -19,7 +19,9 @@
  * ```
  */
 
-import { isHttpsOrLoopback } from "../http/loopback";
+// With the .js extension: dist/proxy/index.js is the one proxy entry that
+// loads in plain Node ESM (no bundler), and Node does not add extensions.
+import { isHttpsOrLoopback } from "../http/loopback.js";
 
 
 // ============================================================================
