@@ -6,7 +6,7 @@
  * @example App Router (app/api/inference/proxy/route.ts)
  * ```typescript
  * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = createHandler({ allowedEndpoints: ["my-team/*"] });
+ * export const { GET, POST } = createHandler({ allowedEndpoints: ["my-team/*"] });
  * ```
  *
  * @example Page Router (pages/api/inference/proxy.ts)
@@ -90,7 +90,7 @@ export const pageHandler: NextApiHandler = createPageHandler();
  * ```typescript
  * // app/api/inference/proxy/route.ts
  * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = createHandler({ allowedEndpoints: ["my-team/*"] });
+ * export const { GET, POST } = createHandler({ allowedEndpoints: ["my-team/*"] });
  * ```
  */
 export function createHandler(options?: ProxyOptions<NextRequest>) {
@@ -119,7 +119,8 @@ export function createHandler(options?: ProxyOptions<NextRequest>) {
             },
         }, options);
     };
-    return { GET: appHandler, POST: appHandler, PUT: appHandler };
+    // GET and POST only: PROXY_ENDPOINTS forwards no other method.
+    return { GET: appHandler, POST: appHandler };
 }
 
 /**
@@ -129,7 +130,7 @@ export function createHandler(options?: ProxyOptions<NextRequest>) {
  * ```typescript
  * // app/api/inference/proxy/route.ts
  * import { handlers } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = handlers;
+ * export const { GET, POST } = handlers;
  * ```
  */
 export const handlers = createHandler();

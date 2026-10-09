@@ -17,6 +17,7 @@ Breaking for server proxy users: the proxy forwards only app runs and agent chat
 ### Changed
 
 - `update()` on `ProjectsAPI`, `KnowledgeAPI`, `SkillsAPI`, `ChatsAPI`, `EnginesAPI` and `TeamsAPI` sends PATCH instead of POST: a field left out of the body keeps its value. With POST the API wrote every field left out as empty. Needs an API that answers PATCH on these routes; an older API answers 405.
+- `@inferencesh/sdk/proxy/nextjs` `createHandler()` (and `handlers`) return `{ GET, POST }`: the `PUT` handler is gone, since the proxy forwards no PUT call and answered every one with 403. Drop `PUT` from `export const { GET, POST, PUT } = ...`; Next.js now answers PUT with 405.
 
 ### Deprecated
 

@@ -12,7 +12,7 @@
  * ```typescript
  * // app/api/inference/proxy/route.ts
  * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = createHandler({
+ * export const { GET, POST } = createHandler({
  *     allowedEndpoints: ["my-team/support-agent"],
  *     isAuthenticated: async (req) => Boolean(req.cookies.get("session")),
  * });
