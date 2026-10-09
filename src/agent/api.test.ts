@@ -118,12 +118,10 @@ describe('agent/api', () => {
 
       const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
       const messageBody = JSON.parse(String(init2.body));
-      expect(messageBody).toEqual({ message: 'see image' });
-      expect(messageBody.files).toBeUndefined();
-      expect(messageBody.attachments).toBeUndefined();
+      expect(messageBody).toEqual({ message: 'see image', attachments: [fileRef] });
     });
 
-    it('should upload files but not yet attach URIs to the message POST body', async () => {
+    it('should upload files and attach their refs to the message POST body', async () => {
       const client = makeClient();
       const file = new File(['data'], 'notes.txt', { type: 'text/plain' });
       const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue({
@@ -141,8 +139,10 @@ describe('agent/api', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const messageBody = JSON.parse(String(init.body));
-      expect(messageBody).toEqual({ message: 'with attachment' });
-      expect(messageBody.files).toBeUndefined();
+      expect(messageBody).toEqual({
+        message: 'with attachment',
+        attachments: [{ id: 'file-notes', uri: 'inf://files/notes', filename: 'notes.txt', content_type: 'text/plain' }],
+      });
 
       uploadSpy.mockRestore();
     });

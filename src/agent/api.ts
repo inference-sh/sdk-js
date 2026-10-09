@@ -49,7 +49,9 @@ async function processFiles(client: AgentClient, files?: FileInput[]): Promise<F
     files.map(async (file) => {
       if (isFileRef(file)) return file;
       try {
-        return await client.files.upload(file);
+        // The upload answers with the whole file record; the message takes a ref.
+        const { id, uri, filename, content_type, size } = await client.files.upload(file);
+        return { id, uri, filename, content_type, size };
       } catch (error) {
         console.error('[AgentSDK] Failed to upload file:', error);
         return null;
@@ -82,9 +84,10 @@ async function sendChatMessage(
   client: AgentClient,
   chatId: string,
   text: string,
+  attachments?: FileRef[],
 ): Promise<SendResult> {
   const resp = await client.http.request<ChatMessageDTO>('post', `/chats/${chatId}/messages`, {
-    data: { message: text },
+    data: attachments ? { message: text, attachments } : { message: text },
   });
 
   return {
@@ -103,16 +106,16 @@ export async function sendMessage(
   text: string,
   files?: FileInput[]
 ): Promise<SendResult | null> {
-  await processFiles(client, files);
+  const attachments = await processFiles(client, files);
 
   // Existing chat — just send the message
   if (chatId) {
-    return sendChatMessage(client, chatId, text);
+    return sendChatMessage(client, chatId, text, attachments);
   }
 
   // New chat — create it, then send the first message
   const chat = await createChat(client, config);
-  return sendChatMessage(client, chat.id, text);
+  return sendChatMessage(client, chat.id, text, attachments);
 }
 
 // =========================================================================
