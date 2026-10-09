@@ -195,7 +195,21 @@ describe('AppsAPI', () => {
     expect(result.data).toEqual(app);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1');
+    expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ description: 'updated' });
+  });
+
+  it('should PATCH /apps/{id} for patch()', async () => {
+    const app = { id: 'app-1', title: 'Renamed' };
+    mockJsonResponse(app);
+
+    const result = await api().patch('app-1', { title: 'Renamed' });
+
+    expect(result.data).toEqual(app);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/app-1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Renamed' });
   });
 
   it('should forward title in update() body', async () => {

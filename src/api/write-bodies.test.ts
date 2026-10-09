@@ -96,7 +96,9 @@ describe('update methods still take a loaded object sent back', () => {
 
     await new TeamsAPI(http()).update('team-1', { ...loaded, name: 'Acme Inc' });
 
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/teams/team-1');
+    expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body as string)).toEqual({
       id: 'team-1',
       username: 'acme',

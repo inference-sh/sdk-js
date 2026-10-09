@@ -7,9 +7,10 @@
  * type that cannot set it.
  *
  * A POST /{resource}/{id} update writes every field below that the route
- * takes: a field left out of the body is written empty. Send the current
- * value of the fields you do not change, or use a PATCH method where there
- * is one.
+ * takes: a field left out of the body is written empty. A PATCH writes only
+ * the fields sent. The SDK's update methods for projects, knowledge, skills,
+ * chats, engines and teams send PATCH; apps.patch and flows.patch are the
+ * partial siblings of the POST updates that also edit a version.
  */
 import type {
   AgentConfigInput,
@@ -58,12 +59,20 @@ export type AppUpdateBody = Partial<
 >;
 
 /**
- * POST /chats/{id}. Name and description. Visibility and the chat's
+ * PATCH /apps/{id}: only the fields sent are written. The app's copy;
+ * the version is edited through POST (`apps.update`).
+ */
+export type AppPatchBody = Partial<
+  Pick<AppDTO, 'title' | 'description' | 'agent_description' | 'category' | 'images' | 'tags'>
+>;
+
+/**
+ * PATCH /chats/{id}. Name and description. Visibility and the chat's
  * settings: `chats.updateSettings`.
  */
 export type ChatUpdateBody = Partial<Pick<ChatDTO, 'name' | 'description'>>;
 
-/** POST /engines/{id}. The engine's name; the rest is the engine's own report. */
+/** PATCH /engines/{id}. The engine's name; the rest is the engine's own report. */
 export type EngineUpdateBody = Partial<Pick<EngineDTO, 'name'>>;
 
 /**
@@ -91,7 +100,7 @@ export interface FlowViewportBody {
 }
 
 /**
- * POST /projects and POST /projects/{id}. Visibility is taken on create
+ * POST /projects and PATCH /projects/{id}. Visibility is taken on create
  * only; no route changes it afterwards. Parent: none.
  */
 export type ProjectWriteBody = Partial<
@@ -101,7 +110,7 @@ export type ProjectWriteBody = Partial<
 };
 
 /**
- * POST /knowledge/{id} and POST /skills/{id}. Copy and lifecycle. Name and
+ * PATCH /knowledge/{id} and PATCH /skills/{id}. Copy and lifecycle. Name and
  * type: fixed at creation; content: a new version (`create` with the same
  * name); visibility: `updateVisibility`.
  */
@@ -113,7 +122,7 @@ export interface KnowledgeUpdateBody {
 }
 
 /**
- * POST /teams/{id}. A team admin changes the profile; status and
+ * PATCH /teams/{id}. A team admin changes the profile; status and
  * concurrency are platform staff's. The username is the team's namespace
  * and does not change here.
  */

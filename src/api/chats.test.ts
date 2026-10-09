@@ -320,14 +320,16 @@ describe('ChatsAPI', () => {
     expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
   });
 
-  it('should POST /chats/{id} for update()', async () => {
+  it('should PATCH /chats/{id} for update()', async () => {
     const chat = { id: 'chat-1', name: 'Renamed' };
     mockJsonResponse(chat);
 
     const result = await api().update('chat-1', { name: 'Renamed' });
 
     expect(result.data).toEqual(chat);
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1');
+    expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
 

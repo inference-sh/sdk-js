@@ -47,10 +47,11 @@ export class TeamsAPI {
   }
 
   /**
-   * Update a team
+   * Update a team's profile (PATCH): only the fields sent are written, the
+   * others keep their value.
    */
   async update(teamId: string, data: TeamUpdateBody): Promise<Response<TeamDTO>> {
-    return this.http.request<TeamDTO>('post', `/teams/${teamId}`, { data });
+    return this.http.request<TeamDTO>('patch', `/teams/${teamId}`, { data });
   }
 
   /**

@@ -142,14 +142,16 @@ describe('EnginesAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'worker' });
   });
 
-  it('should POST /engines/{id} for update()', async () => {
+  it('should PATCH /engines/{id} for update()', async () => {
     const engine = { id: 'eng-1', name: 'updated' };
     mockJsonResponse(engine);
 
     const result = await api().update('eng-1', { name: 'updated' });
 
     expect(result.data).toEqual(engine);
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/eng-1');
+    expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
   });
 

@@ -42,10 +42,11 @@ export class EnginesAPI {
   }
 
   /**
-   * Rename an engine (see EngineUpdateBody).
+   * Rename an engine (see EngineUpdateBody). PATCH: only the fields sent are
+   * written.
    */
   async update(engineId: string, data: EngineUpdateBody): Promise<Response<Engine>> {
-    return this.http.request<Engine>('post', `/engines/${engineId}`, { data });
+    return this.http.request<Engine>('patch', `/engines/${engineId}`, { data });
   }
 
   /**

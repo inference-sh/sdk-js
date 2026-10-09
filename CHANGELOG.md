@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `AppsAPI.patch(appId, AppPatchBody)`: PATCH /apps/{id}, changes the app's copy fields sent and keeps the others. `update()` stays POST, since it also edits the version in place.
+
+### Changed
+
+- `update()` on `ProjectsAPI`, `KnowledgeAPI`, `SkillsAPI`, `ChatsAPI`, `EnginesAPI` and `TeamsAPI` sends PATCH instead of POST: a field left out of the body keeps its value. With POST the API wrote every field left out as empty. Needs an API that answers PATCH on these routes; an older API answers 405.
+
 ### Deprecated
 
 - `FlowRunsAPI.update()`: the API refuses it, because a flow run has no caller-writable fields. Use `FlowRunsAPI.updateVisibility()` to change who can see a run. The method stays for compile compatibility.

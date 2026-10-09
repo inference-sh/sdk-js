@@ -34,6 +34,7 @@ export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
 export { ArtifactsAPI } from './api/artifacts';
 export type {
   AgentUpdateBody,
+  AppPatchBody,
   AppUpdateBody,
   ChatUpdateBody,
   EngineUpdateBody,

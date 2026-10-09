@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
-import type { AppUpdateBody } from './write-bodies';
+import type { AppPatchBody, AppUpdateBody } from './write-bodies';
 import {
   AppDTO as App,
   AppVersionDTO,
@@ -49,6 +49,14 @@ export class AppsAPI {
    */
   async update(appId: string, data: AppUpdateBody): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}`, { data });
+  }
+
+  /**
+   * Change some of an app's copy (PATCH): only the fields sent are written,
+   * the others keep their value. Editing the version in place: update.
+   */
+  async patch(appId: string, data: AppPatchBody): Promise<Response<App>> {
+    return this.http.request<App>('patch', `/apps/${appId}`, { data });
   }
 
   /**

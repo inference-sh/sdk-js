@@ -47,10 +47,11 @@ export class KnowledgeAPI {
   }
 
   /**
-   * Update a knowledge entry
+   * Update a knowledge entry (PATCH): only the fields sent are written, the
+   * others keep their value.
    */
   async update(id: string, data: KnowledgeUpdateBody): Promise<Response<KnowledgeDTO>> {
-    return this.http.request<KnowledgeDTO>('post', `/knowledge/${id}`, { data });
+    return this.http.request<KnowledgeDTO>('patch', `/knowledge/${id}`, { data });
   }
 
   /**
@@ -133,10 +134,11 @@ export class SkillsAPI {
   }
 
   /**
-   * Update a skill
+   * Update a skill (PATCH): only the fields sent are written, the others
+   * keep their value.
    */
   async update(id: string, data: KnowledgeUpdateBody): Promise<Response<SkillDTO>> {
-    return this.http.request<SkillDTO>('post', `/skills/${id}`, { data });
+    return this.http.request<SkillDTO>('patch', `/skills/${id}`, { data });
   }
 
   /**

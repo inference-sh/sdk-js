@@ -122,14 +122,16 @@ describe('KnowledgeAPI', () => {
     expect(init.method).toBe('GET');
   });
 
-  it('should POST /knowledge/{id} for update()', async () => {
+  it('should PATCH /knowledge/{id} for update()', async () => {
     const entry = { id: 'know-1', lifecycle: 'active' };
     mockJsonResponse(entry);
 
     const result = await api().update('know-1', { lifecycle: 'active' } as never);
 
     expect(result.data).toEqual(entry);
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/knowledge/know-1');
+    expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body as string)).toEqual({ lifecycle: 'active' });
   });
 
@@ -428,5 +430,20 @@ describe('SkillsAPI', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
+  });
+});
+
+describe('SkillsAPI.update', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('should PATCH /skills/{id}', async () => {
+    mockJsonResponse({ id: 'skill-1', title: 'New' });
+
+    await new SkillsAPI(new HttpClient({ apiKey: 'test-key' })).update('skill-1', { title: 'New' });
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/skills/skill-1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'New' });
   });
 });

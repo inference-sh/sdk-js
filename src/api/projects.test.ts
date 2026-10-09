@@ -79,7 +79,8 @@ describe('ProjectsAPI', () => {
     expect(init.method).toBe('DELETE');
   });
 
-  it('should POST /projects/{id} for update()', async () => {
+  // A partial body to the full update (POST) blanked the fields left out.
+  it('should PATCH /projects/{id} for update()', async () => {
     const project = { id: 'proj-1', name: 'Renamed' };
     mockJsonResponse(project);
 
@@ -88,6 +89,7 @@ describe('ProjectsAPI', () => {
     expect(result.data).toEqual(project);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/projects/proj-1');
+    expect(init.method).toBe('PATCH');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Renamed' });
   });
 });

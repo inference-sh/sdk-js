@@ -32,11 +32,11 @@ export class ChatsAPI {
   }
 
   /**
-   * Update a chat's name and description. Visibility and the other chat
-   * settings: updateSettings.
+   * Update a chat's name and description (PATCH): only the fields sent are
+   * written. Visibility and the other chat settings: updateSettings.
    */
   async update(chatId: string, data: ChatUpdateBody): Promise<Response<Chat>> {
-    return this.http.request<Chat>('post', `/chats/${chatId}`, { data });
+    return this.http.request<Chat>('patch', `/chats/${chatId}`, { data });
   }
 
   /**

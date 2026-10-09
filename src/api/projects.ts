@@ -35,10 +35,11 @@ export class ProjectsAPI {
   }
 
   /**
-   * Update a project
+   * Update a project (PATCH): only the fields sent are written, the others
+   * keep their value.
    */
   async update(id: string, data: ProjectWriteBody): Promise<Response<ProjectDTO>> {
-    return this.http.request<ProjectDTO>('post', `/projects/${id}`, { data });
+    return this.http.request<ProjectDTO>('patch', `/projects/${id}`, { data });
   }
 
   /**
