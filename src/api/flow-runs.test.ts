@@ -111,7 +111,7 @@ describe('FlowRunsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
-  it('should POST /flowruns/{id} for update()', async () => {
+  it('still POSTs /flowruns/{id} for the deprecated update()', async () => {
     const flowRun = { id: 'fr-1', fail_on_error: false };
     mockJsonResponse(flowRun);
 

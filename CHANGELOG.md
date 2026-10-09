@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+
+- `FlowRunsAPI.update()`: the API refuses it, because a flow run has no caller-writable fields. Use `FlowRunsAPI.updateVisibility()` to change who can see a run. The method stays for compile compatibility.
+
 ### Security
 
 - The server proxy (`@inferencesh/sdk/proxy`) refuses a target that is not `https:` with 412 before attaching the API key, so a client can no longer make it send `INFERENCE_API_KEY` over plain http. Plain `http:` is allowed only to a loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`), for a local API in development. A malformed target with `apiBaseUrl` set answers 400 instead of throwing.

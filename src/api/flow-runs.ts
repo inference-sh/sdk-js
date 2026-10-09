@@ -41,7 +41,11 @@ export class FlowRunsAPI {
   }
 
   /**
-   * Update a flow run
+   * Update a flow run.
+   *
+   * @deprecated A flow run has no caller-writable fields: the API refuses this
+   * request. To change who can see a run, use {@link FlowRunsAPI.updateVisibility}.
+   * Kept so existing code still compiles; it will be removed in a future major version.
    */
   async update(flowRunId: string, data: Partial<FlowRun>): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}`, { data });
@@ -69,7 +73,8 @@ export class FlowRunsAPI {
   }
 
   /**
-   * Update flow run visibility
+   * Set who can see a flow run: `private`, `team`, `unlisted` or `public`.
+   * This is the one change a caller can make to a run.
    */
   async updateVisibility(flowRunId: string, visibility: string): Promise<Response<FlowRun>> {
     return this.http.request<FlowRun>('post', `/flowruns/${flowRunId}/visibility`, { data: { visibility } });
