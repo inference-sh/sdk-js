@@ -38,7 +38,7 @@ describe('package export surface', () => {
     });
 
     it('uses inference-src, types, default key order on monorepo typecheck entrypoints', () => {
-      for (const path of ['.', './agent', './proxy/remix', './internal/upload']) {
+      for (const path of ['.', './agent', './proxy', './proxy/remix', './internal/upload']) {
         expect(Object.keys(packageJson.exports[path])).toEqual([
           'inference-src',
           'types',
@@ -49,7 +49,6 @@ describe('package export surface', () => {
 
     it('keeps types-first maps on npm subpaths that do not define inference-src', () => {
       for (const path of [
-        './proxy',
         './proxy/nextjs',
         './proxy/express',
         './proxy/hono',
@@ -74,6 +73,15 @@ describe('package export surface', () => {
           types: './dist/agent/index.d.ts',
           'inference-src': './src/agent/index.ts',
           default: './dist/agent/index.js',
+        })
+      );
+      // js/web imports both: one module instance in dev, or the endpoint
+      // subsets it builds with pickProxyEndpoint are not the remix handler's.
+      expect(packageJson.exports['./proxy']).toEqual(
+        expect.objectContaining({
+          types: './dist/proxy/index.d.ts',
+          'inference-src': './src/proxy/index.ts',
+          default: './dist/proxy/index.js',
         })
       );
       expect(packageJson.exports['./proxy/remix']).toEqual(

@@ -13,6 +13,7 @@
       "default": "./dist/index.js"
     },
     "./proxy": {
+      "inference-src": "./src/proxy/index.ts",
       "types": "./dist/proxy/index.d.ts",
       "default": "./dist/proxy/index.js"
     },
