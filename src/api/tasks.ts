@@ -202,13 +202,7 @@ export class TasksAPI {
         onDelta,
         onData: (data) => observe(data),
         onPartialData: (data, fields) => observe(data, fields),
-        reconcile: async () => {
-          const { data } = await this.get(task.id);
-          accumulatedTask = { ...accumulatedTask, ...data };
-          const stripped = stripTask(accumulatedTask);
-          onUpdate?.(stripped);
-          settleTerminal(data, stripped, settle);
-        },
+        reconcile: async () => observe((await this.get(task.id)).data),
         closedMessage: `Task stream closed before task ${task.id} finished`,
       };
     });
@@ -246,14 +240,10 @@ export class TasksAPI {
 
             settleTerminal(fullTask, stripped, settle);
           } catch (err) {
-            poller.stop();
-            reject(err instanceof Error ? err : new Error(String(err)));
+            settle.reject(err instanceof Error ? err : new Error(String(err)));
           }
         },
-        onError: (error) => {
-          reject(error);
-          poller.stop();
-        },
+        onError: (error) => settle.reject(error),
       });
 
       poller.start();
