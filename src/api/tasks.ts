@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
-import { StreamableManager } from '../http/streamable';
+import { streamUntilTerminal, type TerminalSettler } from '../http/stream-until-terminal';
 import { PollManager } from '../http/poll';
 import {
   TaskDTO as Task,
@@ -59,6 +59,21 @@ function stripTask(task: Task): Task {
     status: task.status,
     session_id: task.session_id,
   };
+}
+
+/** Settles a watch when `data` carries a terminal status; no-op otherwise. */
+function settleTerminal(data: Pick<Task, 'status' | 'error'>, stripped: Task, settle: TerminalSettler<Task>): void {
+  switch (parseStatus(data.status)) {
+    case TaskStatusCompleted:
+      settle.resolve(stripped);
+      break;
+    case TaskStatusFailed:
+      settle.reject(new Error(data.error || 'task failed'));
+      break;
+    case TaskStatusCancelled:
+      settle.reject(new Error('task cancelled'));
+      break;
+  }
 }
 
 /**
@@ -173,46 +188,30 @@ export class TasksAPI {
     // Accumulate state across partial updates to preserve fields like session_id
     let accumulatedTask = { ...task } as Task;
 
-    let streamManager: StreamableManager<Task>;
-    const done = new Promise<Task>((resolve, reject) => {
-      const settle = (data: Task, stripped: Task) => {
-        if (parseStatus(data.status) === TaskStatusCompleted) {
-          streamManager.stop();
-          resolve(stripped);
-        } else if (parseStatus(data.status) === TaskStatusFailed) {
-          streamManager.stop();
-          reject(new Error(data.error || 'task failed'));
-        } else if (parseStatus(data.status) === TaskStatusCancelled) {
-          streamManager.stop();
-          reject(new Error('task cancelled'));
-        }
+    return streamUntilTerminal<Task, Task>((settle) => {
+      const observe = (data: Task, fields?: string[]) => {
+        // Merge new data, preserving existing fields if not in update
+        accumulatedTask = { ...accumulatedTask, ...data };
+        const stripped = stripTask(accumulatedTask);
+        if (fields) onPartialUpdate?.(stripped, fields);
+        else onUpdate?.(stripped);
+        settleTerminal(data, stripped, settle);
       };
-      streamManager = new StreamableManager<Task>({
+      return {
         request: (init) => this.http.fetch(`/tasks/${task.id}/stream`, init),
         onDelta,
-        onData: (data) => {
-          // Merge new data, preserving existing fields if not in update
+        onData: (data) => observe(data),
+        onPartialData: (data, fields) => observe(data, fields),
+        reconcile: async () => {
+          const { data } = await this.get(task.id);
           accumulatedTask = { ...accumulatedTask, ...data };
           const stripped = stripTask(accumulatedTask);
           onUpdate?.(stripped);
-          settle(data, stripped);
+          settleTerminal(data, stripped, settle);
         },
-        onPartialData: (data, fields) => {
-          // Merge partial update, preserving fields not in this update
-          accumulatedTask = { ...accumulatedTask, ...data };
-          const stripped = stripTask(accumulatedTask);
-          onPartialUpdate?.(stripped, fields);
-          settle(data, stripped);
-        },
-        onError: (error) => {
-          reject(error);
-          streamManager.stop();
-        },
-      });
-
-      streamManager.start();
+        closedMessage: `Task stream closed before task ${task.id} finished`,
+      };
     });
-    return { done, stop: () => streamManager.stop() };
   }
 
   /** Poll GET /tasks/{id}/status until terminal, full-fetch on status change. */
@@ -223,6 +222,10 @@ export class TasksAPI {
 
     let poller: PollManager<ResourceStatusDTO>;
     const done = new Promise<Task>((resolve, reject) => {
+      const settle: TerminalSettler<Task> = {
+        resolve: (value) => { poller.stop(); resolve(value); },
+        reject: (error) => { poller.stop(); reject(error); },
+      };
       poller = new PollManager<ResourceStatusDTO>({
         pollFunction: async () => {
           const resp = await this.http.request<ResourceStatusDTO>('get', `/tasks/${task.id}/status`);
@@ -241,16 +244,7 @@ export class TasksAPI {
             const stripped = stripTask(fullTask);
             onUpdate?.(stripped);
 
-            if (parseStatus(fullTask.status) === TaskStatusCompleted) {
-              poller.stop();
-              resolve(stripped);
-            } else if (parseStatus(fullTask.status) === TaskStatusFailed) {
-              poller.stop();
-              reject(new Error(fullTask.error || 'task failed'));
-            } else if (parseStatus(fullTask.status) === TaskStatusCancelled) {
-              poller.stop();
-              reject(new Error('task cancelled'));
-            }
+            settleTerminal(fullTask, stripped, settle);
           } catch (err) {
             poller.stop();
             reject(err instanceof Error ? err : new Error(String(err)));

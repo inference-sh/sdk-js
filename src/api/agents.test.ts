@@ -882,6 +882,28 @@ describe('Agent.sendMessage (streaming mode)', () => {
       );
     });
 
+    it('should resolve sendMessage when the stream closes and the fetched chat is idle', async () => {
+      const onChat = jest.fn();
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+        if (url.endsWith('/chats/chat-1')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusIdle, active_run: completedRun })),
+          });
+        }
+        return Promise.resolve(
+          mockNdjsonStream([
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
+          ])
+        );
+      });
+
+      await expect(streamingAgent().sendMessage('hello', { onChat })).resolves.toBeDefined();
+      expect(onChat).toHaveBeenLastCalledWith(expect.objectContaining({ status: ChatStatusIdle }));
+    });
+
     it('should reject sendMessage with the stream error', async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url.includes('/agents/run')) return Promise.resolve(runResponse());

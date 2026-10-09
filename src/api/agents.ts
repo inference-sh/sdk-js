@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
-import { StreamableManager } from '../http/streamable';
+import { streamUntilTerminal, type StreamUntilTerminal } from '../http/stream-until-terminal';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
@@ -150,7 +150,7 @@ export class Agent {
   private readonly agentName: string | undefined;
   private readonly context: Record<string, string> | undefined;
   private chatId: string | null = null;
-  private stream: StreamableManager<unknown> | null = null;
+  private stream: StreamUntilTerminal<void> | null = null;
   private poller: PollManager<ChatDTO> | null = null;
   private dispatchedToolCalls: Set<string> = new Set();
 
@@ -352,95 +352,89 @@ export class Agent {
   private streamUntilIdle(options: SendMessageOptions, gate: TurnGate): Promise<void> {
     if (!this.chatId) return Promise.resolve();
 
-    const endpoint = `/chats/${this.chatId}/stream`;
+    const chatId = this.chatId;
+    this.stream?.stop();
 
-    return new Promise((resolve, reject) => {
-      this.stream?.stop();
-
-      const stream = new StreamableManager<unknown>({
-        request: (init) => this.http.fetch(endpoint, init),
-        onError: (error) => reject(error),
-        // Settles the wait when the stream ends before the turn did (a no-op
-        // once resolved). StreamableManager does not reconnect, so without this
-        // sendMessage would hang forever on a dropped stream.
-        onEnd: () => {
-          // Replaced or stopped by disconnect()/abort: the caller stopped
-          // waiting on purpose.
-          if (this.stream !== stream) return resolve();
-          reject(new Error('Chat stream closed before the chat became idle'));
-        },
-      });
-      this.stream = stream;
-
+    const handle = streamUntilTerminal<unknown, void>((settle) => {
       // Last chat/run observation was idle but the gate wasn't settled yet;
       // a terminal message for this turn can settle it.
       let idlePending = false;
       const onIdle = () => {
-        if (gate.settled) resolve();
+        if (gate.settled) settle.resolve();
         else idlePending = true;
       };
-
-      this.stream.addEventListener<ChatDTO>('chats', (chat) => {
+      const observeChat = (chat: ChatDTO) => {
         options.onChat?.(chat);
         gate.observeChat(chat);
         if (!isChatBusy(chat)) onIdle();
         else idlePending = false;
-      });
-
-      this.stream.addEventListener<AgentRunDTO>('agent_runs', (run) => {
-        const asChat = { active_run: run } as ChatDTO;
-        options.onChat?.(asChat);
-        gate.observeChat(asChat);
-        if (!isChatBusy(asChat)) onIdle();
-        else idlePending = false;
-      });
+      };
 
       // One accumulator per message being streamed, keyed by the message id
       // the delta names, so a tool-call-only turn never shows the previous
       // message's text. Same attribution rule as the React hooks.
       const deltaAccums = new Map<string, DeltaAccumulator>();
 
-      this.stream.addEventListener<DeltaEvent>('delta', (evt) => {
-        if (!options.onDelta || !evt?.delta || !evt.resource_id) return;
-        let accum = deltaAccums.get(evt.resource_id);
-        if (!accum) {
-          accum = createLLMDeltaAccumulator();
-          deltaAccums.set(evt.resource_id, accum);
-        }
-        accum.apply(evt.delta);
-        options.onDelta({
-          messageId: evt.resource_id,
-          delta: evt.delta as LLMDelta,
-          output: accum.toOutput() as LLMOutput,
-          seq: evt.seq,
-        });
-      });
-
-      this.stream.addEventListener<ChatMessageDTO>('chat_messages', (message) => {
-        // A terminal message receives no further deltas.
-        if (isMessageTerminal(message.status)) deltaAccums.delete(message.id);
-        gate.observeMessage(message);
-        options.onMessage?.(message);
-        if (idlePending && gate.settled) resolve();
-
-        if (message.tool_invocations && options.onToolCall) {
-          for (const inv of message.tool_invocations) {
-            if (this.dispatchedToolCalls.has(inv.id)) continue;
-
-            if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
-              this.dispatchedToolCalls.add(inv.id);
-              options.onToolCall({
-                id: inv.id,
-                name: inv.function?.name || '',
-                args: inv.function?.arguments || {},
-              });
+      return {
+        request: (init) => this.http.fetch(`/chats/${chatId}/stream`, init),
+        events: {
+          chats: (chat: ChatDTO) => observeChat(chat),
+          agent_runs: (run: AgentRunDTO) => observeChat({ active_run: run } as ChatDTO),
+          delta: (evt: DeltaEvent) => {
+            if (!options.onDelta || !evt?.delta || !evt.resource_id) return;
+            let accum = deltaAccums.get(evt.resource_id);
+            if (!accum) {
+              accum = createLLMDeltaAccumulator();
+              deltaAccums.set(evt.resource_id, accum);
             }
-          }
-        }
-      });
+            accum.apply(evt.delta);
+            options.onDelta({
+              messageId: evt.resource_id,
+              delta: evt.delta as LLMDelta,
+              output: accum.toOutput() as LLMOutput,
+              seq: evt.seq,
+            });
+          },
+          chat_messages: (message: ChatMessageDTO) => {
+            // A terminal message receives no further deltas.
+            if (isMessageTerminal(message.status)) deltaAccums.delete(message.id);
+            gate.observeMessage(message);
+            options.onMessage?.(message);
+            if (idlePending && gate.settled) settle.resolve();
 
-      this.stream.start();
+            if (message.tool_invocations && options.onToolCall) {
+              for (const inv of message.tool_invocations) {
+                if (this.dispatchedToolCalls.has(inv.id)) continue;
+
+                if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
+                  this.dispatchedToolCalls.add(inv.id);
+                  options.onToolCall({
+                    id: inv.id,
+                    name: inv.function?.name || '',
+                    args: inv.function?.arguments || {},
+                  });
+                }
+              }
+            }
+          },
+        },
+        // The stream closed before the chat was seen idle: the chat itself
+        // says whether the turn is over.
+        reconcile: async () => {
+          const { data: chat } = await this.http.request<ChatDTO>('get', `/chats/${chatId}`);
+          observeChat(chat);
+        },
+        closedMessage: 'Chat stream closed before the chat became idle',
+        // Stopped by disconnect()/abort or replaced by a newer stream: the
+        // caller stopped waiting on purpose.
+        onStopped: () => settle.resolve(),
+        // Once the turn is over the stream stays attached, so onChat/onMessage
+        // keep reporting until the next turn or disconnect() replaces it.
+        keepOpen: true,
+      };
     });
+    this.stream = handle;
+    return handle.done;
   }
 
   /** Poll until chat becomes idle, dispatching callbacks on changes */

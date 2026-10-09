@@ -506,6 +506,75 @@ describe('TasksAPI.run (streaming mode)', () => {
   });
 });
 
+// A stream can close cleanly before the task is done (load balancer idle
+// timeout, deploy). StreamableManager does not reconnect, so the watch asks
+// the API once instead of waiting forever.
+describe('TasksAPI.run (stream closes before the task is terminal)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => new TasksAPI(new HttpClient({ apiKey: 'test-key', stream: true }));
+  const json = (body: unknown) => ({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(body)) });
+
+  function setup(fetched: () => Promise<unknown>) {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/apps/run')) return Promise.resolve(json(makeTaskResult()));
+      if (url.includes('/tasks/task-1/stream')) {
+        return Promise.resolve(mockNdjsonStream([`${JSON.stringify({ status: TaskStatusRunning, id: 'task-1' })}\n`]));
+      }
+      if (url.endsWith('/tasks/task-1')) return fetched();
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+  }
+
+  it('should resolve with the fetched task when it completed meanwhile', async () => {
+    setup(() => Promise.resolve(json(makeTask({ status: TaskStatusCompleted, output: { ok: true } }))));
+    const onUpdate = jest.fn();
+
+    const result = await api().run({ app: 'test-app', input: {} }, {}, { wait: true, onUpdate });
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(result.output).toEqual({ ok: true });
+    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ status: TaskStatusCompleted }));
+  });
+
+  it('should reject with the task error when it failed meanwhile', async () => {
+    setup(() => Promise.resolve(json(makeTask({ status: TaskStatusFailed, error: 'boom' }))));
+
+    await expect(api().run({ app: 'test-app', input: {} }, {}, { wait: true })).rejects.toThrow('boom');
+  });
+
+  it('should reject when the task is still running', async () => {
+    setup(() => Promise.resolve(json(makeTask({ status: TaskStatusRunning }))));
+
+    await expect(api().run({ app: 'test-app', input: {} }, {}, { wait: true })).rejects.toThrow(
+      'Task stream closed before task task-1 finished'
+    );
+  });
+
+  it('should reject when the final fetch fails', async () => {
+    setup(() => Promise.reject(new Error('network down')));
+
+    await expect(api().run({ app: 'test-app', input: {} }, {}, { wait: true })).rejects.toThrow(
+      'Task stream closed before task task-1 finished'
+    );
+  });
+
+  it('should leave done pending and skip the fetch when the caller stops the watch', async () => {
+    setup(() => Promise.resolve(json(makeTask({ status: TaskStatusCompleted }))));
+    const watch = api().watch({ id: 'task-1', status: TaskStatusRunning });
+    watch.stop();
+    const outcome = await Promise.race([
+      watch.done.then(() => 'settled', () => 'settled'),
+      new Promise((resolve) => setTimeout(() => resolve('pending'), 20)),
+    ]);
+
+    expect(outcome).toBe('pending');
+    expect(mockFetch.mock.calls.some(([url]) => String(url).endsWith('/tasks/task-1'))).toBe(false);
+  });
+});
+
 describe('TasksAPI.run (HTTP contract)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
