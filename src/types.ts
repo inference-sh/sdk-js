@@ -125,7 +125,17 @@ export interface AgentToolConfig {
 }
 export interface HookToolConfig {
   url: string;
+  /**
+   * Secret is write-only: a new value for the X-Hook-Secret header. On
+   * save it moves into the team's encrypted secret store and SecretRef
+   * names it; a stored config, and every read, has it empty.
+   */
   secret?: string;
+  /**
+   * SecretRef names the stored hook secret. Sending it back unchanged
+   * (with Secret empty) keeps it; leaving both empty removes it.
+   */
+  secret_ref?: string;
   input_schema?: any;
   output_schema?: any;
 }
@@ -167,7 +177,19 @@ export interface HTTPToolConfig {
   url: string;
   method?: string;
   auth?: ToolAuthConfig;
+  /**
+   * Headers are sent with every call. A value is either a reference to a
+   * team secret ("${{secrets.NAME}}"), kept as written, or a literal: on
+   * save a literal moves into the team's encrypted secret store and
+   * HeaderSecretRefs names it, so a stored config and every read carry
+   * the header with an empty value. An empty value whose header has a
+   * ref keeps the stored one.
+   */
   headers?: { [key: string]: string};
+  /**
+   * HeaderSecretRefs maps a header name to its stored value.
+   */
+  header_secret_refs?: { [key: string]: string};
   input_schema?: any;
   output_schema?: any;
 }
@@ -194,7 +216,11 @@ export interface AgentToolConfigDTO {
 }
 export interface HookToolConfigDTO {
   url: string;
+  /**
+   * Secret is always empty on a read; SecretRef says one is stored.
+   */
   secret?: string;
+  secret_ref?: string;
   input_schema?: any;
   output_schema?: any;
 }
@@ -206,7 +232,12 @@ export interface HTTPToolConfigDTO {
   url: string;
   method?: string;
   auth?: ToolAuthConfig;
+  /**
+   * Headers lists every header; a stored (secret) value reads as empty,
+   * and HeaderSecretRefs names it.
+   */
   headers?: { [key: string]: string};
+  header_secret_refs?: { [key: string]: string};
   input_schema?: any;
   output_schema?: any;
 }
@@ -279,13 +310,25 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
  * CreateAgentRequest is the request body for POST /agents
  * For new agents: omit ID, backend generates it
  * For new version of existing agent: include ID
+ * A new agent's namespace is its team's; the body cannot name one.
  */
 export interface CreateAgentRequest {
   id?: string;
   name: string;
   title?: string;
-  namespace?: string;
   images?: AgentImages;
+  visibility?: Visibility;
+  /**
+   * Harness runs the agent: "inference" (ours) or an external harness.
+   */
+  harness?: string;
+  /**
+   * ProfileID and RemoteID place the agent on one of the caller's
+   * machines; ProjectID files it in a project.
+   */
+  profile_id?: string;
+  remote_id?: string;
+  project_id?: string;
   /**
    * Version config (embedded - backend generates version ID, timestamps, etc)
    */
@@ -542,6 +585,12 @@ export interface DeviceAuthPollResponse {
    */
   session_token?: string;
   team_id?: string;
+  /**
+   * AdminUntil is set when an admin elevation request was approved: the
+   * CLI login that asked now carries admin power until then. No
+   * credential comes with it.
+   */
+  admin_until?: string /* RFC3339 */;
 }
 export interface MeResponse {
   user?: UserDTO;
@@ -633,6 +682,12 @@ export interface CredentialConnectRequest {
    * are OAuth permission scopes.
    */
   connection_scope?: CredentialScope;
+  /**
+   * AnotherAccount connects an account next to the ones already
+   * connected: the provider is asked to let the user choose the account
+   * rather than reuse the one it remembers.
+   */
+  another_account?: boolean;
 }
 /**
  * CredentialCompleteOAuthRequest is what the provider's redirect delivered:
@@ -1304,6 +1359,30 @@ export interface AppUIRef {
   artifact: string;
 }
 /**
+ * AppSandbox is what an app version's container may do beyond the engine's
+ * default hardening, as its package's inf.yml declares it:
+ * 	sandbox:
+ * 	  host_network: true          # share the host's network namespace
+ * 	  capabilities: [SYS_PTRACE]  # Linux capabilities the app's processes keep
+ * The API reads it from the package when the version is deployed and stores
+ * it on the version (server-owned: no caller writes it). Engines enforce the
+ * copy the task dispatch carries, and store review shows it. The empty value
+ * declares no exception.
+ */
+export interface AppSandbox {
+  /**
+   * HostNetwork runs the container on the host's network: it reaches the
+   * host's services and the cloud metadata service.
+   */
+  host_network?: boolean;
+  /**
+   * Capabilities are Linux capability names without the CAP_ prefix, in
+   * upper case. The container is given them and the app's processes keep
+   * them.
+   */
+  capabilities?: string[];
+}
+/**
  * AppVersionDTO is the API response for an app version.
  */
 export interface AppVersionDTO extends BaseModelDTO {
@@ -1325,6 +1404,12 @@ export interface AppVersionDTO extends BaseModelDTO {
   required_secrets?: SecretRequirement[];
   required_credentials?: CredentialRequirement[];
   resources: AppResources;
+  /**
+   * Sandbox is the version's declared sandbox exceptions. Absent on a
+   * version deployed before the API recorded them (engines then read the
+   * package's inf.yml) and on a version with no package (a flow app).
+   */
+  sandbox?: AppSandbox;
   checksum?: string;
 }
 /**
@@ -2062,6 +2147,40 @@ export interface AlwaysAllowOptionsDTO {
    * own rules, or no chat rule could allow this call.
    */
   unavailable?: string;
+  /**
+   * SecretSend is set when the call is an agent of another team sending
+   * the runner's own secrets: what it sends and where. Approving the call
+   * sends them; the prompt names them.
+   */
+  secret_send?: SecretSendDTO;
+}
+/**
+ * SecretSendDTO is an agent of another team asking to send the runner's
+ * secrets with a call: "alice/helper wants to send OPENAI_API_KEY to
+ * alice.example". It rides on the call's approval interrupt (meta
+ * secret_send) and on its always-allow options.
+ */
+export interface SecretSendDTO {
+  /**
+   * Agent is the agent as people know it (namespace/name); AgentID is
+   * its id.
+   */
+  agent: string;
+  agent_id: string;
+  /**
+   * AgentVersionID is the agent version making the call: approving the
+   * prompt approves this version's send only.
+   */
+  agent_version_id: string;
+  /**
+   * Host is where the call sends them.
+   */
+  host: string;
+  /**
+   * Secrets are the runner's secrets the call sends, by name: secret
+   * keys (OPENAI_API_KEY) and logins (credential:github).
+   */
+  secrets: string[];
 }
 /**
  * AlwaysAllowRequest is POST /chats/{id}/tools/{toolId}/always-allow. The
@@ -2142,6 +2261,12 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   status: CredentialStatus;
   display_name: string;
   icon_url?: string;
+  /**
+   * AccountID is the provider's own, unchanging id for the account; what
+   * an account is named by when choosing one. AccountIdentifier is its
+   * label (an email, an @handle).
+   */
+  account_id?: string;
   account_identifier?: string;
   account_name?: string;
   scopes: StringSlice;
@@ -2186,7 +2311,17 @@ export interface CredentialConfigDTO {
    * itself (models.AuthScheme), so the UI can offer edit and remove.
    */
   auth_scheme_id?: string;
+  /**
+   * Credential is the login used where no account is named: the caller's
+   * own, else the workspace's default account.
+   */
   credential?: CredentialDTO;
+  /**
+   * Accounts is every login to this provider the caller can use, in that
+   * order (Credential first). More than one when several accounts are
+   * connected.
+   */
+  accounts?: (CredentialDTO | undefined)[];
 }
 /**
  * SecretFieldConfig defines a secret field for the UI
@@ -2492,6 +2627,12 @@ export type ErrorCode =
   | "otp_required"
   | "impersonation_reason_required"
   | "mcp_auth_expired"
+  | "admin_session_required"
+  | "cli_session_required"
+  | "admin_required"
+  | "same_admin_required"
+  | "browser_session_required"
+  | "admin_authenticator_required"
   | "limit_exceeded"
   | "feature_not_available"
   | "entitlement_unavailable"
@@ -2557,6 +2698,29 @@ export const ErrorCodeOTPRequired: ErrorCode = "otp_required";
  */
 export const ErrorCodeImpersonationReasonRequired: ErrorCode = "impersonation_reason_required";
 export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
+/**
+ * Admin elevation ("belt admin elevate"). AdminSessionRequired (403): a
+ * platform admin's credential that carries no admin power reached an
+ * admin route; a CLI login gets it by elevating. CLISessionRequired
+ * (403): only a CLI login may ask to be elevated. AdminRequired (403):
+ * only a platform admin may ask for or grant one. SameAdminRequired
+ * (403): the elevation was asked for by another account.
+ * BrowserSessionRequired (403): only the admin's own browser sign-in
+ * grants one.
+ */
+export const ErrorCodeAdminSessionRequired: ErrorCode = "admin_session_required";
+export const ErrorCodeCLISessionRequired: ErrorCode = "cli_session_required";
+export const ErrorCodeAdminRequired: ErrorCode = "admin_required";
+export const ErrorCodeSameAdminRequired: ErrorCode = "same_admin_required";
+export const ErrorCodeBrowserSessionRequired: ErrorCode = "browser_session_required";
+/**
+ * AdminAuthenticatorRequired (403): a platform admin without an
+ * authenticator app (TOTP) enrolled. Admin power needs one; until it is
+ * enrolled (POST /auth/totp/enroll, then /auth/totp/confirm) the admin
+ * works as an ordinary member. An admin who has one but whose session
+ * has not proved it gets otp_required instead: re-authenticate with it.
+ */
+export const ErrorCodeAdminAuthenticatorRequired: ErrorCode = "admin_authenticator_required";
 /**
  * Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
  * EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
@@ -4074,12 +4238,23 @@ export interface CheckRequirementsResponse {
 export interface ResourceShareDTO extends BaseModelDTO {
   resource_id: string;
   resource_type: string;
+  /**
+   * UserID names the person a share is to; TeamID, with UserID empty,
+   * the resource's whole team.
+   */
   user_id: string;
+  team_id?: string;
   user?: UserRelationDTO;
   permission: Permission;
 }
+/**
+ * ShareRequest is POST /{resource}/{id}/share: a share to one person
+ * (user_id) or to the resource's whole team (team: true), at a permission
+ * (read when empty).
+ */
 export interface ShareRequest {
-  user_id: string;
+  user_id?: string;
+  team?: boolean;
   permission: Permission;
 }
 /**
@@ -4550,8 +4725,32 @@ export interface TelemetryReportDTO extends BaseModelDTO, PermissionModelDTO {
   level: number /* int */;
   payload: { [key: string]: any};
 }
+/**
+ * SubmitTelemetryRequest is the CLI's diagnostics report for an account the
+ * abuse redlist flags. Payload is the host report (platform, locale,
+ * network); Device carries the identifiers that recognise the same machine
+ * across accounts. The API stores Device's hashes for matching and its
+ * readable names encrypted, apart from the payload.
+ */
 export interface SubmitTelemetryRequest {
   payload: { [key: string]: any};
+  device?: DeviceEvidence;
+}
+/**
+ * DeviceEvidence is what a flagged account's CLI sends about its machine:
+ * salted hashes of the hostname, OS user, git user.name, MAC addresses and
+ * SSH key fingerprints, and the hostname, OS user and git user.name readable.
+ */
+export interface DeviceEvidence {
+  scheme: string;
+  hostname_hash?: string;
+  username_hash?: string;
+  git_user_name_hash?: string;
+  mac_hashes?: string[];
+  ssh_key_fingerprint_hashes?: string[];
+  hostname?: string;
+  username?: string;
+  git_user_name?: string;
 }
 /**
  * ToolInvocationFunction contains the function details for a tool invocation
@@ -6373,7 +6572,8 @@ export type PolicyKind =
   | "Knowledge"
   | "Mcp"
   | "Flow"
-  | "WebFetch";
+  | "WebFetch"
+  | "SecretSend";
 /**
  * PolicyKindRemoteExec: shell commands run on a remote.
  */
@@ -6403,6 +6603,11 @@ export const PolicyKindFlow: PolicyKind = "Flow";
  * PolicyKindWebFetch: fetched domains.
  */
 export const PolicyKindWebFetch: PolicyKind = "WebFetch";
+/**
+ * PolicyKindSecretSend: an agent of another team sending the runner's
+ * secrets to a host.
+ */
+export const PolicyKindSecretSend: PolicyKind = "SecretSend";
 /**
  * FunctionKind is how an app function talks to its caller.
  */
