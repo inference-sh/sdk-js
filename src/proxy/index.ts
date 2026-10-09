@@ -146,6 +146,22 @@ export interface ProxyOptions<R = unknown> {
     allowedEndpoints?: string[];
 
     /**
+     * Match `allowedEndpoints` entries against the whole ref, version and
+     * function included, instead of as `namespace/name` globs: the entry
+     * "ana/helper@v2" lets only that exact ref through, and "ana/helper"
+     * only the unversioned ref. Entries are refs, without `*`.
+     */
+    exactRefs?: boolean;
+
+    /**
+     * The calls to forward, a subset of PROXY_ENDPOINTS (default: all of
+     * them). Entries must come from PROXY_ENDPOINTS or `pickProxyEndpoint`,
+     * which can narrow one further but never widen it; anything else
+     * refuses every request with 500.
+     */
+    endpoints?: readonly ProxyEndpoint[];
+
+    /**
      * Decides whether a request may use the API key, e.g. by checking your
      * session. Requests it answers false for are refused with 401. Receives
      * the framework's request (NextRequest, Express Request, Hono Context, ...).
@@ -221,7 +237,7 @@ export interface ProxyEndpoint {
 }
 
 /** Limits from the proxy options, handed to endpoint checks. */
-interface ProxyLimits {
+export interface ProxyLimits {
     maxUploadBytes: number;
 }
 
@@ -269,6 +285,49 @@ export const PROXY_ENDPOINTS: readonly ProxyEndpoint[] = [
     endpoint("POST", `/tools/${ID}`, "answer a client tool call"),
 ];
 
+/** PROXY_ENDPOINTS and what pickProxyEndpoint derived from them: the only entries `endpoints` takes. */
+const SANCTIONED = new WeakSet<ProxyEndpoint>(PROXY_ENDPOINTS);
+
+/** The PROXY_ENDPOINTS entry for a request, or undefined when the proxy does not forward it. */
+export function matchProxyEndpoint(
+    method: string,
+    pathname: string,
+    endpoints: readonly ProxyEndpoint[] = PROXY_ENDPOINTS
+): ProxyEndpoint | undefined {
+    const m = method.toUpperCase();
+    return endpoints.find((e) => e.method === m && e.path.test(pathname));
+}
+
+/** A concrete path for a route template, to find its entry: ids and ref segments get sample values. */
+const ROUTE_SAMPLES: Record<string, string> = { id: "0".repeat(26), namespace: "ns", name: "name" };
+
+/**
+ * The PROXY_ENDPOINTS entry for `route` ("METHOD /path", with `{id}`,
+ * `{namespace}` and `{name}` placeholders, e.g. "POST /chats/{id}/messages"),
+ * optionally narrowed: `onlyFields` must be a subset of the entry's own,
+ * and `validate` runs after the entry's own check. For the `endpoints`
+ * option. Throws when the proxy does not forward the route.
+ */
+export function pickProxyEndpoint(
+    route: string,
+    narrow: Pick<ProxyEndpoint, "onlyFields" | "validate"> = {}
+): ProxyEndpoint {
+    const [method, template] = route.split(" ");
+    const sample = (template ?? "").replace(/\{(\w+)\}/g, (whole, key: string) => ROUTE_SAMPLES[key] ?? whole);
+    const base = matchProxyEndpoint(method, sample);
+    if (!base) throw new Error(`pickProxyEndpoint: "${route}" is not in PROXY_ENDPOINTS`);
+    const { onlyFields, validate } = narrow;
+    const wider = onlyFields?.find((field) => base.onlyFields && !base.onlyFields.includes(field));
+    if (wider !== undefined) throw new Error(`pickProxyEndpoint: "${route}" does not take "${wider}"`);
+    const picked: ProxyEndpoint = {
+        ...base,
+        onlyFields: onlyFields ?? base.onlyFields,
+        validate: !validate ? base.validate : (body, limits) => base.validate?.(body, limits) ?? validate(body, limits),
+    };
+    SANCTIONED.add(picked);
+    return picked;
+}
+
 /** File fields `POST /files` takes (models.PartialFile). */
 const UPLOAD_FILE_FIELDS = ["uri", "path", "content_type", "size", "filename"];
 
@@ -305,7 +364,7 @@ function checkUpload(body: Record<string, unknown>, limits: ProxyLimits): Policy
 }
 
 /** A refusal: the HTTP status and the message sent back. */
-interface PolicyRefusal {
+export interface PolicyRefusal {
     status: number;
     error: string;
 }
@@ -335,18 +394,55 @@ function refName(ref: string): string | undefined {
     return `${namespace}/${name}`;
 }
 
+/** Whether an allowedEndpoints entry lets a ref through. */
+type RefMatcher = (ref: string) => boolean;
+
 /**
- * Compile allowedEndpoints globs. `*` matches within one path segment, so
- * "ana/*" is every app and agent of the namespace "ana".
+ * Compile allowedEndpoints. Globs: `*` matches within one path segment, so
+ * "ana/*" is every app and agent of the namespace "ana", at any version.
+ * With `exact`, each entry is a whole ref.
  */
-function compileEndpointPatterns(patterns: readonly string[]): RegExp[] {
-    return patterns.map((pattern) => {
+function compileEndpointPatterns(patterns: readonly string[], exact: boolean): RefMatcher[] {
+    return patterns.map((pattern): RefMatcher => {
+        if (exact) {
+            if (typeof pattern !== "string" || pattern.includes("*") || refName(pattern) === undefined) {
+                throw new Error(`allowedEndpoints: "${pattern}" is not an app or agent ref (e.g. "ana/helper@v2")`);
+            }
+            return (ref) => ref === pattern;
+        }
         if (typeof pattern !== "string" || refName(pattern) !== pattern) {
             throw new Error(`allowedEndpoints: "${pattern}" is not a namespace/name pattern (e.g. "ana/helper" or "ana/*")`);
         }
         const source = pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join("[^/]*");
-        return new RegExp(`^${source}$`);
+        const glob = new RegExp(`^${source}$`);
+        return (ref) => {
+            const name = refName(ref);
+            return name !== undefined && glob.test(name);
+        };
     });
+}
+
+/**
+ * allowedEndpoints compiled once per options array (adapters pass the same
+ * array on every request), with a bad entry's error kept so every request
+ * answers it.
+ */
+const compiledPatterns = new WeakMap<readonly string[], Map<boolean, RefMatcher[] | Error>>();
+
+function endpointPatterns(patterns: readonly string[] | undefined, exact: boolean): RefMatcher[] | Error {
+    if (!patterns || patterns.length === 0) return [];
+    let byMode = compiledPatterns.get(patterns);
+    if (!byMode) compiledPatterns.set(patterns, (byMode = new Map()));
+    let compiled = byMode.get(exact);
+    if (!compiled) {
+        try {
+            compiled = compileEndpointPatterns(patterns, exact);
+        } catch (e) {
+            compiled = e as Error;
+        }
+        byMode.set(exact, compiled);
+    }
+    return compiled;
 }
 
 /**
@@ -367,16 +463,18 @@ function fieldValues(body: Record<string, unknown>, field: string): unknown[] {
  * refusal, or undefined when the request may be forwarded.
  *
  * @param patterns compiled allowedEndpoints; empty means every app and agent.
+ * @param endpoints the calls forwarded (PROXY_ENDPOINTS or a subset).
  */
 function checkProxyRequest(
     method: string,
     pathname: string,
     body: string | undefined,
-    patterns: readonly RegExp[],
-    limits: ProxyLimits
+    patterns: readonly RefMatcher[],
+    limits: ProxyLimits,
+    endpoints: readonly ProxyEndpoint[]
 ): PolicyRefusal | undefined {
     const m = method.toUpperCase();
-    const match = PROXY_ENDPOINTS.find((e) => e.method === m && e.path.test(pathname));
+    const match = matchProxyEndpoint(m, pathname, endpoints);
     if (!match) {
         return {
             status: 403,
@@ -433,9 +531,8 @@ function checkProxyRequest(
     return undefined;
 }
 
-function allowedRef(ref: unknown, patterns: readonly RegExp[]): boolean {
-    const name = typeof ref === "string" ? refName(ref) : undefined;
-    return name !== undefined && patterns.some((p) => p.test(name));
+function allowedRef(ref: unknown, patterns: readonly RefMatcher[]): boolean {
+    return typeof ref === "string" && patterns.some((matches) => matches(ref));
 }
 
 function notAllowed(what: string): PolicyRefusal {
@@ -503,11 +600,13 @@ export async function processProxyRequest<T, R = unknown>(
         });
     }
 
-    let patterns: RegExp[];
-    try {
-        patterns = compileEndpointPatterns(options?.allowedEndpoints ?? []);
-    } catch (e) {
-        return adapter.error(500, { error: (e as Error).message });
+    const patterns = endpointPatterns(options?.allowedEndpoints, options?.exactRefs === true);
+    if (patterns instanceof Error) {
+        return adapter.error(500, { error: patterns.message });
+    }
+    const endpoints = options?.endpoints ?? PROXY_ENDPOINTS;
+    if (!endpoints.every((e) => SANCTIONED.has(e))) {
+        return adapter.error(500, { error: "endpoints: entries must come from PROXY_ENDPOINTS or pickProxyEndpoint" });
     }
 
     // 1. Extract target URL (header first, query param fallback for SSE)
@@ -543,6 +642,9 @@ export async function processProxyRequest<T, R = unknown>(
     } catch {
         return adapter.error(400, { error: "Invalid target URL" });
     }
+    if (target.username || target.password) {
+        return adapter.error(400, { error: "Target URL must not carry credentials" });
+    }
     targetUrl = target.toString();
 
     // 2. Validate the target: https only (the API key rides on this request),
@@ -568,7 +670,7 @@ export async function processProxyRequest<T, R = unknown>(
     // the allowed apps and agents. The body is read once, here, and the same
     // string is what goes upstream.
     const body = adapter.method.toUpperCase() === "GET" ? undefined : await adapter.body();
-    const refusal = checkProxyRequest(adapter.method, target.pathname, body, patterns, { maxUploadBytes });
+    const refusal = checkProxyRequest(adapter.method, target.pathname, body, patterns, { maxUploadBytes }, endpoints);
     if (refusal) {
         return adapter.error(refusal.status, { error: refusal.error });
     }

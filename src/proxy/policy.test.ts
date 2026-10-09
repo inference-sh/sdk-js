@@ -1,4 +1,11 @@
-import { INF_TARGET_HEADER, INF_TARGET_PARAM, type ProxyOptions } from './index';
+import {
+  INF_TARGET_HEADER,
+  INF_TARGET_PARAM,
+  PROXY_ENDPOINTS,
+  matchProxyEndpoint,
+  pickProxyEndpoint,
+  type ProxyOptions,
+} from './index';
 import { createHandler } from './remix';
 
 const API = 'https://api.inference.sh';
@@ -325,5 +332,84 @@ describe('proxy policy', () => {
     it('lets anyone through by default (compatibility)', async () => {
       expect((await send({}, 'GET', `/tasks/${TASK}`)).status).toBe(200);
     });
+  });
+});
+
+describe('proxy subsets: endpoints, pickProxyEndpoint, exactRefs', () => {
+  const originalFetch = global.fetch;
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+    ) as typeof fetch;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('matchProxyEndpoint finds the entry a request takes', () => {
+    expect(matchProxyEndpoint('post', `/chats/${CHAT}/messages`)?.purpose).toBe('send a message in a chat');
+    expect(matchProxyEndpoint('GET', '/tasks/stream')).toBeUndefined();
+  });
+
+  it('pickProxyEndpoint takes route templates and refuses routes the proxy does not forward', () => {
+    expect(pickProxyEndpoint('GET /chats/{id}/stream').path.test(`/chats/${CHAT}/stream`)).toBe(true);
+    expect(pickProxyEndpoint('GET /agents/{namespace}/{name}').ref).toEqual({ path: true });
+    expect(() => pickProxyEndpoint('GET /secrets')).toThrow(/not in PROXY_ENDPOINTS/);
+    expect(() => pickProxyEndpoint('PUT /chats')).toThrow(/not in PROXY_ENDPOINTS/);
+    expect(() => pickProxyEndpoint('POST /apps/run', { onlyFields: ['app', 'webhook'] })).toThrow(/does not take "webhook"/);
+  });
+
+  it('forwards only the endpoints given', async () => {
+    const options = { endpoints: [pickProxyEndpoint('GET /chats/{id}')] };
+    expect((await send(options, 'GET', `/chats/${CHAT}`)).status).toBe(200);
+    expect((await send(options, 'GET', `/tasks/${TASK}`)).status).toBe(403);
+    expect((await send(options, 'POST', '/apps/run', { app: 'ana/x' })).status).toBe(403);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('narrows an endpoint with onlyFields and validate, after its own checks', async () => {
+    const validate = jest.fn((body: Record<string, unknown>) =>
+      typeof body.message === 'string' ? undefined : { status: 400, error: 'message must be a string' });
+    const options = { endpoints: [pickProxyEndpoint('POST /chats/{id}/messages', { onlyFields: ['message'], validate })] };
+    expect((await send(options, 'POST', `/chats/${CHAT}/messages`, { message: 'hi' })).status).toBe(200);
+    expect((await send(options, 'POST', `/chats/${CHAT}/messages`, { message: 1 })).status).toBe(400);
+    expect((await send(options, 'POST', `/chats/${CHAT}/messages`, { message: 'hi', input: {} })).status).toBe(403);
+    // The base entry's own check still runs first.
+    const upload = { endpoints: [pickProxyEndpoint('POST /files', { validate: () => undefined })] };
+    expect((await send(upload, 'POST', '/files', { files: [{ size: 1 }, { size: 1 }] })).status).toBe(403);
+  });
+
+  it('refuses every request when an endpoint did not come from PROXY_ENDPOINTS', async () => {
+    const forged = { ...PROXY_ENDPOINTS[0], path: /^\/secrets$/ };
+    const res = await send({ endpoints: [forged] }, 'GET', `/tasks/${TASK}`);
+    expect(res.status).toBe(500);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('exactRefs pins whole refs, version included', async () => {
+    const options = { allowedEndpoints: ['ana/helper', 'bob/model@v2'], exactRefs: true };
+    expect((await send(options, 'POST', '/chats', { agent: 'ana/helper' })).status).toBe(200);
+    expect((await send(options, 'POST', '/chats', { agent: 'bob/model@v2' })).status).toBe(200);
+    expect((await send(options, 'GET', '/agents/ana/helper')).status).toBe(200);
+    for (const agent of ['ana/helper@v1', 'bob/model', 'bob/model@v3', 'agent/ana/helper']) {
+      expect((await send(options, 'POST', '/chats', { agent })).status).toBe(403);
+    }
+    expect((await send(options, 'GET', '/agents/ana/helper@v1')).status).toBe(403);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(['ana/*', 'ana', ''])('exactRefs refuses every request for an entry that is not a ref (%j)', async (pattern) => {
+    const res = await send({ allowedEndpoints: [pattern], exactRefs: true }, 'GET', `/tasks/${TASK}`);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/is not an app or agent ref/);
+  });
+
+  it('refuses a target that carries credentials', async () => {
+    const res = await send({}, 'GET', `/tasks/${TASK}`);
+    expect(res.status).toBe(200);
+    const handler = createHandler({ apiKey: 'site-key' });
+    const bad = await handler({ request: proxied('GET', `https://u:p@api.inference.sh/tasks/${TASK}`) });
+    expect(bad.status).toBe(400);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
