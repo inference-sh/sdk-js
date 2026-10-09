@@ -231,6 +231,10 @@ export class Agent {
     let waitPromise: Promise<void> | null = null;
     if (this.chatId && shouldWait) {
       waitPromise = waitFn(options);
+      // The stream can fail while the POST is in flight, before anything
+      // awaits waitPromise; mark the rejection handled so Node does not treat
+      // it as unhandled. The await below still sees it.
+      waitPromise.catch(() => {});
     }
 
     // Make the POST request
@@ -274,7 +278,7 @@ export class Agent {
         this.disconnect();
         reject(signal.reason);
       };
-      if (signal.aborted) return onAbort();
+      if (signal.aborted) { onAbort(); wait.catch(() => {}); return; }
       signal.addEventListener('abort', onAbort, { once: true });
       wait.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
     });
@@ -338,7 +342,10 @@ export class Agent {
    */
   startStreaming(options: Omit<SendMessageOptions, 'files'> = {}): void {
     if (!this.chatId) return;
-    this.streamUntilIdle(options, new TurnGate(false));
+    // Fire-and-forget: a stream failure must not become an unhandled rejection.
+    this.streamUntilIdle(options, new TurnGate(false)).catch((error) => {
+      console.warn('[Agent] Stream error:', error);
+    });
   }
 
   /** Stream events until chat becomes idle */
@@ -347,12 +354,23 @@ export class Agent {
 
     const endpoint = `/chats/${this.chatId}/stream`;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.stream?.stop();
 
-      this.stream = new StreamableManager<unknown>({
+      const stream = new StreamableManager<unknown>({
         request: (init) => this.http.fetch(endpoint, init),
+        onError: (error) => reject(error),
+        // Settles the wait when the stream ends before the turn did (a no-op
+        // once resolved). StreamableManager does not reconnect, so without this
+        // sendMessage would hang forever on a dropped stream.
+        onEnd: () => {
+          // Replaced or stopped by disconnect()/abort: the caller stopped
+          // waiting on purpose.
+          if (this.stream !== stream) return resolve();
+          reject(new Error('Chat stream closed before the chat became idle'));
+        },
       });
+      this.stream = stream;
 
       // Last chat/run observation was idle but the gate wasn't settled yet;
       // a terminal message for this turn can settle it.

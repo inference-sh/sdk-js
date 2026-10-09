@@ -320,6 +320,104 @@ describe('StreamManager', () => {
       jest.useRealTimers();
     });
 
+    it('should stop reconnecting after maxReconnects when createEventSource always fails (never connected)', async () => {
+      jest.useFakeTimers();
+      const onError = jest.fn();
+      const createEventSource = jest.fn().mockImplementation(async () => {
+        throw new Error('connection refused');
+      });
+
+      const manager = new StreamManager({
+        createEventSource,
+        autoReconnect: true,
+        maxReconnects: 2,
+        reconnectDelayMs: 100,
+        onError,
+      });
+
+      // Initial attempt fails immediately
+      await manager.connect();
+      expect(createEventSource).toHaveBeenCalledTimes(1);
+
+      // First retry
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(2);
+
+      // Second retry
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      // No further retries — maxReconnects (2) exhausted
+      jest.advanceTimersByTime(100);
+      await Promise.resolve();
+      expect(createEventSource).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
+    });
+
+    describe('after a successful connection', () => {
+      const typedListeners: Record<string, Set<(e: MessageEvent) => void>> = {};
+      const eventSource = {
+        onmessage: null as ((e: MessageEvent) => void) | null,
+        onerror: null as ((e: Event) => void) | null,
+        close: jest.fn(),
+        addEventListener: (eventName: string, handler: (e: MessageEvent) => void) => {
+          const listeners = typedListeners[eventName] || new Set();
+          listeners.add(handler);
+          typedListeners[eventName] = listeners;
+        },
+      };
+
+      // Drops the connection `drops` times, delivering one event via
+      // `deliver` after each reconnect; returns how often it connected.
+      async function dropRepeatedly(deliver: () => void, drops: number) {
+        jest.useFakeTimers();
+        const createEventSource = jest.fn().mockResolvedValue(eventSource as unknown as EventSource);
+        const manager = new StreamManager({
+          createEventSource,
+          autoReconnect: true,
+          maxReconnects: 2,
+          reconnectDelayMs: 100,
+          onError: jest.fn(),
+        });
+        manager.addEventListener('chats', jest.fn());
+        await manager.connect();
+        for (let i = 0; i < drops; i++) {
+          deliver();
+          eventSource.onerror?.({} as Event);
+          jest.advanceTimersByTime(100);
+          await Promise.resolve();
+        }
+        manager.stop();
+        jest.useRealTimers();
+        return createEventSource.mock.calls.length;
+      }
+
+      it('should keep reconnecting a stream that delivers messages between drops', async () => {
+        const calls = await dropRepeatedly(
+          () => eventSource.onmessage?.({ data: '{}' } as MessageEvent),
+          5
+        );
+        // maxReconnects (2) caps consecutive failures, not lifetime reconnects.
+        expect(calls).toBe(6);
+      });
+
+      it('should reset the error budget on named SSE events too', async () => {
+        const calls = await dropRepeatedly(
+          () => typedListeners.chats?.forEach((h) => h({ data: '{}' } as MessageEvent)),
+          5
+        );
+        expect(calls).toBe(6);
+      });
+
+      it('should still stop after maxReconnects drops without any event in between', async () => {
+        const calls = await dropRepeatedly(() => {}, 5);
+        expect(calls).toBe(3);
+      });
+    });
+
     it('should call onError and stop when createEventSource throws', async () => {
       jest.useFakeTimers();
       const onError = jest.fn();

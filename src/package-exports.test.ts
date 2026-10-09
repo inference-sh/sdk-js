@@ -2,15 +2,21 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as main from './index';
 import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
+import { SDK_VERSION } from './version';
 
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf8')
 ) as {
+  version: string;
   engines?: { node?: string };
   exports: Record<string, { types: string; 'inference-src'?: string; default: string }>;
 };
 
 describe('package export surface', () => {
+  it('keeps SDK_VERSION (X-Client-Source header) in sync with package.json', () => {
+    expect(SDK_VERSION).toBe(packageJson.version);
+  });
+
   it('requires Node >=22.12 for eventsource 5 (ESM-only dependency)', () => {
     expect(packageJson.engines?.node).toBe('>=22.12.0');
   });

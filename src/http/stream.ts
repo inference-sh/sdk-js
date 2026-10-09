@@ -40,6 +40,7 @@ export class StreamManager<T> {
   private initialConnectionAttempts = 0;
   private consecutiveErrors = 0;
   private isConnected = false;
+  private hasEverConnected = false;
   private isStopped = false;
   private eventListeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
@@ -81,6 +82,8 @@ export class StreamManager<T> {
   private setupEventListener(source: EventSource, eventName: string) {
     source.addEventListener(eventName, (e: MessageEvent) => {
       if (this.isStopped) return;
+      // A delivered event proves the connection works, same as onmessage.
+      this.consecutiveErrors = 0;
       try {
         const parsed = JSON.parse(e.data);
         const listeners = this.eventListeners.get(eventName);
@@ -150,17 +153,17 @@ export class StreamManager<T> {
 
     const maxReconnects = this.options.maxReconnects ?? 5;
 
-    if (!this.isConnected && this.initialConnectionAttempts >= maxReconnects) {
+    if (!this.hasEverConnected && this.initialConnectionAttempts >= maxReconnects) {
       return false;
     }
 
-    if (this.isConnected && this.consecutiveErrors >= maxReconnects) {
+    if (this.hasEverConnected && this.consecutiveErrors >= maxReconnects) {
       return false;
     }
 
     this.reconnectTimeout = setTimeout(() => {
       if (!this.isStopped) {
-        if (!this.isConnected) {
+        if (!this.hasEverConnected) {
           this.initialConnectionAttempts++;
         }
         this.consecutiveErrors++;
@@ -183,6 +186,7 @@ export class StreamManager<T> {
 
       this.eventSource = source;
       this.isConnected = true;
+      this.hasEverConnected = true;
       this.options.onStart?.();
 
       // Set up typed event listeners (for events with `event: eventName` header)

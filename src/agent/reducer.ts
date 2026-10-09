@@ -142,7 +142,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const textBlock = target.content?.find(c => c.type === 'text');
       const newContent = textBlock
         ? target.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
-        : [{ type: 'text' as const, text: output.response }, ...target.content];
+        : [{ type: 'text' as const, text: output.response }, ...(target.content ?? [])];
       const newMessages = msgs.map(m => m.id === target.id ? { ...target, content: newContent } : m);
       return { ...state, messages: newMessages };
     }

@@ -792,6 +792,83 @@ describe('Agent.sendMessage (streaming mode)', () => {
     expect(streamCall?.[1]).toEqual(expect.objectContaining({ credentials: 'omit' }));
   });
 
+  describe('when the stream fails before the chat is idle', () => {
+    const runResponse = () => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            user_message: makeMessage({ id: 'user-1', role: 'user' }),
+            assistant_message: makeMessage({ id: 'asst-1' }),
+          })
+        ),
+    });
+
+    it('should reject sendMessage when the stream closes while the chat is busy', async () => {
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+        return Promise.resolve(
+          mockNdjsonStream([
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
+          ])
+        );
+      });
+
+      await expect(streamingAgent().sendMessage('hello', { onChat: jest.fn() })).rejects.toThrow(
+        'Chat stream closed before the chat became idle'
+      );
+    });
+
+    it('should reject sendMessage with the stream error', async () => {
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+        return Promise.reject(new Error('network down'));
+      });
+
+      await expect(streamingAgent().sendMessage('hello', { onChat: jest.fn() })).rejects.toThrow('network down');
+    });
+
+    it('should not leak an unhandled rejection when the pre-opened stream fails during the POST', async () => {
+      const agentInstance = streamingAgent();
+      // First turn establishes the chat id.
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+        return Promise.resolve(
+          mockNdjsonStream([
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
+            `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusIdle } })}\n`,
+          ])
+        );
+      });
+      await agentInstance.sendMessage('first', { onChat: jest.fn() });
+
+      // Follow-up: the stream opens before the POST and fails while the POST
+      // is still in flight.
+      let releasePost!: () => void;
+      const postGate = new Promise<void>((r) => { releasePost = r; });
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/agents/run')) {
+          await postGate;
+          return runResponse();
+        }
+        throw new Error('stream refused');
+      });
+
+      const unhandled = jest.fn();
+      process.on('unhandledRejection', unhandled);
+      try {
+        const turn = agentInstance.sendMessage('second', { onChat: jest.fn() });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(unhandled).not.toHaveBeenCalled();
+        releasePost();
+        await expect(turn).rejects.toThrow('stream refused');
+      } finally {
+        process.off('unhandledRejection', unhandled);
+      }
+    });
+  });
+
   it('should forward harness work_dir metadata through onChat while streaming', async () => {
     const userMessage = makeMessage({ id: 'user-1', role: 'user' });
     const assistantMessage = makeMessage({ id: 'asst-1' });
@@ -1783,6 +1860,34 @@ describe('Agent lifecycle', () => {
       expect.stringContaining('/chats/chat-1/stream'),
       expect.anything()
     );
+  });
+
+  it('startStreaming should report a failed stream instead of leaking an unhandled rejection', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: true, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+    await agentInstance.sendMessage('hello', { stream: false });
+
+    mockFetch.mockRejectedValue(new Error('network down'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      agentInstance.startStreaming({ onChat: jest.fn() });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith('[Agent] Stream error:', expect.objectContaining({ message: 'network down' }));
+    } finally {
+      process.off('unhandledRejection', unhandled);
+      warn.mockRestore();
+      mockFetch.mockReset();
+    }
   });
 
   it('reset should clear chat state so stopChat is a no-op', async () => {

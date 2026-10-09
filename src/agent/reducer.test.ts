@@ -469,4 +469,16 @@ describe('chatReducer DELTA_TOKEN attribution', () => {
 
     expect(next).toBe(state);
   });
+
+  it('adds a text block to a message whose content has not arrived yet', () => {
+    const bare = { ...makeMessage('msg-1', 1), role: 'assistant', content: undefined } as unknown as ChatMessageDTO;
+    const state = { ...initialState, messages: [bare] };
+
+    const next = chatReducer(state, {
+      type: 'DELTA_TOKEN',
+      payload: { messageId: 'msg-1', output: { response: 'hello' } },
+    });
+
+    expect(next.messages[0].content).toEqual([{ type: 'text', text: 'hello' }]);
+  });
 });

@@ -101,7 +101,7 @@ describe('SecretsAPI', () => {
     const secret = { key: 'DB_PASSWORD' };
     mockJsonResponse(secret);
 
-    await api().update('DB_PASSWORD', { value: 'new-secret' } as never);
+    await api().update('DB_PASSWORD', { value: 'new-secret' });
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/secrets/DB_PASSWORD');

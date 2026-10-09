@@ -24,11 +24,16 @@ fi
 
 new_version="${new_tag#v}"
 
-# Only package.json carries the version; pnpm-lock.yaml does not record it, so
-# there is nothing else to keep in sync.
+# Keep package.json and src/version.ts in sync; pnpm-lock.yaml does not
+# record the version so there is nothing else to update.
 npm version "$new_version" --no-git-tag-version --allow-same-version >/dev/null
 
-git add package.json
+# Update the SDK_VERSION constant used in the X-Client-Source telemetry header.
+# -i.bak works with both GNU and BSD sed.
+sed -i.bak "s/export const SDK_VERSION = '.*'/export const SDK_VERSION = '$new_version'/" src/version.ts
+rm -f src/version.ts.bak
+
+git add package.json src/version.ts
 git commit -m "chore: bump version to $new_tag"
 git tag "$new_tag"
 echo "Tagged $new_tag (run make release to publish)"

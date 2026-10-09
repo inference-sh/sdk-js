@@ -2,6 +2,7 @@ import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
 import {
   ApiKeyDTO,
+  CreateApiKeyRequest,
   CursorListRequest,
   CursorListResponse,
 } from '../types';
@@ -22,7 +23,7 @@ export class ApiKeysAPI {
   /**
    * Create an API key
    */
-  async create(data: { name: string; scopes?: string[] }): Promise<Response<ApiKeyDTO>> {
+  async create(data: CreateApiKeyRequest): Promise<Response<ApiKeyDTO>> {
     return this.http.request<ApiKeyDTO>('post', '/apikeys', { data });
   }
 
