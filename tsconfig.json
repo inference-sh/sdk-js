@@ -10,6 +10,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
+    // src/version.ts imports package.json so the version has one source.
+    "resolveJsonModule": true,
     // Required: consumers (js/app dev server) transpile this package's source
     // per-file, so type-only re-exports must be marked `export type`.
     "isolatedModules": true,

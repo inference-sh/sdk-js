@@ -13,8 +13,12 @@ const packageJson = JSON.parse(
 };
 
 describe('package export surface', () => {
-  it('keeps SDK_VERSION (X-Client-Source header) in sync with package.json', () => {
+  it('takes SDK_VERSION (X-Client-Source header) from package.json', () => {
     expect(SDK_VERSION).toBe(packageJson.version);
+    // A second copy of the version drifts on the next bump; version.ts must
+    // read package.json, not restate it.
+    const versionSource = readFileSync(join(__dirname, 'version.ts'), 'utf8');
+    expect(versionSource).not.toMatch(/['"]\d+\.\d+\.\d+/);
   });
 
   it('requires Node >=22.12 for eventsource 5 (ESM-only dependency)', () => {

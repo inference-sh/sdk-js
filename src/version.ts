@@ -1,5 +1,8 @@
 /**
- * SDK version string — kept in sync with package.json by scripts/bump.sh.
- * Update this file whenever the package version changes.
+ * SDK version string, sent in the X-Client-Source header. Read from
+ * package.json so the version has one source; `../package.json` resolves from
+ * both src/ and dist/, and npm always ships package.json.
  */
-export const SDK_VERSION = '0.21.0';
+import pkg from '../package.json' with { type: 'json' };
+
+export const SDK_VERSION: string = pkg.version;
