@@ -41,7 +41,7 @@ describe('remix createHandler', () => {
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       headers: { [INF_TARGET_HEADER]: target },
-      body: '{"prompt":"hi"}',
+      body: '{"input":{"prompt":"hi"}}',
     });
 
     const response = await handler({ request });

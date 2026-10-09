@@ -87,7 +87,7 @@ describe('express createHandler', () => {
     const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
-      body: { prompt: 'hi' },
+      body: { input: { prompt: 'hi' } },
       headers: { [INF_TARGET_HEADER]: target },
       query: {},
     };

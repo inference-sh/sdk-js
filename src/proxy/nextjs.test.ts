@@ -46,7 +46,7 @@ function createMockNextRequest(overrides: {
     method: overrides.method ?? 'POST',
     url: overrides.url ?? 'http://localhost/api/inference/proxy',
     headers,
-    text: () => Promise.resolve(overrides.body ?? '{"prompt":"hi"}'),
+    text: () => Promise.resolve(overrides.body ?? '{"input":{"prompt":"hi"}}'),
   };
 }
 
@@ -85,7 +85,7 @@ describe('nextjs pageHandler', () => {
     const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
-      body: { prompt: 'hi' },
+      body: { input: { prompt: 'hi' } },
       headers: { [INF_TARGET_HEADER]: target },
       query: {},
     };
@@ -109,7 +109,7 @@ describe('nextjs pageHandler', () => {
     const encoded = encodeURIComponent(target);
     const req = {
       method: 'POST',
-      body: { prompt: 'hi' },
+      body: { input: { prompt: 'hi' } },
       headers: {},
       query: { [INF_TARGET_PARAM]: [encoded, 'ignored'] },
     };
@@ -187,7 +187,7 @@ describe('nextjs handlers (App Router)', () => {
       createMockNextRequest({
         method: 'POST',
         headers: { [INF_TARGET_HEADER]: target },
-        body: '{"prompt":"hi"}',
+        body: '{"input":{"prompt":"hi"}}',
       }) as never
     );
 
@@ -197,7 +197,7 @@ describe('nextjs handlers (App Router)', () => {
       target,
       expect.objectContaining({
         method: 'POST',
-        body: '{"prompt":"hi"}',
+        body: '{"input":{"prompt":"hi"}}',
         headers: expect.objectContaining({
           authorization: 'Bearer nextjs-test-key',
         }),
@@ -213,7 +213,7 @@ describe('nextjs handlers (App Router)', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/tasks/1/stream';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/stream';
     const encoded = encodeURIComponent(target);
     const response = await handlers.GET(
       createMockNextRequest({
@@ -233,7 +233,7 @@ describe('nextjs handlers (App Router)', () => {
     );
   });
 
-  it('should reject non-inference.sh targets before calling upstream', async () => {
+  it('should reject targets off the API host before calling upstream', async () => {
     global.fetch = jest.fn() as typeof fetch;
 
     const response = await handlers.POST(
@@ -244,7 +244,7 @@ describe('nextjs handlers (App Router)', () => {
 
     expect(response.status).toBe(412);
     expect(await response.json()).toEqual({
-      error: 'Target must be an inference.sh domain, got: evil.example.com',
+      error: 'Target must be the API at https://api.inference.sh, got: evil.example.com',
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -299,7 +299,7 @@ describe('nextjs handlers (App Router)', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/tasks/1/stream';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/stream';
     const response = await handlers.GET(
       createMockNextRequest({
         method: 'GET',

@@ -26,7 +26,7 @@ function createMockContext(overrides: {
       url,
       raw: { headers },
       header: (name) => headers.get(name) ?? undefined,
-      text: () => Promise.resolve(overrides.body ?? '{"ok":true}'),
+      text: () => Promise.resolve(overrides.body ?? '{"input":{}}'),
     },
   };
 }

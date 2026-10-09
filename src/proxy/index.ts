@@ -33,8 +33,14 @@ export const INF_TARGET_PARAM = "__inf_target";
 /** Default proxy route path */
 export const PROXY_PATH = "/api/inference/proxy";
 
-/** Valid inference.sh domain pattern */
-const VALID_DOMAIN_PATTERN = /(\.|^)inference\.sh$/;
+/** The API the proxy forwards to unless `apiUrl` or `apiBaseUrl` says otherwise. */
+export const DEFAULT_API_URL = "https://api.inference.sh";
+
+/**
+ * Default `maxUploadBytes`: 100 MiB, well under the API's own per-file limit
+ * (storage.max_upload_bytes, 5 GiB by default).
+ */
+export const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 /** Headers stripped from response (fetch auto-decompresses) */
 const STRIP_RESPONSE_HEADERS = ["content-length", "content-encoding"];
@@ -92,11 +98,34 @@ export interface ProxyOptions<R = unknown> {
     /** Custom API key (defaults to INFERENCE_API_KEY env var) */
     apiKey?: string;
 
-    /** Override API base URL (defaults to INFERENCE_API_BASE_URL env var) */
+    /**
+     * The API the frontend's SDK client calls (its `baseUrl`), default
+     * https://api.inference.sh. The proxy attaches the key only to requests
+     * for this origin (or an `allowedDomains` host); a target on any other
+     * host, other inference.sh hosts included, is refused with 412.
+     */
+    apiUrl?: string;
+
+    /**
+     * Rewrite every target to this API base (defaults to the
+     * INFERENCE_API_BASE_URL env var). When set, it is also the only origin
+     * the proxy forwards to.
+     */
     apiBaseUrl?: string;
 
-    /** Allow requests to additional domains (besides *.inference.sh) */
+    /**
+     * Extra target hosts, besides the API's. Each pattern must match the
+     * whole host (`host:port` when the target names a port).
+     */
     allowedDomains?: RegExp[];
+
+    /**
+     * Largest file, in bytes, a visitor may upload through the proxy
+     * (default 100 MiB). `POST /files` declares each file's size and the API
+     * binds the upload URL to it; the bytes then go straight to storage and
+     * count against the API key owner's storage quota. One file per request.
+     */
+    maxUploadBytes?: number;
 
     /**
      * Apps and agents visitors may run, as `namespace/name` globs: "ana/helper",
@@ -105,9 +134,11 @@ export interface ProxyOptions<R = unknown> {
      *
      * Checked where a request names the app or agent: a new app run, a new
      * chat or agent message, a chat handed to another agent, an agent's info.
-     * Requests about an existing task or chat name it by id; the proxy cannot
-     * tell which app or agent that is, so they are limited to reading,
-     * streaming, stopping and answering it. When set, ad-hoc agent configs
+     * Requests about an existing task or chat name it by id, and the proxy
+     * cannot tell which app or agent that is: whoever holds a task or chat id
+     * can read and stream it, cancel or stop it, and send messages in the
+     * chat (which run the chat's agent). All visitors share one key, so the
+     * id is the only boundary between them. When set, ad-hoc agent configs
      * (`agent_config`) and runs by `app_id`/`version_id` are refused.
      */
     allowedEndpoints?: string[];
@@ -145,11 +176,22 @@ export interface ProxyOptions<R = unknown> {
  * checked where a request names one: a new run or chat, a chat handed to
  * another agent, an agent's info. A request about an existing task or chat
  * names it by id, and the proxy cannot tell which app or agent that id
- * belongs to; those calls are limited to the read/stream/answer paths below.
+ * belongs to: the id holder may use every id call below on it.
+ *
+ * Tool approvals are not forwarded. The API takes an approval (approve,
+ * reject, always allow, resolve an interrupt, answer a question awaiting a
+ * person) only from the account holder's own sign-in, never from an API key,
+ * and the proxy signs with a key. Agents behind a proxy should not use
+ * approval-gated tools.
  */
 
-/** Ids of tasks, chats, messages, tool calls, runs and interrupts. */
-const ID = "[A-Za-z0-9_-]+";
+/**
+ * Ids of tasks, chats, messages, tool calls and the like, in the shape the
+ * API mints them: a lowercase 26-character ULID (Crockford base32, no i, l,
+ * o or u). Literal routes beside an id (`/tasks/stream`, `/chats/list`, ...)
+ * never match.
+ */
+const ID = "[0-9a-hjkmnp-tv-z]{26}";
 /** One segment of an agent ref in a path (namespace, name, name@version). */
 const SEGMENT = "[A-Za-z0-9._@:-]+";
 /** API routes under /agents/{id}/ that are not an agent's namespace/name. */
@@ -172,22 +214,37 @@ export interface ProxyEndpoint {
     ref?: RefSource;
     /** Set when only these body fields may be sent. */
     onlyFields?: string[];
+    /** Further checks of the body (a JSON object), given the proxy's limits. */
+    validate?: (body: Record<string, unknown>, limits: ProxyLimits) => PolicyRefusal | undefined;
+}
+
+/** Limits from the proxy options, handed to endpoint checks. */
+interface ProxyLimits {
+    maxUploadBytes: number;
 }
 
 const endpoint = (
     method: ProxyEndpoint["method"],
     path: string,
     purpose: string,
-    rules: Pick<ProxyEndpoint, "ref" | "onlyFields"> = {}
+    rules: Pick<ProxyEndpoint, "ref" | "onlyFields" | "validate"> = {}
 ): ProxyEndpoint => ({ method, path: new RegExp(`^${path}$`), purpose, ...rules });
 
 /**
  * The calls the proxy forwards. Everything else is refused with 403.
  */
 export const PROXY_ENDPOINTS: readonly ProxyEndpoint[] = [
-    // Apps: run, then follow the task.
-    endpoint("POST", "/apps/run", "run an app", { ref: { body: "app", refuse: ["app_id", "version_id"] } }),
-    endpoint("POST", "/files", "upload a file input of a run or message"),
+    // Apps: run, then follow the task. Only the app, its input and how to
+    // follow the run: no workers, infra, session, webhook, schedule, setup or
+    // metadata from a visitor.
+    endpoint("POST", "/apps/run", "run an app", {
+        ref: { body: "app", refuse: ["app_id", "version_id"] },
+        onlyFields: ["app", "app_id", "version_id", "function", "input", "stream", "wait"],
+    }),
+    endpoint("POST", "/files", "upload a file input of a run or message", {
+        onlyFields: ["files"],
+        validate: checkUpload,
+    }),
     endpoint("GET", `/tasks/${ID}`, "read a task"),
     endpoint("GET", `/tasks/${ID}/status`, "poll a task"),
     endpoint("GET", `/tasks/${ID}/stream`, "stream a task"),
@@ -208,17 +265,42 @@ export const PROXY_ENDPOINTS: readonly ProxyEndpoint[] = [
     endpoint("POST", `/chats/${ID}/stop`, "stop a chat"),
     endpoint("POST", `/chats/messages/${ID}/cancel`, "cancel a message"),
     endpoint("POST", `/tools/${ID}`, "answer a client tool call"),
-    endpoint("POST", `/tools/${ID}/invoke`, "approve a tool call"),
-    endpoint("POST", `/tools/${ID}/reject`, "reject a tool call"),
-    endpoint("GET", `/chats/${ID}/tools/${ID}/always-allow/options`, "list always-allow options of a tool call"),
-    endpoint("POST", `/chats/${ID}/tools/${ID}/always-allow`, "always allow a tool call in this chat"),
-    endpoint("POST", `/chats/${ID}/tools/${ID}/explain`, "explain a tool call awaiting approval"),
-    // "Allow all tools" in the chat; the chat's other settings (visibility,
-    // hooks) stay the owner's.
-    endpoint("POST", `/chats/${ID}/settings`, "allow all tool calls in this chat", { onlyFields: ["allow_all_tools"] }),
-    endpoint("GET", `/agent-runs/${ID}/interrupts`, "list a run's interrupts"),
-    endpoint("POST", `/interrupts/${ID}/resolve`, "resolve an interrupt"),
 ];
+
+/** File fields `POST /files` takes (models.PartialFile). */
+const UPLOAD_FILE_FIELDS = ["uri", "path", "content_type", "size", "filename"];
+
+/**
+ * `POST /files` through the proxy: one file, its declared size within
+ * maxUploadBytes, no category (uploads land in the default "files" category).
+ */
+function checkUpload(body: Record<string, unknown>, limits: ProxyLimits): PolicyRefusal | undefined {
+    for (const files of fieldValues(body, "files")) {
+        if (!Array.isArray(files) || files.length !== 1) {
+            return { status: 403, error: "the inference.sh proxy uploads one file per request" };
+        }
+        const file = files[0];
+        if (file === null || typeof file !== "object" || Array.isArray(file)) {
+            return { status: 400, error: "files[0] must be a JSON object" };
+        }
+        const fields = file as Record<string, unknown>;
+        const extra = Object.keys(fields).find((key) => !UPLOAD_FILE_FIELDS.includes(foldKey(key)));
+        if (extra !== undefined) {
+            return { status: 403, error: `"files[0].${extra}" cannot be set through the inference.sh proxy` };
+        }
+        const sizes = fieldValues(fields, "size");
+        if (sizes.length === 0) return { status: 400, error: "files[0].size is required" };
+        for (const size of sizes) {
+            if (typeof size !== "number" || !Number.isInteger(size) || size <= 0) {
+                return { status: 400, error: "files[0].size must be a positive integer" };
+            }
+            if (size > limits.maxUploadBytes) {
+                return { status: 413, error: `file is larger than this proxy's upload limit (${limits.maxUploadBytes} bytes)` };
+            }
+        }
+    }
+    return undefined;
+}
 
 /** A refusal: the HTTP status and the message sent back. */
 interface PolicyRefusal {
@@ -288,7 +370,8 @@ function checkProxyRequest(
     method: string,
     pathname: string,
     body: string | undefined,
-    patterns: readonly RegExp[]
+    patterns: readonly RegExp[],
+    limits: ProxyLimits
 ): PolicyRefusal | undefined {
     const m = method.toUpperCase();
     const match = PROXY_ENDPOINTS.find((e) => e.method === m && e.path.test(pathname));
@@ -299,7 +382,7 @@ function checkProxyRequest(
         };
     }
     const checkRef = match.ref !== undefined && patterns.length > 0;
-    if (!checkRef && !match.onlyFields) return undefined;
+    if (!checkRef && !match.onlyFields && !match.validate) return undefined;
 
     if (match.ref && "path" in match.ref) {
         const ref = pathname.slice("/agents/".length);
@@ -322,6 +405,11 @@ function checkProxyRequest(
         if (extra !== undefined) {
             return { status: 403, error: `"${extra}" cannot be set through the inference.sh proxy` };
         }
+    }
+
+    if (match.validate) {
+        const refusal = match.validate(fields, limits);
+        if (refusal) return refusal;
     }
 
     if (checkRef && match.ref && "body" in match.ref) {
@@ -385,13 +473,20 @@ function isAllowedScheme(target: URL): boolean {
     return target.protocol === "http:" && isLoopback(target.hostname);
 }
 
-/** Check if domain is allowed */
-function isAllowedDomain(host: string, extraDomains?: RegExp[]): boolean {
-    if (VALID_DOMAIN_PATTERN.test(host)) return true;
-    if (extraDomains) {
-        return extraDomains.some((pattern) => pattern.test(host));
-    }
-    return false;
+/** Whether a pattern matches the whole host (no partial or suffix match). */
+function matchesWholeHost(pattern: RegExp, host: string): boolean {
+    const whole = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ""));
+    const m = whole.exec(host);
+    return m !== null && m.index === 0 && m[0] === host;
+}
+
+/**
+ * The target must be the configured API's origin or a host the site listed
+ * in allowedDomains: the API key goes nowhere else.
+ */
+function isAllowedTarget(target: URL, apiOrigin: string, extraDomains?: RegExp[]): boolean {
+    if (target.origin === apiOrigin) return true;
+    return (extraDomains ?? []).some((pattern) => matchesWholeHost(pattern, target.host));
 }
 
 // ============================================================================
@@ -447,8 +542,9 @@ export async function processProxyRequest<T, R = unknown>(
         });
     }
 
-    // 1b. Parse, and rewrite the base URL if INFERENCE_API_BASE_URL is set
+    // 1b. Parse, and rewrite the base URL if apiBaseUrl / INFERENCE_API_BASE_URL is set
     let target: URL;
+    let apiOrigin: string;
     try {
         target = new URL(targetUrl);
         const overrideBase = options?.apiBaseUrl || process.env.INFERENCE_API_BASE_URL;
@@ -456,6 +552,9 @@ export async function processProxyRequest<T, R = unknown>(
             const override = new URL(overrideBase);
             target.protocol = override.protocol;
             target.host = override.host;
+            apiOrigin = override.origin;
+        } else {
+            apiOrigin = new URL(options?.apiUrl || DEFAULT_API_URL).origin;
         }
     } catch {
         return adapter.error(400, { error: "Invalid target URL" });
@@ -463,25 +562,29 @@ export async function processProxyRequest<T, R = unknown>(
     targetUrl = target.toString();
 
     // 2. Validate the target: https only (the API key rides on this request),
-    // and an inference.sh or explicitly allowed domain.
+    // and the configured API's origin or an explicitly allowed host.
     if (!isAllowedScheme(target)) {
         return adapter.error(412, {
             error: `Target must use https, got: ${target.protocol}`,
         });
     }
 
-    const host = target.host;
-    if (!isAllowedDomain(host, options?.allowedDomains)) {
+    if (!isAllowedTarget(target, apiOrigin, options?.allowedDomains)) {
         return adapter.error(412, {
-            error: `Target must be an inference.sh domain, got: ${host}`,
+            error: `Target must be the API at ${apiOrigin}, got: ${target.host}`,
         });
+    }
+
+    const maxUploadBytes = options?.maxUploadBytes ?? DEFAULT_MAX_UPLOAD_BYTES;
+    if (!(Number.isInteger(maxUploadBytes) && maxUploadBytes > 0)) {
+        return adapter.error(500, { error: "maxUploadBytes must be a positive integer" });
     }
 
     // 2b. Only the calls a frontend needs to run apps and agents, and only
     // the allowed apps and agents. The body is read once, here, and the same
     // string is what goes upstream.
     const body = adapter.method.toUpperCase() === "GET" ? undefined : await adapter.body();
-    const refusal = checkProxyRequest(adapter.method, target.pathname, body, patterns);
+    const refusal = checkProxyRequest(adapter.method, target.pathname, body, patterns, { maxUploadBytes });
     if (refusal) {
         return adapter.error(refusal.status, { error: refusal.error });
     }

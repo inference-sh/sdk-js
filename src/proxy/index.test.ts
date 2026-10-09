@@ -20,7 +20,7 @@ function createTestAdapter(overrides: Partial<ProxyAdapter<ProxyResult>> = {}): 
   const adapter: ProxyAdapter<ProxyResult> = {
     framework: 'test',
     method: 'POST',
-    body: async () => '{"ok":true}',
+    body: async () => '{"input":{}}',
     headers: () => ({}),
     header: () => undefined,
     query: () => undefined,
@@ -117,9 +117,51 @@ describe('processProxyRequest', () => {
 
     expect(result.status).toBe(412);
     expect(result.body).toEqual({
-      error: 'Target must be an inference.sh domain, got: evil.example.com',
+      error: 'Target must be the API at https://api.inference.sh, got: evil.example.com',
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'https://telemetry.inference.sh/apps/run',
+    'https://relay.inference.sh/apps/run',
+    'https://api-dev.inference.sh/apps/run',
+    'https://inference.sh/apps/run',
+    'https://api.inference.sh:8443/apps/run',
+    'https://api.inference.sh.evil.example/apps/run',
+  ])('should pin the target to the API host, refusing %s', async (target) => {
+    const result = await processProxyRequest(
+      createTestAdapter({ header: (name) => (name === INF_TARGET_HEADER ? target : undefined) })
+    );
+
+    expect(result.status).toBe(412);
+    expect(result.body).toEqual({ error: expect.stringMatching(/^Target must be the API at https:\/\/api\.inference\.sh, got: /) });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should pin the target to options.apiUrl', async () => {
+    const adapter = (target: string) =>
+      createTestAdapter({ header: (name) => (name === INF_TARGET_HEADER ? target : undefined) });
+    const options = { apiUrl: 'https://staging-api.inference.sh' };
+
+    expect((await processProxyRequest(adapter('https://staging-api.inference.sh/apps/run'), options)).status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith('https://staging-api.inference.sh/apps/run', expect.any(Object));
+    const other = await processProxyRequest(adapter('https://api.inference.sh/apps/run'), options);
+    expect(other.status).toBe(412);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should match allowedDomains against the whole host', async () => {
+    const adapter = (target: string) =>
+      createTestAdapter({ header: (name) => (name === INF_TARGET_HEADER ? target : undefined) });
+    // A /g pattern keeps lastIndex between calls; the check must not depend on it.
+    const options = { allowedDomains: [/custom\.example/g] };
+    global.fetch = jest.fn(async () => new Response('{}', { status: 200 })) as typeof fetch;
+
+    expect((await processProxyRequest(adapter('https://evilcustom.example/apps/run'), options)).status).toBe(412);
+    expect((await processProxyRequest(adapter('https://custom.example.evil/apps/run'), options)).status).toBe(412);
+    expect((await processProxyRequest(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
+    expect((await processProxyRequest(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
   });
 
   it.each([
@@ -214,7 +256,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should proxy valid inference.sh requests with env API key', async () => {
-    const target = 'https://api.inference.sh/tasks/1/cancel';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
     const result = await processProxyRequest(
       createTestAdapter({
@@ -237,7 +279,7 @@ describe('processProxyRequest', () => {
 
   it('should resolve API key from adapter.apiKey when env key is missing', async () => {
     delete process.env.INFERENCE_API_KEY;
-    const target = 'https://api.inference.sh/tasks/1/cancel';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
     const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
 
     await processProxyRequest(
@@ -259,7 +301,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should prefer client Authorization header over env API key', async () => {
-    const target = 'https://api.inference.sh/tasks/1/cancel';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
     await processProxyRequest(
       createTestAdapter({
@@ -295,13 +337,13 @@ describe('processProxyRequest', () => {
   });
 
   it('should honor custom allowedDomains', async () => {
-    const target = 'https://cdn.custom.example/files';
+    const target = 'https://cdn.custom.example/apps/run';
 
     await processProxyRequest(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       }),
-      { apiKey: 'custom-key', allowedDomains: [/custom\.example$/] }
+      { apiKey: 'custom-key', allowedDomains: [/cdn\.custom\.example/] }
     );
 
     expect(global.fetch).toHaveBeenCalledWith(target, expect.any(Object));
@@ -372,7 +414,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should strip content-encoding and content-length from proxied responses', async () => {
-    const target = 'https://api.inference.sh/tasks/1/cancel';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
     const setHeader = jest.fn();
 
     global.fetch = jest.fn().mockResolvedValue(
@@ -401,7 +443,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should omit body for GET requests', async () => {
-    const target = 'https://api.inference.sh/tasks/1';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx';
 
     await processProxyRequest(
       createTestAdapter({
@@ -422,7 +464,7 @@ describe('processProxyRequest', () => {
 
   it('should rewrite target host when INFERENCE_API_BASE_URL env is set', async () => {
     process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
-    const target = 'https://api.inference.sh/tasks/1/cancel';
+    const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
     await processProxyRequest(
       createTestAdapter({
@@ -431,7 +473,7 @@ describe('processProxyRequest', () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://staging-api.inference.sh/tasks/1/cancel',
+      'https://staging-api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel',
       expect.any(Object)
     );
   });
