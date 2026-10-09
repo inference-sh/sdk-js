@@ -9,15 +9,19 @@ import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  ToolTypeApp,
   AgentRunStateCompleted,
   AgentRunStateWorking,
+  AgentRunStateAuthRequired,
 } from '../types';
 import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types';
+import { learningHooks } from '../hook-builder';
 import { FilesAPI } from './files';
 import { AgentsAPI } from './agents';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
+const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
@@ -216,6 +220,64 @@ describe('Agent.sendMessage (polling mode)', () => {
       ([url]) => typeof url === 'string' && url.includes('/status')
     );
     expect(statusPolls.length).toBe(1);
+  });
+
+  it('should keep polling while active_run is auth_required', async () => {
+    jest.useFakeTimers();
+    try {
+      const userMessage = makeMessage({ id: 'user-1', role: 'user' });
+      const assistantMessage = makeMessage({ id: 'asst-1' });
+
+      mockJsonResponse({
+        user_message: userMessage,
+        assistant_message: assistantMessage,
+      });
+      mockFetch.mockImplementation((url: string) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/status')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({ status: ChatStatusBusy })),
+          });
+        }
+        if (urlStr.includes('/chats/') && !urlStr.includes('/status')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify({
+                  id: 'chat-1',
+                  status: ChatStatusBusy,
+                  active_run: authRequiredRun,
+                  chat_messages: [],
+                })
+              ),
+          });
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${urlStr}`));
+      });
+
+      const turn = agent().sendMessage('needs oauth', { stream: false });
+
+      let settled = false;
+      turn.then(
+        () => {
+          settled = true;
+        },
+        () => undefined
+      );
+
+      await jest.advanceTimersByTimeAsync(200);
+
+      const statusPolls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/status'));
+      expect(statusPolls.length).toBeGreaterThan(1);
+      expect(settled).toBe(false);
+    } finally {
+      jest.useRealTimers();
+      mockFetch.mockReset();
+    }
   });
 
   it('should skip full GET /chats when poll status is unchanged', async () => {
@@ -1669,6 +1731,40 @@ describe('Agent.sendMessage (ad-hoc config)', () => {
     expect(body.input.text).toBe('hello');
   });
 
+  it('should include permissions on ad-hoc agent_config runs', async () => {
+    const http = new HttpClient({
+      apiKey: 'test-key',
+      stream: false,
+      pollIntervalMs: 20,
+    });
+    const unattended = new AgentsAPI(http, new FilesAPI(http)).create({
+      core_app: { ref: 'openrouter/claude@latest' },
+      system_prompt: 'You are helpful',
+      name: 'adhoc-bot',
+      permissions: { allow_all_tools: true },
+    });
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+
+    await unattended.sendMessage('hello', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect((body.agent_config as { permissions?: { allow_all_tools?: boolean } }).permissions).toEqual({
+      allow_all_tools: true,
+    });
+  });
+
   it('should prefer AgentOptions.name over config.name for agent_name', async () => {
     const http = new HttpClient({
       apiKey: 'test-key',
@@ -2334,6 +2430,58 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should pass internal_tools through createAgent()', async () => {
+    const internal_tools = {
+      knowledge: true,
+      agent: false,
+      skills: true,
+      artifact: true,
+      meta: true,
+      remote: true,
+    };
+    const payload = { name: 'support-bot', core_app: { ref: 'app/ref' }, internal_tools };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.internal_tools).toEqual(internal_tools);
+    expect(body.internal_tools).not.toHaveProperty('spawn');
+  });
+
+  it('should pass learningHooks() builtin hooks through createAgent()', async () => {
+    const hooks = learningHooks({ suggest: true, learn: true });
+    const payload = { name: 'learning-bot', core_app: { ref: 'app/ref' }, hooks };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.hooks).toEqual(hooks);
+  });
+  it('should forward version.permissions.allow_all_tools in createAgent()', async () => {
+    const payload = {
+      name: 'cron-bot',
+      core_app: { ref: 'app/ref' },
+      version: {
+        name: 'cron-bot',
+        system_prompt: 'run unattended',
+        permissions: { allow_all_tools: true },
+      },
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
@@ -2411,6 +2559,54 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.remote_id).toBe('remote-dev-machine');
   });
 
+  it('should forward app.fixed_input on tools through createAgent()', async () => {
+    const payload = {
+      name: 'media-bot',
+      core_app: { ref: 'openrouter/claude@latest' },
+      tools: [
+        {
+          name: 'generate',
+          description: 'Generate media',
+          type: ToolTypeApp,
+          app: {
+            ref: 'infsh/flux@v1',
+            fixed_input: { api_key_id: 'cred-1' },
+          },
+        },
+      ],
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward app.fixed_input on tools through update()', async () => {
+    const payload = {
+      tools: [
+        {
+          name: 'generate',
+          description: 'Generate media',
+          type: ToolTypeApp,
+          app: {
+            ref: 'infsh/flux@v1',
+            fixed_input: { quality: 'hd' },
+          },
+        },
+      ],
+    };
+    const agent = { id: 'agent-1', name: 'media-bot', ...payload };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should POST /agents/{id} for update()', async () => {
     const agent = { id: 'agent-1', name: 'updated' };
     mockJsonResponse(agent);
@@ -2430,6 +2626,49 @@ describe('AgentsAPI (template CRUD)', () => {
     const result = await api().update('agent-1', payload as never);
 
     expect(result.data.harness).toBe('codex');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward title in update() body', async () => {
+    const payload = { title: 'Renamed Support Bot' };
+    const agent = { id: 'agent-1', name: 'support-bot', title: 'Renamed Support Bot' };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should pass internal_tools through update()', async () => {
+    const payload = {
+      internal_tools: {
+        knowledge: false,
+        skills: false,
+        agent: true,
+        artifact: true,
+      },
+    };
+    const agent = { id: 'agent-1', name: 'coder', ...payload };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.internal_tools).toEqual(payload.internal_tools);
+    expect(body.internal_tools).not.toHaveProperty('spawn');
+  });
+
+  it('should pass lifecycle hooks through update()', async () => {
+    const hooks = learningHooks({ suggest: true });
+    const payload = { hooks };
+    const agent = { id: 'agent-1', name: 'learning-bot', ...payload };
+    mockJsonResponse(agent);
+
+    await api().update('agent-1', payload as never);
+
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });

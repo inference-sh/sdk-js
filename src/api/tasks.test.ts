@@ -4,6 +4,8 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusRunning,
+  type DecisionInput,
+  type DecisionOutput,
 } from '../types';
 import { TasksAPI } from './tasks';
 
@@ -32,6 +34,19 @@ function makeTask(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeTaskResult(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'task-1',
+    short_id: 't1',
+    status: TaskStatusRunning,
+    status_text: 'running',
+    output: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
 describe('TasksAPI.run (polling mode)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -45,6 +60,27 @@ describe('TasksAPI.run (polling mode)', () => {
         pollIntervalMs: 20,
       })
     );
+
+  it('should watch to completion when POST /apps/run returns TaskResultDTO', async () => {
+    const completedTask = makeTask({ status: TaskStatusCompleted, output: { ok: true } });
+
+    mockJsonResponse(makeTaskResult());
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCompleted });
+    mockJsonResponse(completedTask);
+
+    const result = await api().run(
+      { app: 'test-app', input: {} },
+      { prompt: 'hi' },
+      { wait: true, stream: false }
+    );
+
+    expect(result.status).toBe(TaskStatusCompleted);
+    expect(result.output).toEqual({ ok: true });
+    expect(result.session_id).toBe('sess-1');
+    const [runUrl] = mockFetch.mock.calls[0] as [string];
+    expect(String(runUrl)).toContain('/apps/run');
+  });
 
   it('should resolve when status polling detects completion', async () => {
     const runningTask = makeTask();
@@ -492,11 +528,13 @@ describe('TasksAPI.run (HTTP contract)', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/run');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({
       app: 'image-gen',
       version_id: 'ver-2',
       input: { prompt: 'sunset', width: 512 },
     });
+    expect(body).not.toHaveProperty('variant');
   });
 
   it('should fetch the full task after /apps/run when not waiting', async () => {
@@ -511,6 +549,55 @@ describe('TasksAPI.run (HTTP contract)', () => {
     const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1');
     expect(init.method).toBe('GET');
+  });
+
+  it('should POST DecisionInput and return DecisionOutput for decision apps (1b2e21a)', async () => {
+    const decisionInput: DecisionInput = {
+      state: { message: 'I need a refund' },
+      choices: [
+        {
+          id: 'intent',
+          instructions: 'Classify intent',
+          options: [{ name: 'billing' }, { name: 'other' }],
+        },
+      ],
+    };
+    const decisionOutput: DecisionOutput = {
+      choices: {
+        intent: {
+          choice: 'billing',
+          confidence: 0.95,
+          probabilities: { billing: 0.95, other: 0.05 },
+        },
+      },
+      scores: {},
+      nouls: {},
+      model: 'acme/router',
+      input_tokens: 0,
+    };
+
+    mockJsonResponse({ id: 'task-decision', status: TaskStatusRunning, output: null });
+    mockJsonResponse(
+      makeTask({
+        id: 'task-decision',
+        status: TaskStatusCompleted,
+        input: decisionInput,
+        output: decisionOutput,
+      })
+    );
+
+    const result = await api().run(
+      { app: 'acme/intent-router', input: {} },
+      decisionInput,
+      { wait: false }
+    );
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/intent-router',
+      input: decisionInput,
+    });
+    expect(result.output).toEqual(decisionOutput);
   });
 });
 
@@ -534,6 +621,24 @@ describe('TasksAPI.create', () => {
     expect(JSON.parse(init.body as string)).toEqual({
       app: 'test-app',
       input: { prompt: 'hi' },
+    });
+  });
+
+  it('should forward function in /apps/run when running a pinned app function', async () => {
+    const task = makeTask();
+    mockJsonResponse(task);
+
+    await api().create({
+      app: 'acme/image-gen:upscale',
+      function: 'upscale',
+      input: { image: 'file-1' },
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/image-gen:upscale',
+      function: 'upscale',
+      input: { image: 'file-1' },
     });
   });
 });
@@ -604,11 +709,34 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('DELETE');
   });
 
-  it('should GET /tasks/{id}/files for files()', async () => {
+  it('should GET /tasks/{id}/files without role when files() omits it', async () => {
     mockJsonResponse([]);
 
-    await api().files('task-1', 'output');
+    await api().files('task-1');
 
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files');
+    expect(url).not.toContain('role=');
+    expect(init.method).toBe('GET');
+  });
+
+  it('should GET /tasks/{id}/files for files() with role filter', async () => {
+    const rows = [
+      {
+        id: 'file-out',
+        created_at: '2026-10-07T12:00:00Z',
+        role: 'output',
+        uri: 'inf://files/file-out',
+        filename: 'out.png',
+        content_type: 'image/png',
+        size: 100,
+      },
+    ];
+    mockJsonResponse(rows);
+
+    const result = await api().files('task-1', 'output');
+
+    expect(result.data).toEqual(rows);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/tasks/task-1/files?role=output');
     expect(init.method).toBe('GET');
@@ -621,6 +749,22 @@ describe('TasksAPI (CRUD and admin)', () => {
 
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toMatch(/\/tasks\/task-1\/files$/);
+    expect(url).not.toContain('role=');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('should pass role to DELETE /tasks/{id}/files when deleteFiles() scopes the side', async () => {
+    const body = {
+      deleted: ['file-in'],
+      skipped: [{ id: 'file-out', reason: 'not requested role' }],
+    };
+    mockJsonResponse(body);
+
+    const result = await api().deleteFiles('task-1', 'input');
+
+    expect(result.data).toEqual(body);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tasks/task-1/files?role=input');
     expect(init.method).toBe('DELETE');
   });
 

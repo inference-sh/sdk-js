@@ -8,6 +8,12 @@ import {
   ChatStatusAwaitingInput,
   ChatStatusBusy,
   ChatStatusIdle,
+  ChatMessageRoleEvent,
+  ChatMessageContentTypeEvent,
+  ChatEventTypeHook,
+  HookEventAgentStart,
+  HookHandlerWebhook,
+  HookDecisionDeny,
 } from '../types';
 import { chatReducer, initialState } from './reducer';
 
@@ -57,6 +63,37 @@ describe('chatReducer', () => {
 
     expect(next.messages.map((m) => m.id)).toEqual(['msg-1', 'msg-2']);
     expect(next.chat?.status).toBe(ChatStatusBusy);
+  });
+
+  it('SET_CHAT should keep display-only event-role hook messages', () => {
+    const hookPayload = {
+      event: HookEventAgentStart,
+      handler_type: HookHandlerWebhook,
+      handler: 'hooks.example.com',
+      decision: HookDecisionDeny,
+      reason: 'blocked',
+      error: 'timeout',
+      duration_ms: 120,
+    };
+    const eventMessage = {
+      ...makeMessage('msg-event', 2),
+      role: ChatMessageRoleEvent,
+      content: [
+        {
+          type: ChatMessageContentTypeEvent,
+          event: { type: ChatEventTypeHook, hook: hookPayload },
+        },
+      ],
+    } as ChatMessageDTO;
+    const chat = makeChat({
+      chat_messages: [makeMessage('msg-1', 1), eventMessage],
+    });
+
+    const next = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    expect(next.messages).toHaveLength(2);
+    expect(next.messages[1]?.role).toBe('event');
+    expect(next.messages[1]?.content[0]?.event?.hook).toEqual(hookPayload);
   });
 
   it('UPDATE_CHAT should update chat metadata without replacing messages', () => {

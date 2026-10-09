@@ -5,11 +5,17 @@ import {
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
+  AgentRunStateAuthRequired,
   AgentRunStateCompleted,
   ChatMessageStatusReady,
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
+  ChatMessageRoleEvent,
+  ChatMessageContentTypeEvent,
+  ChatEventTypeHook,
+  HookEventToolCall,
+  HookHandlerGate,
 } from '../types';
 import type { ActionsContext, AgentOptions, UpdateManager } from './types';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
@@ -17,6 +23,7 @@ import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
 const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
+const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
 import { createActions, getClientToolHandlers } from './actions';
 import { InferenceError } from '../http/errors';
@@ -215,6 +222,52 @@ describe('createActions', () => {
         type: 'UPDATE_MESSAGE',
         payload: expect.objectContaining({ content: 'streaming chunk' }),
       });
+    });
+
+    it('should forward display-only event-role hook messages into UPDATE_MESSAGE', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-short');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      const hook = {
+        event: HookEventToolCall,
+        handler_type: HookHandlerGate,
+        handler: 'policy-gate',
+        duration_ms: 7,
+      };
+      const eventMessage = makeMessage({
+        id: 'msg-event',
+        chat_id: 'chat-short',
+        role: ChatMessageRoleEvent,
+        content: [
+          {
+            type: ChatMessageContentTypeEvent,
+            event: { type: ChatEventTypeHook, hook },
+          },
+        ],
+      });
+      onMessage(eventMessage);
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_MESSAGE',
+        payload: expect.objectContaining({
+          id: 'msg-event',
+          role: 'event',
+          content: [
+            expect.objectContaining({
+              type: 'event',
+              event: { type: ChatEventTypeHook, hook },
+            }),
+          ],
+        }),
+      });
+      expect(mockAgentApi.submitToolResult).not.toHaveBeenCalled();
     });
 
     it('should run the handler and submit its result when a client tool is available', async () => {
@@ -1857,9 +1910,10 @@ describe('createActions', () => {
       onAgentRun(workingRun);
       onAgentRun(submittedRun);
       onAgentRun(inputRequiredRun);
+      onAgentRun(authRequiredRun);
 
       expect(onStatusChange).toHaveBeenCalledWith('streaming');
-      expect(onStatusChange).toHaveBeenCalledTimes(3);
+      expect(onStatusChange).toHaveBeenCalledTimes(4);
     });
 
     it('should call onStatusChange with idle when agent run completes', async () => {
@@ -1920,6 +1974,37 @@ describe('createActions', () => {
 
       getAgentRunsListener()(completedRun);
 
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+
+    it('should not call onTurnEnd when the run parks on human input or authorization', async () => {
+      const onTurnEnd = jest.fn();
+      const busyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      const { ctx } = createTestContext({
+        callbacks: { onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: busyChat,
+        }),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onAgentRun = getAgentRunsListener();
+      onAgentRun(workingRun);
+      onAgentRun(inputRequiredRun);
+      expect(onTurnEnd).not.toHaveBeenCalled();
+
+      onAgentRun(workingRun);
+      onAgentRun(authRequiredRun);
       expect(onTurnEnd).not.toHaveBeenCalled();
     });
   });

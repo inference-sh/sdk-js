@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client';
+import { AppCategoryDecision } from '../types';
 import { AppsAPI } from './apps';
 
 const mockFetch = jest.fn();
@@ -41,6 +42,21 @@ describe('AppsAPI', () => {
     expect(result.data).toEqual(app);
     const [url] = mockFetch.mock.calls[0] as [string];
     expect(url).toContain('/apps/inference/claude-haiku');
+  });
+
+  it('should GET app ref with function suffix for getByName()', async () => {
+    const app = {
+      id: 'app-1',
+      name: 'acme/image-gen',
+      resolved_function: 'upscale',
+    };
+    mockJsonResponse(app);
+
+    await api().getByName('acme/image-gen:upscale');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/apps/acme/image-gen:upscale');
+    expect(init.method).toBe('GET');
   });
 
   it('should POST transfer with team_id for transferOwnership()', async () => {
@@ -138,6 +154,38 @@ describe('AppsAPI', () => {
     });
   });
 
+  it('should forward category and tags in create() body', async () => {
+    const app = { id: 'app-new', name: 'decision-bot' };
+    mockJsonResponse(app);
+
+    await api().create({
+      name: 'decision-bot',
+      category: AppCategoryDecision,
+      tags: ['social-media', 'messaging', 'deep-research'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'decision-bot',
+      category: 'decision',
+      tags: ['social-media', 'messaging', 'deep-research'],
+    });
+  });
+
+  it('should forward tags in update() body for deploy-time replacement', async () => {
+    const app = { id: 'app-1', tags: ['rendering', 'media-utilities'] };
+    mockJsonResponse(app);
+
+    await api().update('app-1', {
+      tags: ['rendering', 'media-utilities', 'evaluation'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      tags: ['rendering', 'media-utilities', 'evaluation'],
+    });
+  });
+
   it('should POST /apps/{id} for update()', async () => {
     const app = { id: 'app-1', description: 'updated' };
     mockJsonResponse(app);
@@ -148,6 +196,16 @@ describe('AppsAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1');
     expect(JSON.parse(init.body as string)).toEqual({ description: 'updated' });
+  });
+
+  it('should forward title in update() body', async () => {
+    const app = { id: 'app-1', name: 'veo-3-1', title: 'Veo 3.1 (Updated)' };
+    mockJsonResponse(app);
+
+    await api().update('app-1', { title: 'Veo 3.1 (Updated)' });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Veo 3.1 (Updated)' });
   });
 
   it('should DELETE /apps/{id} for delete()', async () => {
@@ -161,12 +219,22 @@ describe('AppsAPI', () => {
   });
 
   it('should POST /apps/{id}/versions/list for listVersions()', async () => {
-    const versions = { items: [{ id: 'ver-1' }], next_cursor: null };
+    const versions = {
+      items: [
+        {
+          id: 'ver-1',
+          ui: { artifact: 'acme/support-ui' },
+          metadata: { ui: { artifact: 'acme/support-ui' } },
+        },
+      ],
+      next_cursor: null,
+    };
     mockJsonResponse(versions);
 
     const result = await api().listVersions('app-1', { limit: 20 });
 
     expect(result.data).toEqual(versions);
+    expect(result.data.items[0].ui?.artifact).toBe('acme/support-ui');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/apps/app-1/versions/list');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 20 });

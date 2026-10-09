@@ -111,6 +111,12 @@ describe('package export surface', () => {
       expect(main).not.toHaveProperty('IntegrationDTO');
       expect(main).toHaveProperty('CredentialsAPI');
     });
+
+    it('exports PolicyKind constants for chat rules and usage policies (v0.18)', () => {
+      expect(main.PolicyKindRemoteExec).toBe('RemoteExec');
+      expect(main.PolicyKindWebFetch).toBe('WebFetch');
+      expect(main.PolicyEffectDeny).toBe('deny');
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {
