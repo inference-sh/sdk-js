@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { KnowledgeUpdateBody } from './write-bodies';
 import {
   KnowledgeDTO,
   KnowledgeVersionDTO,
@@ -48,7 +49,7 @@ export class KnowledgeAPI {
   /**
    * Update a knowledge entry
    */
-  async update(id: string, data: Partial<KnowledgeDTO>): Promise<Response<KnowledgeDTO>> {
+  async update(id: string, data: KnowledgeUpdateBody): Promise<Response<KnowledgeDTO>> {
     return this.http.request<KnowledgeDTO>('post', `/knowledge/${id}`, { data });
   }
 
@@ -134,7 +135,7 @@ export class SkillsAPI {
   /**
    * Update a skill
    */
-  async update(id: string, data: Partial<SkillDTO>): Promise<Response<SkillDTO>> {
+  async update(id: string, data: KnowledgeUpdateBody): Promise<Response<SkillDTO>> {
     return this.http.request<SkillDTO>('post', `/skills/${id}`, { data });
   }
 

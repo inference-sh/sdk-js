@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { TeamUpdateBody } from './write-bodies';
 import {
   MeResponse,
   TeamDTO,
@@ -48,7 +49,7 @@ export class TeamsAPI {
   /**
    * Update a team
    */
-  async update(teamId: string, data: Partial<TeamCreateRequest>): Promise<Response<TeamDTO>> {
+  async update(teamId: string, data: TeamUpdateBody): Promise<Response<TeamDTO>> {
     return this.http.request<TeamDTO>('post', `/teams/${teamId}`, { data });
   }
 

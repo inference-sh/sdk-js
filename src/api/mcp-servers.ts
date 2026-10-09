@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { MCPServerUpdateBody } from './write-bodies';
 import {
   MCPServerDTO,
   CursorListRequest,
@@ -64,7 +65,7 @@ export class MCPServersAPI {
   /**
    * Update an MCP server
    */
-  async update(id: string, data: Partial<MCPServerDTO>): Promise<Response<MCPServerDTO>> {
+  async update(id: string, data: MCPServerUpdateBody): Promise<Response<MCPServerDTO>> {
     return this.http.request<MCPServerDTO>('put', `/mcp-servers/${id}`, { data });
   }
 

@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { AppUpdateBody } from './write-bodies';
 import {
   AppDTO as App,
   AppVersionDTO,
@@ -43,9 +44,10 @@ export class AppsAPI {
   }
 
   /**
-   * Update an app
+   * Update an app's copy and edit its current version in place (see
+   * AppUpdateBody). Status and visibility have their own methods.
    */
-  async update(appId: string, data: Partial<App>): Promise<Response<App>> {
+  async update(appId: string, data: AppUpdateBody): Promise<Response<App>> {
     return this.http.request<App>('post', `/apps/${appId}`, { data });
   }
 

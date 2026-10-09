@@ -32,6 +32,19 @@ export { FlowRunsAPI } from './api/flow-runs';
 export { EnginesAPI } from './api/engines';
 export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
 export { ArtifactsAPI } from './api/artifacts';
+export type {
+  AgentUpdateBody,
+  AppUpdateBody,
+  ChatUpdateBody,
+  EngineUpdateBody,
+  FlowUpdateBody,
+  FlowPatchBody,
+  FlowViewportBody,
+  ProjectWriteBody,
+  KnowledgeUpdateBody,
+  TeamUpdateBody,
+  MCPServerUpdateBody,
+} from './api/write-bodies';
 export { TeamsAPI } from './api/teams';
 export { SecretsAPI } from './api/secrets';
 export { ApiKeysAPI } from './api/api-keys';

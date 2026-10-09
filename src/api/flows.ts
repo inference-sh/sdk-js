@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { FlowPatchBody, FlowUpdateBody, FlowViewportBody } from './write-bodies';
 import {
   FlowDTO as Flow,
   FlowVersionDTO,
@@ -36,10 +37,26 @@ export class FlowsAPI {
   }
 
   /**
-   * Update a flow
+   * Update a flow's copy and images, and save its draft graph when the body
+   * names the draft (see FlowUpdateBody). A field left out is written
+   * empty: to change some fields only, use patch.
    */
-  async update(flowId: string, data: Partial<Flow>): Promise<Response<Flow>> {
+  async update(flowId: string, data: FlowUpdateBody): Promise<Response<Flow>> {
     return this.http.request<Flow>('post', `/flows/${flowId}`, { data });
+  }
+
+  /**
+   * Change some of a flow's fields: only the fields sent are written.
+   */
+  async patch(flowId: string, data: FlowPatchBody): Promise<Response<Flow>> {
+    return this.http.request<Flow>('patch', `/flows/${flowId}`, { data });
+  }
+
+  /**
+   * Save where the editor's canvas looks on the flow's draft.
+   */
+  async saveViewport(flowId: string, viewport: FlowViewportBody): Promise<Response<void>> {
+    return this.http.request<void>('post', `/flows/${flowId}/viewport`, { data: viewport });
   }
 
   /**

@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { ProjectWriteBody } from './write-bodies';
 import {
   ProjectDTO,
   CursorListRequest,
@@ -29,14 +30,14 @@ export class ProjectsAPI {
   /**
    * Create a project
    */
-  async create(data: Partial<ProjectDTO>): Promise<Response<ProjectDTO>> {
+  async create(data: ProjectWriteBody): Promise<Response<ProjectDTO>> {
     return this.http.request<ProjectDTO>('post', '/projects', { data });
   }
 
   /**
    * Update a project
    */
-  async update(id: string, data: Partial<ProjectDTO>): Promise<Response<ProjectDTO>> {
+  async update(id: string, data: ProjectWriteBody): Promise<Response<ProjectDTO>> {
     return this.http.request<ProjectDTO>('post', `/projects/${id}`, { data });
   }
 

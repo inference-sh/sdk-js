@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { AgentUpdateBody } from './write-bodies';
 import { streamUntilTerminal, type StreamUntilTerminal } from '../http/stream-until-terminal';
 import { PollManager } from '../http/poll';
 import { FilesAPI } from './files';
@@ -552,9 +553,10 @@ export class AgentsAPI {
   }
 
   /**
-   * Update an agent template
+   * Update an agent template: its visibility and images, and a new version
+   * when `version` is set (see AgentUpdateBody).
    */
-  async update(agentId: string, data: Partial<AgentDTO>): Promise<Response<AgentDTO>> {
+  async update(agentId: string, data: AgentUpdateBody): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}`, { data });
   }
 

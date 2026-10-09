@@ -1,8 +1,11 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { ChatUpdateBody } from './write-bodies';
 import {
   ChatDTO as Chat,
   ChatMessageDTO,
+  ChatSettingsDTO,
+  ChatSettingsRequest,
   ChatTraceDTO,
   CursorListRequest,
   CursorListResponse,
@@ -29,10 +32,19 @@ export class ChatsAPI {
   }
 
   /**
-   * Update a chat
+   * Update a chat's name and description. Visibility and the other chat
+   * settings: updateSettings.
    */
-  async update(chatId: string, data: Partial<Chat>): Promise<Response<Chat>> {
+  async update(chatId: string, data: ChatUpdateBody): Promise<Response<Chat>> {
     return this.http.request<Chat>('post', `/chats/${chatId}`, { data });
+  }
+
+  /**
+   * Change a chat's settings (name, visibility, tool approval, hooks,
+   * memory). Answers with the settings as they now are.
+   */
+  async updateSettings(chatId: string, settings: ChatSettingsRequest): Promise<Response<ChatSettingsDTO>> {
+    return this.http.request<ChatSettingsDTO>('post', `/chats/${chatId}/settings`, { data: settings });
   }
 
   /**

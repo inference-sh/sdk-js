@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client';
 import type { Response } from '../http/response';
+import type { EngineUpdateBody } from './write-bodies';
 import {
   EngineDTO as Engine,
   CursorListRequest,
@@ -41,9 +42,9 @@ export class EnginesAPI {
   }
 
   /**
-   * Update an engine
+   * Rename an engine (see EngineUpdateBody).
    */
-  async update(engineId: string, data: Partial<Engine>): Promise<Response<Engine>> {
+  async update(engineId: string, data: EngineUpdateBody): Promise<Response<Engine>> {
     return this.http.request<Engine>('post', `/engines/${engineId}`, { data });
   }
 

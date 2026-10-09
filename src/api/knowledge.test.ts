@@ -123,14 +123,14 @@ describe('KnowledgeAPI', () => {
   });
 
   it('should POST /knowledge/{id} for update()', async () => {
-    const entry = { id: 'know-1', name: 'updated' };
+    const entry = { id: 'know-1', lifecycle: 'active' };
     mockJsonResponse(entry);
 
-    const result = await api().update('know-1', { name: 'updated' } as never);
+    const result = await api().update('know-1', { lifecycle: 'active' } as never);
 
     expect(result.data).toEqual(entry);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+    expect(JSON.parse(init.body as string)).toEqual({ lifecycle: 'active' });
   });
 
   it('should forward title in update() body', async () => {
@@ -376,14 +376,14 @@ describe('SkillsAPI', () => {
   });
 
   it('should POST /skills/{id} for update()', async () => {
-    const skill = { id: 'skill-1', name: 'updated' };
+    const skill = { id: 'skill-1', title: 'updated' };
     mockJsonResponse(skill);
 
-    const result = await api().update('skill-1', { name: 'updated' });
+    const result = await api().update('skill-1', { title: 'updated' });
 
     expect(result.data).toEqual(skill);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({ name: 'updated' });
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'updated' });
   });
 
   it('should DELETE /skills/{id} for delete()', async () => {

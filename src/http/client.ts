@@ -179,7 +179,7 @@ export class HttpClient {
    * Make an HTTP request to the API
    */
   async request<T, P extends object = Record<string, unknown>>(
-    method: 'get' | 'post' | 'put' | 'delete',
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     endpoint: string,
     {
       handleErrors = true,
@@ -299,7 +299,7 @@ export class HttpClient {
    * Execute the actual HTTP request (internal)
    */
   private async executeRequest<T, P extends object = Record<string, unknown>>(
-    method: 'get' | 'post' | 'put' | 'delete',
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     endpoint: string,
     options: {
       params?: P;
