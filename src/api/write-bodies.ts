@@ -39,32 +39,20 @@ export interface AgentUpdateBody {
 }
 
 /**
- * POST /apps/{id}. The app's copy, plus an in-place edit of the version
- * named by `version_id` (its metadata, required secrets and required
- * credentials). Status: `apps.updateStatus`; visibility:
- * `apps.updateVisibility`; name, namespace and version contents: a deploy.
- */
-export type AppUpdateBody = Partial<
-  Pick<
-    AppDTO,
-    | 'title'
-    | 'description'
-    | 'agent_description'
-    | 'category'
-    | 'images'
-    | 'tags'
-    | 'version_id'
-    | 'version'
-  >
->;
-
-/**
  * PATCH /apps/{id}: only the fields sent are written. The app's copy;
  * the version is edited through POST (`apps.update`).
  */
 export type AppPatchBody = Partial<
   Pick<AppDTO, 'title' | 'description' | 'agent_description' | 'category' | 'images' | 'tags'>
 >;
+
+/**
+ * POST /apps/{id}. The app's copy, plus an in-place edit of the version
+ * named by `version_id` (its metadata, required secrets and required
+ * credentials). Status: `apps.updateStatus`; visibility:
+ * `apps.updateVisibility`; name, namespace and version contents: a deploy.
+ */
+export type AppUpdateBody = AppPatchBody & Partial<Pick<AppDTO, 'version_id' | 'version'>>;
 
 /**
  * PATCH /chats/{id}. Name and description. Visibility and the chat's
@@ -75,22 +63,20 @@ export type ChatUpdateBody = Partial<Pick<ChatDTO, 'name' | 'description'>>;
 /** PATCH /engines/{id}. The engine's name; the rest is the engine's own report. */
 export type EngineUpdateBody = Partial<Pick<EngineDTO, 'name'>>;
 
-/**
- * POST /flows/{id} and PATCH /flows/{id}. The flow's copy and images.
- * `draft_version`, naming the flow's own draft by id, saves that draft's
- * graph (POST only). Visibility: `flows.updateVisibility`; viewport:
- * `flows.saveViewport`.
- */
-export type FlowUpdateBody = Partial<
-  Pick<FlowDTO, 'name' | 'title' | 'description' | 'card_image' | 'thumbnail' | 'banner_image'>
-> & {
-  draft_version?: Partial<FlowVersionDTO> & { id: string };
-};
-
 /** PATCH /flows/{id}: only the fields sent are written. */
 export type FlowPatchBody = Partial<
   Pick<FlowDTO, 'name' | 'title' | 'description' | 'card_image' | 'thumbnail' | 'banner_image'>
 >;
+
+/**
+ * POST /flows/{id}. The flow's copy and images (as PATCH), plus
+ * `draft_version`, naming the flow's own draft by id, which saves that
+ * draft's graph. Visibility: `flows.updateVisibility`; viewport:
+ * `flows.saveViewport`.
+ */
+export type FlowUpdateBody = FlowPatchBody & {
+  draft_version?: Partial<FlowVersionDTO> & { id: string };
+};
 
 /** Where the flow editor's canvas looks (POST /flows/{id}/viewport). */
 export interface FlowViewportBody {
