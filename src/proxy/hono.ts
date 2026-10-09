@@ -9,7 +9,7 @@
  * import { createHandler } from "@inferencesh/sdk/proxy/hono";
  *
  * const app = new Hono();
- * app.all("/api/inference/proxy", createHandler());
+ * app.all("/api/inference/proxy", createHandler({ allowedEndpoints: ["my-team/*"] }));
  * ```
  */
 
@@ -19,9 +19,11 @@ import {
     getEnvApiKey,
     passthrough,
     headersToRecord,
+    type ProxyOptions,
 } from "./index";
 
-export interface HonoProxyOptions {
+/** Proxy options; `isAuthenticated` receives the Context. */
+export interface HonoProxyOptions extends ProxyOptions<Context> {
     /** Custom function to resolve the API key */
     resolveApiKey?: () => Promise<string | undefined>;
 }
@@ -33,6 +35,7 @@ type HonoHandler = (context: Context) => Promise<Response>;
  */
 export function createHandler({
     resolveApiKey = getEnvApiKey,
+    ...options
 }: HonoProxyOptions = {}): HonoHandler {
     return async (context) => {
         const responseHeaders = new Headers();
@@ -40,6 +43,7 @@ export function createHandler({
 
         return processProxyRequest({
             framework: "hono",
+            request: context,
             method: context.req.method,
             body: async () => {
                 try {
@@ -62,7 +66,7 @@ export function createHandler({
                 }),
             respond: passthrough,
             apiKey: resolveApiKey,
-        });
+        }, options);
     };
 }
 

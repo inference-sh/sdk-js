@@ -62,7 +62,7 @@ describe('hono createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler();
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const response = await handler(
       createMockContext({
         headers: { [INF_TARGET_HEADER]: target },
@@ -98,7 +98,7 @@ describe('hono createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler();
-    const target = 'https://api.inference.sh/v1/stream';
+    const target = 'https://api.inference.sh/agents/run';
     const response = await handler(
       createMockContext({
         headers: { [INF_TARGET_HEADER]: target },
@@ -121,7 +121,7 @@ describe('hono createHandler', () => {
     const handler = createHandler({
       resolveApiKey: async () => 'custom-hono-key',
     });
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     await handler(
       createMockContext({
         headers: { [INF_TARGET_HEADER]: target },
@@ -136,5 +136,19 @@ describe('hono createHandler', () => {
         }),
       })
     );
+  });
+
+  it('passes the proxy options to the core: isAuthenticated gets the Context, the endpoint list applies', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const ctx = createMockContext({ headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' } });
+    expect((await createHandler({ isAuthenticated })(ctx as never)).status).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(ctx);
+
+    const secrets = createMockContext({ method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
+    expect((await createHandler()(secrets as never)).status).toBe(403);
+    const other = createMockContext({ headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, body: '{"app":"eve/x"}' });
+    expect((await createHandler({ allowedEndpoints: ['ana/*'] })(other as never)).status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

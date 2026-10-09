@@ -8,7 +8,7 @@
  * // app/routes/api.inference.proxy.ts
  * import { createHandler } from "@inferencesh/sdk/proxy/remix";
  *
- * const handler = createHandler();
+ * const handler = createHandler({ allowedEndpoints: ["my-team/*"] });
  *
  * export const loader = handler;
  * export const action = handler;
@@ -20,9 +20,11 @@ import {
     getEnvApiKey,
     passthrough,
     headersToRecord,
+    type ProxyOptions,
 } from "./index";
 
-export interface RemixProxyOptions {
+/** Proxy options; `isAuthenticated` receives the Request. */
+export interface RemixProxyOptions extends ProxyOptions<Request> {
     /** Custom function to resolve the API key */
     resolveApiKey?: () => Promise<string | undefined>;
 }
@@ -35,6 +37,7 @@ type RemixHandler = (args: { request: Request }) => Promise<Response>;
  */
 export function createHandler({
     resolveApiKey = getEnvApiKey,
+    ...options
 }: RemixProxyOptions = {}): RemixHandler {
     return async ({ request }) => {
         const responseHeaders = new Headers();
@@ -42,6 +45,7 @@ export function createHandler({
 
         return processProxyRequest({
             framework: "remix",
+            request,
             method: request.method,
             body: () => request.text(),
             headers: () => headersToRecord(request.headers),
@@ -58,7 +62,7 @@ export function createHandler({
                 }),
             respond: passthrough,
             apiKey: resolveApiKey,
-        });
+        }, options);
     };
 }
 

@@ -8,7 +8,7 @@
  * // src/routes/api/inference/proxy/+server.ts
  * import { createHandler } from "@inferencesh/sdk/proxy/svelte";
  *
- * const handler = createHandler();
+ * const handler = createHandler({ allowedEndpoints: ["my-team/*"] });
  *
  * export const GET = handler;
  * export const POST = handler;
@@ -22,9 +22,11 @@ import {
     getEnvApiKey,
     passthrough,
     headersToRecord,
+    type ProxyOptions,
 } from "./index";
 
-export interface SvelteProxyOptions {
+/** Proxy options; `isAuthenticated` receives the RequestEvent. */
+export interface SvelteProxyOptions extends ProxyOptions<RequestEvent> {
     /** Custom function to resolve the API key */
     resolveApiKey?: () => Promise<string | undefined>;
 }
@@ -39,6 +41,7 @@ type SvelteRequestHandler = (event: RequestEvent) => Promise<Response>;
  */
 export function createHandler({
     resolveApiKey = getEnvApiKey,
+    ...options
 }: SvelteProxyOptions = {}): SvelteRequestHandler {
     return async (event) => {
         const request = event.request;
@@ -47,6 +50,7 @@ export function createHandler({
 
         return processProxyRequest({
             framework: "sveltekit",
+            request: event,
             method: request.method,
             body: () => request.text(),
             headers: () => headersToRecord(request.headers),
@@ -63,7 +67,7 @@ export function createHandler({
                 }),
             respond: passthrough,
             apiKey: resolveApiKey,
-        });
+        }, options);
     };
 }
 

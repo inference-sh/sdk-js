@@ -84,7 +84,7 @@ describe('express createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler();
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
       body: { prompt: 'hi' },
@@ -124,7 +124,7 @@ describe('express createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler();
-    const target = 'https://api.inference.sh/v1/stream';
+    const target = 'https://api.inference.sh/agents/run';
     const req = {
       method: 'POST',
       body: {},
@@ -138,5 +138,23 @@ describe('express createHandler', () => {
     expect(res.statusCode).toBe(200);
     expect(res.chunks.length).toBeGreaterThan(0);
     expect(res.body).toBeUndefined();
+  });
+
+  it('passes the proxy options to the core: isAuthenticated gets the request, the endpoint list applies', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const req = { method: 'POST', body: { app: 'ana/x' }, headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, query: {} };
+    const res = createMockResponse();
+    await createHandler({ isAuthenticated })(req as never, res as never, jest.fn());
+    expect(res.statusCode).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(req);
+
+    const refused = createMockResponse();
+    await createHandler({ allowedEndpoints: ['bob/*'] })(req as never, refused as never, jest.fn());
+    expect(refused.statusCode).toBe(403);
+    const secrets = createMockResponse();
+    await createHandler()({ ...req, method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } } as never, secrets as never, jest.fn());
+    expect(secrets.statusCode).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

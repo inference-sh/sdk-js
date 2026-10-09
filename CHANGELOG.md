@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Breaking for server proxy users: the proxy forwards only app runs and agent chats and refuses every other API call with 403. Release as a minor (0.22.0). See Security.
+
 ### Added
 
+- Server proxy options (`@inferencesh/sdk/proxy` and every adapter): `allowedEndpoints` (`namespace/name` globs, e.g. `"ana/helper"`, `"ana/*"`) limits which apps and agents visitors may run; `isAuthenticated(request)` decides per request whether the API key may be used (401 otherwise) and receives the framework's request; `allowUnauthorizedRequests` (default `true`) set to `false` refuses every request unless `isAuthenticated` is given. `@inferencesh/sdk/proxy/nextjs` gains `createHandler(options)` (App Router) and `createPageHandler(options)` (Page Router); `handlers` and `pageHandler` are those with the default options. `PROXY_ENDPOINTS` lists what the proxy forwards.
 - `AppsAPI.patch(appId, AppPatchBody)`: PATCH /apps/{id}, changes the app's copy fields sent and keeps the others. `update()` stays POST, since it also edits the version in place.
 
 ### Changed
@@ -21,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- The server proxy forwards only what a frontend needs to run things, listed in `PROXY_ENDPOINTS`: `POST /apps/run`, `POST /files` (uploads of run inputs), `POST /agents/run`, `POST /chats`, `POST /chats/{id}/messages`, `POST /chats/{id}/agent`, `GET /agents/{namespace}/{name}`, reading, polling, streaming, stopping and cancelling the resulting task or chat, and answering its tool calls and interrupts (`/tools/{id}`, `/tools/{id}/invoke|reject`, always-allow, explain, `/interrupts/{id}/resolve`, `/agent-runs/{id}/interrupts`; chat settings only `allow_all_tools`). Every other call (secrets, API keys, billing, account, file listings, app/agent/flow management, admin, task and chat listings) answers 403 before the API key is attached, whatever the options. Before, it forwarded any path on `*.inference.sh` with the site's key. A server that proxied other calls for its frontend must make them from its own backend.
+- With `allowedEndpoints` set, a request that names an app or agent must name an allowed one by its `namespace/name` ref: `app_id`/`version_id` runs and ad-hoc `agent_config` runs are refused, and body keys are matched case-insensitively as the API reads them. Requests about an existing task or chat name it by id and are not checked against `allowedEndpoints`; they are limited to the read, stream and answer paths above.
 - The server proxy (`@inferencesh/sdk/proxy`) refuses a target that is not `https:` with 412 before attaching the API key, so a client can no longer make it send `INFERENCE_API_KEY` over plain http. Plain `http:` is allowed only to a loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`), for a local API in development. A malformed target with `apiBaseUrl` set answers 400 instead of throwing.
 
 ## [0.21.0] - 2026-10-08

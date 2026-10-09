@@ -36,7 +36,7 @@ describe('remix createHandler', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const handler = createHandler();
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
@@ -69,7 +69,7 @@ describe('remix createHandler', () => {
     const handler = createHandler({
       resolveApiKey: async () => 'custom-remix-key',
     });
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       headers: { [INF_TARGET_HEADER]: target },
@@ -86,5 +86,22 @@ describe('remix createHandler', () => {
         }),
       })
     );
+  });
+
+  it('passes the proxy options to the core: isAuthenticated gets the Request, the endpoint list applies', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const request = new Request('http://localhost/api/inference/proxy', {
+      method: 'POST',
+      headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' },
+      body: '{"app":"eve/x"}',
+    });
+    expect((await createHandler({ isAuthenticated })({ request })).status).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(request);
+
+    expect((await createHandler({ allowedEndpoints: ['ana/*'] })({ request: request.clone() })).status).toBe(403);
+    const secrets = new Request('http://localhost/api/inference/proxy', { headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
+    expect((await createHandler()({ request: secrets })).status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

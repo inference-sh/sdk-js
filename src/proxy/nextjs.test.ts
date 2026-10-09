@@ -1,5 +1,5 @@
 import { INF_TARGET_HEADER, INF_TARGET_PARAM } from './index';
-import { handlers, pageHandler } from './nextjs';
+import { createHandler, createPageHandler, handlers, pageHandler } from './nextjs';
 
 type MockPageResponse = {
   statusCode: number;
@@ -82,7 +82,7 @@ describe('nextjs pageHandler', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
       body: { prompt: 'hi' },
@@ -105,7 +105,7 @@ describe('nextjs pageHandler', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const encoded = encodeURIComponent(target);
     const req = {
       method: 'POST',
@@ -137,7 +137,7 @@ describe('nextjs pageHandler', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
       body: {},
@@ -182,7 +182,7 @@ describe('nextjs handlers (App Router)', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const response = await handlers.POST(
       createMockNextRequest({
         method: 'POST',
@@ -213,7 +213,7 @@ describe('nextjs handlers (App Router)', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/stream';
+    const target = 'https://api.inference.sh/tasks/1/stream';
     const encoded = encodeURIComponent(target);
     const response = await handlers.GET(
       createMockNextRequest({
@@ -299,7 +299,7 @@ describe('nextjs handlers (App Router)', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/stream';
+    const target = 'https://api.inference.sh/tasks/1/stream';
     const response = await handlers.GET(
       createMockNextRequest({
         method: 'GET',
@@ -310,5 +310,38 @@ describe('nextjs handlers (App Router)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toBeDefined();
     expect(response.headers.get('content-type')).toContain('text/event-stream');
+  });
+});
+
+describe('nextjs proxy options', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('createHandler passes them to the core: isAuthenticated gets the NextRequest, the endpoint list applies', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const req = createMockNextRequest({ headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, body: '{"app":"eve/x"}' });
+    expect((await createHandler({ isAuthenticated }).POST(req as never)).status).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(req);
+    expect((await createHandler({ allowedEndpoints: ['ana/*'] }).POST(req as never)).status).toBe(403);
+    const secrets = createMockNextRequest({ method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
+    expect((await handlers.GET(secrets as never)).status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('createPageHandler passes them to the core', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const req = { method: 'POST', body: { app: 'eve/x' }, headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, query: {} };
+    const res = createMockPageResponse();
+    await createPageHandler({ isAuthenticated })(req as never, res as never);
+    expect(res.statusCode).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(req);
+    const refused = createMockPageResponse();
+    await createPageHandler({ allowedEndpoints: ['ana/*'] })(req as never, refused as never);
+    expect(refused.statusCode).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

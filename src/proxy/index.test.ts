@@ -144,7 +144,7 @@ describe('processProxyRequest', () => {
     const result = await processProxyRequest(
       createTestAdapter({
         query: (name) =>
-          name === INF_TARGET_PARAM ? encodeURIComponent('http://api.inference.sh/v1/stream') : undefined,
+          name === INF_TARGET_PARAM ? encodeURIComponent('http://api.inference.sh/agents/run') : undefined,
       })
     );
 
@@ -202,7 +202,7 @@ describe('processProxyRequest', () => {
     const result = await processProxyRequest(
       createTestAdapter({
         header: (name) =>
-          name === INF_TARGET_HEADER ? 'https://api.inference.sh/run' : undefined,
+          name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
       })
     );
 
@@ -214,7 +214,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should proxy valid inference.sh requests with env API key', async () => {
-    const target = 'https://api.inference.sh/v1/tasks/1';
+    const target = 'https://api.inference.sh/tasks/1/cancel';
 
     const result = await processProxyRequest(
       createTestAdapter({
@@ -237,7 +237,7 @@ describe('processProxyRequest', () => {
 
   it('should resolve API key from adapter.apiKey when env key is missing', async () => {
     delete process.env.INFERENCE_API_KEY;
-    const target = 'https://api.inference.sh/v1/tasks/1';
+    const target = 'https://api.inference.sh/tasks/1/cancel';
     const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
 
     await processProxyRequest(
@@ -259,7 +259,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should prefer client Authorization header over env API key', async () => {
-    const target = 'https://api.inference.sh/v1/tasks/1';
+    const target = 'https://api.inference.sh/tasks/1/cancel';
 
     await processProxyRequest(
       createTestAdapter({
@@ -282,7 +282,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should use query param fallback when header is missing (SSE clients)', async () => {
-    const target = 'https://api.inference.sh/v1/stream';
+    const target = 'https://api.inference.sh/agents/run';
     const encoded = encodeURIComponent(target);
 
     await processProxyRequest(
@@ -295,7 +295,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should honor custom allowedDomains', async () => {
-    const target = 'https://cdn.custom.example/upload';
+    const target = 'https://cdn.custom.example/files';
 
     await processProxyRequest(
       createTestAdapter({
@@ -308,7 +308,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should forward x-inf-* request headers to upstream', async () => {
-    const target = 'https://api.inference.sh/run';
+    const target = 'https://api.inference.sh/apps/run';
 
     await processProxyRequest(
       createTestAdapter({
@@ -372,7 +372,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should strip content-encoding and content-length from proxied responses', async () => {
-    const target = 'https://api.inference.sh/v1/tasks/1';
+    const target = 'https://api.inference.sh/tasks/1/cancel';
     const setHeader = jest.fn();
 
     global.fetch = jest.fn().mockResolvedValue(
@@ -422,7 +422,7 @@ describe('processProxyRequest', () => {
 
   it('should rewrite target host when INFERENCE_API_BASE_URL env is set', async () => {
     process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
-    const target = 'https://api.inference.sh/v1/tasks/1';
+    const target = 'https://api.inference.sh/tasks/1/cancel';
 
     await processProxyRequest(
       createTestAdapter({
@@ -431,7 +431,7 @@ describe('processProxyRequest', () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://staging-api.inference.sh/v1/tasks/1',
+      'https://staging-api.inference.sh/tasks/1/cancel',
       expect.any(Object)
     );
   });
@@ -454,7 +454,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should preserve path and query when rewriting base URL', async () => {
-    const target = 'https://api.inference.sh/v1/chats?limit=50&cursor=abc';
+    const target = 'https://api.inference.sh/chats?limit=50&cursor=abc';
 
     await processProxyRequest(
       createTestAdapter({
@@ -464,7 +464,7 @@ describe('processProxyRequest', () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://dev-api.inference.sh/v1/chats?limit=50&cursor=abc',
+      'https://dev-api.inference.sh/chats?limit=50&cursor=abc',
       expect.any(Object)
     );
   });

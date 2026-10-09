@@ -5,22 +5,24 @@
  *
  * @example App Router (app/api/inference/proxy/route.ts)
  * ```typescript
- * import { handlers } from "@inferencesh/sdk/proxy/nextjs";
- * export const { GET, POST, PUT } = handlers;
+ * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
+ * export const { GET, POST, PUT } = createHandler({ allowedEndpoints: ["my-team/*"] });
  * ```
  *
  * @example Page Router (pages/api/inference/proxy.ts)
  * ```typescript
- * export { pageHandler as default } from "@inferencesh/sdk/proxy/nextjs";
+ * import { createPageHandler } from "@inferencesh/sdk/proxy/nextjs";
+ * export default createPageHandler({ allowedEndpoints: ["my-team/*"] });
  * ```
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import type { NextApiHandler } from "next/types";
+import type { NextApiHandler, NextApiRequest } from "next/types";
 import {
     PROXY_PATH,
     processProxyRequest,
     headersToRecord,
+    type ProxyOptions,
 } from "./index";
 
 // ============================================================================
@@ -43,71 +45,85 @@ export const PROXY_ROUTE = PROXY_PATH;
  * @example
  * ```typescript
  * // pages/api/inference/proxy.ts
- * export { pageHandler as default } from "@inferencesh/sdk/proxy/nextjs";
+ * import { createPageHandler } from "@inferencesh/sdk/proxy/nextjs";
+ * export default createPageHandler({ allowedEndpoints: ["my-team/*"] });
  * ```
  */
-export const pageHandler: NextApiHandler = async (request, response) => {
-    return processProxyRequest({
-        framework: "nextjs-pages",
-        method: request.method || "POST",
-        body: async () => JSON.stringify(request.body),
-        headers: () => request.headers as Record<string, string | string[]>,
-        header: (name) => request.headers[name],
-        query: (name) => {
-            const value = request.query[name];
-            return Array.isArray(value) ? value[0] : value;
-        },
-        setHeader: (name, value) => response.setHeader(name, value),
-        error: (status, data) => response.status(status).json(data),
-        respond: async (res) => {
-            const contentType = res.headers.get("content-type") || "";
-            if (contentType.includes("application/json")) {
-                return response.status(res.status).json(await res.json());
-            }
-            return response.status(res.status).send(await res.text());
-        },
-    });
-};
+export function createPageHandler(options?: ProxyOptions<NextApiRequest>): NextApiHandler {
+    return async (request, response) => {
+        return processProxyRequest({
+            framework: "nextjs-pages",
+            request,
+            method: request.method || "POST",
+            body: async () => JSON.stringify(request.body),
+            headers: () => request.headers as Record<string, string | string[]>,
+            header: (name) => request.headers[name],
+            query: (name) => {
+                const value = request.query[name];
+                return Array.isArray(value) ? value[0] : value;
+            },
+            setHeader: (name, value) => response.setHeader(name, value),
+            error: (status, data) => response.status(status).json(data),
+            respond: async (res) => {
+                const contentType = res.headers.get("content-type") || "";
+                if (contentType.includes("application/json")) {
+                    return response.status(res.status).json(await res.json());
+                }
+                return response.status(res.status).send(await res.text());
+            },
+        }, options);
+    };
+}
+
+/** Page Router handler with the default options. */
+export const pageHandler: NextApiHandler = createPageHandler();
 
 // ============================================================================
 // App Router Handler
 // ============================================================================
 
 /**
- * Create an App Router handler for the Inference.sh proxy.
+ * Create App Router route handlers for the Inference.sh proxy.
  * Supports full streaming passthrough for SSE responses.
+ *
+ * @example
+ * ```typescript
+ * // app/api/inference/proxy/route.ts
+ * import { createHandler } from "@inferencesh/sdk/proxy/nextjs";
+ * export const { GET, POST, PUT } = createHandler({ allowedEndpoints: ["my-team/*"] });
+ * ```
  */
-async function appHandler(request: NextRequest) {
-    const responseHeaders = new Headers();
-    const url = new URL(request.url);
+export function createHandler(options?: ProxyOptions<NextRequest>) {
+    const appHandler = async (request: NextRequest) => {
+        const responseHeaders = new Headers();
+        const url = new URL(request.url);
 
-    return processProxyRequest({
-        framework: "nextjs-app",
-        method: request.method,
-        body: () => request.text(),
-        headers: () => headersToRecord(request.headers),
-        header: (name) => request.headers.get(name),
-        query: (name) => url.searchParams.get(name) ?? undefined,
-        setHeader: (name, value) => responseHeaders.set(name, value),
-        error: (status, data) =>
-            NextResponse.json(data, { status, headers: responseHeaders }),
-        respond: async (response) => {
-            // Return new Response with cleaned headers (content-encoding stripped)
-            return new Response(response.body, {
-                status: response.status,
-                statusText: response.statusText,
-                headers: responseHeaders,
-            });
-        },
-    });
+        return processProxyRequest({
+            framework: "nextjs-app",
+            request,
+            method: request.method,
+            body: () => request.text(),
+            headers: () => headersToRecord(request.headers),
+            header: (name) => request.headers.get(name),
+            query: (name) => url.searchParams.get(name) ?? undefined,
+            setHeader: (name, value) => responseHeaders.set(name, value),
+            error: (status, data) =>
+                NextResponse.json(data, { status, headers: responseHeaders }),
+            respond: async (response) => {
+                // Return new Response with cleaned headers (content-encoding stripped)
+                return new Response(response.body, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: responseHeaders,
+                });
+            },
+        }, options);
+    };
+    return { GET: appHandler, POST: appHandler, PUT: appHandler };
 }
 
-// ============================================================================
-// Route Exports
-// ============================================================================
-
 /**
- * App Router route handlers.
+ * App Router route handlers with the default options.
  *
  * @example
  * ```typescript
@@ -116,11 +132,7 @@ async function appHandler(request: NextRequest) {
  * export const { GET, POST, PUT } = handlers;
  * ```
  */
-export const handlers = {
-    GET: appHandler,
-    POST: appHandler,
-    PUT: appHandler,
-};
+export const handlers = createHandler();
 
 // ============================================================================
 // Legacy Exports (backwards compatibility)
@@ -131,8 +143,6 @@ export const handler = pageHandler;
 
 /** @deprecated Use handlers */
 export const route = {
-    handler: appHandler,
-    GET: appHandler,
-    POST: appHandler,
-    PUT: appHandler,
+    handler: handlers.GET,
+    ...handlers,
 };

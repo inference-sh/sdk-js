@@ -41,7 +41,7 @@ describe('svelte createHandler', () => {
       })
     ) as typeof fetch;
 
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const handler = createHandler();
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
@@ -74,7 +74,7 @@ describe('svelte createHandler', () => {
     const handler = createHandler({
       resolveApiKey: async () => 'custom-svelte-key',
     });
-    const target = 'https://api.inference.sh/v1/run';
+    const target = 'https://api.inference.sh/apps/run';
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       headers: { [INF_TARGET_HEADER]: target },
@@ -91,5 +91,23 @@ describe('svelte createHandler', () => {
         }),
       })
     );
+  });
+
+  it('passes the proxy options to the core: isAuthenticated gets the RequestEvent, the endpoint list applies', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const isAuthenticated = jest.fn().mockResolvedValue(false);
+    const request = new Request('http://localhost/api/inference/proxy', {
+      method: 'POST',
+      headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' },
+      body: '{"app":"eve/x"}',
+    });
+    const event = createMockRequestEvent(request);
+    expect((await createHandler({ isAuthenticated })(event)).status).toBe(401);
+    expect(isAuthenticated).toHaveBeenCalledWith(event);
+
+    expect((await createHandler({ allowedEndpoints: ['ana/*'] })(createMockRequestEvent(request.clone()))).status).toBe(403);
+    const secrets = new Request('http://localhost/api/inference/proxy', { headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
+    expect((await createHandler()(createMockRequestEvent(secrets))).status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

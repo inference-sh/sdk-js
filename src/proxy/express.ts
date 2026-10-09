@@ -8,7 +8,7 @@
  *
  * const app = express();
  * app.use(express.json());
- * app.all(PROXY_ROUTE, createHandler());
+ * app.all(PROXY_ROUTE, createHandler({ allowedEndpoints: ["my-team/*"] }));
  * ```
  */
 
@@ -17,6 +17,7 @@ import {
     PROXY_PATH,
     processProxyRequest,
     HttpHeaderValue,
+    type ProxyOptions,
 } from "./index";
 
 /** Default proxy route path */
@@ -25,10 +26,8 @@ export const PROXY_ROUTE = PROXY_PATH;
 /** @deprecated Use PROXY_ROUTE */
 export const route = PROXY_ROUTE;
 
-export interface ExpressProxyOptions {
-    /** Custom API key (overrides INFERENCE_API_KEY env var) */
-    apiKey?: string;
-}
+/** Proxy options; `isAuthenticated` receives the Express request. */
+export type ExpressProxyOptions = ProxyOptions<Request>;
 
 /**
  * Creates an Express middleware handler for the Inference.sh proxy.
@@ -43,6 +42,7 @@ export function createHandler(options?: ExpressProxyOptions): RequestHandler {
     ) => {
         return processProxyRequest({
             framework: "express",
+            request: req,
             method: req.method,
             body: async () => JSON.stringify(req.body),
             headers: () => req.headers as Record<string, HttpHeaderValue>,
