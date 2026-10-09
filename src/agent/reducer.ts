@@ -4,7 +4,7 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { AgentRunDTO, ChatStatus } from '../types';
+import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types';
 import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types';
 import { isRunInterrupted, isRunWorking } from '../utils';
 import type { AgentChatState, ChatAction } from './types';
@@ -15,6 +15,21 @@ function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
   if (isRunInterrupted(run.state)) return ChatStatusAwaitingInput;
   return ChatStatusIdle;
 }
+
+/**
+ * Every message enters state through here. The API serializes a message with
+ * no content as `content: null` (a nil Go slice), and a partial stream update
+ * carries the whole DTO with `content: null` when content is not among its
+ * fields. State always holds an array, so ChatMessageDTO.content is what its
+ * type says for every consumer; a partial update with null content keeps the
+ * content the message already had.
+ */
+function normalizeMessage(message: ChatMessageDTO, existing?: ChatMessageDTO): ChatMessageDTO {
+  if (message.content != null) return message;
+  return { ...message, content: existing?.content ?? [] };
+}
+
+const normalizeMessages = (messages: ChatMessageDTO[]) => messages.map((m) => normalizeMessage(m));
 
 // =============================================================================
 // Initial State
@@ -44,7 +59,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       if (!chat) {
         return { ...state, chat: null, messages: [], connectionStatus: 'idle', messageCursor: undefined, hasOlderMessages: undefined };
       }
-      const messages = [...(chat.chat_messages || [])].sort((a, b) => a.order - b.order);
+      const messages = normalizeMessages(chat.chat_messages || []).sort((a, b) => a.order - b.order);
       const cursor = (chat as any)?._messageCursor as string | undefined;
       const hasOlder = (chat as any)?._hasOlderMessages as boolean | undefined;
       return { ...state, chat, messages, messageCursor: cursor, hasOlderMessages: hasOlder };
@@ -100,12 +115,12 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     }
 
     case 'SET_MESSAGES':
-      return { ...state, messages: action.payload };
+      return { ...state, messages: normalizeMessages(action.payload) };
 
     case 'PREPEND_MESSAGES': {
       const { messages: older, cursor, hasMore } = action.payload;
       const existingIds = new Set(state.messages.map(m => m.id));
-      const deduped = older.filter(m => !existingIds.has(m.id));
+      const deduped = normalizeMessages(older.filter(m => !existingIds.has(m.id)));
       const merged = [...deduped, ...state.messages].sort((a, b) => a.order - b.order);
       return { ...state, messages: merged, messageCursor: cursor, hasOlderMessages: hasMore };
     }
@@ -115,20 +130,22 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const existingIndex = state.messages.findIndex((m) => m.id === message.id);
       if (existingIndex !== -1) {
         const existing = state.messages[existingIndex];
-        const updated = action.partial ? { ...existing, ...message } : message;
+        const updated = action.partial
+          ? normalizeMessage({ ...existing, ...message }, existing)
+          : normalizeMessage(message);
         if (existing === updated) return state;
         const newMessages = [...state.messages];
         newMessages[existingIndex] = updated;
         return { ...state, messages: newMessages };
       }
       if (action.partial) return state;
-      return { ...state, messages: [...state.messages, message].sort((a, b) => a.order - b.order) };
+      return { ...state, messages: [...state.messages, normalizeMessage(message)].sort((a, b) => a.order - b.order) };
     }
 
     case 'ADD_MESSAGE':
       return {
         ...state,
-        messages: [...state.messages, action.payload].sort((a, b) => a.order - b.order),
+        messages: [...state.messages, normalizeMessage(action.payload)].sort((a, b) => a.order - b.order),
       };
 
     case 'DELTA_TOKEN': {
@@ -139,10 +156,10 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       // rather than misattributed; the text still arrives with the message.
       const target = msgs.find(m => m.id === messageId);
       if (!target) return state;
-      const textBlock = target.content?.find(c => c.type === 'text');
+      const textBlock = target.content.find(c => c.type === 'text');
       const newContent = textBlock
         ? target.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
-        : [{ type: 'text' as const, text: output.response }, ...(target.content ?? [])];
+        : [{ type: 'text' as const, text: output.response }, ...target.content];
       const newMessages = msgs.map(m => m.id === target.id ? { ...target, content: newContent } : m);
       return { ...state, messages: newMessages };
     }

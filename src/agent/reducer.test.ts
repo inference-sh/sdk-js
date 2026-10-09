@@ -507,9 +507,10 @@ describe('chatReducer DELTA_TOKEN attribution', () => {
     expect(next).toBe(state);
   });
 
-  it('adds a text block to a message whose content has not arrived yet', () => {
-    const bare = { ...makeMessage('msg-1', 1), role: 'assistant', content: undefined } as unknown as ChatMessageDTO;
-    const state = { ...initialState, messages: [bare] };
+  it('adds a text block to a message that arrived with null content', () => {
+    // The API sends `content: null` for a message with no content yet.
+    const bare = { ...makeMessage('msg-1', 1), role: 'assistant', content: null } as unknown as ChatMessageDTO;
+    const state = chatReducer(initialState, { type: 'UPDATE_MESSAGE', payload: bare });
 
     const next = chatReducer(state, {
       type: 'DELTA_TOKEN',
@@ -517,5 +518,41 @@ describe('chatReducer DELTA_TOKEN attribution', () => {
     });
 
     expect(next.messages[0].content).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+});
+
+// Every message enters state through the reducer, and every consumer (the
+// common-js chat components, hooks) trusts ChatMessageDTO.content to be an
+// array. The API serializes an empty Go slice as null.
+describe('chatReducer message ingress: content is always an array', () => {
+  const nullContent = (id: string, order: number) =>
+    ({ ...makeMessage(id, order), content: null }) as unknown as ChatMessageDTO;
+
+  it.each([
+    ['SET_CHAT', () => chatReducer(initialState, { type: 'SET_CHAT', payload: makeChat({ chat_messages: [nullContent('m1', 1)] }) })],
+    ['SET_MESSAGES', () => chatReducer(initialState, { type: 'SET_MESSAGES', payload: [nullContent('m1', 1)] })],
+    ['PREPEND_MESSAGES', () => chatReducer(initialState, {
+      type: 'PREPEND_MESSAGES',
+      payload: { messages: [nullContent('m1', 1)], cursor: undefined, hasMore: false },
+    } as never)],
+    ['UPDATE_MESSAGE (new)', () => chatReducer(initialState, { type: 'UPDATE_MESSAGE', payload: nullContent('m1', 1) })],
+    ['UPDATE_MESSAGE (replace)', () => chatReducer(
+      chatReducer(initialState, { type: 'ADD_MESSAGE', payload: makeMessage('m1', 1) }),
+      { type: 'UPDATE_MESSAGE', payload: nullContent('m1', 1) },
+    )],
+    ['ADD_MESSAGE', () => chatReducer(initialState, { type: 'ADD_MESSAGE', payload: nullContent('m1', 1) })],
+  ])('%s stores [] for null content', (_name, run) => {
+    const next = run();
+    expect(next.messages).toHaveLength(1);
+    expect(next.messages[0].content).toEqual([]);
+  });
+
+  it('keeps existing content when a partial update carries content: null', () => {
+    const state = chatReducer(initialState, { type: 'ADD_MESSAGE', payload: makeMessage('m1', 1) });
+    const statusOnly = { ...nullContent('m1', 1), status: 'ready' } as ChatMessageDTO;
+
+    const next = chatReducer(state, { type: 'UPDATE_MESSAGE', payload: statusOnly, partial: true });
+
+    expect(next.messages[0].content).toEqual([{ type: 'text', text: 'message m1' }]);
   });
 });
