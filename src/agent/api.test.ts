@@ -184,6 +184,12 @@ describe('agent/api', () => {
       await sendMessage(client, { agent: 'ns/agent' }, null, 'with files', [file1, file2]);
 
       expect(uploadSpy).toHaveBeenCalledTimes(2);
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init2.body));
+      expect(messageBody.attachments).toEqual([
+        { id: 'file-a.txt', uri: 'inf://files/a.txt', filename: 'a.txt', content_type: 'text/plain' },
+        { id: 'file-b.txt', uri: 'inf://files/b.txt', filename: 'b.txt', content_type: 'text/plain' },
+      ]);
       uploadSpy.mockRestore();
     });
 
@@ -210,6 +216,94 @@ describe('agent/api', () => {
       expect(result).not.toBeNull();
       expect(result!.chatId).toBe('chat-1');
       expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [, init2] = mockFetch.mock.calls[1] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init2.body));
+      expect(messageBody).toEqual({
+        message: 'partial upload',
+        attachments: [{ id: 'f1', uri: 'inf://files/good', filename: 'good.txt', content_type: 'text/plain' }],
+      });
+      uploadSpy.mockRestore();
+    });
+
+    it('should omit attachments when every file upload fails', async () => {
+      const client = makeClient();
+      const file = new File(['x'], 'bad.txt', { type: 'text/plain' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockRejectedValue(new Error('upload failed'));
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, 'chat-1', 'no attachments', [file]);
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ message: 'no attachments' });
+
+      uploadSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('should trim upload records to FileRef fields before posting attachments', async () => {
+      const client = makeClient();
+      const file = new File(['data'], 'doc.pdf', { type: 'application/pdf' });
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue({
+        id: 'file-doc',
+        uri: 'inf://files/doc',
+        filename: 'doc.pdf',
+        content_type: 'application/pdf',
+        size: 4096,
+        created_at: '2026-10-10T00:00:00Z',
+        workspace_id: 'ws-secret',
+      } as Awaited<ReturnType<typeof client.files.upload>>);
+
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, 'chat-1', 'pdf', [file]);
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init.body));
+      expect(messageBody.attachments).toEqual([
+        {
+          id: 'file-doc',
+          uri: 'inf://files/doc',
+          filename: 'doc.pdf',
+          content_type: 'application/pdf',
+          size: 4096,
+        },
+      ]);
+      expect(messageBody.attachments[0]).not.toHaveProperty('created_at');
+      expect(messageBody.attachments[0]).not.toHaveProperty('workspace_id');
+
+      uploadSpy.mockRestore();
+    });
+
+    it('should merge uploaded files and existing FileRefs in one attachments array', async () => {
+      const client = makeClient();
+      const file = new File(['a'], 'new.txt', { type: 'text/plain' });
+      const existingRef = {
+        id: 'f-existing',
+        uri: 'inf://files/existing',
+        filename: 'existing.png',
+        content_type: 'image/png',
+      };
+      const uploadSpy = jest.spyOn(client.files, 'upload').mockResolvedValue({
+        id: 'file-new',
+        uri: 'inf://files/new',
+        filename: 'new.txt',
+        content_type: 'text/plain',
+      });
+
+      mockJsonResponse(userMessageResponse);
+
+      await sendMessage(client, { agent: 'ns/agent' }, 'chat-1', 'mixed', [existingRef, file]);
+
+      expect(uploadSpy).toHaveBeenCalledTimes(1);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const messageBody = JSON.parse(String(init.body));
+      expect(messageBody.attachments).toEqual([
+        existingRef,
+        { id: 'file-new', uri: 'inf://files/new', filename: 'new.txt', content_type: 'text/plain' },
+      ]);
+
       uploadSpy.mockRestore();
     });
 
