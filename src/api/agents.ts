@@ -450,8 +450,10 @@ export class Agent {
     // the two apart.
     const unchanged = {} as ChatDTO;
 
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       this.poller?.stop();
+      const maxRetries = 5;
+      let consecutiveErrors = 0;
 
       this.poller = new PollManager<ChatDTO>({
         pollFunction: async () => {
@@ -466,8 +468,10 @@ export class Agent {
           return chatResp.data;
         },
         intervalMs,
+        maxRetries,
         onData: (chat) => {
           if (chat === unchanged) return;
+          consecutiveErrors = 0;
           prevStatus = chat.status;
 
           options.onChat?.(chat);
@@ -509,7 +513,12 @@ export class Agent {
           }
         },
         onError: (error) => {
+          consecutiveErrors++;
           console.warn('[Agent] Poll error:', error);
+          if (consecutiveErrors >= maxRetries) {
+            this.poller = null;
+            reject(error);
+          }
         },
       });
 
