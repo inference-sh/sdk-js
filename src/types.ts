@@ -305,6 +305,14 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
+  /**
+   * VisitorReads is the scope groups of the team's resources (knowledge,
+   * files, artifacts, remotes) a visitor of an embed of this version can
+   * have it read by id, beyond what it configures by name. Set when the
+   * agent is read (get, version get); the value a publication of it
+   * answers. Absent elsewhere (lists, chats).
+   */
+  visitor_reads?: ScopeGroup[];
 }
 /**
  * CreateAgentRequest is the request body for POST /agents
