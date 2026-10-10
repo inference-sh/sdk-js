@@ -40,8 +40,17 @@ export function createHandler(options?: ExpressProxyOptions): RequestHandler {
         res: Response,
         _next: NextFunction
     ) => {
+        // The client hung up before the response finished: stop the upstream
+        // request too. Chat and task streams never end on their own, so
+        // without this the proxy keeps reading them for nobody and the open
+        // upstream connection keeps the server process alive.
+        const upstream = new AbortController();
+        res.on("close", () => {
+            if (!res.writableFinished) upstream.abort();
+        });
         return processProxyRequest({
             framework: "express",
+            signal: upstream.signal,
             request: req,
             method: req.method,
             body: async () => JSON.stringify(req.body),
@@ -83,7 +92,11 @@ export function createHandler(options?: ExpressProxyOptions): RequestHandler {
                 // Handle text responses
                 return res.send(await response.text());
             },
-        }, options);
+        }, options).catch((error) => {
+            // Aborted because the client left; there is nobody to answer.
+            if (upstream.signal.aborted) return res;
+            throw error;
+        });
     };
 }
 

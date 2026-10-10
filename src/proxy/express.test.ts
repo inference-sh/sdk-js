@@ -12,6 +12,7 @@ type MockResponse = {
   send: (data: unknown) => MockResponse;
   write: (chunk: Uint8Array) => void;
   end: () => void;
+  on: (event: string, listener: () => void) => MockResponse;
 };
 
 function createMockResponse(): MockResponse {
@@ -40,6 +41,9 @@ function createMockResponse(): MockResponse {
     },
     end() {
       return;
+    },
+    on() {
+      return this;
     },
   };
   return res;

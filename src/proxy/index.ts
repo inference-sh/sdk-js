@@ -96,6 +96,14 @@ export interface ProxyAdapter<T, R = unknown> {
 
     /** Custom API key resolver (optional) */
     apiKey?: () => Promise<string | undefined>;
+
+    /**
+     * Aborts the upstream request (optional). Adapters that copy the
+     * upstream body themselves abort it when their client disconnects, so a
+     * stream nobody reads any more (GET /chats/{id}/stream never ends on its
+     * own) does not stay open.
+     */
+    signal?: AbortSignal;
 }
 
 /**
@@ -757,6 +765,7 @@ export async function processProxyRequest<T, R = unknown>(
             "x-inf-proxy": proxyId,
         } as HeadersInit,
         body,
+        signal: adapter.signal,
     });
 
     // 7. Forward response headers (strip compression headers since fetch decompresses)
