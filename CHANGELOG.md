@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-10
+
+### Fixed
+
+- `sendMessage` sends its attachments: it posted only the text after uploading the files, so attachments never reached the agent. It now posts the file refs as `attachments` on POST /chats/{id}/messages. Needs api-v1227+; an older API ignores the field.
+
 ## [0.22.0] - 2026-10-10
 
 Breaking: the server proxy forwards only app runs and agent chats and refuses every other API call with 403 (see Security); `update()` on projects, knowledge, skills, chats, engines and teams sends PATCH and needs an API that answers PATCH (see Changed); the Next.js proxy handler has no `PUT`.
