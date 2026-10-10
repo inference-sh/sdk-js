@@ -2787,6 +2787,7 @@ export type ErrorCode =
   | "impersonation_reason_required"
   | "mcp_auth_expired"
   | "admin_session_required"
+  | "admin_scopes_not_approved"
   | "cli_session_required"
   | "admin_required"
   | "same_admin_required"
@@ -2897,8 +2898,12 @@ export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
  * account is signed into (authenticator enrollment, RequireBrowserSession).
  * InvalidTTL (400): the elevation asked for a window outside
  * models.AdminElevationMinTTL..AdminElevationMaxTTL.
+ * AdminScopesNotApproved (403): a platform admin's CLI login was approved
+ * with a scope list that does not name the admin scopes, so it can't be
+ * elevated: log in again approving them, then elevate.
  */
 export const ErrorCodeAdminSessionRequired: ErrorCode = "admin_session_required";
+export const ErrorCodeAdminScopesNotApproved: ErrorCode = "admin_scopes_not_approved";
 export const ErrorCodeCLISessionRequired: ErrorCode = "cli_session_required";
 export const ErrorCodeAdminRequired: ErrorCode = "admin_required";
 export const ErrorCodeSameAdminRequired: ErrorCode = "same_admin_required";
@@ -2989,6 +2994,14 @@ export interface TeamRoleRequiredMeta {
   actual_role?: TeamRole;
   required_role?: TeamRole;
   requires_org_admin?: boolean;
+}
+/**
+ * ScopeRefusedMeta is the meta of an insufficient_scope or
+ * requires_sign_in error: the scope the operation declares and the
+ * credential does not hold. The detail says what would hold it.
+ */
+export interface ScopeRefusedMeta {
+  required_scope: Scope;
 }
 /**
  * PaymentMethodRequiredMeta is the meta of a payment_method_required error.
