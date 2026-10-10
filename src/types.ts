@@ -1293,6 +1293,20 @@ export interface ScopesResponse {
   scopes: ScopeDefinition[];
   groups: ScopeGroupDefinition[];
   presets: ScopePreset[];
+  /**
+   * AccountScopes are the account holder's own scopes (approvals,
+   * profile and sessions, keys, billing writes) a sign-in may be approved
+   * for: the device approval page offers them as their own section. No
+   * key or app is ever granted one.
+   */
+  account_scopes: ScopeDefinition[];
+  /**
+   * LoginPreset is what the device approval page preselects for
+   * `belt login`: the standard preset plus approvals:write (answering
+   * the person's own approvals from the CLI). Its Grants is what such a
+   * login holds (LoginGrants).
+   */
+  login_preset: ScopePreset;
 }
 /**
  * ScopePreset represents a predefined bundle of scopes for common use cases
