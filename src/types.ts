@@ -592,6 +592,43 @@ export interface DeviceAuthPollResponse {
    */
   admin_until?: string /* RFC3339 */;
 }
+/**
+ * AdminElevateRequest is the body of POST /device/auth/elevate: a platform
+ * admin's CLI login asking to carry admin power for TTLSeconds (default one
+ * hour, at most eight).
+ */
+export interface AdminElevateRequest {
+  ttl_seconds?: number /* int */;
+}
+/**
+ * AdminElevateResponse is a pending elevation request: the admin approves
+ * UserCode at ApproveURL in their browser and the CLI polls PollURL.
+ */
+export interface AdminElevateResponse {
+  user_code: string;
+  device_code: string;
+  poll_url: string;
+  approve_url: string;
+  expires_in: number /* int */;
+  interval: number /* int */;
+  ttl_seconds: number /* int */;
+}
+/**
+ * AdminElevationStatus is GET /device/auth/elevate: whether the calling
+ * session carries an admin elevation, and until when.
+ */
+export interface AdminElevationStatus {
+  elevated: boolean;
+  admin_until?: string /* RFC3339 */;
+}
+/**
+ * AdminElevationDropResponse is DELETE /device/auth/elevate. Dropped is
+ * false when the session held no elevation.
+ */
+export interface AdminElevationDropResponse {
+  elevated: boolean;
+  dropped: boolean;
+}
 export interface MeResponse {
   user?: UserDTO;
   team?: TeamDTO;
@@ -619,6 +656,19 @@ export interface MeResponse {
    * POST /teams/{personal_team_id}/complete-setup.
    */
   needs_username: boolean;
+  /**
+   * PlatformPower: the credential carries platform administration
+   * (admin:read): an admin's own browser sign-in that proved their
+   * authenticator, or an elevated CLI login. The admin role alone is not
+   * it.
+   */
+  platform_power: boolean;
+  /**
+   * Scopes is every scope the request's credential holds
+   * (AuthContext.HeldScopes): what a client asks before it calls a route
+   * it may not reach (an API key holds no sign-in-only scope).
+   */
+  scopes: Scope[];
 }
 export interface TeamCreateRequest {
   name: string;
@@ -818,6 +868,7 @@ export type Scope =
   | "billing:write"
   | "secrets:read"
   | "secrets:write"
+  | "secrets:reveal"
   | "credentials:read"
   | "credentials:write"
   | "engines:read"
@@ -833,7 +884,11 @@ export type Scope =
   | "user:read"
   | "user:write"
   | "settings:read"
-  | "settings:write";
+  | "settings:write"
+  | "approvals:write"
+  | "admin:read"
+  | "admin:write"
+  | "admin:pricing";
 /**
  * API Key Scopes - hierarchical permission system.
  * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
@@ -1023,6 +1078,12 @@ export const ScopeSecretsRead: Scope = "secrets:read";
  */
 export const ScopeSecretsWrite: Scope = "secrets:write";
 /**
+ * ScopeSecretsReveal reads a secret's plaintext value. A key holding
+ * secrets:read holds it too (keys revealed with secrets:read before it
+ * existed); an app's OAuth token or a bound session never does.
+ */
+export const ScopeSecretsReveal: Scope = "secrets:reveal";
+/**
  * Action-level scopes for credentials (connected accounts, vaults,
  * auth schemes, MCP servers).
  */
@@ -1104,6 +1165,32 @@ export const ScopeSettingsRead: Scope = "settings:read";
  */
 export const ScopeSettingsWrite: Scope = "settings:write";
 /**
+ * Approvals: answering a human-in-the-loop question (a tool approval, a
+ * gate, a widget or MCP input request, always-allow) and widening a
+ * chat's approval policy (allow every tool, skip hooks, allow rules).
+ * Held only by the account holder's own sign-in.
+ */
+export const ScopeApprovalsWrite: Scope = "approvals:write";
+/**
+ * ScopeAdminRead views platform administration (/admin GET). Held
+ * only by an admin's own sign-in; the route's admin gate decides
+ * whether it carries power.
+ */
+export const ScopeAdminRead: Scope = "admin:read";
+/**
+ * ScopeAdminWrite changes platform administration (/admin). Held only
+ * by an admin's own sign-in.
+ */
+export const ScopeAdminWrite: Scope = "admin:write";
+/**
+ * ScopeAdminPricing reads and changes store pricing: a version's
+ * terms, its draft pricing (edit, evaluate, discard, publish, apply to
+ * the listing) and the sample tasks drafts are evaluated against. Held
+ * by an admin's own sign-in with platform power, and by a key of the
+ * platform's automation account (ScopeDefinition.Automation).
+ */
+export const ScopeAdminPricing: Scope = "admin:pricing";
+/**
  * ScopeGroup identifies a category of scopes for UI grouping
  */
 export type ScopeGroup =
@@ -1124,7 +1211,9 @@ export type ScopeGroup =
   | "knowledge"
   | "artifacts"
   | "user"
-  | "settings";
+  | "settings"
+  | "approvals"
+  | "admin";
 export const ScopeGroupAgents: ScopeGroup = "agents";
 export const ScopeGroupApps: ScopeGroup = "apps";
 export const ScopeGroupConversations: ScopeGroup = "conversations";
@@ -1143,6 +1232,8 @@ export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupArtifacts: ScopeGroup = "artifacts";
 export const ScopeGroupUser: ScopeGroup = "user";
 export const ScopeGroupSettings: ScopeGroup = "settings";
+export const ScopeGroupApprovals: ScopeGroup = "approvals";
+export const ScopeGroupAdmin: ScopeGroup = "admin";
 /**
  * ScopeDefinition describes a single scope for UI rendering
  */
@@ -1151,6 +1242,30 @@ export interface ScopeDefinition {
   label: string; // Human-readable label
   description: string; // Longer description
   group: ScopeGroup; // Category for grouping
+  /**
+   * SignInOnly: only the account holder's own sign-in (browser session,
+   * CLI login) holds it. No API key, workspace key, OAuth token, bound or
+   * grant session can be granted it or pass a check for it.
+   */
+  sign_in_only?: boolean;
+  /**
+   * NotForApps: an app's OAuth token, a bound session or a grant never
+   * holds it, whatever it was granted; the person's sign-in and API keys
+   * may.
+   */
+  not_for_apps?: boolean;
+  /**
+   * CostsCredits: using the scope spends the account's credits (running
+   * apps, agents, flows).
+   */
+  costs_credits?: boolean;
+  /**
+   * Automation: a narrow platform-administration scope that a workspace
+   * key of the platform's automation account (the system team's service
+   * account) may hold, minted by an admin with platform power and always
+   * expiring. Every other key, token and app holds no admin scope.
+   */
+  automation?: boolean;
 }
 /**
  * ScopeGroupDefinition describes a group of scopes for UI rendering
@@ -1159,6 +1274,17 @@ export interface ScopeGroupDefinition {
   id: ScopeGroup;
   label: string;
   description: string;
+  /**
+   * PublicRows: the resource's rows can be public, so a credential
+   * without its read scope still reads what a signed-out caller reads
+   * (its public rows) instead of being refused.
+   */
+  public_rows?: boolean;
+  /**
+   * StaffOnly: the group's scopes are offered (GET /scopes) only to staff
+   * holding platform power: the platform's own engines.
+   */
+  staff_only?: boolean;
 }
 /**
  * ScopesResponse is the API response for GET /scopes
@@ -1178,6 +1304,17 @@ export interface ScopePreset {
   scopes: Scope[];
   summary?: string[];
   hidden?: boolean;
+  /**
+   * Default: the preset a new key or app grant starts from.
+   */
+  default?: boolean;
+  /**
+   * Grants is every action scope the preset's key holds (Scopes expanded:
+   * a resource scope's actions, the read a write implies, secrets:reveal
+   * with secrets:read; never a sign-in-only scope), so a client compares a
+   * key against it without re-deriving the rule (ApiKeyDTO.Grants).
+   */
+  grants?: Scope[];
 }
 /**
  * ApiKeyDTO for API responses
@@ -1191,6 +1328,12 @@ export interface ApiKeyDTO extends BaseModelDTO, PermissionModelDTO {
   last_used_at?: string /* RFC3339 */;
   expires_at?: string /* RFC3339 */;
   scopes: Scope[];
+  /**
+   * Grants is every action scope the key holds: Scopes expanded the way a
+   * request with the key is checked (models.KeyGrants), every key scope
+   * for a key created without any.
+   */
+  grants: Scope[];
   source?: string;
   /**
    * Scope is who the key acts as: its creator (user) or the workspace.
@@ -2625,6 +2768,8 @@ export type ErrorCode =
   | "account_banned"
   | "person_required"
   | "otp_required"
+  | "requires_sign_in"
+  | "insufficient_scope"
   | "impersonation_reason_required"
   | "mcp_auth_expired"
   | "admin_session_required"
@@ -2632,6 +2777,7 @@ export type ErrorCode =
   | "admin_required"
   | "same_admin_required"
   | "browser_session_required"
+  | "invalid_ttl"
   | "admin_authenticator_required"
   | "limit_exceeded"
   | "feature_not_available"
@@ -2643,6 +2789,18 @@ export type ErrorCode =
   | "already_claimed"
   | "already_entitled"
   | "request_open"
+  | "invalid_code"
+  | "already_processed"
+  | "expired"
+  | "app_retired"
+  | "app_maintenance"
+  | "invalid_transition"
+  | "SESSION_NOT_FOUND"
+  | "SESSION_EXPIRED"
+  | "SESSION_ENDED"
+  | "WORKER_LEASED"
+  | "APP_MISMATCH"
+  | "VERSION_MISMATCH"
   | "agents_disabled"
   | "remote_offline"
   | "remote_timeout"
@@ -2692,6 +2850,21 @@ export const ErrorCodeAccountBanned: ErrorCode = "account_banned";
 export const ErrorCodePersonRequired: ErrorCode = "person_required";
 export const ErrorCodeOTPRequired: ErrorCode = "otp_required";
 /**
+ * ErrorCodeRequiresSignIn (403): the action needs a scope only the
+ * account holder's own sign-in holds (answering an approval, widening a
+ * chat's approval policy, the account, API keys, billing changes,
+ * admin), and the request carried an API key, an app's OAuth token or
+ * another delegated credential. Sign in on the web app or with `belt
+ * login` to do it.
+ */
+export const ErrorCodeRequiresSignIn: ErrorCode = "requires_sign_in";
+/**
+ * ErrorCodeInsufficientScope (403): the credential does not hold the
+ * scope the operation takes (an API key, an app's OAuth token or a
+ * narrowed login granted less). The detail names the scope.
+ */
+export const ErrorCodeInsufficientScope: ErrorCode = "insufficient_scope";
+/**
  * ErrorCodeImpersonationReasonRequired (403): a platform admin named a
  * team they are not a member of without a live impersonation grant.
  * Clients stop viewing as the team on it.
@@ -2706,13 +2879,17 @@ export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
  * only a platform admin may ask for or grant one. SameAdminRequired
  * (403): the elevation was asked for by another account.
  * BrowserSessionRequired (403): only the admin's own browser sign-in
- * grants one.
+ * grants one, and only the person's own browser sign-in changes how the
+ * account is signed into (authenticator enrollment, RequireBrowserSession).
+ * InvalidTTL (400): the elevation asked for a window outside
+ * models.AdminElevationMinTTL..AdminElevationMaxTTL.
  */
 export const ErrorCodeAdminSessionRequired: ErrorCode = "admin_session_required";
 export const ErrorCodeCLISessionRequired: ErrorCode = "cli_session_required";
 export const ErrorCodeAdminRequired: ErrorCode = "admin_required";
 export const ErrorCodeSameAdminRequired: ErrorCode = "same_admin_required";
 export const ErrorCodeBrowserSessionRequired: ErrorCode = "browser_session_required";
+export const ErrorCodeInvalidTTL: ErrorCode = "invalid_ttl";
 /**
  * AdminAuthenticatorRequired (403): a platform admin without an
  * authenticator app (TOTP) enrolled. Admin power needs one; until it is
@@ -2753,6 +2930,32 @@ export const ErrorCodeAlreadyClaimed: ErrorCode = "already_claimed";
  */
 export const ErrorCodeAlreadyEntitled: ErrorCode = "already_entitled";
 export const ErrorCodeRequestOpen: ErrorCode = "request_open";
+/**
+ * Authorization codes (device sign-in, admin elevation) (400): the code
+ * is unknown, already approved or denied, or past its expiry.
+ */
+export const ErrorCodeInvalidCode: ErrorCode = "invalid_code";
+export const ErrorCodeAlreadyProcessed: ErrorCode = "already_processed";
+export const ErrorCodeExpired: ErrorCode = "expired";
+/**
+ * Run-time refusals. AppRetired (410): the app no longer runs.
+ * AppMaintenance (503, Retry-After): the owner paused it; the message is
+ * theirs. InvalidTransition (409): the task already moved on.
+ */
+export const ErrorCodeAppRetired: ErrorCode = "app_retired";
+export const ErrorCodeAppMaintenance: ErrorCode = "app_maintenance";
+export const ErrorCodeInvalidTransition: ErrorCode = "invalid_transition";
+/**
+ * Session-bound runs. SessionNotFound (404), SessionExpired and
+ * SessionEnded (410), WorkerLeased, AppMismatch and VersionMismatch
+ * (409). The SDKs match these upper-case strings.
+ */
+export const ErrorCodeSessionNotFound: ErrorCode = "SESSION_NOT_FOUND";
+export const ErrorCodeSessionExpired: ErrorCode = "SESSION_EXPIRED";
+export const ErrorCodeSessionEnded: ErrorCode = "SESSION_ENDED";
+export const ErrorCodeWorkerLeased: ErrorCode = "WORKER_LEASED";
+export const ErrorCodeAppMismatch: ErrorCode = "APP_MISMATCH";
+export const ErrorCodeVersionMismatch: ErrorCode = "VERSION_MISMATCH";
 /**
  * Remote harness refusals.
  */

@@ -41,7 +41,10 @@ export class ChatsAPI {
 
   /**
    * Change a chat's settings (name, visibility, tool approval, hooks,
-   * memory). Answers with the settings as they now are.
+   * memory). Answers with the settings as they now are. Widening what runs
+   * without approval needs approvals:write, held only by the account
+   * holder's own sign-in: other credentials get 403 `requires_sign_in`
+   * (ErrorCodeRequiresSignIn).
    */
   async updateSettings(chatId: string, settings: ChatSettingsRequest): Promise<Response<ChatSettingsDTO>> {
     return this.http.request<ChatSettingsDTO>('post', `/chats/${chatId}/settings`, { data: settings });

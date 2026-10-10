@@ -177,9 +177,21 @@ export interface AgentChatActions {
   submitToolResult: (toolInvocationId: string, result: string) => Promise<void>;
   /** Answer an MCP tool call's input requests (AwaitingInput status with MCPInputState data) */
   submitMCPInput: (toolInvocationId: string, responses: Record<string, ElicitResult>) => Promise<void>;
-  /** Approve a tool (for HIL approval - AwaitingApproval status) */
+  /**
+   * Approve a tool (for HIL approval - AwaitingApproval status)
+   *
+   * Needs the account holder's own sign-in (approvals:write): with an API
+   * key, an app's token or the server proxy it rejects with 403
+   * `requires_sign_in` (ErrorCodeRequiresSignIn).
+   */
   approveTool: (toolInvocationId: string) => Promise<void>;
-  /** Reject a tool (for HIL approval - AwaitingApproval status) */
+  /**
+   * Reject a tool (for HIL approval - AwaitingApproval status)
+   *
+   * Needs the account holder's own sign-in (approvals:write): with an API
+   * key, an app's token or the server proxy it rejects with 403
+   * `requires_sign_in` (ErrorCodeRequiresSignIn).
+   */
   rejectTool: (toolInvocationId: string, reason?: string) => Promise<void>;
   /**
    * What "always allow" can save for a call awaiting approval, narrowest
@@ -199,18 +211,31 @@ export interface AgentChatActions {
    * api saves its default. A string is accepted from older callers (it was the
    * tool name) and means the default. Rejects with a 409 when the option is
    * stale: read the options again.
+   *
+   * Needs the account holder's own sign-in (approvals:write): with an API
+   * key, an app's token or the server proxy it rejects with 403
+   * `requires_sign_in` (ErrorCodeRequiresSignIn).
    */
   alwaysAllowTool: (
     toolInvocationId: string,
     choice?: AlwaysAllowChoice | string
   ) => Promise<AlwaysAllowResultDTO | undefined>;
-  /** Change this chat's settings, e.g. allow_all_tools (switching it on approves the calls waiting) */
+  /**
+   * Change this chat's settings, e.g. allow_all_tools (switching it on approves the calls waiting).
+   * Widening approvals needs the account holder's own sign-in: other credentials get 403 `requires_sign_in`.
+   */
   updateChatSettings: (settings: ChatSettingsRequest) => Promise<void>;
   /** Hand this chat to another agent (namespace/name); the next message goes to it. Agents our loop runs only. */
   switchAgent: (agentRef: string) => Promise<void>;
   /** Cancel a queued message before the agent processes it */
   cancelMessage: (messageId: string) => Promise<void>;
-  /** Resolve an interrupt gate (allow or deny) */
+  /**
+   * Resolve an interrupt gate (allow or deny)
+   *
+   * Needs the account holder's own sign-in (approvals:write): with an API
+   * key, an app's token or the server proxy it rejects with 403
+   * `requires_sign_in` (ErrorCodeRequiresSignIn).
+   */
   resolveInterrupt: (interruptId: string, decision: 'allow' | 'deny') => Promise<void>;
   /** Load older messages (scroll-up pagination). Returns true if more exist. */
   loadOlderMessages: () => Promise<boolean>;

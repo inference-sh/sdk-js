@@ -648,7 +648,11 @@ export class AgentsAPI {
   }
 
   /**
-   * Resolve an interrupt gate on an agent run
+   * Resolve an interrupt gate on an agent run.
+   *
+   * Needs approvals:write, which only the account holder's own sign-in holds:
+   * with an API key, an app's OAuth token or the server proxy it rejects with
+   * 403 `requires_sign_in` (ErrorCodeRequiresSignIn).
    */
   async resolveInterrupt(interruptId: string, decision: 'allow' | 'deny'): Promise<Response<InterruptDTO>> {
     return this.http.request<InterruptDTO>('post', `/interrupts/${interruptId}/resolve`, {

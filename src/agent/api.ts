@@ -221,10 +221,26 @@ export async function submitToolResult(
   await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
 }
 
+/**
+ * Approve a call awaiting approval; the api then runs it.
+ *
+ * Needs approvals:write, which only the account holder's own sign-in holds
+ * (the web app, or a `belt login` session). An API key, an app's OAuth token
+ * or the server proxy is refused with 403 `requires_sign_in`
+ * (ErrorCodeRequiresSignIn); the error's message says what to do.
+ */
 export async function approveTool(client: AgentClient, toolInvocationId: string): Promise<void> {
   await client.http.request<void>('post', `/tools/${toolInvocationId}/invoke`);
 }
 
+/**
+ * Reject a call awaiting approval, with an optional reason the agent sees.
+ *
+ * Needs approvals:write, which only the account holder's own sign-in holds
+ * (the web app, or a `belt login` session). An API key, an app's OAuth token
+ * or the server proxy is refused with 403 `requires_sign_in`
+ * (ErrorCodeRequiresSignIn); the error's message says what to do.
+ */
 export async function rejectTool(client: AgentClient, toolInvocationId: string, reason?: string): Promise<void> {
   await client.http.request<void>('post', `/tools/${toolInvocationId}/reject`, { data: { reason } });
 }
@@ -249,6 +265,11 @@ export async function getAlwaysAllowOptions(
  * Save an "always allow" option (a key from getAlwaysAllowOptions) as chat
  * rules and approve the call once. Without an option the api saves its old
  * default: the command exactly for remote_exec, the whole tool otherwise.
+ *
+ * Needs approvals:write, which only the account holder's own sign-in holds
+ * (the web app, or a `belt login` session). An API key, an app's OAuth token
+ * or the server proxy is refused with 403 `requires_sign_in`
+ * (ErrorCodeRequiresSignIn); the error's message says what to do.
  */
 export async function alwaysAllowTool(
   client: AgentClient,
@@ -282,7 +303,12 @@ export async function explainTool(
   return resp.data;
 }
 
-/** Change the chat's settings. Answers with the settings as they now are. */
+/**
+ * Change the chat's settings. Answers with the settings as they now are.
+ * Widening what runs without approval (allow_all_tools) needs approvals:write,
+ * held only by the account holder's own sign-in: other credentials are
+ * refused with 403 `requires_sign_in` (ErrorCodeRequiresSignIn).
+ */
 export async function updateChatSettings(
   client: AgentClient,
   chatId: string,
@@ -296,6 +322,14 @@ export async function updateChatSettings(
 // Interrupt operations
 // =========================================================================
 
+/**
+ * Allow or deny an interrupt gate on an agent run.
+ *
+ * Needs approvals:write, which only the account holder's own sign-in holds
+ * (the web app, or a `belt login` session). An API key, an app's OAuth token
+ * or the server proxy is refused with 403 `requires_sign_in`
+ * (ErrorCodeRequiresSignIn); the error's message says what to do.
+ */
 export async function resolveInterrupt(
   client: AgentClient,
   interruptId: string,
