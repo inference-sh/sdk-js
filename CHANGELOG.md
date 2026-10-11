@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-11
+
+Breaking: `SendMessageOptions.channel_context` is removed (see Removed).
+
+### Changed
+
+- Generated types follow the API: `MessageInput` (what an agent run takes), `ContextField.in_prompt`, `ApiAgentRunRequest` takes `agent_id`/`agent_version_id` and no `channel_context`; `CreateAgentMessageRequest` is gone. Per-function `credentials` and annotations on `AppFunction`, and `DeployWarning` on `AppVersionDTO` (INF-1053). `ScopesResponse.account_groups`. Agent events for subagent ids, context, limits and account.
+- Dev dependency lockfile refreshed for security advisories (handlebars, devalue, sharp). Nothing shipped in the package changes.
+
 ### Removed
 
 - `SendMessageOptions.channel_context`. The API no longer reads a channel context from an agent run request; a chat's routing comes from the server's own channel receivers. Chats still return `channel_context`.
