@@ -13,7 +13,9 @@ import {
   AgentRunStateWorking,
   AgentRunStateAuthRequired,
 } from '../types.js';
-import type { AgentRunDTO } from '../types.js';
+import type { AgentRunDTO, ApiAgentRunRequest } from '../types.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { learningHooks } from '../hook-builder.js';
 import { FilesAPI } from './files.js';
 import { AgentsAPI } from './agents.js';
@@ -1644,6 +1646,79 @@ describe('Agent.sendMessage (file attachments)', () => {
 
     expect(body.input.images).toEqual(['inf://files/blob-direct']);
     expect(body.input.files).toBeUndefined();
+  });
+});
+
+describe('Agent.sendMessage run request (no channel_context)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function mockRunAndPoll() {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+  }
+
+  function lastRunBody(): ApiAgentRunRequest {
+    const runCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/agents/run'));
+    const last = runCalls[runCalls.length - 1] as [string, RequestInit];
+    return JSON.parse(String(last[1].body)) as ApiAgentRunRequest;
+  }
+
+  it('should not POST channel_context for template agent runs', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('inference/my-agent');
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('hello', { stream: false });
+
+    expect(lastRunBody()).not.toHaveProperty('channel_context');
+    expect(lastRunBody().agent).toBe('inference/my-agent');
+  });
+
+  it('should not POST channel_context for ad-hoc agent_config runs', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create({
+      core_app: { ref: 'openrouter/claude@latest' },
+      name: 'adhoc',
+    });
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('sdk chat', { stream: false });
+
+    const body = lastRunBody();
+    expect(body).not.toHaveProperty('channel_context');
+    expect(body.agent_config).toBeDefined();
+  });
+
+  it('should not POST channel_context when continuing an existing chat', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('inference/my-agent');
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('first', { stream: false });
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('second', { stream: false });
+
+    expect(lastRunBody().chat_id).toBe('chat-1');
+    expect(lastRunBody()).not.toHaveProperty('channel_context');
+  });
+
+  it('should document removal and omit channel_context wiring in agents.ts (700c6dd)', () => {
+    const changelog = readFileSync(join(__dirname, '../../CHANGELOG.md'), 'utf8');
+    expect(changelog).toMatch(/SendMessageOptions\.channel_context/);
+    expect(changelog).toMatch(/no longer reads a channel context from an agent run/);
+
+    const source = readFileSync(join(__dirname, 'agents.ts'), 'utf8');
+    expect(source).not.toMatch(/channel_context:\s*options\.channel_context/);
+    expect(source).not.toMatch(/channel_context\?:\s*ChannelContext/);
   });
 });
 
