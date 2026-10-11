@@ -1588,6 +1588,28 @@ export interface AppVersionDTO extends BaseModelDTO {
    */
   sandbox?: AppSandbox;
   checksum?: string;
+  /**
+   * Warnings are what the deploy that created this version accepted but
+   * the author should fix. Only the deploy's own response carries them.
+   */
+  warnings?: DeployWarning[];
+}
+/**
+ * DeployWarning is something a deploy accepted but the author should fix:
+ * the app works, but asks for more than it needs or says less than clients
+ * use.
+ */
+export interface DeployWarning {
+  /**
+   * Code identifies the check: readonly_broad_credential,
+   * unused_credential, missing_annotations.
+   */
+  code: string;
+  /**
+   * Function is the function the warning is about, when it is about one.
+   */
+  function?: string;
+  message: string;
 }
 /**
  * LicenseRecordDTO is the API response for a license record.
