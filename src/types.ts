@@ -1417,6 +1417,18 @@ export interface AppFunction {
    * a stream function declares a socket parameter. Empty means run.
    */
   kind?: FunctionKind;
+  /**
+   * Credentials the function needs at run time, declared on the function
+   * in app code. Each must be covered by the app-wide list in inf.yml.
+   * Empty means the function gets the app-wide list.
+   */
+  credentials?: CredentialRequirement[];
+  /**
+   * Annotations are MCP tool hints (read-only, destructive, idempotent,
+   * open-world) declared on the function. Hints only: nothing trusts
+   * them for an unverified namespace.
+   */
+  annotations?: ToolAnnotations;
 }
 /**
  * AppImages holds developer-provided images for the app.
@@ -3870,6 +3882,21 @@ export interface ResourceContent {
   text?: string;
   blob?: string;
   _meta?: { [key: string]: any};
+}
+/**
+ * ToolAnnotations describes tool behavior so clients can make trust and UX
+ * decisions (e.g., auto-approve read-only tools). All fields are optional hints.
+ */
+export interface ToolAnnotations {
+  /**
+   * Title is the human-readable name clients and the Claude directory show.
+   * It repeats MCPTool.Title because some clients read only this one.
+   */
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
 }
 /**
  * ToolCallRequest represents a request to call a tool.
