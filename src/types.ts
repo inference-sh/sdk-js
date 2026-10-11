@@ -5785,6 +5785,16 @@ export interface DecisionVisionInput extends DecisionInput {
   images?: string[];
 }
 /**
+ * DecisionVideoInput is the input of a decision model that also watches
+ * videos: a DecisionVisionInput plus the videos the questions are about.
+ */
+export interface DecisionVideoInput extends DecisionVisionInput {
+  /**
+   * Videos are file URIs. Every question sees them, after the images.
+   */
+  videos?: string[];
+}
+/**
  * DecisionChoiceAnswer is the answer to a choice question.
  */
 export interface DecisionChoiceAnswer {
