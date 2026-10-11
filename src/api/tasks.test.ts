@@ -6,6 +6,7 @@ import {
   TaskStatusRunning,
   type DecisionInput,
   type DecisionOutput,
+  type DecisionVideoInput,
 } from '../types.js';
 import { TasksAPI } from './tasks.js';
 
@@ -722,6 +723,38 @@ describe('TasksAPI.run (HTTP contract)', () => {
       input: decisionInput,
     });
     expect(result.output).toEqual(decisionOutput);
+  });
+
+  it('should POST DecisionVideoInput with images and videos for video decision apps (a2986f9)', async () => {
+    const decisionInput: DecisionVideoInput = {
+      state: { order_id: 'ord-42' },
+      images: ['inf://files/receipt.png'],
+      videos: ['inf://files/door-cam.mp4'],
+      nouls: [
+        {
+          id: 'delivery',
+          instructions: 'Was the package left at the door?',
+        },
+      ],
+    };
+
+    mockJsonResponse({ id: 'task-video-decision', status: TaskStatusRunning, output: null });
+    mockJsonResponse(
+      makeTask({
+        id: 'task-video-decision',
+        status: TaskStatusCompleted,
+        input: decisionInput,
+        output: { choices: {}, scores: {}, nouls: {}, model: 'acme/video-router', input_tokens: 0 },
+      })
+    );
+
+    await api().run({ app: 'acme/video-router', input: {} }, decisionInput, { wait: false });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/video-router',
+      input: decisionInput,
+    });
   });
 });
 
