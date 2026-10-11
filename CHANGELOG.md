@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- `SendMessageOptions.channel_context`. The API no longer reads a channel context from an agent run request; a chat's routing comes from the server's own channel receivers. Chats still return `channel_context`.
+
 ### Added
 
 - `StreamableManager` reconnects on opt-in: `reconnect: true | { maxAttempts, baseDelayMs, maxDelayMs, idleTimeoutMs }` (defaults 10, 1000, 30000, 30000). A failed stream is retried with jittered exponential backoff; any line received, heartbeats included, resets the failure count; a stream silent for `idleTimeoutMs` is reconnected; in a browser, `online` or the tab becoming visible retries at once. A 4xx other than 408/429 is not retried. `onRetry(error, attempt, delayMs)` reports each scheduled retry; `onReconnect(attempt)` runs after a retry connects and before the new stream is read, so the caller can fetch what it missed. With `reconnect`, `onError` fires only when the manager gives up. `StreamReconnectOptions` is exported. Without the option nothing changes.

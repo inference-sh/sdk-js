@@ -10,7 +10,6 @@ import {
   ApiAgentRunRequest,
   ChatDTO,
   ChatMessageDTO,
-  ChannelContext,
   DeltaEvent,
   LLMDelta,
   LLMInput,
@@ -124,14 +123,6 @@ export interface SendMessageOptions {
    * cannot resolve those is the typical caller.
    */
   signal?: AbortSignal;
-  /**
-   * The channel this message came through (slack, telegram, a wearable...):
-   * `channel_type` plus whatever `channel_metadata` the integration needs to
-   * route the reply (thread ids, chat ids). Sent as `channel_context` on the
-   * message; the API records it on the chat the first time it sees it, so
-   * later turns in that chat inherit the routing.
-   */
-  channel_context?: ChannelContext;
 }
 
 export interface AgentRunOptions extends Omit<SendMessageOptions, 'stream'> {
@@ -212,7 +203,6 @@ export class Agent {
       chat_id: this.chatId ?? undefined,
       context: this.context,
       input,
-      channel_context: options.channel_context,
       ...(isTemplate
         ? { agent: this.config as string }
         : {

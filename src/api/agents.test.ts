@@ -2,7 +2,6 @@ import { HttpClient, type FailedRequest } from '../http/client.js';
 import { StreamableManager } from '../http/streamable.js';
 import { PollManager } from '../http/poll.js';
 import {
-  ChannelTypeSlack,
   ChatStatusBusy,
   ChatStatusIdle,
   FileDTO,
@@ -14,7 +13,7 @@ import {
   AgentRunStateWorking,
   AgentRunStateAuthRequired,
 } from '../types.js';
-import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types.js';
+import type { AgentRunDTO } from '../types.js';
 import { learningHooks } from '../hook-builder.js';
 import { FilesAPI } from './files.js';
 import { AgentsAPI } from './agents.js';
@@ -1645,73 +1644,6 @@ describe('Agent.sendMessage (file attachments)', () => {
 
     expect(body.input.images).toEqual(['inf://files/blob-direct']);
     expect(body.input.files).toBeUndefined();
-  });
-});
-
-describe('Agent.sendMessage channel_context passthrough', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  const slackContext: ChannelContext = {
-    channel_type: ChannelTypeSlack,
-    channel_metadata: { channel_id: 'C123', thread_ts: '1234.5678' },
-  };
-
-  function mockRunAndPoll() {
-    mockJsonResponse({
-      user_message: makeMessage({ id: 'user-1', role: 'user' }),
-      assistant_message: makeMessage(),
-    });
-    mockJsonResponse({ status: ChatStatusBusy });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
-    mockJsonResponse({ status: ChatStatusIdle });
-    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
-  }
-
-  function runBody(): ApiAgentRunRequest {
-    const runCall = mockFetch.mock.calls.find(([url]) =>
-      String(url).includes('/agents/run')
-    ) as [string, RequestInit];
-    return JSON.parse(String(runCall[1].body)) as ApiAgentRunRequest;
-  }
-
-  it('should POST channel_context when replying through a routed channel', async () => {
-    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
-    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('inference/my-agent');
-
-    mockRunAndPoll();
-    await agentInstance.sendMessage('hello from slack', { stream: false, channel_context: slackContext });
-
-    expect(runBody().channel_context).toEqual(slackContext);
-  });
-
-  it('should omit channel_context from the body when not provided', async () => {
-    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
-    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create({
-      core_app: { ref: 'openrouter/claude@latest' },
-      name: 'adhoc',
-    });
-
-    mockRunAndPoll();
-    await agentInstance.sendMessage('sdk chat', { stream: false });
-
-    expect(runBody()).not.toHaveProperty('channel_context');
-  });
-
-  it('should include channel_context on ad-hoc agent_config runs', async () => {
-    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
-    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create({
-      core_app: { ref: 'openrouter/claude@latest' },
-      name: 'adhoc',
-    });
-
-    mockRunAndPoll();
-    await agentInstance.sendMessage('thread reply', { stream: false, channel_context: slackContext });
-
-    const body = runBody();
-    expect(body.agent_config).toBeDefined();
-    expect(body.channel_context).toEqual(slackContext);
   });
 });
 
