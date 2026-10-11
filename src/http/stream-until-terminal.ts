@@ -2,16 +2,22 @@
  * Follow a resource's NDJSON stream until the resource reaches a terminal
  * state.
  *
- * StreamableManager never reconnects, and a stream can close cleanly before
- * the resource is done (load balancer idle timeout, API deploy). A wait built
- * on it must not hang then. This helper owns that contract for every
- * "stream until done" wait: when the stream ends early it fetches the
- * resource once (`reconcile`) and settles with what that shows, or rejects
- * when the resource is still not terminal. sdk-py's `wait_for_completion`
- * does the same final GET.
+ * The stream reconnects after a network failure or a silent connection
+ * (StreamableManager `reconnect`, on by default here). The API does not
+ * replay what a dropped stream missed, so every reconnect fetches the
+ * resource (`resync`, default `reconcile`) before reading on; a resource
+ * that finished meanwhile settles the wait.
+ *
+ * A stream can also close cleanly before the resource is done (load balancer
+ * idle timeout, API deploy). A wait built on it must not hang then. This
+ * helper owns that contract for every "stream until done" wait: when the
+ * stream ends early it fetches the resource once (`reconcile`) and settles
+ * with what that shows, or rejects when the resource is still not terminal.
+ * sdk-py's `wait_for_completion` does the same final GET. The wait rejects
+ * with the stream's error once it stops retrying.
  */
 
-import { StreamableManager, type StreamableManagerOptions, type StreamRequest } from './streamable.js';
+import { StreamableManager, type StreamableManagerOptions, type StreamReconnectOptions, type StreamRequest } from './streamable.js';
 
 /** Settles a stream-until-terminal wait. Calls after the first are ignored. */
 export interface TerminalSettler<R> {
@@ -31,6 +37,14 @@ export type StreamUntilTerminalSpec<T> = Pick<StreamableManagerOptions<T>, 'body
    * rejects the wait with `closedMessage`.
    */
   reconcile: () => Promise<void>;
+  /**
+   * Called after the stream reconnected, before it is read again: fetch the
+   * resource and report it, settling if it is terminal (default `reconcile`).
+   * A rejection counts as a failed reconnect attempt.
+   */
+  resync?: () => Promise<void>;
+  /** How the stream reconnects (default true: StreamReconnectOptions defaults); false fails the wait on the first error. */
+  reconnect?: boolean | StreamReconnectOptions;
   /** Rejection message when the stream closed and the resource is still not terminal. */
   closedMessage: string;
   /**
@@ -80,11 +94,13 @@ export function streamUntilTerminal<T, R>(
       },
     };
 
-    const { events, reconcile, closedMessage, onStopped, keepOpen, ...managerOptions } = build(settle);
+    const { events, reconcile, resync = reconcile, reconnect = true, closedMessage, onStopped, keepOpen, ...managerOptions } = build(settle);
     let streamError: Error | null = null;
 
     manager = new StreamableManager<T>({
       ...managerOptions,
+      reconnect,
+      onReconnect: () => resync(),
       onError: (error) => {
         streamError = error;
       },

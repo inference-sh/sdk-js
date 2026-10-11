@@ -425,25 +425,80 @@ describe('TasksAPI.run (streaming mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
-  it('should reject when the NDJSON stream connection fails', async () => {
+  it('should reject with the stream error once the stream stops retrying', async () => {
+    jest.useFakeTimers();
+    try {
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/apps/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify(makeTask())),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: () => Promise.resolve('service unavailable'),
+        });
+      });
+
+      const run = expect(
+        api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+      ).rejects.toThrow('HTTP 503');
+      await jest.advanceTimersByTimeAsync(10 * 30_000);
+      await run;
+      // The first attempt and 10 retries.
+      expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/stream'))).toHaveLength(11);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('should reject at once when the stream is refused with a 4xx', async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/apps/run')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          text: () => Promise.resolve(JSON.stringify(makeTask())),
-        });
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(makeTask())) });
       }
-      return Promise.resolve({
-        ok: false,
-        status: 503,
-        text: () => Promise.resolve('service unavailable'),
-      });
+      return Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve('forbidden') });
     });
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
-    ).rejects.toThrow('HTTP 503');
+    await expect(api().run({ app: 'test-app', input: {} }, {}, { wait: true })).rejects.toThrow('HTTP 403');
+    expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/stream'))).toHaveLength(1);
+  });
+
+  it('should reconnect after a network error and resolve with the task the resync fetched', async () => {
+    jest.useFakeTimers();
+    try {
+      let streams = 0;
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/apps/run')) {
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(makeTask())) });
+        }
+        if (url.includes('/tasks/task-1/stream')) {
+          streams++;
+          if (streams === 1) return Promise.reject(new TypeError('network error'));
+          return Promise.resolve(mockNdjsonStream(['{"type":"heartbeat"}\n']));
+        }
+        if (url.endsWith('/tasks/task-1')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify(makeTask({ status: TaskStatusCompleted, output: { ok: true } }))),
+          });
+        }
+        return Promise.reject(new Error(`unexpected ${url}`));
+      });
+
+      const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+      await jest.advanceTimersByTimeAsync(1000);
+      const result = await run;
+
+      expect(streams).toBe(2);
+      expect(result.status).toBe(TaskStatusCompleted);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should handle partial updates via onPartialUpdate', async () => {
@@ -507,8 +562,8 @@ describe('TasksAPI.run (streaming mode)', () => {
 });
 
 // A stream can close cleanly before the task is done (load balancer idle
-// timeout, deploy). StreamableManager does not reconnect, so the watch asks
-// the API once instead of waiting forever.
+// timeout, deploy). A clean close is not retried, so the watch asks the API
+// once instead of waiting forever.
 describe('TasksAPI.run (stream closes before the task is terminal)', () => {
   beforeEach(() => {
     jest.clearAllMocks();

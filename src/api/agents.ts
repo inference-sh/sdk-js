@@ -376,6 +376,43 @@ export class Agent {
       // message's text. Same attribution rule as the React hooks.
       const deltaAccums = new Map<string, DeltaAccumulator>();
 
+      const observeMessage = (message: ChatMessageDTO) => {
+        // A terminal message receives no further deltas.
+        if (isMessageTerminal(message.status)) deltaAccums.delete(message.id);
+        gate.observeMessage(message);
+        options.onMessage?.(message);
+        if (idlePending && gate.settled) settle.resolve();
+
+        if (message.tool_invocations && options.onToolCall) {
+          for (const inv of message.tool_invocations) {
+            if (this.dispatchedToolCalls.has(inv.id)) continue;
+
+            if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
+              this.dispatchedToolCalls.add(inv.id);
+              options.onToolCall({
+                id: inv.id,
+                name: inv.function?.name || '',
+                args: inv.function?.arguments || {},
+              });
+            }
+          }
+        }
+      };
+
+      // The chat and its latest messages as the API has them now: what a
+      // dropped stream missed, or whether a closed stream's turn is over.
+      // Messages first, so this turn's terminal message can gate the idle chat.
+      const resync = async () => {
+        // Deltas sent while disconnected are gone; the messages replace them.
+        deltaAccums.clear();
+        const [{ data: chat }, { data: page }] = await Promise.all([
+          this.http.request<ChatDTO>('get', `/chats/${chatId}`),
+          this.http.request<CursorListResponse<ChatMessageDTO>>('get', `/chats/${chatId}/messages`),
+        ]);
+        for (const message of page?.items ?? []) observeMessage(message);
+        observeChat(chat);
+      };
+
       return {
         request: (init) => this.http.fetch(`/chats/${chatId}/stream`, init),
         events: {
@@ -396,35 +433,11 @@ export class Agent {
               seq: evt.seq,
             });
           },
-          chat_messages: (message: ChatMessageDTO) => {
-            // A terminal message receives no further deltas.
-            if (isMessageTerminal(message.status)) deltaAccums.delete(message.id);
-            gate.observeMessage(message);
-            options.onMessage?.(message);
-            if (idlePending && gate.settled) settle.resolve();
-
-            if (message.tool_invocations && options.onToolCall) {
-              for (const inv of message.tool_invocations) {
-                if (this.dispatchedToolCalls.has(inv.id)) continue;
-
-                if (inv.type === ToolTypeClient && (inv.status === ToolInvocationStatusInProgress || inv.status === ToolInvocationStatusAwaitingInput)) {
-                  this.dispatchedToolCalls.add(inv.id);
-                  options.onToolCall({
-                    id: inv.id,
-                    name: inv.function?.name || '',
-                    args: inv.function?.arguments || {},
-                  });
-                }
-              }
-            }
-          },
+          chat_messages: (message: ChatMessageDTO) => observeMessage(message),
         },
         // The stream closed before the chat was seen idle: the chat itself
-        // says whether the turn is over.
-        reconcile: async () => {
-          const { data: chat } = await this.http.request<ChatDTO>('get', `/chats/${chatId}`);
-          observeChat(chat);
-        },
+        // says whether the turn is over. A reconnect resyncs the same way.
+        reconcile: resync,
         closedMessage: 'Chat stream closed before the chat became idle',
         // Stopped by disconnect()/abort or replaced by a newer stream: the
         // caller stopped waiting on purpose.

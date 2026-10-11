@@ -893,6 +893,13 @@ describe('Agent.sendMessage (streaming mode)', () => {
             text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusIdle, active_run: completedRun })),
           });
         }
+        if (url.includes('/chats/chat-1/messages')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({ items: [], next_cursor: '', has_next: false })),
+          });
+        }
         return Promise.resolve(
           mockNdjsonStream([
             `${JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } })}\n`,
@@ -904,13 +911,76 @@ describe('Agent.sendMessage (streaming mode)', () => {
       expect(onChat).toHaveBeenLastCalledWith(expect.objectContaining({ status: ChatStatusIdle }));
     });
 
-    it('should reject sendMessage with the stream error', async () => {
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('/agents/run')) return Promise.resolve(runResponse());
-        return Promise.reject(new Error('network down'));
-      });
+    it('should reject sendMessage with the stream error once the stream stops retrying', async () => {
+      jest.useFakeTimers();
+      try {
+        mockFetch.mockImplementation((url: string) => {
+          if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+          return Promise.reject(new Error('network down'));
+        });
 
-      await expect(streamingAgent().sendMessage('hello', { onChat: jest.fn() })).rejects.toThrow('network down');
+        const turn = expect(streamingAgent().sendMessage('hello', { onChat: jest.fn() })).rejects.toThrow('network down');
+        await jest.advanceTimersByTimeAsync(10 * 30_000);
+        await turn;
+        // The first attempt and 10 retries.
+        expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/stream'))).toHaveLength(11);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('should reconnect after a network error and end the turn the resync shows finished', async () => {
+      jest.useFakeTimers();
+      try {
+        const final = makeMessage({ id: 'asst-1', status: 'ready' });
+        let streams = 0;
+        mockFetch.mockImplementation((url: string) => {
+          if (url.includes('/agents/run')) return Promise.resolve(runResponse());
+          if (url.includes('/stream')) {
+            streams++;
+            if (streams > 1) return Promise.resolve(mockNdjsonStream(['{"type":"heartbeat"}\n']));
+            // Busy, then the connection drops (ERR_NETWORK_CHANGED).
+            let reads = 0;
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              body: {
+                getReader: () => ({
+                  read: async () => {
+                    if (reads++ === 0) {
+                      const line = JSON.stringify({ event: 'chats', data: { id: 'chat-1', status: ChatStatusBusy, active_run: workingRun } });
+                      return { done: false, value: new TextEncoder().encode(`${line}\n`) };
+                    }
+                    throw new TypeError('network error');
+                  },
+                  releaseLock: () => {},
+                }),
+              },
+            });
+          }
+          if (url.includes('/chats/chat-1/messages')) {
+            return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ items: [final], next_cursor: '', has_next: false })) });
+          }
+          if (url.endsWith('/chats/chat-1')) {
+            return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: 'chat-1', status: ChatStatusIdle, active_run: completedRun })) });
+          }
+          return Promise.reject(new Error(`unexpected ${url}`));
+        });
+        const onMessage = jest.fn();
+        const onChat = jest.fn();
+        const agentInstance = streamingAgent();
+
+        const turn = agentInstance.sendMessage('hello', { onChat, onMessage });
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(turn).resolves.toBeDefined();
+
+        expect(streams).toBe(2);
+        expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'asst-1', status: 'ready' }));
+        expect(onChat).toHaveBeenLastCalledWith(expect.objectContaining({ status: ChatStatusIdle }));
+        agentInstance.disconnect();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('should not leak an unhandled rejection when the pre-opened stream fails during the POST', async () => {
@@ -936,7 +1006,7 @@ describe('Agent.sendMessage (streaming mode)', () => {
           await postGate;
           return runResponse();
         }
-        throw new Error('stream refused');
+        throw Object.assign(new Error('stream refused'), { statusCode: 403 });
       });
 
       const unhandled = jest.fn();
@@ -1992,7 +2062,8 @@ describe('Agent lifecycle', () => {
     mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
     await agentInstance.sendMessage('hello', { stream: false });
 
-    mockFetch.mockRejectedValue(new Error('network down'));
+    // A refusal: the stream gives up at once instead of retrying.
+    mockFetch.mockResolvedValue({ ok: false, status: 403, text: () => Promise.resolve('network down') });
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const unhandled = jest.fn();
     process.on('unhandledRejection', unhandled);
@@ -2000,7 +2071,7 @@ describe('Agent lifecycle', () => {
       agentInstance.startStreaming({ onChat: jest.fn() });
       await new Promise((r) => setTimeout(r, 20));
       expect(unhandled).not.toHaveBeenCalled();
-      expect(warn).toHaveBeenCalledWith('[Agent] Stream error:', expect.objectContaining({ message: 'network down' }));
+      expect(warn).toHaveBeenCalledWith('[Agent] Stream error:', expect.objectContaining({ message: 'HTTP 403: network down' }));
     } finally {
       process.off('unhandledRejection', unhandled);
       warn.mockRestore();
