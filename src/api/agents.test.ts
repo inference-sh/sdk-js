@@ -2354,6 +2354,15 @@ describe('AgentsAPI.submitToolResult', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ result: 'shot', attachments: [ref] });
   });
+
+  it('should omit empty attachments from the POST body', async () => {
+    mockJsonResponse(null);
+
+    await api().submitToolResult('inv-empty', 'shot', []);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'shot' });
+  });
 });
 
 describe('AgentsAPI (template CRUD)', () => {

@@ -401,6 +401,102 @@ describe('createActions', () => {
       }
     });
 
+    it('retries a dropped tool result with attachments on the successful attempt', async () => {
+      jest.useFakeTimers();
+      try {
+        const ref = {
+          id: 'f1',
+          uri: 'https://cdn/shot.png',
+          filename: 'shot.png',
+          content_type: 'image/png',
+        };
+        const handler = jest.fn().mockResolvedValue({ result: 'screenshot taken', attachments: [ref] });
+        mockAgentApi.submitToolResult
+          .mockRejectedValueOnce(Object.assign(new Error('upstream'), { statusCode: 503 }))
+          .mockResolvedValueOnce(undefined);
+        const { ctx } = createTestContext({
+          getClientToolHandlers: () => new Map([['screenshot', handler]]),
+        });
+        const { internalActions } = createActions(ctx);
+
+        internalActions.streamChat('chat-full-id-123');
+        await Promise.resolve();
+
+        const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+          ([event]) => event === 'chat_messages'
+        )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+        onMessage(
+          makeMessage({
+            chat_id: 'chat-short',
+            tool_invocations: [
+              {
+                id: 'tool-inv-retry-files',
+                type: ToolTypeClient,
+                status: ToolInvocationStatusInProgress,
+                function: { name: 'screenshot', arguments: {} },
+              },
+            ],
+          })
+        );
+
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+        expect(mockAgentApi.submitToolResult).toHaveBeenLastCalledWith(
+          ctx.client,
+          'tool-inv-retry-files',
+          'screenshot taken',
+          [ref]
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('retries on HTTP 429 rate limits', async () => {
+      jest.useFakeTimers();
+      try {
+        const handler = jest.fn().mockResolvedValue('tool ok');
+        mockAgentApi.submitToolResult
+          .mockRejectedValueOnce(Object.assign(new Error('slow down'), { statusCode: 429 }))
+          .mockResolvedValueOnce(undefined);
+        const { ctx } = createTestContext({
+          getClientToolHandlers: () => new Map([['my_tool', handler]]),
+        });
+        const { internalActions } = createActions(ctx);
+
+        internalActions.streamChat('chat-full-id-123');
+        await Promise.resolve();
+
+        const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+          ([event]) => event === 'chat_messages'
+        )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+        onMessage(
+          makeMessage({
+            chat_id: 'chat-short',
+            tool_invocations: [
+              {
+                id: 'tool-inv-429',
+                type: ToolTypeClient,
+                status: ToolInvocationStatusInProgress,
+                function: { name: 'my_tool', arguments: {} },
+              },
+            ],
+          })
+        );
+
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('does not send a refused client tool result again', async () => {
       jest.useFakeTimers();
       try {
