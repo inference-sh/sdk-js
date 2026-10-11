@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { HttpClient } from '../http/client.js';
 import { ChatsAPI } from './chats.js';
 import { FlowsAPI } from './flows.js';
@@ -27,6 +29,12 @@ const http = () => new HttpClient({ apiKey: 'test-key' });
 // The update bodies name only what each route writes, so a field the API
 // would drop does not type-check (checked by tsc, which covers tests).
 describe('write bodies', () => {
+  it('extends patch bodies for POST updates instead of duplicating field picks (2871948)', () => {
+    const source = readFileSync(join(__dirname, 'write-bodies.ts'), 'utf8');
+    expect(source).toMatch(/export type AppUpdateBody = AppPatchBody &/);
+    expect(source).toMatch(/export type FlowUpdateBody = FlowPatchBody &/);
+  });
+
   it('reject the fields their route drops', () => {
     // @ts-expect-error visibility has POST /chats/{id}/settings
     const chat: ChatUpdateBody = { visibility: 'public' };
