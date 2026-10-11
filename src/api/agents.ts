@@ -8,6 +8,7 @@ import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta.js';
 import {
   AgentRunDTO,
   ApiAgentRunRequest,
+  ChannelContext,
   ChatDTO,
   ChatMessageDTO,
   DeltaEvent,
@@ -123,6 +124,12 @@ export interface SendMessageOptions {
    * cannot resolve those is the typical caller.
    */
   signal?: AbortSignal;
+  /**
+   * @deprecated The API no longer reads a channel context from an agent run;
+   * a chat's routing comes from the server's own channel receivers. Accepted
+   * for compatibility and not sent.
+   */
+  channel_context?: ChannelContext;
 }
 
 export interface AgentRunOptions extends Omit<SendMessageOptions, 'stream'> {
