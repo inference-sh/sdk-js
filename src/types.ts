@@ -493,13 +493,15 @@ export interface CreateAgentMessageResponse {
   assistant_message?: ChatMessageDTO;
 }
 /**
- * ToolResultRequest represents a tool result submission
+ * ToolResultRequest is the body of POST /tools/{id}: a client's result for a
+ * tool call it ran.
  */
 export interface ToolResultRequest {
   result: string;
   /**
-   * Attachments are files uploaded with POST /files that the tool returns.
-   * Images reach the model as image input when it supports images.
+   * Attachments are files uploaded with POST /files, as in MessageInput.
+   * The tool message carries them; images reach the model as image input
+   * when it accepts images.
    */
   attachments?: FileRef[];
 }
