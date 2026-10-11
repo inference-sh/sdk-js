@@ -77,13 +77,21 @@ export interface SkillConfig {
   preload?: boolean;
 }
 /**
- * ContextField declares a context parameter expected by the agent.
+ * ContextField declares a context parameter expected by the agent. The
+ * agent's prompt names it with its description, and the agent writes
+ * {{context.NAME}} in a tool call's arguments for the server to fill in;
+ * it does not see the value unless InPrompt.
  */
 export interface ContextField {
   name: string;
   description?: string;
   required?: boolean;
   default?: string;
+  /**
+   * InPrompt shows the value to the model too, in the system prompt,
+   * labeled as the caller's data and quoted.
+   */
+  in_prompt?: boolean;
 }
 /**
  * AgentToolDTO for API responses
@@ -436,35 +444,49 @@ export interface ApiAppRunRequest {
   metadata?: TaskMetadata;
 }
 /**
- * ApiAgentRunRequest is the request body for /agents/run endpoint.
+ * MessageInput is a message a caller sends to an agent: its text and the
+ * files sent with it. The model, its settings, the system prompt, the tools
+ * and the history come from the agent and the chat. Every endpoint that
+ * takes a message decodes this type.
+ */
+export interface MessageInput {
+  text?: string;
+  /**
+   * Attachments are files uploaded with POST /files. Images reach the
+   * model as image input.
+   */
+  attachments?: FileRef[];
+  /**
+   * Deprecated: send Attachments. Image URIs, read only when Attachments
+   * is empty.
+   */
+  images?: string[];
+  /**
+   * Deprecated: send Attachments. File URIs, read only when Attachments
+   * is empty.
+   */
+  files?: string[];
+}
+/**
+ * ApiAgentRunRequest is the request body of POST /agents/run and its aliases
+ * /agents/message and /agents/messages. It names the agent once: by ref
+ * (agent), by id (agent_id, with an optional agent_version_id), or by an
+ * ad-hoc agent_config; or names none and posts into chat_id's chat.
  */
 export interface ApiAgentRunRequest {
   chat_id?: string;
   agent?: string;
-  agent_config?: AgentConfigInput;
-  agent_name?: string;
-  input: LLMInput;
-  context?: { [key: string]: string};
-  stream?: boolean;
   /**
-   * ChannelContext is recorded on the chat the first time it is seen.
+   * AgentID names a stored agent by id; AgentVersionID pins one of its
+   * versions (full or short id), else the agent's current version runs.
    */
-  channel_context?: ChannelContext;
-}
-/**
- * CreateAgentMessageRequest is the request for creating agent messages.
- */
-export interface CreateAgentMessageRequest {
-  chat_id?: string;
   agent_id?: string;
   agent_version_id?: string;
-  agent?: string;
-  tool_call_id?: string;
-  input: LLMInput;
-  channel_context?: ChannelContext;
   agent_config?: AgentConfigInput;
   agent_name?: string;
+  input: MessageInput;
   context?: { [key: string]: string};
+  stream?: boolean;
 }
 export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
@@ -896,7 +918,8 @@ export type Scope =
   | "approvals:write"
   | "admin:read"
   | "admin:write"
-  | "admin:pricing";
+  | "store:pricing"
+  | "store:submit";
 /**
  * API Key Scopes - hierarchical permission system.
  * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
@@ -1191,13 +1214,18 @@ export const ScopeAdminRead: Scope = "admin:read";
  */
 export const ScopeAdminWrite: Scope = "admin:write";
 /**
- * ScopeAdminPricing reads and changes store pricing: a version's
- * terms, its draft pricing (edit, evaluate, discard, publish, apply to
- * the listing) and the sample tasks drafts are evaluated against. Held
- * by an admin's own sign-in with platform power, and by a key of the
- * platform's automation account (ScopeDefinition.Automation).
+ * ScopeStorePricing reads and changes store pricing: a version's terms,
+ * its draft pricing (edit, evaluate, discard, publish, apply to the
+ * listing) and the sample tasks drafts are evaluated against. Held only
+ * in the platform's workspace (the system team), by its members, their
+ * keys and runs, and its own keys.
  */
-export const ScopeAdminPricing: Scope = "admin:pricing";
+export const ScopeStorePricing: Scope = "store:pricing";
+/**
+ * ScopeStoreSubmit submits a resource version to the store on its
+ * publisher's behalf. Held like ScopeStorePricing.
+ */
+export const ScopeStoreSubmit: Scope = "store:submit";
 /**
  * ScopeGroup identifies a category of scopes for UI grouping
  */
@@ -1221,7 +1249,8 @@ export type ScopeGroup =
   | "user"
   | "settings"
   | "approvals"
-  | "admin";
+  | "admin"
+  | "store";
 export const ScopeGroupAgents: ScopeGroup = "agents";
 export const ScopeGroupApps: ScopeGroup = "apps";
 export const ScopeGroupConversations: ScopeGroup = "conversations";
@@ -1242,6 +1271,7 @@ export const ScopeGroupUser: ScopeGroup = "user";
 export const ScopeGroupSettings: ScopeGroup = "settings";
 export const ScopeGroupApprovals: ScopeGroup = "approvals";
 export const ScopeGroupAdmin: ScopeGroup = "admin";
+export const ScopeGroupStore: ScopeGroup = "store";
 /**
  * ScopeDefinition describes a single scope for UI rendering
  */
@@ -1267,13 +1297,6 @@ export interface ScopeDefinition {
    * apps, agents, flows).
    */
   costs_credits?: boolean;
-  /**
-   * Automation: a narrow platform-administration scope that a workspace
-   * key of the platform's automation account (the system team's service
-   * account) may hold, minted by an admin with platform power and always
-   * expiring. Every other key, token and app holds no admin scope.
-   */
-  automation?: boolean;
 }
 /**
  * ScopeGroupDefinition describes a group of scopes for UI rendering
@@ -2974,8 +2997,9 @@ export const ErrorCodeFeatureNotAvailable: ErrorCode = "feature_not_available";
 export const ErrorCodeEntitlementUnavailable: ErrorCode = "entitlement_unavailable";
 export const ErrorCodePaymentRequired: ErrorCode = "payment_required";
 /**
- * ErrorCodePaymentMethodRequired (402): a bounty program requires a saved
- * payment method and the caller's team has none. Meta is
+ * ErrorCodePaymentMethodRequired (402): the action needs a saved payment
+ * method and the caller's team has none: a bounty program that requires
+ * one, or a free app run without a balance. Meta is
  * PaymentMethodRequiredMeta; clients send the user to BillingPage.
  */
 export const ErrorCodePaymentMethodRequired: ErrorCode = "payment_method_required";
@@ -3052,9 +3076,10 @@ export interface ScopeRefusedMeta {
 }
 /**
  * PaymentMethodRequiredMeta is the meta of a payment_method_required error.
+ * BountyID is set when a bounty claim was refused.
  */
 export interface PaymentMethodRequiredMeta {
-  bounty_id: string;
+  bounty_id?: string;
   billing_page: string;
 }
 /**
