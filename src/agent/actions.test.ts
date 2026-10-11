@@ -47,6 +47,16 @@ function makeMessage(overrides: Record<string, unknown> = {}): ChatMessageDTO {
   } as unknown as ChatMessageDTO;
 }
 
+/** Let pending promise chains (fetches, resyncs) run. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const idleChat = {
+  id: 'chat-full-id-123',
+  status: ChatStatusIdle,
+  active_run: completedRun,
+  chat_messages: [],
+} as unknown as ChatDTO;
+
 function createTestContext(overrides: Partial<ActionsContext> = {}): {
   ctx: ActionsContext;
   dispatch: jest.Mock;
@@ -522,21 +532,53 @@ describe('createActions', () => {
       expect(idleDispatches).toHaveLength(1);
     });
 
-    it('should reset to idle when the stream ends unexpectedly with manager still set', async () => {
+    it('should refetch the chat when the stream ends and go idle when the turn is over', async () => {
       const onStatusChange = jest.fn();
-      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { ctx, dispatch, setStreamManager } = createTestContext({ callbacks: { onStatusChange } });
       const { internalActions } = createActions(ctx);
 
       internalActions.streamChat('chat-full-id-123');
-      await Promise.resolve();
+      await flush();
+      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
 
       streamInstances[0].options.onEnd?.();
+      await flush();
 
-      expect(dispatch).toHaveBeenCalledWith({
-        type: 'SET_CONNECTION_STATUS',
-        payload: 'idle',
+      expect(mockAgentApi.fetchChat).toHaveBeenCalledTimes(2);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'UPDATE_CHAT', payload: idleChat });
+      expect(dispatch).toHaveBeenLastCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
+      expect(onStatusChange).toHaveBeenLastCalledWith('idle');
+      expect(setStreamManager).toHaveBeenLastCalledWith(undefined);
+      expect(pollInstances).toHaveLength(0);
+    });
+
+    it('should poll until idle when the stream ends while the chat is still busy', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx: baseCtx } = createTestContext();
+      const request = jest.fn().mockResolvedValue({ data: { status: ChatStatusIdle } });
+      const { ctx, dispatch, setStreamManager } = createTestContext({
+        callbacks: { onTurnEnd },
+        client: { ...baseCtx.client, http: { ...baseCtx.client.http, request } },
       });
-      expect(onStatusChange).toHaveBeenCalledWith('idle');
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await flush();
+      // The refetch still shows the run working.
+      streamInstances[0].options.onEnd?.();
+      await flush();
+
+      expect(pollInstances).toHaveLength(1);
+      const poller = pollInstances[0];
+      expect(setStreamManager).toHaveBeenLastCalledWith(poller);
+
+      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
+      await poller.options.onData?.({ status: ChatStatusIdle });
+
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(poller.stop).toHaveBeenCalled();
+      expect(setStreamManager).toHaveBeenLastCalledWith(undefined);
+      expect(dispatch).toHaveBeenLastCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
     });
 
     it('should clear the manager ref before poll stop so onStop does not double-dispatch idle', async () => {
@@ -587,18 +629,20 @@ describe('createActions', () => {
   });
 
   describe('stream and poll error callbacks', () => {
-    it('should forward stream errors to onError callback', async () => {
+    it('should forward the error the stream gave up with to onError and mark the connection failed', async () => {
       const onError = jest.fn();
-      const { ctx } = createTestContext({ callbacks: { onError } });
+      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
       const { internalActions } = createActions(ctx);
 
       internalActions.streamChat('chat-full-id-123');
-      await Promise.resolve();
+      await flush();
 
       const streamError = new Error('stream connection lost');
       streamInstances[0].options.onError?.(streamError);
 
       expect(onError).toHaveBeenCalledWith(streamError);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'stream connection lost' });
     });
 
     it('should forward poll manager errors to onError callback', async () => {
@@ -616,6 +660,161 @@ describe('createActions', () => {
       pollInstances[0].options.onError?.(pollError);
 
       expect(onError).toHaveBeenCalledWith(pollError);
+    });
+  });
+
+  describe('stream reconnect', () => {
+    const listener = <E,>(event: string) =>
+      streamInstances[0].addEventListener.mock.calls.find(([name]) => name === event)?.[1] as (data: E) => void;
+
+    it('should open the chat stream with reconnect on', async () => {
+      const { ctx } = createTestContext();
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+
+      expect(streamInstances[0].options.reconnect).toBe(true);
+    });
+
+    it('should show connecting while the stream waits to retry', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      streamInstances[0].options.onRetry?.(new TypeError('network error'), 1, 1000);
+
+      expect(dispatch).toHaveBeenLastCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'connecting' });
+      expect(onStatusChange).toHaveBeenLastCalledWith('connecting');
+    });
+
+    it('should refetch on reconnect so a turn that finished while disconnected ends', async () => {
+      const onTurnEnd = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onTurnEnd } });
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+
+      // The run completed and the final message landed while the stream was down.
+      const final = makeMessage({ id: 'msg-final', chat_id: 'chat-short-full', status: ChatMessageStatusReady });
+      const finished = { ...idleChat, chat_messages: [final] } as ChatDTO;
+      mockAgentApi.fetchChat.mockResolvedValueOnce(finished);
+
+      await streamInstances[0].options.onReconnect?.(1);
+
+      expect(mockAgentApi.fetchChat).toHaveBeenCalledTimes(2);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
+      expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_MESSAGE', payload: final }));
+      expect(dispatch).toHaveBeenLastCalledWith({ type: 'UPDATE_CHAT', payload: finished });
+      expect(onTurnEnd).toHaveBeenCalledTimes(1);
+      expect(onTurnEnd).toHaveBeenCalledWith(finished);
+    });
+
+    it('should drop partial delta text on reconnect', async () => {
+      const { ctx, dispatch } = createTestContext();
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+      const onDelta = listener<{ delta: Record<string, unknown>; seq: number; resource_id: string }>('delta');
+
+      onDelta({ delta: { response: 'Hel' }, seq: 1, resource_id: 'msg-1' });
+      await streamInstances[0].options.onReconnect?.(1);
+      onDelta({ delta: { response: 'lo' }, seq: 2, resource_id: 'msg-1' });
+
+      expect(dispatch).toHaveBeenLastCalledWith({
+        type: 'DELTA_TOKEN',
+        payload: { messageId: 'msg-1', output: { response: 'lo' } },
+      });
+    });
+
+    it('should fall back to polling when the stream gives up mid-turn', async () => {
+      const onError = jest.fn();
+      const { ctx, dispatch, setStreamManager } = createTestContext({ callbacks: { onError } });
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const error = new TypeError('network error');
+      streamInstances[0].options.onError?.(error);
+      streamInstances[0].options.onEnd?.();
+      await flush();
+
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+      expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ERROR', payload: 'network error' });
+      expect(onError).toHaveBeenCalledWith(error);
+      expect(pollInstances).toHaveLength(1);
+      expect(setStreamManager).toHaveBeenLastCalledWith(pollInstances[0]);
+      expect(pollInstances[0].start).toHaveBeenCalled();
+    });
+
+    it('should keep the error status when the stream gives up and the chat is idle', async () => {
+      const { ctx, dispatch } = createTestContext();
+      createActions(ctx).internalActions.streamChat('chat-full-id-123');
+      await flush();
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
+
+      streamInstances[0].options.onError?.(new Error('HTTP 404: gone'));
+      streamInstances[0].options.onEnd?.();
+      await flush();
+
+      expect(pollInstances).toHaveLength(0);
+      const statuses = dispatch.mock.calls
+        .filter(([action]) => action.type === 'SET_CONNECTION_STATUS')
+        .map(([action]) => action.payload);
+      expect(statuses[statuses.length - 1]).toBe('error');
+    });
+
+    it('should ignore a stopped stream: no resync, status or polling after stopStream', async () => {
+      const onStatusChange = jest.fn();
+      const { ctx, dispatch } = createTestContext({ callbacks: { onStatusChange } });
+      const { internalActions } = createActions(ctx);
+      internalActions.streamChat('chat-full-id-123');
+      await flush();
+      const { options } = streamInstances[0];
+
+      internalActions.stopStream();
+      dispatch.mockClear();
+      onStatusChange.mockClear();
+      options.onRetry?.(new Error('late'), 1, 1000);
+      await options.onReconnect?.(1);
+      options.onError?.(new Error('late'));
+      options.onEnd?.();
+      await flush();
+
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(mockAgentApi.fetchChat).toHaveBeenCalledTimes(1);
+      expect(pollInstances).toHaveLength(0);
+    });
+
+    it('should not apply a resync that returns after switching to another chat', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+      internalActions.streamChat('chat-full-id-123');
+      await flush();
+      const { options } = streamInstances[0];
+
+      let resolveFetch!: (chat: ChatDTO) => void;
+      mockAgentApi.fetchChat.mockReturnValueOnce(new Promise((resolve) => { resolveFetch = resolve; }));
+      const resync = options.onReconnect?.(1);
+      internalActions.streamChat('chat-other');
+      await flush();
+      dispatch.mockClear();
+
+      resolveFetch(idleChat);
+      await resync;
+
+      expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
+    });
+
+    it('should not open a stream when stopped while the initial chat fetch is in flight', async () => {
+      const { ctx } = createTestContext();
+      const { internalActions } = createActions(ctx);
+      internalActions.streamChat('chat-full-id-123');
+      internalActions.stopStream();
+      await flush();
+
+      expect(streamInstances).toHaveLength(0);
     });
   });
 

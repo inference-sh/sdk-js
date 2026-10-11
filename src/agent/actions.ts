@@ -37,6 +37,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   const { client, dispatch, getState, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
 
   let prevChatWasBusy = false;
+  // Bumped by every streamChat() and stopStream(). A stream whose generation
+  // is no longer current (stopped, reset, switched to another chat) leaves
+  // state alone, including work it started before that.
+  let streamGeneration = 0;
 
   const checkTurnEnd = (chat: ChatDTO) => {
     const busy = isChatBusy(chat);
@@ -111,6 +115,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   };
 
   const streamChat = async (id: string) => {
+    const generation = ++streamGeneration;
     const existingManager = getStreamManager();
     if (existingManager) {
       existingManager.stop();
@@ -123,6 +128,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     try {
       // Fetch initial chat (fetchChat loads messages separately since Chat.Get no longer preloads them)
       const chat = await api.fetchChat(client, id);
+      // Stopped or switched to another chat while fetching.
+      if (generation !== streamGeneration) return;
       if (chat) {
         setChat(chat);
       }
@@ -139,11 +146,52 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       return;
     }
 
+    // Token-by-token streaming state, one accumulator per message being
+    // streamed. Deltas name their message (DeltaEvent.resource_id), so state
+    // never leaks between messages the way a single shared accumulator allowed.
+    const deltaAccums = new Map<string, DeltaAccumulator>();
+
+    const isCurrent = () => generation === streamGeneration;
+    let failed = false;
+
+    // The API does not replay what the stream missed: the chat as fetched is
+    // the source of truth. Messages are merged, so older pages stay loaded.
+    const resync = async (): Promise<ChatDTO | null> => {
+      const chat = await api.fetchChat(client, id);
+      if (!chat || !isCurrent()) return null;
+      for (const message of chat.chat_messages ?? []) {
+        updateMessage(message);
+      }
+      dispatch({ type: 'UPDATE_CHAT', payload: chat });
+      callbacks.onStatusChange?.(isChatBusy(chat) ? 'streaming' : 'idle');
+      checkTurnEnd(chat);
+      return chat;
+    };
+
     // Single unified stream with TypedEvents (both Chat and ChatMessage events)
     const manager = new StreamableManager<unknown>({
       request: api.chatStreamRequest(client, id),
+      reconnect: true,
+      onRetry: (error, attempt, delayMs) => {
+        console.warn(`[AgentSDK] Stream error, reconnecting in ${delayMs}ms (attempt ${attempt}):`, error);
+        if (!isCurrent()) return;
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connecting' });
+        callbacks.onStatusChange?.('connecting');
+      },
+      onReconnect: async () => {
+        // Partial text from before the drop is replaced by the fetched messages.
+        deltaAccums.clear();
+        if (!isCurrent()) return;
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'streaming' });
+        await resync();
+      },
       onError: (error) => {
+        // The manager gave up: a refusal, or every retry failed.
         console.warn('[AgentSDK] Stream error:', error);
+        if (!isCurrent()) return;
+        failed = true;
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        dispatch({ type: 'SET_ERROR', payload: error.message });
         callbacks.onError?.(error);
       },
       onStart: () => {
@@ -151,14 +199,25 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         callbacks.onStatusChange?.('streaming');
       },
       onEnd: () => {
-        // Only reset if this is an unexpected stop (stream died, max reconnects exhausted).
-        // If stopStream() was called intentionally, it clears the manager ref first,
-        // so getStreamManager() will be undefined and we skip the duplicate dispatch.
-        if (getStreamManager()) {
-          setStreamManager(undefined);
-          dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
-          callbacks.onStatusChange?.('idle');
-        }
+        // An intentional stop or a newer stream skips all of this.
+        if (!isCurrent() || getStreamManager() !== manager) return;
+        // The stream ended cleanly or gave up. Release the ref now, so a
+        // sendMessage meanwhile opens a new stream (and makes this one stale).
+        setStreamManager(undefined);
+        // A turn still running would leave the UI busy with nothing to end
+        // it: read the chat, and poll it until idle if it is still busy.
+        resync()
+          .catch(() => null)
+          .then((chat) => {
+            if (!isCurrent() || getStreamManager()) return;
+            if (chat ? isChatBusy(chat) : isChatBusy(getState().chat)) {
+              pollChat(id, { untilIdle: true });
+              return;
+            }
+            if (failed) return; // keep the 'error' status
+            dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
+            callbacks.onStatusChange?.('idle');
+          });
       },
     });
 
@@ -170,11 +229,6 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         checkTurnEnd(chatData);
       }
     });
-
-    // Token-by-token streaming state, one accumulator per message being
-    // streamed. Deltas name their message (DeltaEvent.resource_id), so state
-    // never leaks between messages the way a single shared accumulator allowed.
-    const deltaAccums = new Map<string, DeltaAccumulator>();
 
     // Listen for ChatMessage updates
     manager.addEventListener<ChatMessageDTO>('chat_messages', (message, fields) => {
@@ -219,8 +273,12 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     manager.start();
   };
 
-  /** Poll-based alternative to streaming for restricted environments */
-  const pollChat = (id: string) => {
+  /**
+   * Poll-based alternative to streaming for restricted environments. With
+   * `untilIdle` (the fallback when a stream gave up mid-turn) polling stops
+   * once the chat is idle; the next sendMessage streams again.
+   */
+  const pollChat = (id: string, { untilIdle = false }: { untilIdle?: boolean } = {}) => {
     let prevStatus: string | null = null;
 
     const manager = new PollManager<ResourceStatusDTO>({
@@ -242,6 +300,13 @@ export function createActions(ctx: ActionsContext): ActionsResult {
               for (const message of chat.chat_messages) {
                 updateMessage(message);
               }
+            }
+            if (untilIdle && !isChatBusy(chat) && getStreamManager() === manager) {
+              // Clear the ref first so onStop is a no-op.
+              setStreamManager(undefined);
+              manager.stop();
+              dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
+              callbacks.onStatusChange?.('idle');
             }
           }
         } catch (err) {
@@ -271,6 +336,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   };
 
   const stopStream = () => {
+    streamGeneration++;
     const manager = getStreamManager();
     // Clear ref first so onStop callback (from manager.stop) is a no-op
     setStreamManager(undefined);
