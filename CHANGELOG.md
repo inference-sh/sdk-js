@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `StreamableManager` reconnects on opt-in: `reconnect: true | { maxAttempts, baseDelayMs, maxDelayMs, idleTimeoutMs }` (defaults 10, 1000, 30000, 30000). A failed stream is retried with jittered exponential backoff; any line received, heartbeats included, resets the failure count; a stream silent for `idleTimeoutMs` is reconnected; in a browser, `online` or the tab becoming visible retries at once. A 4xx other than 408/429 is not retried. `onRetry(error, attempt, delayMs)` reports each scheduled retry; `onReconnect(attempt)` runs after a retry connects and before the new stream is read, so the caller can fetch what it missed. With `reconnect`, `onError` fires only when the manager gives up. `StreamReconnectOptions` is exported. Without the option nothing changes.
+
 ### Fixed
+
+- The React chat (`AgentChatProvider`) no longer stays busy after a network blip mid-turn (Chromium `ERR_NETWORK_CHANGED`, "Stream error: TypeError: network error"). The chat stream reconnects; each reconnect refetches the chat and its messages, so a turn that finished while disconnected ends and `onTurnEnd` fires. `connectionStatus` is `'connecting'` while it waits to retry and `'error'` (with `error` set) once it gives up. Whenever the stream ends on its own and the chat is still busy, the chat is polled until idle. A stop, reset or chat switch during a pending retry leaves the new state alone.
+- `Agent.sendMessage`/`startStreaming` and `tasks.run`/`watch` in streaming mode survive a network error: the stream reconnects and refetches the chat (with its messages) or the task, so the wait settles when it finished meanwhile. A 4xx refusal still rejects at once; other errors reject once the stream stops retrying.
 
 - The package loads in plain Node (no bundler). 0.22.1's dist used extensionless relative imports, so `import("@inferencesh/sdk")` and every subpath except `proxy` and `internal/upload` failed with ERR_MODULE_NOT_FOUND. The build now uses NodeNext resolution with `.js` import specifiers, and `@inferencesh/sdk/proxy/nextjs` imports `next/server.js`. `require()` of every subpath works on Node >=22.12. CI and publish load each export of the packed tarball (`pnpm run check:exports`).
 

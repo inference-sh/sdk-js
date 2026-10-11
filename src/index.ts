@@ -3,7 +3,7 @@ export { HttpClient, type HttpClientConfig, type ErrorHandler, type FailedReques
 export type { Response } from './http/response.js';
 import type { Response } from './http/response.js';
 export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream.js';
-export { StreamableManager, type StreamableManagerOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable.js';
+export { StreamableManager, type StreamableManagerOptions, type StreamReconnectOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable.js';
 export { PollManager, type PollManagerOptions } from './http/poll.js';
 export { isLoopbackHost, isHttpsOrLoopback } from './http/loopback.js';
 export {
