@@ -33,6 +33,16 @@ import { isInferenceError } from '../http/errors.js';
 // Action Creators
 // =============================================================================
 
+/** Up to about ten minutes of backoff (1s doubling to 30s, jittered) before a tool result is given up. */
+const TOOL_RESULT_MAX_ATTEMPTS = 25;
+
+/** A failure a retry can get past: no response at all, a 5xx, a 408 or a 429. */
+function isTransient(err: unknown): boolean {
+  const status = (err as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof status !== 'number') return true;
+  return status >= 500 || status === 408 || status === 429;
+}
+
 export function createActions(ctx: ActionsContext): ActionsResult {
   const dispatchedToolInvocations = new Set<string>();
   const { client, dispatch, getState, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
@@ -42,6 +52,26 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   // is no longer current (stopped, reset, switched to another chat) leaves
   // state alone, including work it started before that.
   let streamGeneration = 0;
+
+  // A client tool's result is the only way its turn continues: the server
+  // waits on it. A result lost to a network drop left the turn stuck on
+  // "running" for good, so it is sent again until it lands or is refused.
+  const deliverToolResult = async (invocationId: string, result: string, attachments?: FileRef[]) => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        if (attachments?.length) await api.submitToolResult(client, invocationId, result, attachments);
+        else await api.submitToolResult(client, invocationId, result);
+        return;
+      } catch (err) {
+        if (!isTransient(err) || attempt >= TOOL_RESULT_MAX_ATTEMPTS) {
+          console.error(`[AgentSDK] Failed to submit tool result for ${invocationId}:`, err);
+          return;
+        }
+        const step = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+        await new Promise((r) => setTimeout(r, step / 2 + Math.random() * (step / 2)));
+      }
+    }
+  };
 
   const checkTurnEnd = (chat: ChatDTO) => {
     const busy = isChatBusy(chat);
@@ -90,7 +120,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
           if (!handler) {
             console.warn(`[AgentSDK] No handler for client tool: ${functionName}`);
-            api.submitToolResult(client, invocation.id, JSON.stringify({
+            deliverToolResult(invocation.id, JSON.stringify({
               status: 'not_available',
               message: `Client tool "${functionName}" is not available in this environment`,
             }));
@@ -101,16 +131,14 @@ export function createActions(ctx: ActionsContext): ActionsResult {
           // Use Promise.resolve to handle both sync and async handlers
           const args = invocation.function?.arguments || {};
           Promise.resolve(handler(args))
-            .then((output: ClientToolResult) => {
-              if (typeof output === 'string') {
-                api.submitToolResult(client, invocation.id, output);
-              } else {
-                api.submitToolResult(client, invocation.id, output.result, output.attachments);
-              }
-            })
+            .then((output: ClientToolResult) =>
+              typeof output === 'string'
+                ? deliverToolResult(invocation.id, output)
+                : deliverToolResult(invocation.id, output.result, output.attachments),
+            )
             .catch((error: unknown) => {
               console.error(`[AgentSDK] Client tool ${functionName} error:`, error);
-              api.submitToolResult(client, invocation.id, JSON.stringify({
+              return deliverToolResult(invocation.id, JSON.stringify({
                 error: String(error)
               }));
             });

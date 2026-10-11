@@ -358,6 +358,87 @@ describe('createActions', () => {
       );
     });
 
+    it('sends a client tool result again when the network drops it', async () => {
+      jest.useFakeTimers();
+      try {
+        const handler = jest.fn().mockResolvedValue('tool ok');
+        mockAgentApi.submitToolResult
+          .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+          .mockResolvedValueOnce(undefined);
+        const { ctx } = createTestContext({
+          getClientToolHandlers: () => new Map([['my_tool', handler]]),
+        });
+        const { internalActions } = createActions(ctx);
+
+        internalActions.streamChat('chat-full-id-123');
+        await Promise.resolve();
+
+        const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+          ([event]) => event === 'chat_messages'
+        )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+        onMessage(
+          makeMessage({
+            chat_id: 'chat-short',
+            tool_invocations: [
+              {
+                id: 'tool-inv-retry',
+                type: ToolTypeClient,
+                status: ToolInvocationStatusInProgress,
+                function: { name: 'my_tool', arguments: {} },
+              },
+            ],
+          })
+        );
+
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+        expect(mockAgentApi.submitToolResult).toHaveBeenLastCalledWith(ctx.client, 'tool-inv-retry', 'tool ok');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does not send a refused client tool result again', async () => {
+      jest.useFakeTimers();
+      try {
+        const handler = jest.fn().mockResolvedValue('tool ok');
+        mockAgentApi.submitToolResult.mockRejectedValueOnce(Object.assign(new Error('gone'), { statusCode: 404 }));
+        const { ctx } = createTestContext({
+          getClientToolHandlers: () => new Map([['my_tool', handler]]),
+        });
+        const { internalActions } = createActions(ctx);
+
+        internalActions.streamChat('chat-full-id-123');
+        await Promise.resolve();
+
+        const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+          ([event]) => event === 'chat_messages'
+        )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+        onMessage(
+          makeMessage({
+            chat_id: 'chat-short',
+            tool_invocations: [
+              {
+                id: 'tool-inv-refused',
+                type: ToolTypeClient,
+                status: ToolInvocationStatusInProgress,
+                function: { name: 'my_tool', arguments: {} },
+              },
+            ],
+          })
+        );
+
+        await jest.advanceTimersByTimeAsync(60_000);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('should dispatch client tool handlers when status is in_progress', async () => {
       const handler = jest.fn().mockResolvedValue('in progress ok');
       const { ctx } = createTestContext({
