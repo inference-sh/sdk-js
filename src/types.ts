@@ -7123,8 +7123,14 @@ export type AgentEventType =
   | "approval.resolved"
   | "hook.executed"
   | "usage.updated"
+  | "context.updated"
+  | "limits.updated"
+  | "account.updated"
   | "context.compacted"
-  | "error";
+  | "error"
+  | "subagent.started"
+  | "subagent.updated"
+  | "subagent.completed";
 /**
  * Run lifecycle
  */
@@ -7155,9 +7161,14 @@ export const AgentEventApprovalResolved: AgentEventType = "approval.resolved";
  */
 export const AgentEventHookExecuted: AgentEventType = "hook.executed";
 /**
- * Usage
+ * Usage: a turn's tokens (usage.updated), the context window's fill
+ * (context.updated), the plan's rate limits (limits.updated) and the
+ * account the agent runs as (account.updated).
  */
 export const AgentEventUsageUpdated: AgentEventType = "usage.updated";
+export const AgentEventContextUpdated: AgentEventType = "context.updated";
+export const AgentEventLimitsUpdated: AgentEventType = "limits.updated";
+export const AgentEventAccountUpdated: AgentEventType = "account.updated";
 /**
  * Context management
  */
@@ -7202,6 +7213,10 @@ export interface TurnCompletedPayload {
 export interface ContentDeltaPayload {
   kind: ContentDeltaKind;
   delta: string;
+  /**
+   * SubagentID is set on a subagent's own output (subagent_types.go).
+   */
+  subagent_id?: string;
 }
 export type ContentDeltaKind = "text" | "reasoning";
 export const ContentDeltaText: ContentDeltaKind = "text";
@@ -7212,6 +7227,10 @@ export interface ToolStartedPayload {
   tool_type?: ToolType;
   display_name?: string;
   arguments?: StringEncodedMap;
+  /**
+   * SubagentID is set on a subagent's own tool calls.
+   */
+  subagent_id?: string;
 }
 export interface ToolCompletedPayload {
   tool_invocation_id: string;
@@ -7219,12 +7238,21 @@ export interface ToolCompletedPayload {
   status: ToolInvocationStatus;
   result?: string;
   duration_ms?: number /* int64 */;
+  /**
+   * SubagentID is set on a subagent's own tool calls.
+   */
+  subagent_id?: string;
 }
 export interface ApprovalRequiredPayload {
   tool_invocation_id: string;
   tool_name: string;
   arguments?: StringEncodedMap;
   reason: InterruptReason;
+  /**
+   * SubagentID is set when a subagent asks: its tool call, not the
+   * agent's.
+   */
+  subagent_id?: string;
 }
 export interface ApprovalResolvedPayload {
   tool_invocation_id: string;
@@ -7238,12 +7266,23 @@ export interface HookExecutedPayload {
   reason?: string;
   duration_ms?: number /* int64 */;
 }
+/**
+ * UsageUpdatedPayload is what one turn used, emitted once when the turn
+ * ends. PromptTokens counts every input token, cached or not:
+ * CachedInputTokens (read from a prompt cache) and CacheCreationTokens
+ * (written to one) are parts of it. ReasoningTokens is part of
+ * CompletionTokens. CostUSD is the agent's own figure, 0 when it reports
+ * none.
+ */
 export interface UsageUpdatedPayload {
   prompt_tokens: number /* int */;
   completion_tokens: number /* int */;
   total_tokens: number /* int */;
+  cached_input_tokens?: number /* int */;
+  cache_creation_tokens?: number /* int */;
   reasoning_tokens?: number /* int */;
   cost_usd?: number /* float64 */;
+  status?: TurnUsageStatus;
 }
 export interface ContextCompactedPayload {
   before_tokens: number /* int */;
@@ -7477,6 +7516,9 @@ export interface ToolResultEventData {
 export interface ErrorEventData {
   error: string;
 }
+export const AgentEventSubagentStarted: AgentEventType = "subagent.started";
+export const AgentEventSubagentUpdated: AgentEventType = "subagent.updated";
+export const AgentEventSubagentCompleted: AgentEventType = "subagent.completed";
 /**
  * ToolInvocationStatus represents the execution status of a tool invocation
  */
@@ -7650,3 +7692,16 @@ export interface ToolParameterProperty {
   items?: ToolParameterProperty;
   required?: string[];
 }
+/**
+ * TurnUsageStatus says how much of a turn's usage the agent reported.
+ */
+export type TurnUsageStatus = "complete" | "partial";
+/**
+ * TurnUsageComplete is the whole turn, as the agent counted it.
+ */
+export const TurnUsageComplete: TurnUsageStatus = "complete";
+/**
+ * TurnUsagePartial is what was reported before the turn ended early
+ * (interrupted, failed).
+ */
+export const TurnUsagePartial: TurnUsageStatus = "partial";
