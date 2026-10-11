@@ -824,3 +824,252 @@ describe('StreamableManager', () => {
     expect(onError).toHaveBeenCalledWith(refused);
   });
 });
+
+describe('StreamableManager reconnect', () => {
+  type Step = string | Error | 'hang' | { after: number; line: string };
+
+  /** A stream response whose reads go through `steps` in order, then end. */
+  const response = (steps: Step[]) => {
+    let i = 0;
+    const reader = {
+      read: jest.fn(async () => {
+        if (i >= steps.length) return { done: true, value: undefined };
+        const step = steps[i++];
+        if (step instanceof Error) throw step;
+        if (step === 'hang') return new Promise(() => {});
+        if (typeof step === 'object') {
+          await new Promise((resolve) => setTimeout(resolve, step.after));
+          return { done: false, value: new TextEncoder().encode(step.line) };
+        }
+        return { done: false, value: new TextEncoder().encode(step) };
+      }),
+      releaseLock: jest.fn(),
+      cancel: jest.fn(async () => {}),
+    };
+    return { ok: true, status: 200, body: { getReader: () => reader, cancel: jest.fn(async () => {}) } } as unknown as Response;
+  };
+  const refused = (status: number) =>
+    ({ ok: false, status, text: async () => 'refused' }) as unknown as Response;
+  const networkError = () => new TypeError('network error');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Jitter off: every retry waits the full backoff step.
+    jest.spyOn(Math, 'random').mockReturnValue(1);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  it('reconnects with exponential backoff after a mid-stream network error and resets the count on data', async () => {
+    const request = jest
+      .fn()
+      .mockResolvedValueOnce(response(['{"id":1}\n', networkError()]))
+      .mockResolvedValueOnce(response(['{"id":2}\n', networkError()]))
+      .mockRejectedValueOnce(networkError())
+      .mockResolvedValueOnce(response(['{"id":3}\n']));
+    const onData = jest.fn();
+    const onRetry = jest.fn();
+    const onReconnect = jest.fn();
+    const onError = jest.fn();
+    const onEnd = jest.fn();
+    const manager = new StreamableManager({ request, reconnect: true, onData, onRetry, onReconnect, onError, onEnd });
+
+    const started = manager.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'network error' }), 1, 1000);
+
+    await jest.advanceTimersByTimeAsync(999);
+    expect(request).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(onReconnect).toHaveBeenLastCalledWith(1);
+    // {"id":2} arrived, so the next failure is attempt 1 again.
+    expect(onRetry).toHaveBeenLastCalledWith(expect.any(Error), 1, 1000);
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(request).toHaveBeenCalledTimes(3);
+    // The request itself failed: nothing arrived, so the delay doubles.
+    expect(onRetry).toHaveBeenLastCalledWith(expect.any(Error), 2, 2000);
+
+    await jest.advanceTimersByTimeAsync(2000);
+    await started;
+    expect(request).toHaveBeenCalledTimes(4);
+    expect(onReconnect).toHaveBeenLastCalledWith(2);
+    expect(onData.mock.calls.map(([d]) => d)).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    expect(onError).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the new stream only after onReconnect settles', async () => {
+    const request = jest
+      .fn()
+      .mockResolvedValueOnce(response([networkError()]))
+      .mockResolvedValueOnce(response(['{"id":1}\n']));
+    let resynced!: () => void;
+    const onReconnect = jest.fn(() => new Promise<void>((resolve) => { resynced = resolve; }));
+    const onData = jest.fn();
+    const manager = new StreamableManager({ request, reconnect: true, onReconnect, onData });
+
+    const started = manager.start();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(onReconnect).toHaveBeenCalledWith(1);
+    expect(onData).not.toHaveBeenCalled();
+
+    resynced();
+    await started;
+    expect(onData).toHaveBeenCalledWith({ id: 1 });
+  });
+
+  it('reconnects when nothing, not even a heartbeat, arrives for idleTimeoutMs', async () => {
+    const request = jest
+      .fn()
+      .mockResolvedValueOnce(response(['{"type":"heartbeat"}\n', { after: 20_000, line: '{"type":"heartbeat"}\n' }, 'hang']))
+      .mockResolvedValueOnce(response([]));
+    const onRetry = jest.fn();
+    const onError = jest.fn();
+    const manager = new StreamableManager({ request, reconnect: true, onRetry, onError });
+
+    const started = manager.start();
+    // The heartbeat at 20s pushed the deadline to 50s.
+    await jest.advanceTimersByTimeAsync(49_999);
+    expect(onRetry).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ message: 'Stream received nothing for 30000ms' }), 1, 1000);
+
+    await jest.advanceTimersByTimeAsync(1000);
+    await started;
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('stop() during a pending retry cancels it without onError', async () => {
+    const request = jest.fn().mockResolvedValue(response([networkError()]));
+    const onError = jest.fn();
+    const onEnd = jest.fn();
+    const manager = new StreamableManager({ request, reconnect: true, onError, onEnd });
+
+    const started = manager.start();
+    await jest.advanceTimersByTimeAsync(0);
+    manager.stop();
+    await started;
+    await jest.advanceTimersByTimeAsync(60_000);
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('stop() while connected aborts the read without a retry', async () => {
+    const request = jest.fn().mockResolvedValue(response(['{"id":1}\n', 'hang']));
+    const onRetry = jest.fn();
+    const onError = jest.fn();
+    const manager = new StreamableManager({ request, reconnect: true, onRetry, onError });
+
+    const started = manager.start();
+    await jest.advanceTimersByTimeAsync(0);
+    manager.stop();
+    await started;
+    await jest.advanceTimersByTimeAsync(60_000);
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not retry a 4xx refusal', async () => {
+    const request = jest.fn().mockResolvedValue(refused(404));
+    const onRetry = jest.fn();
+    const onError = jest.fn();
+    await new StreamableManager({ request, reconnect: true, onRetry, onError }).start();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'HTTP 404: refused' }));
+  });
+
+  it('does not retry an error that carries a 4xx statusCode', async () => {
+    const error = Object.assign(new Error('unauthorized'), { statusCode: 401 });
+    const request = jest.fn().mockRejectedValue(error);
+    const onError = jest.fn();
+    await new StreamableManager({ request, reconnect: true, onError }).start();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(error);
+  });
+
+  it('retries 429 and 5xx refusals', async () => {
+    const request = jest
+      .fn()
+      .mockResolvedValueOnce(refused(429))
+      .mockResolvedValueOnce(refused(503))
+      .mockResolvedValueOnce(response([]));
+    const onError = jest.fn();
+    const started = new StreamableManager({ request, reconnect: true, onError }).start();
+    await jest.advanceTimersByTimeAsync(3000);
+    await started;
+
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('gives up after maxAttempts failures in a row and calls onError once', async () => {
+    const request = jest.fn().mockRejectedValue(networkError());
+    const onRetry = jest.fn();
+    const onError = jest.fn();
+    const onEnd = jest.fn();
+    const started = new StreamableManager({
+      request,
+      reconnect: { maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 150 },
+      onRetry,
+      onError,
+      onEnd,
+    }).start();
+    await jest.advanceTimersByTimeAsync(1000);
+    await started;
+
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(onRetry.mock.calls.map(([, attempt, delay]) => [attempt, delay])).toEqual([[1, 100], [2, 150]]);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'network error' }));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries at once on the window's online event and removes the listener after", async () => {
+    const win = new EventTarget();
+    (globalThis as { window?: unknown }).window = win;
+    const request = jest
+      .fn()
+      .mockResolvedValueOnce(response([networkError()]))
+      .mockResolvedValueOnce(response(['hang']));
+    const manager = new StreamableManager({ request, reconnect: { baseDelayMs: 10_000 } });
+
+    const started = manager.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(1);
+
+    win.dispatchEvent(new Event('online'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(2);
+
+    win.dispatchEvent(new Event('online'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(2);
+
+    manager.stop();
+    await started;
+  });
+
+  it('does not retry without the reconnect option', async () => {
+    const request = jest.fn().mockResolvedValue(response([networkError()]));
+    const onError = jest.fn();
+    await new StreamableManager({ request, onError }).start();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'network error' }));
+  });
+});
