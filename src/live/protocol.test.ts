@@ -1,4 +1,4 @@
-import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES, STREAM_FORMAT } from './protocol';
+import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES, STREAM_FORMAT } from './protocol.js';
 
 describe('live protocol wire constants', () => {
   it('exports the stream format and reserved control keys', () => {

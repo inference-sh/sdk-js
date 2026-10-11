@@ -1,11 +1,11 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { MCPServerUpdateBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { MCPServerUpdateBody } from './write-bodies.js';
 import {
   MCPServerDTO,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * MCP Servers API

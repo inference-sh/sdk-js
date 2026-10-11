@@ -5,7 +5,7 @@
  */
 
 import { createContext } from 'react';
-import type { AgentChatState, AgentChatActions, AgentClient } from './types';
+import type { AgentChatState, AgentChatActions, AgentClient } from './types.js';
 
 /**
  * Context value combining state, actions, and client

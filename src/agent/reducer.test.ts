@@ -1,4 +1,4 @@
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types.js';
 import {
   AgentRunStateCompleted,
   AgentRunStateInputRequired,
@@ -14,8 +14,8 @@ import {
   HookEventAgentStart,
   HookHandlerWebhook,
   HookDecisionDeny,
-} from '../types';
-import { chatReducer, initialState } from './reducer';
+} from '../types.js';
+import { chatReducer, initialState } from './reducer.js';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
   return {

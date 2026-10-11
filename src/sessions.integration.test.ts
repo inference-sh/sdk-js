@@ -11,8 +11,8 @@
  * @jest-environment node
  */
 
-import { Inference } from './index';
-import { TaskStatusCompleted } from './types';
+import { Inference } from './index.js';
+import { TaskStatusCompleted } from './types.js';
 
 const API_KEY = process.env.INFERENCE_API_KEY;
 const BASE_URL = process.env.INFERENCE_BASE_URL || 'https://api.inference.sh';

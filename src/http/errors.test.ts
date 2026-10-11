@@ -8,12 +8,12 @@ import {
   isInferenceError,
   isRequirementsNotMetException,
   isSessionError,
-} from './errors';
+} from './errors.js';
 import {
   RequirementTypeCredential,
   RequirementTypeScope,
   RequirementTypeSecret,
-} from '../types';
+} from '../types.js';
 
 describe('error type guards', () => {
   it('isRequirementsNotMetException should match instances and plain objects', () => {

@@ -10,10 +10,10 @@
  * item of the binary live field, a text frame is a JSON object keyed by field
  * name.
  */
-import type { SocketAccess } from '../types';
-import type { TaskWatch as TasksWatch } from '../api/tasks';
-import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './protocol';
-import { binaryLiveField, splitLiveSchema, type JsonSchema } from './schema';
+import type { SocketAccess } from '../types.js';
+import type { TaskWatch as TasksWatch } from '../api/tasks.js';
+import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './protocol.js';
+import { binaryLiveField, splitLiveSchema, type JsonSchema } from './schema.js';
 
 export type LiveState = 'connecting' | 'waiting' | 'live' | 'ended';
 

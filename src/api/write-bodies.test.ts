@@ -1,7 +1,7 @@
-import { HttpClient } from '../http/client';
-import { ChatsAPI } from './chats';
-import { FlowsAPI } from './flows';
-import { TeamsAPI } from './teams';
+import { HttpClient } from '../http/client.js';
+import { ChatsAPI } from './chats.js';
+import { FlowsAPI } from './flows.js';
+import { TeamsAPI } from './teams.js';
 import type {
   AgentUpdateBody,
   ChatUpdateBody,
@@ -9,7 +9,7 @@ import type {
   KnowledgeUpdateBody,
   MCPServerUpdateBody,
   TeamUpdateBody,
-} from './write-bodies';
+} from './write-bodies.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

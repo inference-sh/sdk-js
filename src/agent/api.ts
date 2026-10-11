@@ -20,10 +20,10 @@ import type {
   ChatSettingsRequest,
   InterruptDTO,
   ToolExplanationDTO,
-} from '../types';
-import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types';
-import type { StreamRequest } from '../http/streamable';
-import { isAdHocConfig } from './types';
+} from '../types.js';
+import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types.js';
+import type { StreamRequest } from '../http/streamable.js';
+import { isAdHocConfig } from './types.js';
 
 export interface SendResult {
   chatId: string;

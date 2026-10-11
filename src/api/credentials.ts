@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
 import {
   CheckRequirementsRequest,
   CheckRequirementsResponse,
@@ -9,7 +9,7 @@ import {
   CredentialConnectResponse,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Credentials API: the accounts and keys a team has connected to external services.

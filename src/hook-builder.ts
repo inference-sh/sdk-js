@@ -15,7 +15,7 @@ import {
   HookEventTurnStart,
   HookEventAgentComplete,
   HookEventPreCompact,
-} from './types';
+} from './types.js';
 
 // =============================================================================
 // Hook Builder

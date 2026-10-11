@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { SearchAPI } from './search';
+import { HttpClient } from '../http/client.js';
+import { SearchAPI } from './search.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

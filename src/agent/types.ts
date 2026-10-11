@@ -21,13 +21,13 @@ import type {
   CoreAppConfigInput as CoreAppConfig,
   FileRef,
   ElicitResult,
-} from '../types';
-import type { HttpClient } from '../http/client';
-import type { StreamableManager } from '../http/streamable';
-import type { PollManager } from '../http/poll';
+} from '../types.js';
+import type { HttpClient } from '../http/client.js';
+import type { StreamableManager } from '../http/streamable.js';
+import type { PollManager } from '../http/poll.js';
 
 // Re-export FileRef for convenience
-export type { FileRef } from '../types';
+export type { FileRef } from '../types.js';
 
 /** The "always allow" option to save: a key from getAlwaysAllowOptions. */
 export interface AlwaysAllowChoice {

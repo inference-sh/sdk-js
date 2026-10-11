@@ -3,11 +3,11 @@
  * client makes to run an app or chat with an agent is forwarded, and the
  * proxy's endpoint list holds nothing those flows do not use.
  */
-import { Inference } from '../index';
-import * as agentApi from '../agent/api';
-import { createHandler } from './remix';
-import { PROXY_ENDPOINTS, type ProxyOptions } from './index';
-import { TaskStatusCompleted, TaskStatusRunning } from '../types';
+import { Inference } from '../index.js';
+import * as agentApi from '../agent/api.js';
+import { createHandler } from './remix.js';
+import { PROXY_ENDPOINTS, type ProxyOptions } from './index.js';
+import { TaskStatusCompleted, TaskStatusRunning } from '../types.js';
 
 const API = 'https://api.inference.sh';
 const PROXY = 'http://site.test/api/inference/proxy';

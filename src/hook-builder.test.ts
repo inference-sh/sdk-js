@@ -1,4 +1,4 @@
-import { lifecycleHook, learningHooks } from './hook-builder';
+import { lifecycleHook, learningHooks } from './hook-builder.js';
 import {
   HookEventAgentStart,
   HookEventTurnComplete,
@@ -10,7 +10,7 @@ import {
   HookEventPreCompact,
   BuiltinHookBeltSuggest,
   BuiltinHookBeltExtract,
-} from './types';
+} from './types.js';
 
 describe('LifecycleHookBuilder', () => {
   describe('webhook handler', () => {

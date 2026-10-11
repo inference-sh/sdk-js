@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { FilesAPI, resolveUpload } from './files';
+import { HttpClient } from '../http/client.js';
+import { FilesAPI, resolveUpload } from './files.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

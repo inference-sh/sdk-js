@@ -3,8 +3,8 @@
  * Provides future compatibility when API migrates from int to string status.
  */
 
-import { InterruptReasonToolApproval, InterruptStatusPending } from './types';
-import type { ApprovalRequiredPayload, InterruptDTO } from './types';
+import { InterruptReasonToolApproval, InterruptStatusPending } from './types.js';
+import type { ApprovalRequiredPayload, InterruptDTO } from './types.js';
 
 import {
   TaskStatus,
@@ -34,8 +34,8 @@ import {
   ChatMessageStatusCancelled,
   ChatStatusBusy,
   ChatStatusAwaitingInput,
-} from './types';
-import type { AgentRunState, ChatDTO, ChatMessageStatus } from './types';
+} from './types.js';
+import type { AgentRunState, ChatDTO, ChatMessageStatus } from './types.js';
 
 /** Map string status names to TaskStatus values (for future string-based API) */
 const STATUS_STRING_MAP: Record<string, TaskStatus> = {

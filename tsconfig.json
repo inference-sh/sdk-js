@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "ESNext",
+    "module": "NodeNext",
     "declaration": true,
     "rootDir": "./src",
     "outDir": "./dist",
@@ -9,7 +9,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "bundler",
+    // NodeNext, not bundler: dist/ is loaded by plain Node ESM, which does not
+    // add extensions or resolve directory imports. tsc now rejects a relative
+    // import without its .js extension.
+    "moduleResolution": "NodeNext",
     // src/version.ts imports package.json so the version has one source.
     "resolveJsonModule": true,
     // Required: consumers (js/app dev server) transpile this package's source

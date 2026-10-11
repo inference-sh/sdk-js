@@ -2,9 +2,9 @@
  * Sessions API - namespaced session operations.
  */
 
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import { AppSessionDTO } from '../types';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import { AppSessionDTO } from '../types.js';
 
 /**
  * Sessions API for managing stateful worker leases.

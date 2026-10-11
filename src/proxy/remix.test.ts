@@ -1,5 +1,5 @@
-import { INF_TARGET_HEADER } from './index';
-import { createHandler } from './remix';
+import { INF_TARGET_HEADER } from './index.js';
+import { createHandler } from './remix.js';
 
 describe('remix createHandler', () => {
   const originalFetch = global.fetch;

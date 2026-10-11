@@ -5,8 +5,8 @@ import {
   matchProxyEndpoint,
   pickProxyEndpoint,
   type ProxyOptions,
-} from './index';
-import { createHandler } from './remix';
+} from './index.js';
+import { createHandler } from './remix.js';
 
 const API = 'https://api.inference.sh';
 

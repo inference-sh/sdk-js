@@ -23,7 +23,7 @@ function getApiKey(): string {
   }
 }
 
-import { Inference } from '../index';
+import { Inference } from '../index.js';
 
 describeSmoke('Smoke: V3 envelope against live API', () => {
   let client: Inference;

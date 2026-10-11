@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import { AppCategoryDecision } from '../types';
-import { AppsAPI } from './apps';
+import { HttpClient } from '../http/client.js';
+import { AppCategoryDecision } from '../types.js';
+import { AppsAPI } from './apps.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

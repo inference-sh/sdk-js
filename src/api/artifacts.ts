@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
 import {
   ArtifactDTO,
   ArtifactVersionDTO,
@@ -9,7 +9,7 @@ import {
   ArtifactContentResponse,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /** Encode UTF-8 page source as base64 so edge firewalls accept <script> in JSON bodies. */
 function encodeContent(content: string): string {

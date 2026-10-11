@@ -1,8 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import * as main from './index';
-import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files';
-import { SDK_VERSION } from './version';
+import * as main from './index.js';
+import { FilesAPI, resolveUpload, putToSignedUrl } from './api/files.js';
+import { SDK_VERSION } from './version.js';
 
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf8')

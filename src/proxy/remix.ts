@@ -21,7 +21,7 @@ import {
     passthrough,
     headersToRecord,
     type ProxyOptions,
-} from "./index";
+} from "./index.js";
 
 /** Proxy options; `isAuthenticated` receives the Request. */
 export interface RemixProxyOptions extends ProxyOptions<Request> {

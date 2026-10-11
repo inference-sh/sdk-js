@@ -1,13 +1,13 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { FlowPatchBody, FlowUpdateBody, FlowViewportBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { FlowPatchBody, FlowUpdateBody, FlowViewportBody } from './write-bodies.js';
 import {
   FlowDTO as Flow,
   FlowVersionDTO,
   AppDTO as App,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Flows API

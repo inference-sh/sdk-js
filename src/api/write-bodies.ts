@@ -25,7 +25,7 @@ import type {
   ProjectDTO,
   TeamDTO,
   Visibility,
-} from '../types';
+} from '../types.js';
 
 /**
  * POST /agents/{id}. Visibility and images, and a new version when

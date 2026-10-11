@@ -1,8 +1,8 @@
-import { HttpClient } from '../http/client';
-import type { WebSocketLike } from '../live/session';
-import { TaskStatusRunning, type TaskDTO } from '../types';
-import { SocketsAPI } from './sockets';
-import { TasksAPI } from './tasks';
+import { HttpClient } from '../http/client.js';
+import type { WebSocketLike } from '../live/session.js';
+import { TaskStatusRunning, type TaskDTO } from '../types.js';
+import { SocketsAPI } from './sockets.js';
+import { TasksAPI } from './tasks.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

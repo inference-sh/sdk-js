@@ -1,4 +1,4 @@
-import { LiveSession, accessUrl, type LiveEnd, type LiveState, type TaskWatch, type WebSocketLike } from './session';
+import { LiveSession, accessUrl, type LiveEnd, type LiveState, type TaskWatch, type WebSocketLike } from './session.js';
 
 /** A WebSocket the test drives: every dial is recorded, and the test opens, feeds and closes it. */
 class FakeWebSocket implements WebSocketLike {

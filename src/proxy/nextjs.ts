@@ -16,14 +16,14 @@
  * ```
  */
 
-import { NextResponse, type NextRequest } from "next/server";
-import type { NextApiHandler, NextApiRequest } from "next/types";
+import { NextResponse, type NextRequest } from "next/server.js";
+import type { NextApiHandler, NextApiRequest } from "next/types.js";
 import {
     PROXY_PATH,
     processProxyRequest,
     headersToRecord,
     type ProxyOptions,
-} from "./index";
+} from "./index.js";
 
 // ============================================================================
 // Exports

@@ -20,7 +20,7 @@ import {
     passthrough,
     headersToRecord,
     type ProxyOptions,
-} from "./index";
+} from "./index.js";
 
 /** Proxy options; `isAuthenticated` receives the Context. */
 export interface HonoProxyOptions extends ProxyOptions<Context> {

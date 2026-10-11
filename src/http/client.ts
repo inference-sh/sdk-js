@@ -1,8 +1,8 @@
-import { RequirementError } from '../types';
-import { InferenceError, RequirementsNotMetException } from './errors';
-import type { Response } from './response';
+import { RequirementError } from '../types.js';
+import { InferenceError, RequirementsNotMetException } from './errors.js';
+import type { Response } from './response.js';
 import { EventSource, type FetchLike } from 'eventsource';
-import { SDK_VERSION } from '../version';
+import { SDK_VERSION } from '../version.js';
 
 /** What a failed request was sent with, for an error handler that acts on it. */
 export interface FailedRequest {
@@ -32,7 +32,7 @@ export type HttpFetchInit = Omit<RequestInit, 'headers' | 'credentials'> & {
   headers?: Record<string, string>;
 };
 
-export type MessageHandler = (messages: import('../types').ResponseMessage[]) => void;
+export type MessageHandler = (messages: import('../types.js').ResponseMessage[]) => void;
 
 export interface HttpClientConfig {
   /** Your inference.sh API key (required unless using proxyUrl) */

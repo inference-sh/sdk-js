@@ -1,12 +1,12 @@
-import { HttpClient } from '../http/client';
-import { CredentialsAPI } from './credentials';
+import { HttpClient } from '../http/client.js';
+import { CredentialsAPI } from './credentials.js';
 import {
   CredentialGrantCredentials,
   CredentialGrantToken,
   CredentialProviderGoogleSA,
   CredentialScopeTeam,
   CredentialScopeUser,
-} from '../types';
+} from '../types.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

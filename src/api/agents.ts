@@ -1,10 +1,10 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { AgentUpdateBody } from './write-bodies';
-import { streamUntilTerminal, type StreamUntilTerminal } from '../http/stream-until-terminal';
-import { PollManager } from '../http/poll';
-import { FilesAPI } from './files';
-import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { AgentUpdateBody } from './write-bodies.js';
+import { streamUntilTerminal, type StreamUntilTerminal } from '../http/stream-until-terminal.js';
+import { PollManager } from '../http/poll.js';
+import { FilesAPI } from './files.js';
+import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta.js';
 import {
   AgentRunDTO,
   ApiAgentRunRequest,
@@ -27,8 +27,8 @@ import {
   ToolInvocationStatusInProgress,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
-import { isChatBusy, isMessageTerminal } from '../utils';
+} from '../types.js';
+import { isChatBusy, isMessageTerminal } from '../utils.js';
 
 /**
  * Decides when one sendMessage() turn is over.

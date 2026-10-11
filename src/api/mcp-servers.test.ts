@@ -1,11 +1,11 @@
-import { HttpClient } from '../http/client';
+import { HttpClient } from '../http/client.js';
 import {
   ResultTypeComplete,
   ResultTypeInputRequired,
   ToolCallResponse,
   ToolContentTypeText,
-} from '../types';
-import { MCPServersAPI } from './mcp-servers';
+} from '../types.js';
+import { MCPServersAPI } from './mcp-servers.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

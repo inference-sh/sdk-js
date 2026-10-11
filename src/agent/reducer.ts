@@ -4,10 +4,10 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types';
-import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types';
-import { isRunInterrupted, isRunWorking } from '../utils';
-import type { AgentChatState, ChatAction } from './types';
+import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types.js';
+import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types.js';
+import { isRunInterrupted, isRunWorking } from '../utils.js';
+import type { AgentChatState, ChatAction } from './types.js';
 
 function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
   if (!run) return ChatStatusIdle;

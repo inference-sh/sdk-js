@@ -1,4 +1,4 @@
-import { ToolTypeClient } from '../types';
+import { ToolTypeClient } from '../types.js';
 import {
   isAdHocConfig,
   isTemplateConfig,
@@ -7,7 +7,7 @@ import {
   extractClientToolHandlers,
   type AdHocAgentConfig,
   type TemplateAgentConfig,
-} from './types';
+} from './types.js';
 
 describe('agent/types helpers', () => {
   const adHocConfig: AdHocAgentConfig = {

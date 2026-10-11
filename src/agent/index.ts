@@ -45,7 +45,7 @@
  */
 
 // Provider
-export { AgentChatProvider } from './provider';
+export { AgentChatProvider } from './provider.js';
 
 // Hooks
 export {
@@ -54,10 +54,10 @@ export {
   useAgentClient,
   useAgentChatContext,
   useMessage,
-} from './hooks';
+} from './hooks.js';
 
 // Context (for advanced use cases)
-export { AgentChatContext, type AgentChatContextValue } from './context';
+export { AgentChatContext, type AgentChatContextValue } from './context.js';
 
 // Types
 export type {
@@ -78,7 +78,7 @@ export type {
   // Client tools
   ClientTool,
   ClientToolHandlerFn,
-} from './types';
+} from './types.js';
 
 // Type guards and helpers
 export {
@@ -87,7 +87,7 @@ export {
   isClientTool,
   extractToolSchemas,
   extractClientToolHandlers,
-} from './types';
+} from './types.js';
 
 // MCP input requests
 export {
@@ -100,4 +100,4 @@ export {
   type ElicitRequestParams,
   type ElicitRequestedSchema,
   type ElicitPropertySchema,
-} from './mcp-input';
+} from './mcp-input.js';

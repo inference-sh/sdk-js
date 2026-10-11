@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { TeamsAPI } from './teams';
+import { HttpClient } from '../http/client.js';
+import { TeamsAPI } from './teams.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

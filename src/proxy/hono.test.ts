@@ -1,5 +1,5 @@
-import { INF_TARGET_HEADER } from './index';
-import { createHandler } from './hono';
+import { INF_TARGET_HEADER } from './index.js';
+import { createHandler } from './hono.js';
 
 type MockHonoContext = {
   req: {

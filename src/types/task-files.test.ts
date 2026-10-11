@@ -1,5 +1,5 @@
-import * as main from '../index';
-import { TaskFileRoleInput, TaskFileRoleOutput } from '../types';
+import * as main from '../index.js';
+import { TaskFileRoleInput, TaskFileRoleOutput } from '../types.js';
 
 /**
  * Task file DTOs (go/api task file endpoints) list input/output attachments

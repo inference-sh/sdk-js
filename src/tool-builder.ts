@@ -2,7 +2,7 @@
  * Tool Builder - Fluent API for defining agent tools
  */
 
-import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAPIKey, ToolAuthTypeBearer, ToolAuthTypeCredential, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types';
+import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAPIKey, ToolAuthTypeBearer, ToolAuthTypeCredential, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types.js';
 
 // =============================================================================
 // Client Tool Types

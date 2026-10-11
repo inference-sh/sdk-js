@@ -1,9 +1,9 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import { LiveSession, type LiveHandlers, type WebSocketConstructor } from '../live/session';
-import type { JsonSchema } from '../live/schema';
-import { CursorListRequest, CursorListResponse, OpEqual, SocketAccess, SocketDTO, TaskDTO as Task } from '../types';
-import type { TasksAPI } from './tasks';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import { LiveSession, type LiveHandlers, type WebSocketConstructor } from '../live/session.js';
+import type { JsonSchema } from '../live/schema.js';
+import { CursorListRequest, CursorListResponse, OpEqual, SocketAccess, SocketDTO, TaskDTO as Task } from '../types.js';
+import type { TasksAPI } from './tasks.js';
 
 /** What identifies the socket to open: the run response (which carries the access), a task, or a task id. */
 export type SocketTarget = (Pick<Task, 'id' | 'status'> & { socket?: SocketAccess }) | string;

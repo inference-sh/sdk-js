@@ -15,7 +15,7 @@ import {
   object,
   array,
   optional,
-} from './tool-builder';
+} from './tool-builder.js';
 import {
   ToolTypeClient,
   ToolTypeApp,
@@ -25,7 +25,7 @@ import {
   ToolTypeMCP,
   CredentialProviderGoogle,
   CredentialProviderGoogleSA,
-} from './types';
+} from './types.js';
 
 describe('Schema Helpers', () => {
   describe('string', () => {

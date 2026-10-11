@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import { PartialFile, FileDTO as File, CursorListRequest, CursorListResponse } from '../types';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import { PartialFile, FileDTO as File, CursorListRequest, CursorListResponse } from '../types.js';
 
 /**
  * Parse a data URI and return the media type and decoded data.

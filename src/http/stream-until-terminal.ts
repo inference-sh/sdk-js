@@ -11,7 +11,7 @@
  * does the same final GET.
  */
 
-import { StreamableManager, type StreamableManagerOptions, type StreamRequest } from './streamable';
+import { StreamableManager, type StreamableManagerOptions, type StreamRequest } from './streamable.js';
 
 /** Settles a stream-until-terminal wait. Calls after the first are ignored. */
 export interface TerminalSettler<R> {

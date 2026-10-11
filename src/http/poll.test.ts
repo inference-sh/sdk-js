@@ -1,4 +1,4 @@
-import { PollManager } from './poll';
+import { PollManager } from './poll.js';
 
 describe('PollManager', () => {
   beforeEach(() => {

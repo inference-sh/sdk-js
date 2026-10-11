@@ -1,12 +1,12 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
 import {
   SecretDTO,
   SecretCreateRequest,
   SecretUpdateRequest,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Secrets API

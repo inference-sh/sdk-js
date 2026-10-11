@@ -1,4 +1,4 @@
-import * as main from '../index';
+import * as main from '../index.js';
 import {
   PolicyEffectAllow,
   PolicyEffectAsk,
@@ -14,7 +14,7 @@ import {
   PolicyKindWebFetch,
   PolicyKindWorkspace,
   type PolicyKind,
-} from '../types';
+} from '../types.js';
 
 describe('policy types (v0.18)', () => {
   it('exports PolicyKind and PolicyEffect constants from the main barrel', () => {

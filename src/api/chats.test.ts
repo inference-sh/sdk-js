@@ -1,4 +1,4 @@
-import { HttpClient } from '../http/client';
+import { HttpClient } from '../http/client.js';
 import {
   AgentRunStateInputRequired,
   AgentRunStateWorking,
@@ -11,8 +11,8 @@ import {
   GraphNodeStatusCompleted,
   GraphNodeTypeResource,
   InterruptReasonToolApproval,
-} from '../types';
-import { ChatsAPI } from './chats';
+} from '../types.js';
+import { ChatsAPI } from './chats.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

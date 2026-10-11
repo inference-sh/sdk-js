@@ -16,14 +16,14 @@ import {
   ChatMessageStatusFailed,
   ChatMessageStatusCancelled,
   ChatMessageStatusPending,
-} from './types';
-import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types';
+} from './types.js';
+import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types.js';
 import {
   InterruptReasonToolApproval,
   InterruptReasonWidget,
   InterruptStatusPending,
   InterruptStatusResolved,
-} from './types';
+} from './types.js';
 import {
   isTerminalStatus,
   parseStatus,
@@ -34,7 +34,7 @@ import {
   isRunSettled,
   isMessageTerminal,
   pendingApprovals,
-} from './utils';
+} from './utils.js';
 
 describe('pendingApprovals', () => {
   const interrupt = (overrides: Partial<InterruptDTO>): InterruptDTO =>

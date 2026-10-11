@@ -17,7 +17,7 @@
  * JSON Schema type keeps it.
  */
 
-import { STREAM_FORMAT } from './protocol';
+import { STREAM_FORMAT } from './protocol.js';
 
 /** The part of JSON Schema these helpers read. */
 export interface JsonSchema {

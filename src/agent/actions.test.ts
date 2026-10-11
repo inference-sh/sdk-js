@@ -16,20 +16,20 @@ import {
   ChatEventTypeHook,
   HookEventToolCall,
   HookHandlerGate,
-} from '../types';
-import type { ActionsContext, AgentOptions, UpdateManager } from './types';
-import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types';
+} from '../types.js';
+import type { ActionsContext, AgentOptions, UpdateManager } from './types.js';
+import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types.js';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
 const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
-import { createActions, getClientToolHandlers } from './actions';
-import { InferenceError } from '../http/errors';
-import * as agentApi from './api';
-import { PollManager } from '../http/poll';
-import { StreamableManager } from '../http/streamable';
+import { createActions, getClientToolHandlers } from './actions.js';
+import { InferenceError } from '../http/errors.js';
+import * as agentApi from './api.js';
+import { PollManager } from '../http/poll.js';
+import { StreamableManager } from '../http/streamable.js';
 
 jest.mock('./api');
 jest.mock('../http/streamable');

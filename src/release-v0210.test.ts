@@ -1,5 +1,5 @@
-import { Inference, HttpClient } from './index';
-import type { AgentClient } from './agent/types';
+import { Inference, HttpClient } from './index.js';
+import type { AgentClient } from './agent/types.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -39,7 +39,7 @@ describe('release v0.21.0 (daa9879)', () => {
   });
 
   it('does not export curated AppTag* constants removed in 0.21.0', async () => {
-    const sdk = (await import('./index')) as Record<string, unknown>;
+    const sdk = (await import('./index.js')) as Record<string, unknown>;
     expect(sdk.AppTagTextToImage).toBeUndefined();
     expect(sdk.AppTagTitleTextToImage).toBeUndefined();
     expect(new HttpClient({ apiKey: 'k' }).fetch).toEqual(expect.any(Function));

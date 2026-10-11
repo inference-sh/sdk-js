@@ -1,6 +1,6 @@
-import * as main from '../index';
-import * as types from '../types';
-import { AppCategoryDecision } from '../types';
+import * as main from '../index.js';
+import * as types from '../types.js';
+import { AppCategoryDecision } from '../types.js';
 
 /**
  * types regen 0767f7b: curated AppTag/AppTagTitle exports removed; tag titles

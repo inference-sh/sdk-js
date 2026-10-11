@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { INF_TARGET_HEADER } from './index';
-import { createHandler } from './svelte';
+import { INF_TARGET_HEADER } from './index.js';
+import { createHandler } from './svelte.js';
 
 function createMockRequestEvent(request: Request): RequestEvent {
   return { request } as RequestEvent;

@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { KnowledgeUpdateBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { KnowledgeUpdateBody } from './write-bodies.js';
 import {
   KnowledgeDTO,
   KnowledgeVersionDTO,
@@ -10,7 +10,7 @@ import {
   CursorListRequest,
   CursorListResponse,
   PublicSkillStoreDTO,
-} from '../types';
+} from '../types.js';
 
 /**
  * Knowledge API

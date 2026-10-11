@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import { ApiKeyScopeWorkspace } from '../types';
-import { ApiKeysAPI } from './api-keys';
+import { HttpClient } from '../http/client.js';
+import { ApiKeyScopeWorkspace } from '../types.js';
+import { ApiKeysAPI } from './api-keys.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

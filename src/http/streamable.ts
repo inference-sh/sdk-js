@@ -4,7 +4,7 @@
  * the browser's ~6 connection limit per domain.
  */
 
-import type { DeltaEvent } from '../types';
+import type { DeltaEvent } from '../types.js';
 
 /** What a stream asks of whatever sends its request. */
 export interface StreamRequestInit {

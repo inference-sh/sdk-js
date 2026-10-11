@@ -8,7 +8,7 @@
  * tool call with those responses.
  */
 
-import type { ElicitAction, ElicitResult, InputRequest } from '../types';
+import type { ElicitAction, ElicitResult, InputRequest } from '../types.js';
 
 export const MCPMethodElicitationCreate = 'elicitation/create';
 

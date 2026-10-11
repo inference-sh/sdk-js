@@ -1,5 +1,5 @@
-import * as main from '../index';
-import { ErrorCodePaymentMethodRequired } from '../types';
+import * as main from '../index.js';
+import { ErrorCodePaymentMethodRequired } from '../types.js';
 
 describe('bounty error codes (37077ba)', () => {
   it('exports ErrorCodePaymentMethodRequired for bounty 402 responses', () => {

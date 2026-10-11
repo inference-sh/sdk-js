@@ -1,4 +1,4 @@
-import * as main from '../index';
+import * as main from '../index.js';
 import {
   A2UIMcpApp,
   ErrorCodeAlreadyEntitled,
@@ -19,7 +19,7 @@ import {
   type EntitlementRequestState,
   type FormStatus,
   type FormSubmitPolicy,
-} from '../types';
+} from '../types.js';
 
 /**
  * Forms, entitlement requests and MCP Apps (SEP-1865) constants landed in

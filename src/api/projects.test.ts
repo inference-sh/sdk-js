@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { ProjectsAPI } from './projects';
+import { HttpClient } from '../http/client.js';
+import { ProjectsAPI } from './projects.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

@@ -4,7 +4,7 @@ import {
   headersToRecord,
   processProxyRequest,
   type ProxyAdapter,
-} from './index';
+} from './index.js';
 
 type ProxyResult = {
   status: number;

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The package loads in plain Node (no bundler). 0.22.1's dist used extensionless relative imports, so `import("@inferencesh/sdk")` and every subpath except `proxy` and `internal/upload` failed with ERR_MODULE_NOT_FOUND. The build now uses NodeNext resolution with `.js` import specifiers, and `@inferencesh/sdk/proxy/nextjs` imports `next/server.js`. `require()` of every subpath works on Node >=22.12. CI and publish load each export of the packed tarball (`pnpm run check:exports`).
+
 ## [0.22.1] - 2026-10-10
 
 ### Fixed

@@ -3,7 +3,7 @@ import {
   elicitParams,
   isURLElicitation,
   parseMCPInputState,
-} from './mcp-input';
+} from './mcp-input.js';
 
 const state = {
   input_required: true,

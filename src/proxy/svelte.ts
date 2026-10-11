@@ -22,7 +22,7 @@ import {
     passthrough,
     headersToRecord,
     type ProxyOptions,
-} from "./index";
+} from "./index.js";
 
 /** Proxy options; `isAuthenticated` receives the RequestEvent. */
 export interface SvelteProxyOptions extends ProxyOptions<RequestEvent> {

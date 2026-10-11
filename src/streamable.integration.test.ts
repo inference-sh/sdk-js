@@ -9,8 +9,8 @@
  * @jest-environment node
  */
 
-import { streamable, StreamableManager } from './http/streamable';
-import { Inference, TaskStatusCompleted, TaskStatusFailed, TaskStatusCancelled } from './index';
+import { streamable, StreamableManager } from './http/streamable.js';
+import { Inference, TaskStatusCompleted, TaskStatusFailed, TaskStatusCancelled } from './index.js';
 
 const isTerminalStatus = (status: number) =>
   status === TaskStatusCompleted || status === TaskStatusFailed || status === TaskStatusCancelled;

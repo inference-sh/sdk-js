@@ -1,6 +1,6 @@
-import { HttpClient, type FailedRequest } from '../http/client';
-import { StreamableManager } from '../http/streamable';
-import { PollManager } from '../http/poll';
+import { HttpClient, type FailedRequest } from '../http/client.js';
+import { StreamableManager } from '../http/streamable.js';
+import { PollManager } from '../http/poll.js';
 import {
   ChannelTypeSlack,
   ChatStatusBusy,
@@ -13,11 +13,11 @@ import {
   AgentRunStateCompleted,
   AgentRunStateWorking,
   AgentRunStateAuthRequired,
-} from '../types';
-import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types';
-import { learningHooks } from '../hook-builder';
-import { FilesAPI } from './files';
-import { AgentsAPI } from './agents';
+} from '../types.js';
+import type { AgentRunDTO, ApiAgentRunRequest, ChannelContext } from '../types.js';
+import { learningHooks } from '../hook-builder.js';
+import { FilesAPI } from './files.js';
+import { AgentsAPI } from './agents.js';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;

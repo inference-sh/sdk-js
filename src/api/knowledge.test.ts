@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { KnowledgeAPI, SkillsAPI } from './knowledge';
+import { HttpClient } from '../http/client.js';
+import { KnowledgeAPI, SkillsAPI } from './knowledge.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

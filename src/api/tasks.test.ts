@@ -1,4 +1,4 @@
-import { HttpClient, type FailedRequest } from '../http/client';
+import { HttpClient, type FailedRequest } from '../http/client.js';
 import {
   TaskStatusCancelled,
   TaskStatusCompleted,
@@ -6,8 +6,8 @@ import {
   TaskStatusRunning,
   type DecisionInput,
   type DecisionOutput,
-} from '../types';
-import { TasksAPI } from './tasks';
+} from '../types.js';
+import { TasksAPI } from './tasks.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

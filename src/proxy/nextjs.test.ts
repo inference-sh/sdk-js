@@ -1,5 +1,5 @@
-import { INF_TARGET_HEADER, INF_TARGET_PARAM } from './index';
-import { createHandler, createPageHandler, handlers, pageHandler } from './nextjs';
+import { INF_TARGET_HEADER, INF_TARGET_PARAM } from './index.js';
+import { createHandler, createPageHandler, handlers, pageHandler } from './nextjs.js';
 
 type MockPageResponse = {
   statusCode: number;

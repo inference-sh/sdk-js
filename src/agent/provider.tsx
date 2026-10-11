@@ -6,12 +6,12 @@
  */
 
 import React, { useReducer, useRef, useEffect, useMemo } from 'react';
-import type { UpdateManager } from './types';
-import { AgentChatContext, type AgentChatContextValue } from './context';
-import { chatReducer, initialState } from './reducer';
-import { createActions, getClientToolHandlers } from './actions';
-import { fetchAgentInfo } from './api';
-import type { ChatDTO } from '../types';
+import type { UpdateManager } from './types.js';
+import { AgentChatContext, type AgentChatContextValue } from './context.js';
+import { chatReducer, initialState } from './reducer.js';
+import { createActions, getClientToolHandlers } from './actions.js';
+import { fetchAgentInfo } from './api.js';
+import type { ChatDTO } from '../types.js';
 import type {
   AgentChatProviderProps,
   AgentOptions,
@@ -19,8 +19,8 @@ import type {
   ClientToolHandlerFn,
   ActionsContext,
   ActionsResult,
-} from './types';
-import { isTemplateConfig } from './types';
+} from './types.js';
+import { isTemplateConfig } from './types.js';
 
 function mergeHandlers(
   base: Map<string, ClientToolHandlerFn>,

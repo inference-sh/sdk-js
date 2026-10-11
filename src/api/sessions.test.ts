@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { SessionsAPI } from './sessions';
+import { HttpClient } from '../http/client.js';
+import { SessionsAPI } from './sessions.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

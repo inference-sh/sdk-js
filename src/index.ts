@@ -1,11 +1,11 @@
 // HTTP utilities
-export { HttpClient, type HttpClientConfig, type ErrorHandler, type FailedRequest, type HttpFetchInit, type MessageHandler, createHttpClient } from './http/client';
-export type { Response } from './http/response';
-import type { Response } from './http/response';
-export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream';
-export { StreamableManager, type StreamableManagerOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable';
-export { PollManager, type PollManagerOptions } from './http/poll';
-export { isLoopbackHost, isHttpsOrLoopback } from './http/loopback';
+export { HttpClient, type HttpClientConfig, type ErrorHandler, type FailedRequest, type HttpFetchInit, type MessageHandler, createHttpClient } from './http/client.js';
+export type { Response } from './http/response.js';
+import type { Response } from './http/response.js';
+export { StreamManager, type StreamManagerOptions, type PartialDataWrapper } from './http/stream.js';
+export { StreamableManager, type StreamableManagerOptions, type StreamableSource, type StreamRequest, type StreamRequestInit, type StreamableMessage, streamable, streamableRaw } from './http/streamable.js';
+export { PollManager, type PollManagerOptions } from './http/poll.js';
+export { isLoopbackHost, isHttpsOrLoopback } from './http/loopback.js';
 export {
   InferenceError,
   RequirementsNotMetException,
@@ -18,21 +18,21 @@ export {
   isRequirementsNotMetException,
   isInferenceError,
   isSessionError,
-} from './http/errors';
+} from './http/errors.js';
 
 // API modules
-export { TasksAPI, type RunOptions, type WatchOptions, type TaskWatch } from './api/tasks';
-export { SocketsAPI, type SocketTarget, type OpenSocketOptions } from './api/sockets';
-export { FilesAPI, type UploadFileOptions } from './api/files';
-export { AgentsAPI, Agent, type AgentOptions, type SendMessageOptions, type AgentRunOptions, type AgentDelta } from './api/agents';
-export { SessionsAPI } from './api/sessions';
-export { AppsAPI } from './api/apps';
-export { ChatsAPI } from './api/chats';
-export { FlowsAPI } from './api/flows';
-export { FlowRunsAPI } from './api/flow-runs';
-export { EnginesAPI } from './api/engines';
-export { KnowledgeAPI, SkillsAPI } from './api/knowledge';
-export { ArtifactsAPI } from './api/artifacts';
+export { TasksAPI, type RunOptions, type WatchOptions, type TaskWatch } from './api/tasks.js';
+export { SocketsAPI, type SocketTarget, type OpenSocketOptions } from './api/sockets.js';
+export { FilesAPI, type UploadFileOptions } from './api/files.js';
+export { AgentsAPI, Agent, type AgentOptions, type SendMessageOptions, type AgentRunOptions, type AgentDelta } from './api/agents.js';
+export { SessionsAPI } from './api/sessions.js';
+export { AppsAPI } from './api/apps.js';
+export { ChatsAPI } from './api/chats.js';
+export { FlowsAPI } from './api/flows.js';
+export { FlowRunsAPI } from './api/flow-runs.js';
+export { EnginesAPI } from './api/engines.js';
+export { KnowledgeAPI, SkillsAPI } from './api/knowledge.js';
+export { ArtifactsAPI } from './api/artifacts.js';
 export type {
   AgentUpdateBody,
   AppPatchBody,
@@ -46,19 +46,19 @@ export type {
   KnowledgeUpdateBody,
   TeamUpdateBody,
   MCPServerUpdateBody,
-} from './api/write-bodies';
-export { TeamsAPI } from './api/teams';
-export { SecretsAPI } from './api/secrets';
-export { ApiKeysAPI } from './api/api-keys';
-export { CredentialsAPI } from './api/credentials';
-export { SearchAPI } from './api/search';
-export { ProjectsAPI } from './api/projects';
-export { MCPServersAPI } from './api/mcp-servers';
+} from './api/write-bodies.js';
+export { TeamsAPI } from './api/teams.js';
+export { SecretsAPI } from './api/secrets.js';
+export { ApiKeysAPI } from './api/api-keys.js';
+export { CredentialsAPI } from './api/credentials.js';
+export { SearchAPI } from './api/search.js';
+export { ProjectsAPI } from './api/projects.js';
+export { MCPServersAPI } from './api/mcp-servers.js';
 
 // Live: the socket of a stream task and the live fields of its schemas
-export { LiveSession, accessUrl } from './live/session';
-export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, LiveUpdate, WebSocketLike, WebSocketConstructor } from './live/session';
-export { STREAM_FORMAT, CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './live/protocol';
+export { LiveSession, accessUrl } from './live/session.js';
+export type { LiveState, LiveEnd, LiveHandlers, LiveSessionOptions, LiveUpdate, WebSocketLike, WebSocketConstructor } from './live/session.js';
+export { STREAM_FORMAT, CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './live/protocol.js';
 export {
   isLiveField,
   parseMediaType,
@@ -67,8 +67,8 @@ export {
   binaryLiveField,
   alternativeLabel,
   alternativeTag,
-} from './live/schema';
-export type { JsonSchema, MediaType, PCMFormat, LiveField } from './live/schema';
+} from './live/schema.js';
+export type { JsonSchema, MediaType, PCMFormat, LiveField } from './live/schema.js';
 
 // Tool Builder (fluent API)
 export {
@@ -88,15 +88,15 @@ export {
   object,
   array,
   optional,
-} from './tool-builder';
-export type { ClientTool, ClientToolHandler } from './tool-builder';
+} from './tool-builder.js';
+export type { ClientTool, ClientToolHandler } from './tool-builder.js';
 
 // Hook Builder (fluent API)
-export { lifecycleHook, learningHooks } from './hook-builder';
-export type { LifecycleHookBuilder } from './hook-builder';
+export { lifecycleHook, learningHooks } from './hook-builder.js';
+export type { LifecycleHookBuilder } from './hook-builder.js';
 
 // Delta accumulator for streaming responses
-export { DeltaAccumulator, createLLMDeltaAccumulator, type DeltaEvent, type FieldTags, type FieldTagsRegistry } from './delta';
+export { DeltaAccumulator, createLLMDeltaAccumulator, type DeltaEvent, type FieldTags, type FieldTagsRegistry } from './delta.js';
 
 // Status utilities (handle both int and string status values)
 export {
@@ -110,42 +110,42 @@ export {
   isRunWorking,
   isMessageTerminal,
   pendingApprovals,
-} from './utils';
-export type { PendingApproval } from './utils';
+} from './utils.js';
+export type { PendingApproval } from './utils.js';
 
 // Types - includes TaskStatus constants and all DTOs
-export * from './types';
+export * from './types.js';
 
 // Convenience type alias
-export type { TaskDTO as Task } from './types';
+export type { TaskDTO as Task } from './types.js';
 
 // =============================================================================
 // Main Client
 // =============================================================================
 
-import { HttpClient, type HttpClientConfig } from './http/client';
-import { TasksAPI, RunOptions } from './api/tasks';
-import { SocketsAPI } from './api/sockets';
-import { LiveSession, type LiveHandlers } from './live/session';
-import type { OpenSocketOptions } from './api/sockets';
-import { FilesAPI, UploadFileOptions } from './api/files';
-import { AgentsAPI, Agent, AgentOptions } from './api/agents';
-import { SessionsAPI } from './api/sessions';
-import { AppsAPI } from './api/apps';
-import { ChatsAPI } from './api/chats';
-import { FlowsAPI } from './api/flows';
-import { FlowRunsAPI } from './api/flow-runs';
-import { EnginesAPI } from './api/engines';
-import { KnowledgeAPI, SkillsAPI } from './api/knowledge';
-import { ArtifactsAPI } from './api/artifacts';
-import { TeamsAPI } from './api/teams';
-import { SecretsAPI } from './api/secrets';
-import { ApiKeysAPI } from './api/api-keys';
-import { CredentialsAPI } from './api/credentials';
-import { SearchAPI } from './api/search';
-import { ProjectsAPI } from './api/projects';
-import { MCPServersAPI } from './api/mcp-servers';
-import { ApiAppRunRequest, TaskDTO as Task, AgentConfigInput as AgentConfig, FileDTO as File } from './types';
+import { HttpClient, type HttpClientConfig } from './http/client.js';
+import { TasksAPI, RunOptions } from './api/tasks.js';
+import { SocketsAPI } from './api/sockets.js';
+import { LiveSession, type LiveHandlers } from './live/session.js';
+import type { OpenSocketOptions } from './api/sockets.js';
+import { FilesAPI, UploadFileOptions } from './api/files.js';
+import { AgentsAPI, Agent, AgentOptions } from './api/agents.js';
+import { SessionsAPI } from './api/sessions.js';
+import { AppsAPI } from './api/apps.js';
+import { ChatsAPI } from './api/chats.js';
+import { FlowsAPI } from './api/flows.js';
+import { FlowRunsAPI } from './api/flow-runs.js';
+import { EnginesAPI } from './api/engines.js';
+import { KnowledgeAPI, SkillsAPI } from './api/knowledge.js';
+import { ArtifactsAPI } from './api/artifacts.js';
+import { TeamsAPI } from './api/teams.js';
+import { SecretsAPI } from './api/secrets.js';
+import { ApiKeysAPI } from './api/api-keys.js';
+import { CredentialsAPI } from './api/credentials.js';
+import { SearchAPI } from './api/search.js';
+import { ProjectsAPI } from './api/projects.js';
+import { MCPServersAPI } from './api/mcp-servers.js';
+import { ApiAppRunRequest, TaskDTO as Task, AgentConfigInput as AgentConfig, FileDTO as File } from './types.js';
 
 export interface InferenceConfig {
   /** Your inference.sh API key (required unless using proxyUrl) */

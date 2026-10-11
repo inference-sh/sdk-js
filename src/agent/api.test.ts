@@ -1,12 +1,12 @@
-import { HttpClient } from '../http/client';
-import { FilesAPI } from '../api/files';
-import type { AgentClient } from './types';
+import { HttpClient } from '../http/client.js';
+import { FilesAPI } from '../api/files.js';
+import type { AgentClient } from './types.js';
 import {
   PolicyEffectAllow,
   PolicyKindMcp,
   PolicyKindRemoteExec,
   PolicyKindWebFetch,
-} from '../types';
+} from '../types.js';
 import {
   sendMessage,
   submitToolResult,
@@ -27,7 +27,7 @@ import {
   uploadFile,
   fetchAgentInfo,
   setAgent,
-} from './api';
+} from './api.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

@@ -41,6 +41,11 @@ jobs:
       - name: Build package
         run: pnpm run build
 
+      # Imports every package.json export of the packed tarball in plain Node
+      # (ESM and require). Catches dist/ that only loads through a bundler.
+      - name: Check exports load in Node
+        run: pnpm run check:exports
+
   # Bot coverage PRs add behavior tests only: no source edits (cc0d2be in
   # sdk-py reverted src/ inside a "tests only" batch), no per-version suites,
   # and no tests that re-assert generated types (src/types.ts).

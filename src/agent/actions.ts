@@ -5,16 +5,16 @@
  * These are created once per provider instance with access to dispatch.
  */
 
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ChatSettingsRequest, DeltaEvent, ElicitResult, ResourceStatusDTO } from '../types';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ChatSettingsRequest, DeltaEvent, ElicitResult, ResourceStatusDTO } from '../types.js';
 import {
   ToolInvocationStatusAwaitingInput,
   ToolInvocationStatusInProgress,
   ToolTypeClient,
-} from '../types';
-import { isChatBusy, isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils';
-import { StreamableManager } from '../http/streamable';
-import { PollManager } from '../http/poll';
-import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta';
+} from '../types.js';
+import { isChatBusy, isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils.js';
+import { StreamableManager } from '../http/streamable.js';
+import { PollManager } from '../http/poll.js';
+import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta.js';
 import type {
   AgentChatActions,
   AlwaysAllowChoice,
@@ -22,11 +22,11 @@ import type {
   ActionsResult,
   InternalActions,
   FileRef,
-} from './types';
-import { isAdHocConfig, extractClientToolHandlers } from './types';
-import * as api from './api';
-import { buildMCPInputResult } from './mcp-input';
-import { isInferenceError } from '../http/errors';
+} from './types.js';
+import { isAdHocConfig, extractClientToolHandlers } from './types.js';
+import * as api from './api.js';
+import { buildMCPInputResult } from './mcp-input.js';
+import { isInferenceError } from '../http/errors.js';
 
 // =============================================================================
 // Action Creators
@@ -563,7 +563,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 // Helper: Extract client tool handlers from config
 // =============================================================================
 
-export function getClientToolHandlers(config: import('./types').AgentOptions | null): Map<string, import('./types').ClientToolHandlerFn> {
+export function getClientToolHandlers(config: import('./types.js').AgentOptions | null): Map<string, import('./types.js').ClientToolHandlerFn> {
   if (!config || !isAdHocConfig(config) || !config.tools) {
     return new Map();
   }

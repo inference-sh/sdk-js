@@ -1,5 +1,5 @@
-import * as main from '../index';
-import { ErrorCodeAlreadyClaimed, ErrorCodeAlreadySubmitted } from '../types';
+import * as main from '../index.js';
+import { ErrorCodeAlreadyClaimed, ErrorCodeAlreadySubmitted } from '../types.js';
 
 describe('bounty claim and form submit error codes (bb223c3)', () => {
   it('exports ErrorCodeAlreadyClaimed for duplicate bounty claims', () => {

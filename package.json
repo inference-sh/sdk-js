@@ -61,7 +61,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "clean": "rimraf dist coverage",
-    "prepublishOnly": "npm run clean && npm run build && npm test",
+    "check:exports": "node scripts/check-exports.mjs",
+    "prepublishOnly": "npm run clean && npm run build && npm test && npm run check:exports",
     "example": "node examples/basic.js"
   },
   "keywords": [

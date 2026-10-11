@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { TeamUpdateBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { TeamUpdateBody } from './write-bodies.js';
 import {
   MeResponse,
   TeamDTO,
@@ -10,7 +10,7 @@ import {
   TeamMemberAddRequest,
   TeamInviteCreateRequest,
   AvailabilityResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Teams API

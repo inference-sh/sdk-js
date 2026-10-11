@@ -1,9 +1,9 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
 import {
   SuggestRequest,
   SuggestResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Search API

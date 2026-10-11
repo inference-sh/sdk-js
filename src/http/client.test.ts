@@ -1,5 +1,5 @@
-import { HttpClient, createHttpClient, type FailedRequest } from './client';
-import { InferenceError, RequirementsNotMetException } from './errors';
+import { HttpClient, createHttpClient, type FailedRequest } from './client.js';
+import { InferenceError, RequirementsNotMetException } from './errors.js';
 import { EventSource } from 'eventsource';
 
 jest.mock('eventsource');

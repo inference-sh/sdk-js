@@ -7,8 +7,8 @@
  * @jest-environment node
  */
 
-import { Inference, inference } from './index';
-import { TaskStatusCompleted, TaskStatusFailed } from './types';
+import { Inference, inference } from './index.js';
+import { TaskStatusCompleted, TaskStatusFailed } from './types.js';
 
 // Skip all tests if no API key is set
 const API_KEY = process.env.INFERENCE_API_KEY;

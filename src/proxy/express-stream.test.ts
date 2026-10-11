@@ -8,8 +8,8 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import { createHandler, PROXY_ROUTE } from './express';
-import { INF_TARGET_HEADER } from './index';
+import { createHandler, PROXY_ROUTE } from './express.js';
+import { INF_TARGET_HEADER } from './index.js';
 
 const CHAT = "3amrw0pxz80n2gqrg7xq0m7zxd";
 

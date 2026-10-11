@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { FlowRunsAPI } from './flow-runs';
+import { HttpClient } from '../http/client.js';
+import { FlowRunsAPI } from './flow-runs.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

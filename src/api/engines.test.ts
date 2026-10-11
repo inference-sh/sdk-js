@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import { EngineStatusRestarting, EngineStatusRunning } from '../types';
-import { EnginesAPI } from './engines';
+import { HttpClient } from '../http/client.js';
+import { EngineStatusRestarting, EngineStatusRunning } from '../types.js';
+import { EnginesAPI } from './engines.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

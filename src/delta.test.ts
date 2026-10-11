@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { createLLMDeltaAccumulator, DeltaAccumulator } from './delta';
+import { createLLMDeltaAccumulator, DeltaAccumulator } from './delta.js';
 
 describe('LLM delta accumulator', () => {
   it('concatenates response tokens', () => {

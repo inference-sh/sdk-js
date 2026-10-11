@@ -6,9 +6,9 @@ import {
   MergeStrategyIndexed,
   MergeStrategyNested,
   MergeStrategyReplace,
-} from './types';
+} from './types.js';
 
-export type { DeltaEvent } from './types';
+export type { DeltaEvent } from './types.js';
 
 export type FieldTags = Record<string, { merge: string }>;
 export type FieldTagsRegistry = Map<FieldTags, FieldTags>;

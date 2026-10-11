@@ -74,12 +74,12 @@ import {
   PolicyEnforcementEnforced,
   PolicyEnforcementEvaluate,
   PolicyEnforcementDisabled,
-} from './index';
-import { RequirementsNotMetException } from './http/errors';
-import { HttpClient } from './http/client';
-import type { WebSocketLike } from './live/session';
-import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking, TaskStatusRunning } from './types';
-import type { AgentRunDTO } from './types';
+} from './index.js';
+import { RequirementsNotMetException } from './http/errors.js';
+import { HttpClient } from './http/client.js';
+import type { WebSocketLike } from './live/session.js';
+import { ChatStatusBusy, ChatStatusIdle, AgentRunStateWorking, TaskStatusRunning } from './types.js';
+import type { AgentRunDTO } from './types.js';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 
@@ -267,12 +267,12 @@ describe('package type exports', () => {
   });
 
   it('does not export removed A2UIHTML component type constant', async () => {
-    const sdk = (await import('./index')) as Record<string, unknown>;
+    const sdk = (await import('./index.js')) as Record<string, unknown>;
     expect(sdk.A2UIHTML).toBeUndefined();
   });
 
   it('does not export integration-named aliases removed in v0.8.0', async () => {
-    const sdk = (await import('./index')) as Record<string, unknown>;
+    const sdk = (await import('./index.js')) as Record<string, unknown>;
     expect(sdk.IntegrationsAPI).toBeUndefined();
     expect(sdk.IntegrationDTO).toBeUndefined();
     expect(sdk.IntegrationConfigDTO).toBeUndefined();

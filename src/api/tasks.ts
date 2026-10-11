@@ -1,7 +1,7 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import { streamUntilTerminal, type TerminalSettler } from '../http/stream-until-terminal';
-import { PollManager } from '../http/poll';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import { streamUntilTerminal, type TerminalSettler } from '../http/stream-until-terminal.js';
+import { PollManager } from '../http/poll.js';
 import {
   TaskDTO as Task,
   TaskLogsDTO,
@@ -16,8 +16,8 @@ import {
   CursorListResponse,
   TaskFileDTO,
   DeleteTaskFilesResponse,
-} from '../types';
-import { parseStatus } from '../utils';
+} from '../types.js';
+import { parseStatus } from '../utils.js';
 
 /** How to follow a task while it runs; see TasksAPI.watch. */
 export interface WatchOptions {

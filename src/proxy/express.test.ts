@@ -1,5 +1,5 @@
-import { INF_TARGET_HEADER } from './index';
-import { createHandler } from './express';
+import { INF_TARGET_HEADER } from './index.js';
+import { createHandler } from './express.js';
 
 type MockResponse = {
   statusCode: number;

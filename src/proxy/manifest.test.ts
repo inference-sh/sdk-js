@@ -1,5 +1,5 @@
-import manifest from './endpoints.json';
-import { PROXY_ENDPOINTS, PROXY_ENDPOINT_RULES, PROXY_MANIFEST, matchProxyEndpoint, pickProxyEndpoint } from './index';
+import manifest from './endpoints.json' with { type: 'json' };
+import { PROXY_ENDPOINTS, PROXY_ENDPOINT_RULES, PROXY_MANIFEST, matchProxyEndpoint, pickProxyEndpoint } from './index.js';
 
 // The proxy forwards exactly what go/api's proxy manifest lists
 // (internal/models/gen/sdk/proxy_endpoints.json, copied to

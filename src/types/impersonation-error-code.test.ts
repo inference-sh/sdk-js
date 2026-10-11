@@ -1,5 +1,5 @@
-import * as main from '../index';
-import { ErrorCodeImpersonationReasonRequired } from '../types';
+import * as main from '../index.js';
+import { ErrorCodeImpersonationReasonRequired } from '../types.js';
 
 /** types regen 1b2e21a: ErrorCodeImpersonationReasonRequired for admin team impersonation. */
 describe('ErrorCode impersonation_reason_required (1b2e21a)', () => {

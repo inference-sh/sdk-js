@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { ChatUpdateBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { ChatUpdateBody } from './write-bodies.js';
 import {
   ChatDTO as Chat,
   ChatMessageDTO,
@@ -9,7 +9,7 @@ import {
   ChatTraceDTO,
   CursorListRequest,
   CursorListResponse,
-} from '../types';
+} from '../types.js';
 
 /**
  * Chats API

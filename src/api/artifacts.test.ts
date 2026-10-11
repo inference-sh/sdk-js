@@ -1,5 +1,5 @@
-import { HttpClient } from '../http/client';
-import { ArtifactsAPI } from './artifacts';
+import { HttpClient } from '../http/client.js';
+import { ArtifactsAPI } from './artifacts.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

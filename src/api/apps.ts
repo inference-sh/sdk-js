@@ -1,13 +1,13 @@
-import { HttpClient } from '../http/client';
-import type { Response } from '../http/response';
-import type { AppPatchBody, AppUpdateBody } from './write-bodies';
+import { HttpClient } from '../http/client.js';
+import type { Response } from '../http/response.js';
+import type { AppPatchBody, AppUpdateBody } from './write-bodies.js';
 import {
   AppDTO as App,
   AppVersionDTO,
   CursorListRequest,
   CursorListResponse,
   LicenseRecordDTO
-} from '../types';
+} from '../types.js';
 
 /**
  * Apps API

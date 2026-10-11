@@ -1,6 +1,6 @@
-import { HttpClient } from '../http/client';
-import { CredentialScopeOrg } from '../types';
-import { SecretsAPI } from './secrets';
+import { HttpClient } from '../http/client.js';
+import { CredentialScopeOrg } from '../types.js';
+import { SecretsAPI } from './secrets.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;

@@ -18,7 +18,7 @@ import {
     processProxyRequest,
     HttpHeaderValue,
     type ProxyOptions,
-} from "./index";
+} from "./index.js";
 
 /** Default proxy route path */
 export const PROXY_ROUTE = PROXY_PATH;

@@ -1,4 +1,4 @@
-import type { ResponseMessage } from '../types';
+import type { ResponseMessage } from '../types.js';
 
 /**
  * Response wraps the V3 API envelope — every API call returns this.
