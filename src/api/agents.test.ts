@@ -13,7 +13,9 @@ import {
   AgentRunStateWorking,
   AgentRunStateAuthRequired,
 } from '../types.js';
-import type { AgentRunDTO } from '../types.js';
+import type { AgentRunDTO, ApiAgentRunRequest } from '../types.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { learningHooks } from '../hook-builder.js';
 import { FilesAPI } from './files.js';
 import { AgentsAPI } from './agents.js';
@@ -1644,6 +1646,76 @@ describe('Agent.sendMessage (file attachments)', () => {
 
     expect(body.input.images).toEqual(['inf://files/blob-direct']);
     expect(body.input.files).toBeUndefined();
+  });
+});
+
+describe('Agent.sendMessage deprecated channel_context (ffc7682)', () => {
+  const slackContext = {
+    channel_type: 'slack',
+    channel_metadata: { channel_id: 'C123', thread_ts: '1234.5678' },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function mockRunAndPoll() {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [] });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({ id: 'chat-1', status: ChatStatusIdle, chat_messages: [] });
+  }
+
+  function lastRunBody(): ApiAgentRunRequest {
+    const runCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/agents/run'));
+    const last = runCalls[runCalls.length - 1] as [string, RequestInit];
+    return JSON.parse(String(last[1].body)) as ApiAgentRunRequest;
+  }
+
+  it('should not POST channel_context even when the deprecated option is passed', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('inference/my-agent');
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('legacy slack caller', {
+      stream: false,
+      channel_context: slackContext,
+    });
+
+    expect(lastRunBody()).not.toHaveProperty('channel_context');
+  });
+
+  it('should not wire channel_context from options onto ApiAgentRunRequest bodies', async () => {
+    const http = new HttpClient({ apiKey: 'test-key', stream: false, pollIntervalMs: 20 });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create({
+      core_app: { ref: 'openrouter/claude@latest' },
+      name: 'adhoc',
+    });
+
+    mockRunAndPoll();
+    await agentInstance.sendMessage('thread reply', {
+      stream: false,
+      channel_context: slackContext,
+    });
+
+    expect(lastRunBody()).not.toHaveProperty('channel_context');
+    expect(lastRunBody().agent_config).toBeDefined();
+  });
+
+  it('documents deprecation and keeps the option unsent (ffc7682)', () => {
+    const changelog = readFileSync(join(__dirname, '../../CHANGELOG.md'), 'utf8');
+    expect(changelog).toMatch(/### Deprecated/);
+    expect(changelog).toMatch(/SendMessageOptions\.channel_context/);
+    expect(changelog).toMatch(/still accepted and is not sent/);
+
+    const source = readFileSync(join(__dirname, 'agents.ts'), 'utf8');
+    expect(source).toMatch(/@deprecated The API no longer reads a channel context from an agent run/);
+    expect(source).toMatch(/channel_context\?: ChannelContext/);
+    expect(source).not.toMatch(/channel_context:\s*options\.channel_context/);
   });
 });
 
