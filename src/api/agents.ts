@@ -27,6 +27,8 @@ import {
   ToolInvocationStatusInProgress,
   CursorListRequest,
   CursorListResponse,
+  FileRef,
+  ToolResultRequest,
 } from '../types.js';
 import { isChatBusy, isMessageTerminal } from '../utils.js';
 
@@ -297,14 +299,21 @@ export class Agent {
   }
 
   /**
-   * Submit a tool result
+   * Submit a tool result. `attachments` are files uploaded with POST /files
+   * (`files.upload`) that the tool returns; images reach the model as image
+   * input when it supports images.
    */
   async submitToolResult(
     toolInvocationId: string,
-    resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
+    resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> },
+    attachments?: FileRef[]
   ): Promise<void> {
     const result = typeof resultOrAction === 'string' ? resultOrAction : JSON.stringify(resultOrAction);
-    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
+    const data: ToolResultRequest = { result };
+    if (attachments && attachments.length > 0) {
+      data.attachments = attachments;
+    }
+    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
   }
 
   /** Stop streaming/polling and cleanup */
@@ -647,14 +656,21 @@ export class AgentsAPI {
   }
 
   /**
-   * Submit a tool result
+   * Submit a tool result. `attachments` are files uploaded with POST /files
+   * (`files.upload`) that the tool returns; images reach the model as image
+   * input when it supports images.
    */
   async submitToolResult(
     toolInvocationId: string,
-    resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
+    resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> },
+    attachments?: FileRef[]
   ): Promise<void> {
     const result = typeof resultOrAction === 'string' ? resultOrAction : JSON.stringify(resultOrAction);
-    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data: { result } });
+    const data: ToolResultRequest = { result };
+    if (attachments && attachments.length > 0) {
+      data.attachments = attachments;
+    }
+    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
   }
 
   /**

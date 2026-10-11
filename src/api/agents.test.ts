@@ -2311,6 +2311,17 @@ describe('Agent.submitToolResult', () => {
     const body = JSON.parse(String(init.body));
     expect(body.result).toBe(JSON.stringify(payload));
   });
+  it('should send attachments with the result', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+    mockJsonResponse(null);
+    const ref = { uri: 'https://cdn/x.png', filename: 'x.png', content_type: 'image/png' };
+
+    await agentInstance.submitToolResult('inv-img', 'shot', [ref]);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'shot', attachments: [ref] });
+  });
 });
 
 describe('AgentsAPI.submitToolResult', () => {
@@ -2332,6 +2343,16 @@ describe('AgentsAPI.submitToolResult', () => {
     expect(url).toContain('/tools/inv-plain');
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toEqual({ result: 'done' });
+  });
+
+  it('should send attachments with the result', async () => {
+    mockJsonResponse(null);
+    const ref = { id: 'f1', uri: 'https://cdn/x.png', filename: 'x.png', content_type: 'image/png' };
+
+    await api().submitToolResult('inv-img', 'shot', [ref]);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'shot', attachments: [ref] });
   });
 });
 

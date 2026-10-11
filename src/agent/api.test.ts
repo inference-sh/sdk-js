@@ -251,6 +251,21 @@ describe('agent/api', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual(payload);
     });
+
+    it('should send attachments with the result', async () => {
+      mockJsonResponse(null);
+      const ref = { id: 'f1', uri: 'https://cdn/x.png', filename: 'x.png', content_type: 'image/png' };
+      await submitToolResult(makeClient(), 'inv-3', 'shot', [ref]);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ result: 'shot', attachments: [ref] });
+    });
+
+    it('should omit empty attachments', async () => {
+      mockJsonResponse(null);
+      await submitToolResult(makeClient(), 'inv-4', 'shot', []);
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ result: 'shot' });
+    });
   });
 
   describe('fetchMessagesPage', () => {

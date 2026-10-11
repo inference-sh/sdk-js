@@ -174,7 +174,7 @@ export interface AgentChatActions {
   /** Clear the current error */
   clearError: () => void;
   /** Submit a tool result (for widgets/awaiting input) - usually called automatically by SDK */
-  submitToolResult: (toolInvocationId: string, result: string) => Promise<void>;
+  submitToolResult: (toolInvocationId: string, result: string, attachments?: FileRef[]) => Promise<void>;
   /** Answer an MCP tool call's input requests (AwaitingInput status with MCPInputState data) */
   submitMCPInput: (toolInvocationId: string, responses: Record<string, ElicitResult>) => Promise<void>;
   /**
@@ -280,9 +280,20 @@ export interface AgentChatProviderProps {
 // =============================================================================
 
 /**
+ * What a client tool handler returns: the result text, or the text plus files.
+ *
+ * `attachments` are files already uploaded with POST /files (for example with
+ * `client.files.upload(dataUrlOrBlob)` or the chat's `uploadFile`), passed as
+ * `FileRef`s, the same as message attachments. An image attachment reaches the
+ * model as image input when the model supports images; other files are listed
+ * on the tool message.
+ */
+export type ClientToolResult = string | { result: string; attachments?: FileRef[] };
+
+/**
  * Client tool handler function - takes args and returns a result (sync or async)
  */
-export type ClientToolHandlerFn = (args: Record<string, unknown>) => Promise<string> | string;
+export type ClientToolHandlerFn = (args: Record<string, unknown>) => Promise<ClientToolResult> | ClientToolResult;
 
 /**
  * Client tool definition - combines schema with handler

@@ -218,9 +218,14 @@ export async function setAgent(client: AgentClient, chatId: string, agentRef: st
 export async function submitToolResult(
   client: AgentClient,
   toolInvocationId: string,
-  resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> }
+  resultOrAction: string | { action: { type: string; payload?: Record<string, unknown> }; form_data?: Record<string, unknown> },
+  attachments?: FileRef[]
 ): Promise<void> {
-  const data = typeof resultOrAction === 'string' ? { result: resultOrAction } : resultOrAction;
+  const data: Record<string, unknown> =
+    typeof resultOrAction === 'string' ? { result: resultOrAction } : { ...resultOrAction };
+  if (attachments && attachments.length > 0) {
+    data.attachments = attachments;
+  }
   await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
 }
 

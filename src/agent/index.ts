@@ -78,6 +78,7 @@ export type {
   // Client tools
   ClientTool,
   ClientToolHandlerFn,
+  ClientToolResult,
 } from './types.js';
 
 // Type guards and helpers

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Client tools can return files. A `ClientToolHandlerFn` may return `{ result: string; attachments?: FileRef[] }` (new `ClientToolResult` type) besides a string; the files are uploaded first with POST /files (`client.files.upload`, the chat's `uploadFile`) and sent as `attachments` with the result. Images reach the model as image input when it supports images. `submitToolResult` (agent api, `Agent`, `AgentsAPI`, the React chat actions) takes optional `attachments`, sent only when non-empty. `ToolResultRequest.attachments` is added by hand to the generated types until the next `make types` picks it up from the API. String returns work as before.
+
 ## [0.23.0] - 2026-10-11
 
 ### Changed

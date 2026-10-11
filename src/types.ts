@@ -497,6 +497,11 @@ export interface CreateAgentMessageResponse {
  */
 export interface ToolResultRequest {
   result: string;
+  /**
+   * Attachments are files uploaded with POST /files that the tool returns.
+   * Images reach the model as image input when it supports images.
+   */
+  attachments?: FileRef[];
 }
 /**
  * PartialFile is the clean DTO version (no gorm tags).

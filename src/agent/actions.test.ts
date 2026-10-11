@@ -318,6 +318,46 @@ describe('createActions', () => {
       );
     });
 
+    it('should submit attachments when the handler returns { result, attachments }', async () => {
+      const ref = { id: 'f1', uri: 'https://cdn/shot.png', filename: 'shot.png', content_type: 'image/png' };
+      const handler = jest.fn().mockResolvedValue({ result: 'screenshot taken', attachments: [ref] });
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['screenshot', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-inv-shot',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusInProgress,
+              function: { name: 'screenshot', arguments: {} },
+            },
+          ],
+        })
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-shot',
+        'screenshot taken',
+        [ref]
+      );
+    });
+
     it('should dispatch client tool handlers when status is in_progress', async () => {
       const handler = jest.fn().mockResolvedValue('in progress ok');
       const { ctx } = createTestContext({

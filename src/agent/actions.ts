@@ -22,6 +22,7 @@ import type {
   ActionsResult,
   InternalActions,
   FileRef,
+  ClientToolResult,
 } from './types.js';
 import { isAdHocConfig, extractClientToolHandlers } from './types.js';
 import * as api from './api.js';
@@ -100,8 +101,12 @@ export function createActions(ctx: ActionsContext): ActionsResult {
           // Use Promise.resolve to handle both sync and async handlers
           const args = invocation.function?.arguments || {};
           Promise.resolve(handler(args))
-            .then((result: string) => {
-              api.submitToolResult(client, invocation.id, result);
+            .then((output: ClientToolResult) => {
+              if (typeof output === 'string') {
+                api.submitToolResult(client, invocation.id, output);
+              } else {
+                api.submitToolResult(client, invocation.id, output.result, output.attachments);
+              }
             })
             .catch((error: unknown) => {
               console.error(`[AgentSDK] Client tool ${functionName} error:`, error);
@@ -425,9 +430,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'idle' });
     },
 
-    submitToolResult: async (toolInvocationId: string, result: string) => {
+    submitToolResult: async (toolInvocationId: string, result: string, attachments?: FileRef[]) => {
       try {
-        await api.submitToolResult(client, toolInvocationId, result);
+        await api.submitToolResult(client, toolInvocationId, result, attachments);
       } catch (error) {
         console.error('[AgentSDK] Failed to submit tool result:', error);
         const err = error instanceof Error ? error : new Error('Failed to submit tool result');
