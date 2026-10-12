@@ -322,24 +322,40 @@ export const httpTool = (name: string, url: string) => new HTTPToolBuilder(name,
 /** Create a call tool — makes authenticated HTTP requests. Preferred name for httpTool. */
 export const callTool = (name: string, url: string) => new HTTPToolBuilder(name, url);
 
+/** What an MCP tool calls: a tool on a server, named by the server's slug. */
+export interface MCPToolTarget {
+  /** The MCP server's slug (a workspace registration or a directory entry). */
+  server: string;
+  toolName: string;
+  /** Pins one connection to the server's provider; by default the runner's own is used. */
+  credentialId?: string;
+}
+
 /**
- * Create an MCP tool: `toolName` on the MCP server `server` (its slug). The
- * call signs in with the runner's connection to the server's provider;
+ * Create an MCP tool: `toolName` on the MCP server `target.server` (its slug).
+ * The call signs in with the runner's connection to the server's provider;
  * `credentialId` pins one connection instead.
  */
-export const mcpTool = (name: string, server: string, toolName: string, credentialId?: string) =>
-  new MCPToolBuilder(name, server, toolName, credentialId);
+export function mcpTool(name: string, target: MCPToolTarget): MCPToolBuilder;
+/**
+ * @deprecated Name the server: `mcpTool(name, { server, toolName })`. A tool
+ * naming only a connection is saved with the server that connection's
+ * provider is declared by.
+ */
+export function mcpTool(name: string, credentialId: string, toolName: string): MCPToolBuilder;
+export function mcpTool(name: string, target: MCPToolTarget | string, toolName?: string): MCPToolBuilder {
+  if (typeof target === 'string') {
+    return new MCPToolBuilder(name, { toolName: toolName ?? '', credentialId: target });
+  }
+  return new MCPToolBuilder(name, target);
+}
 
 class MCPToolBuilder extends ToolBuilder {
-  private server: string;
-  private toolName: string;
-  private credentialId?: string;
+  private target: Partial<MCPToolTarget> & { toolName: string };
 
-  constructor(name: string, server: string, toolName: string, credentialId?: string) {
+  constructor(name: string, target: Partial<MCPToolTarget> & { toolName: string }) {
     super(name);
-    this.server = server;
-    this.toolName = toolName;
-    this.credentialId = credentialId;
+    this.target = target;
   }
 
   build(): AgentTool {
@@ -350,9 +366,9 @@ class MCPToolBuilder extends ToolBuilder {
       type: ToolTypeMCP,
       require_approval: this.approval || undefined,
       mcp: {
-        server: this.server,
-        tool_name: this.toolName,
-        ...(this.credentialId ? { credential_id: this.credentialId } : {}),
+        tool_name: this.target.toolName,
+        ...(this.target.server ? { server: this.target.server } : {}),
+        ...(this.target.credentialId ? { credential_id: this.target.credentialId } : {}),
       },
     };
   }

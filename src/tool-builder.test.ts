@@ -445,7 +445,7 @@ describe('HTTPToolBuilder (httpTool)', () => {
 
 describe('MCPToolBuilder (mcpTool)', () => {
   it('creates MCP tool with server slug and tool name', () => {
-    const t = mcpTool('search_docs', 'notion', 'search').describe('Search docs').build();
+    const t = mcpTool('search_docs', { server: 'notion', toolName: 'search' }).describe('Search docs').build();
 
     expect(t.type).toBe(ToolTypeMCP);
     expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search' });
@@ -453,7 +453,7 @@ describe('MCPToolBuilder (mcpTool)', () => {
   });
 
   it('pins a connection with credential_id', () => {
-    const t = mcpTool('search_docs', 'notion', 'search', 'cred-1').build();
+    const t = mcpTool('search_docs', { server: 'notion', toolName: 'search', credentialId: 'cred-1' }).build();
 
     expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search', credential_id: 'cred-1' });
   });
