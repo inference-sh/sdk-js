@@ -335,14 +335,11 @@ export interface MCPToolTarget {
  * Create an MCP tool: `toolName` on the MCP server `target.server` (its slug).
  * The call signs in with the runner's connection to the server's provider;
  * `credentialId` pins one connection instead.
+ *
+ * The older form `mcpTool(name, credentialId, toolName)` (a string second
+ * argument) still works: a tool naming only a connection is saved with the
+ * server that connection's provider is declared by.
  */
-export function mcpTool(name: string, target: MCPToolTarget): MCPToolBuilder;
-/**
- * @deprecated Name the server: `mcpTool(name, { server, toolName })`. A tool
- * naming only a connection is saved with the server that connection's
- * provider is declared by.
- */
-export function mcpTool(name: string, credentialId: string, toolName: string): MCPToolBuilder;
 export function mcpTool(name: string, target: MCPToolTarget | string, toolName?: string): MCPToolBuilder {
   if (typeof target === 'string') {
     return new MCPToolBuilder(name, { toolName: toolName ?? '', credentialId: target });
