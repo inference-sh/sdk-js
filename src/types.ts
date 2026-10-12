@@ -628,6 +628,12 @@ export interface DeviceAuthPollResponse {
    * credential comes with it.
    */
   admin_until?: string /* RFC3339 */;
+  /**
+   * Interval is the polling interval in seconds the device is now held
+   * to, set with status slow_down (RFC 8628 3.5: each one raises it by
+   * five seconds).
+   */
+  interval?: number /* int */;
 }
 /**
  * AdminElevateRequest is the body of POST /device/auth/elevate: a platform
@@ -2861,6 +2867,7 @@ export type ErrorCode =
   | "otp_required"
   | "requires_sign_in"
   | "insufficient_scope"
+  | "invalid_scope"
   | "impersonation_reason_required"
   | "mcp_auth_expired"
   | "admin_session_required"
@@ -2884,6 +2891,7 @@ export type ErrorCode =
   | "invalid_code"
   | "already_processed"
   | "expired"
+  | "code_confirmation_required"
   | "app_retired"
   | "app_maintenance"
   | "invalid_transition"
@@ -2956,6 +2964,12 @@ export const ErrorCodeRequiresSignIn: ErrorCode = "requires_sign_in";
  * narrowed login granted less). The detail names the scope.
  */
 export const ErrorCodeInsufficientScope: ErrorCode = "insufficient_scope";
+/**
+ * ErrorCodeInvalidScope (400): a grant request (an OAuth authorization,
+ * a device sign-in's approval) named only scopes this server does not
+ * know. The detail names them.
+ */
+export const ErrorCodeInvalidScope: ErrorCode = "invalid_scope";
 /**
  * ErrorCodeImpersonationReasonRequired (403): a platform admin named a
  * team they are not a member of without a live impersonation grant.
@@ -3034,6 +3048,11 @@ export const ErrorCodeRequestOpen: ErrorCode = "request_open";
 export const ErrorCodeInvalidCode: ErrorCode = "invalid_code";
 export const ErrorCodeAlreadyProcessed: ErrorCode = "already_processed";
 export const ErrorCodeExpired: ErrorCode = "expired";
+/**
+ * A device sign-in started away from the approver is approved only
+ * with the code typed from the device (400).
+ */
+export const ErrorCodeCodeConfirmationRequired: ErrorCode = "code_confirmation_required";
 /**
  * Run-time refusals. AppRetired (410): the app no longer runs.
  * AppMaintenance (503, Retry-After): the owner paused it; the message is
@@ -5104,6 +5123,12 @@ export interface ToolInvocationDTO extends BaseModelDTO, PermissionModelDTO {
 export interface MetaItem {
   type: MetaItemType;
   tokens?: number /* int */;
+  /**
+   * CachedTokens and CacheWriteTokens are the parts of Tokens (on an input
+   * text item) read from and written to the provider's prompt cache.
+   */
+  cached_tokens?: number /* int */;
+  cache_write_tokens?: number /* int */;
   width?: number /* int */;
   height?: number /* int */;
   resolution_mp?: number /* float64 */;
@@ -6513,6 +6538,7 @@ export type DeviceAuthStatus =
   | "approved"
   | "expired"
   | "denied"
+  | "slow_down"
   | "valid"
   | "invalid"
   | "loading";
@@ -6520,6 +6546,11 @@ export const DeviceAuthStatusPending: DeviceAuthStatus = "pending";
 export const DeviceAuthStatusApproved: DeviceAuthStatus = "approved";
 export const DeviceAuthStatusExpired: DeviceAuthStatus = "expired";
 export const DeviceAuthStatusDenied: DeviceAuthStatus = "denied";
+/**
+ * DeviceAuthStatusSlowDown: still pending, and the device polled sooner
+ * than its interval, which is now five seconds longer (RFC 8628 3.5).
+ */
+export const DeviceAuthStatusSlowDown: DeviceAuthStatus = "slow_down";
 export const DeviceAuthStatusValid: DeviceAuthStatus = "valid";
 export const DeviceAuthStatusInvalid: DeviceAuthStatus = "invalid";
 export const DeviceAuthStatusLoading: DeviceAuthStatus = "loading";
@@ -7725,7 +7756,17 @@ export interface LLMUsage {
   stop_reason: string;
   time_to_first_token: number /* float64 */;
   tokens_per_second: number /* float64 */;
+  /**
+   * PromptTokens counts every input token, cached ones included
+   * (OpenAI, xAI and OpenRouter count them this way).
+   */
   prompt_tokens: number /* int */;
+  /**
+   * CachedTokens is how many of PromptTokens were read from the provider's
+   * prompt cache; CacheWriteTokens how many were written to it.
+   */
+  cached_tokens: number /* int */;
+  cache_write_tokens: number /* int */;
   completion_tokens: number /* int */;
   total_tokens: number /* int */;
   reasoning_tokens: number /* int */;
