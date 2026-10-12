@@ -17,11 +17,11 @@ import type {
   AgentImages,
   AppDTO,
   ChatDTO,
+  CredentialRequirements,
   EngineDTO,
   FlowDTO,
   FlowVersionDTO,
   KnowledgeDTO,
-  MCPServerAuthType,
   ProjectDTO,
   TeamDTO,
   Visibility,
@@ -117,9 +117,12 @@ export type TeamUpdateBody = Partial<Pick<TeamDTO, 'name' | 'email' | 'avatar_ur
 /**
  * PUT /mcp-servers/{id}. A field left out keeps its value. Title,
  * description, icon URL and documentation URL take what is sent, and ""
- * clears them; slug, name, server URL, auth type and the OAuth client
- * change only to a non-empty value. Headers sent replace the set ({}
- * clears it). Visibility: `POST /mcp-servers/{id}/visibility`.
+ * clears them; slug, name and server URL change only to a non-empty value.
+ * Headers sent replace the set ({} clears it); default scopes sent replace
+ * the list; `credentials` sent replace the declaration of the provider the
+ * server signs in through ([] clears it). Auth type is the server's own
+ * report. The provider's OAuth app: `PUT /credentials/{slug}/app`.
+ * Visibility: `POST /mcp-servers/{id}/visibility`.
  */
 export interface MCPServerUpdateBody {
   slug?: string;
@@ -128,10 +131,8 @@ export interface MCPServerUpdateBody {
   description?: string;
   icon_url?: string;
   server_url?: string;
-  auth_type?: MCPServerAuthType;
-  oauth_client_id?: string;
-  oauth_secret_key?: string;
   default_scopes?: string[];
   headers?: { [key: string]: string };
   documentation_url?: string;
+  credentials?: CredentialRequirements;
 }

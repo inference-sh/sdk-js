@@ -128,8 +128,9 @@ const apiFetch = callTool('fetch', 'https://api.example.com/data')
 
 console.log('\nfetch (callTool alias, bearer auth):', JSON.stringify(apiFetch, null, 2));
 
-// MCP tool — calls a tool on a connected MCP server
-const notionSearch = mcpTool('notion_search', 'mcp-credential-id', 'search')
+// MCP tool — calls a tool on an MCP server (by slug); the runner's connection
+// to the server's provider signs the call. A fourth argument pins a credential.
+const notionSearch = mcpTool('notion_search', 'notion', 'search')
   .describe('Search Notion')
   .param('query', string('Search query'))
   .build();

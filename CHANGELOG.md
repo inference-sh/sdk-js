@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Breaking (following the API's MCP model: a server declares the provider it signs in through, and there is no `mcp` credential provider): `mcpTool(name, credentialId, toolName)` is now `mcpTool(name, server, toolName, credentialId?)`, building `mcp: { server, tool_name, credential_id? }` with the server's slug; `credential_id` is optional and pins one connection. `MCPServerUpdateBody` drops `auth_type`, `oauth_client_id` and `oauth_secret_key` (the provider's OAuth app is set through `PUT /credentials/{slug}/app`) and gains `credentials`.
+
+### Changed
+
+- Generated types follow the API: `MCPToolConfig` is `{ server, tool_name, credential_id? }`; `MCPServerDTO` loses `oauth_client_id`; `CredentialProviderMCP` and `CredentialTypeMCP` are gone (a credential of an MCP provider has type `oauth` or `api_key` and the provider slug the server declares in `credential_slug`).
+
 ## [0.26.1] - 2026-10-12
 
 ### Added

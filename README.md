@@ -377,7 +377,7 @@ Use the fluent builders to define `AgentTool` schemas. Client tools (`tool`) run
 | `agentTool(name, agentRef)` | Server | Delegate to a sub-agent |
 | `httpTool(name, url)` / `callTool(name, url)` | Server | HTTP request with credential injection (preferred over `webhookTool`) |
 | `webhookTool(name, url)` | Server | Unsigned webhook (legacy; use `httpTool` for new tools) |
-| `mcpTool(name, credentialId, toolName)` | Server | Call a tool through a connected MCP credential |
+| `mcpTool(name, server, toolName, credentialId?)` | Server | Call a tool on an MCP server (by slug), signed in through the server's provider; `credentialId` pins one connection |
 | `internalTools()` | Server | Built-in tools: plan, memory, widget, finish, skills, meta, remote, knowledge, artifact, agent |
 
 ```typescript
@@ -420,7 +420,8 @@ const imageGen = appTool('generate_image', 'infsh/flux-schnell@abc123')
   .requireApproval()
   .build();
 
-const mcpSearch = mcpTool('notion_search', 'your-mcp-credential-id', 'search')
+// MCP server by slug; the runner's connection to its provider signs the call
+const mcpSearch = mcpTool('notion_search', 'notion', 'search')
   .describe('Search Notion pages')
   .param('query', string('Search query'))
   .build();
@@ -689,8 +690,8 @@ try {
 
 | Constant group | Values |
 |----------------|--------|
-| `CredentialProvider*` | `google`, `slack`, `notion`, `github`, `x`, `microsoft`, `salesforce`, `discord`, `gcp`, `mcp`, `reddit` |
-| `CredentialType*` | `service_account`, `oauth`, `api_key`, `wif`, `mcp` |
+| `CredentialProvider*` | `google`, `google-sa`, `slack`, `notion`, `github`, `x`, `microsoft`, `salesforce`, `discord`, `gcp`, `reddit` |
+| `CredentialType*` | `service_account`, `oauth`, `api_key`, `wif` |
 | `CredentialStatus*` | `connected`, `disconnected`, `expired`, `error` |
 
 ## Instance Status Constants
