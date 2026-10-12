@@ -297,13 +297,12 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
-  it('should POST provider/name/website requirements and return SetupAction secrets for checkRequirements()', async () => {
+  it('should POST slug requirements with a provider seed and return SetupAction secrets for checkRequirements()', async () => {
     const payload = {
       credentials: [
         {
-          provider: 'acme',
-          name: 'Acme CRM',
-          website: 'acme.com',
+          slug: 'acme',
+          provider: { name: 'Acme CRM', website: 'acme.com' },
           secrets: ['ACME_API_KEY'],
         },
       ],
