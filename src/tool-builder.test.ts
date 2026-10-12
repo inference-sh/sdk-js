@@ -444,12 +444,23 @@ describe('HTTPToolBuilder (httpTool)', () => {
 });
 
 describe('MCPToolBuilder (mcpTool)', () => {
-  it('creates MCP tool with credential and tool name', () => {
-    const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
+  it('creates MCP tool with server slug, tool name, and optional credential', () => {
+    const t = mcpTool('search_docs', 'notion', 'search', 'int-mcp-1')
+      .describe('Search docs')
+      .build();
 
     expect(t.type).toBe(ToolTypeMCP);
-    expect(t.mcp).toEqual({ credential_id: 'int-mcp-1', tool_name: 'search' });
+    expect(t.mcp).toEqual({
+      server: 'notion',
+      tool_name: 'search',
+      credential_id: 'int-mcp-1',
+    });
     expect(t.description).toBe('Search docs');
+  });
+
+  it('omits credential_id when the runner default connection is used', () => {
+    const t = mcpTool('list', 'filesystem', 'list').build();
+    expect(t.mcp).toEqual({ server: 'filesystem', tool_name: 'list' });
   });
 });
 

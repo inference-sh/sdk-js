@@ -377,7 +377,7 @@ Use the fluent builders to define `AgentTool` schemas. Client tools (`tool`) run
 | `agentTool(name, agentRef)` | Server | Delegate to a sub-agent |
 | `httpTool(name, url)` / `callTool(name, url)` | Server | HTTP request with credential injection (preferred over `webhookTool`) |
 | `webhookTool(name, url)` | Server | Unsigned webhook (legacy; use `httpTool` for new tools) |
-| `mcpTool(name, credentialId, toolName)` | Server | Call a tool through a connected MCP credential |
+| `mcpTool(name, server, toolName, credentialId?)` | Server | Call a tool on an MCP server by slug; optional credential pins the connection |
 | `internalTools()` | Server | Built-in tools: plan, memory, widget, finish, skills, meta, remote, knowledge, artifact, agent |
 
 ```typescript
@@ -420,7 +420,7 @@ const imageGen = appTool('generate_image', 'infsh/flux-schnell@abc123')
   .requireApproval()
   .build();
 
-const mcpSearch = mcpTool('notion_search', 'your-mcp-credential-id', 'search')
+const mcpSearch = mcpTool('notion_search', 'notion', 'search', 'your-mcp-credential-id')
   .describe('Search Notion pages')
   .param('query', string('Search query'))
   .build();
