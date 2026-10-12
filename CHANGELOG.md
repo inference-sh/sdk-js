@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-12
+
+Breaking (types only, following the API's credential model): `CredentialRequirement.provider` is now a `ProviderSeed` object (`{ name?, website? }`) instead of a string, and the requirement's `name`, `website` and `key` fields moved into it. Requirements are keyed by slug.
+
+### Added
+
+- Generated types for the credential model: `ProviderSeed`, `ProviderSummary`, `ConnectTokens`, `SecretField`, `CredentialRequirements`, and the auth scheme vocabulary (`AuthSchemeKind`, `AuthSchemeFlow`, `AuthSchemeAPIKeyIn`, `AuthSchemeHTTPScheme`, `AuthSchemeClientAuth`), plus `provider_info` and MCP credentials on the DTOs.
+
 ## [0.25.0] - 2026-10-12
 
 ### Added
