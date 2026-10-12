@@ -42,6 +42,23 @@ describe('write bodies', () => {
     const mcp: MCPServerUpdateBody = { visibility: 'public' };
     expect([chat, agent, team, flow, knowledge, mcp]).toHaveLength(6);
   });
+
+  it('reject MCP server OAuth fields that moved to PUT /credentials/{slug}/app (INF-1063)', () => {
+    // @ts-expect-error auth_type is the server's own report, not writable here
+    const authType: MCPServerUpdateBody = { auth_type: 'oauth' };
+    // @ts-expect-error provider OAuth app is configured on the credential provider
+    const oauthClient: MCPServerUpdateBody = { oauth_client_id: 'client' };
+    // @ts-expect-error provider OAuth secret is configured on the credential provider
+    const oauthSecret: MCPServerUpdateBody = { oauth_secret_key: 'secret' };
+    expect([authType, oauthClient, oauthSecret]).toHaveLength(3);
+  });
+
+  it('accepts credentials on MCPServerUpdateBody', () => {
+    const body: MCPServerUpdateBody = {
+      credentials: [{ slug: 'notion', optional: false }],
+    };
+    expect(body.credentials?.[0]?.slug).toBe('notion');
+  });
 });
 
 describe('ChatsAPI.updateSettings', () => {

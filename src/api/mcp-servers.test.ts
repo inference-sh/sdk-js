@@ -140,6 +140,17 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('PUT');
   });
 
+  it('should PUT credentials declaration on update (INF-1063)', async () => {
+    const server = { id: 'mcp-1', slug: 'notion' };
+    mockJsonResponse(server);
+    const credentials = [{ slug: 'notion', optional: false }];
+
+    await api().update('mcp-1', { credentials });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ credentials });
+  });
+
   it('should GET /mcps/{slug} for get()', async () => {
     const server = { slug: 'filesystem', name: 'Filesystem MCP' };
     mockJsonResponse(server);
