@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-12
+
+### Added
+
+- Generated types follow the API: device authorization records the starting device and proximity (`DeviceAuthCodeInfo.device` with `client`, `client_version`, `proximity`, `scopes`), `DeviceAuthStatusSlowDown` and the poll `interval`, the `code_confirmation_required` and `invalid_scope` error codes, and `cached_tokens` / `cache_write_tokens` on LLM usage and text meta items.
+
+## [0.24.0] - 2026-10-11
+
 ### Added
 
 - Client tools can return files. A `ClientToolHandlerFn` may return `{ result: string; attachments?: FileRef[] }` (new `ClientToolResult` type) besides a string; the files are uploaded first with POST /files (`client.files.upload`, the chat's `uploadFile`) and sent as `attachments` with the result. Images reach the model as image input when it supports images. `submitToolResult` (agent api, `Agent`, `AgentsAPI`, the React chat actions) takes optional `attachments`, sent only when non-empty. `ToolResultRequest.attachments` is added by hand to the generated types until the next `make types` picks it up from the API. String returns work as before.
