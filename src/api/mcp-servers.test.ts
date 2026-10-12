@@ -141,12 +141,19 @@ describe('MCPServersAPI', () => {
   });
 
   it('should GET /mcps/{slug} for get()', async () => {
-    const server = { slug: 'filesystem', name: 'Filesystem MCP' };
+    const server = {
+      slug: 'filesystem',
+      name: 'Filesystem MCP',
+      credentials: [{ slug: 'github', scopes: ['repo'] }],
+      credential_slug: 'github',
+    };
     mockJsonResponse(server);
 
     const result = await api().get('filesystem');
 
     expect(result.data).toEqual(server);
+    expect(result.data?.credential_slug).toBe('github');
+    expect(result.data?.credentials?.[0]?.slug).toBe('github');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');

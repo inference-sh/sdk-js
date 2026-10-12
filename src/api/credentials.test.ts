@@ -75,6 +75,35 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]).not.toHaveProperty('custom_provider_id');
   });
 
+  it('should deserialize provider_info on listAvailable() catalog entries', async () => {
+    const available = [
+      {
+        slug: 'acme-api',
+        provider: 'acme-api',
+        provider_info: {
+          slug: 'acme-corp',
+          name: 'Acme Corporation',
+          website: 'https://acme.com',
+          docs_url: 'https://docs.acme.com',
+        },
+        type: 'api_key',
+        name: 'Acme API',
+        short_name: 'Acme',
+        description: 'Acme CRM',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        connection_scope: CredentialScopeTeam,
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.provider_info?.slug).toBe('acme-corp');
+    expect(result.data[0]?.provider_info?.name).toBe('Acme Corporation');
+  });
+
   it('should deserialize connection_scope and nested app/credential grants on listAvailable()', async () => {
     const available = [
       {
@@ -269,7 +298,7 @@ describe('CredentialsAPI', () => {
     const payload = {
       credentials: [
         {
-          key: CredentialProviderGoogleSA,
+          slug: CredentialProviderGoogleSA,
           secrets: ['GOOGLE_SA_JSON'],
           scopes: ['https://www.googleapis.com/auth/calendar'],
         },
