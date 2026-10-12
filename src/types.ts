@@ -201,9 +201,16 @@ export interface HTTPToolConfig {
   input_schema?: any;
   output_schema?: any;
 }
+/**
+ * MCPToolConfig is a tool of an MCP server: the server by its slug (the
+ * agent's team's registration, its org's or the directory's) and the tool
+ * to call. CredentialID pins the connection the call signs in with; without
+ * it the runner's connection to the server's provider is used.
+ */
 export interface MCPToolConfig {
-  credential_id?: string;
+  server: string;
   tool_name: string;
+  credential_id?: string;
 }
 export interface AppToolConfigDTO {
   ref: string;
@@ -250,8 +257,9 @@ export interface HTTPToolConfigDTO {
   output_schema?: any;
 }
 export interface MCPToolConfigDTO {
-  credential_id: string;
+  server: string;
   tool_name: string;
+  credential_id?: string;
 }
 /**
  * AgentImages contains display images for an agent
@@ -4114,7 +4122,6 @@ export interface MCPServerDTO {
   icon_url: string;
   server_url: string;
   auth_type: MCPServerAuthType;
-  oauth_client_id?: string;
   default_scopes: StringSlice;
   /**
    * Headers are static HTTP headers sent on every request to the server,
@@ -7147,7 +7154,6 @@ export type CredentialProvider =
   | "salesforce"
   | "discord"
   | "gcp"
-  | "mcp"
   | "reddit";
 /**
  * Credential.Provider is a plain string; cast with string(...) when assigning.
@@ -7192,23 +7198,13 @@ export const CredentialProviderGCP: CredentialProvider = "gcp";
 /**
  * Credential.Provider is a plain string; cast with string(...) when assigning.
  */
-export const CredentialProviderMCP: CredentialProvider = "mcp";
-/**
- * Credential.Provider is a plain string; cast with string(...) when assigning.
- */
 export const CredentialProviderReddit: CredentialProvider = "reddit";
 /**
  * CredentialType describes the credential category.
  */
-export type CredentialType =
-  | "oauth"
-  | "api_key"
-  | "mcp"
-  | "service_account"
-  | "wif";
+export type CredentialType = "oauth" | "api_key" | "service_account" | "wif";
 export const CredentialTypeOAuth: CredentialType = "oauth";
 export const CredentialTypeAPIKey: CredentialType = "api_key";
-export const CredentialTypeMCP: CredentialType = "mcp";
 export const CredentialTypeServiceAccount: CredentialType = "service_account";
 export const CredentialTypeWIF: CredentialType = "wif";
 /**
