@@ -5676,7 +5676,7 @@ export interface SecretField {
  * AuthSchemeClientAuth is how client_id/client_secret reach the token
  * endpoint. Most providers accept either; a few insist on one.
  */
-export type AuthSchemeClientAuth = "basic" | "body";
+export type AuthSchemeClientAuth = "basic" | "body" | "none";
 /**
  * AuthSchemeClientAuthBasic sends them as an HTTP Basic Authorization
  * header (RFC 6749 §2.3.1, the default).
@@ -5686,6 +5686,14 @@ export const AuthSchemeClientAuthBasic: AuthSchemeClientAuth = "basic";
  * AuthSchemeClientAuthBody sends them as form fields in the request body.
  */
 export const AuthSchemeClientAuthBody: AuthSchemeClientAuth = "body";
+/**
+ * AuthSchemeClientAuthNone is a public client (RFC 8414
+ * token_endpoint_auth_method "none"): the client id goes in the body,
+ * there is no secret, and PKCE is what proves the client. Its OAuth app
+ * is complete with a client id alone (a dynamically registered client,
+ * or a Client ID Metadata Document URL).
+ */
+export const AuthSchemeClientAuthNone: AuthSchemeClientAuth = "none";
 /**
  * AuthSchemeTokenRequest is the token request's body encoding.
  */
@@ -5884,6 +5892,35 @@ export interface AuthSchemeSpec {
    * is asked for again.
    */
   incremental_add_scopes?: boolean;
+  /**
+   * Resource is the RFC 8707 resource indicator: the protected resource
+   * the token is minted for (an MCP server's URL). Sent on the authorize,
+   * code and refresh requests when the profile takes one. Empty = none.
+   */
+  resource?: string;
+  /**
+   * Issuer is the authorization server's RFC 8414 issuer. With
+   * AuthorizationResponseIssParameterSupported, the callback's iss must
+   * name it (RFC 9207, against mix-up); an issuer alone still refuses a
+   * callback naming another one.
+   */
+  issuer?: string;
+  authorization_response_iss_parameter_supported?: boolean;
+  /**
+   * Callback is the name of the redirect URI the app was registered with
+   * (<app>/settings/secrets/oauth/<callback>). Empty = the slug. Schemes
+   * whose clients are registered once for many slugs share one (an MCP
+   * server's dynamically registered client and the Client ID Metadata
+   * Document name the "mcp" callback); the flow's provider then comes
+   * from the connect intent, never from the callback's path.
+   */
+  callback?: string;
+  /**
+   * Profile names the authorization server's deviations from the specs
+   * (authprovider.AuthServerProfile: endpoints placed by app fields,
+   * scopes on refresh, actionable errors, admin consent). Empty = none.
+   */
+  profile?: string;
   token_endpoint?: string;
   /**
    * RevocationEndpoint is the RFC 7009 endpoint, when the provider has
