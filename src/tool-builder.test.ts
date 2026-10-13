@@ -632,6 +632,11 @@ describe('Fluent API chaining', () => {
 
 
 describe('client tool handlers returning files', () => {
+  it('a builder handler may still return a plain string', async () => {
+    const greet = tool('greet').handler(async (args) => `hi ${args.name as string}`);
+    await expect(Promise.resolve(greet.handler({ name: 'Ada' }))).resolves.toBe('hi Ada');
+  });
+
   it('a builder handler may return text with attachments', async () => {
     const shot = tool('screenshot')
       .describe('Screenshot of the page')
