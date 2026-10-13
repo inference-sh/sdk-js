@@ -1568,7 +1568,7 @@ describe('Agent.sendMessage (file attachments)', () => {
     return new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
   };
 
-  it('should route image and non-image URIs into images vs files on the run request', async () => {
+  it('should send uploaded files as MessageInput attachments on the run request', async () => {
     const imageFile: FileDTO = {
       id: 'file-img',
       uri: 'inf://files/img',
@@ -1605,8 +1605,13 @@ describe('Agent.sendMessage (file attachments)', () => {
     ) as [string, RequestInit];
     const body = JSON.parse(String(runCall[1].body));
 
-    expect(body.input.images).toEqual(['inf://files/img']);
-    expect(body.input.files).toEqual(['inf://files/doc']);
+    expect(body.input).toEqual({
+      text: 'see attachments',
+      attachments: [
+        { id: 'file-img', uri: 'inf://files/img', filename: 'photo.png', content_type: 'image/png' },
+        { id: 'file-doc', uri: 'inf://files/doc', filename: 'notes.pdf', content_type: 'application/pdf' },
+      ],
+    });
     expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/files')).length).toBe(0);
   });
 
@@ -1642,7 +1647,10 @@ describe('Agent.sendMessage (file attachments)', () => {
     ) as [string, RequestInit];
     const body = JSON.parse(String(runCall[1].body));
 
-    expect(body.input.images).toEqual(['inf://files/blob-direct']);
+    expect(body.input.attachments).toEqual([
+      expect.objectContaining({ id: 'file-blob', uri: 'inf://files/blob-direct', content_type: 'image/png' }),
+    ]);
+    expect(body.input.images).toBeUndefined();
     expect(body.input.files).toBeUndefined();
   });
 });

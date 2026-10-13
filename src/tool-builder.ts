@@ -2,14 +2,25 @@
  * Tool Builder - Fluent API for defining agent tools
  */
 
-import { AgentTool, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAPIKey, ToolAuthTypeBearer, ToolAuthTypeCredential, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types.js';
+import { AgentTool, FileRef, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAPIKey, ToolAuthTypeBearer, ToolAuthTypeCredential, ToolTypeClient, ToolTypeApp, ToolTypeAgent, ToolTypeHook, ToolTypeHTTP, ToolTypeMCP } from './types.js';
 
 // =============================================================================
 // Client Tool Types
 // =============================================================================
 
+/**
+ * What a client tool handler returns: the result text, or the text plus files.
+ *
+ * `attachments` are files already uploaded with POST /files (for example with
+ * `client.files.upload(dataUrlOrBlob)` or the chat's `uploadFile`), passed as
+ * `FileRef`s, the same as message attachments. An image attachment reaches the
+ * model as image input when the model supports images; other files are listed
+ * on the tool message.
+ */
+export type ClientToolResult = string | { result: string; attachments?: FileRef[] };
+
 /** Handler function for client tools (executed in browser/Node) */
-export type ClientToolHandler = (args: Record<string, unknown>) => Promise<string> | string;
+export type ClientToolHandler = (args: Record<string, unknown>) => Promise<ClientToolResult> | ClientToolResult;
 
 /** Client tool with schema and handler bundled together */
 export interface ClientTool {

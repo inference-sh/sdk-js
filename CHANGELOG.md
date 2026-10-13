@@ -11,6 +11,8 @@ Added: `mcpTool(name, { server, toolName, credentialId? })` names the MCP server
 
 ### Changed
 
+- `client.agent(...).sendMessage(text, { files })` sends the files as `MessageInput.attachments` (FileRefs with filename and content type) instead of the deprecated `images` / `files` URI lists.
+- A `tool(...).handler()` handler may return `{ result, attachments }` (`ClientToolResult`, now exported from the package root) like a `clientToolHandlers` handler: the result text plus files uploaded with `client.files.upload`.
 - Generated types follow the API: `MCPToolConfig` is `{ server, tool_name, credential_id? }`; `MCPServerDTO` loses `oauth_client_id`; `CredentialProviderMCP` and `CredentialTypeMCP` are gone (a credential of an MCP provider has type `oauth` or `api_key` and the provider slug the server declares in `credential_slug`).
 
 ## [0.26.1] - 2026-10-12

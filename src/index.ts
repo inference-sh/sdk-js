@@ -89,7 +89,7 @@ export {
   array,
   optional,
 } from './tool-builder.js';
-export type { ClientTool, ClientToolHandler } from './tool-builder.js';
+export type { ClientTool, ClientToolHandler, ClientToolResult } from './tool-builder.js';
 
 // Hook Builder (fluent API)
 export { lifecycleHook, learningHooks } from './hook-builder.js';

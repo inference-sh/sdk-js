@@ -23,6 +23,7 @@ import type {
   ElicitResult,
 } from '../types.js';
 import type { HttpClient } from '../http/client.js';
+import type { ClientToolResult } from '../tool-builder.js';
 import type { StreamableManager } from '../http/streamable.js';
 import type { PollManager } from '../http/poll.js';
 
@@ -279,16 +280,8 @@ export interface AgentChatProviderProps {
 // Client Tools
 // =============================================================================
 
-/**
- * What a client tool handler returns: the result text, or the text plus files.
- *
- * `attachments` are files already uploaded with POST /files (for example with
- * `client.files.upload(dataUrlOrBlob)` or the chat's `uploadFile`), passed as
- * `FileRef`s, the same as message attachments. An image attachment reaches the
- * model as image input when the model supports images; other files are listed
- * on the tool message.
- */
-export type ClientToolResult = string | { result: string; attachments?: FileRef[] };
+/** What a client tool handler returns (defined with the tool builder). */
+export type { ClientToolResult } from '../tool-builder.js';
 
 /**
  * Client tool handler function - takes args and returns a result (sync or async)

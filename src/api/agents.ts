@@ -13,7 +13,7 @@ import {
   ChatMessageDTO,
   DeltaEvent,
   LLMDelta,
-  LLMInput,
+  MessageInput,
   LLMOutput,
   ResourceStatusDTO,
   AgentConfigInput as AgentConfig,
@@ -180,8 +180,7 @@ export class Agent {
     const hasCallbacks = !!(options.onMessage || options.onChat || options.onToolCall || options.onDelta);
 
     // Process files - either already uploaded (FileDTO with uri) or needs upload (Blob)
-    let imageUris: string[] | undefined;
-    let fileUris: string[] | undefined;
+    let attachments: FileRef[] | undefined;
 
     if (options.files && options.files.length > 0) {
       const toUpload: Blob[] = [];
@@ -199,15 +198,12 @@ export class Agent {
         toUpload.length > 0 ? await Promise.all(toUpload.map((blob) => this.files.upload(blob))) : [];
 
       const allFiles = [...alreadyUploaded, ...uploadedFiles];
-
-      const images = allFiles.filter((f) => f.content_type?.startsWith('image/'));
-      const others = allFiles.filter((f) => !f.content_type?.startsWith('image/'));
-
-      if (images.length > 0) imageUris = images.map((f) => f.uri);
-      if (others.length > 0) fileUris = others.map((f) => f.uri);
+      if (allFiles.length > 0) {
+        attachments = allFiles.map(({ id, uri, filename, content_type, size }) => ({ id, uri, filename, content_type, size }));
+      }
     }
 
-    const input: LLMInput = { text, images: imageUris, files: fileUris, role: 'user', context: [], system_prompt: '', context_size: 0 };
+    const input: MessageInput = attachments ? { text, attachments } : { text };
     const body: ApiAgentRunRequest = {
       chat_id: this.chatId ?? undefined,
       context: this.context,

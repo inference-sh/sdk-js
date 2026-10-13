@@ -630,3 +630,18 @@ describe('Fluent API chaining', () => {
   });
 });
 
+
+describe('client tool handlers returning files', () => {
+  it('a builder handler may return text with attachments', async () => {
+    const shot = tool('screenshot')
+      .describe('Screenshot of the page')
+      .handler(async () => ({
+        result: 'captured',
+        attachments: [{ uri: 'https://cloud.inference.sh/f/shot.png', filename: 'shot.png', content_type: 'image/png' }],
+      }));
+    await expect(Promise.resolve(shot.handler({}))).resolves.toEqual({
+      result: 'captured',
+      attachments: [{ uri: 'https://cloud.inference.sh/f/shot.png', filename: 'shot.png', content_type: 'image/png' }],
+    });
+  });
+});
