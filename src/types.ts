@@ -6778,8 +6778,11 @@ export interface ResponseFormat {
  * assignment.
  * Which model runs is not a setting: the app is the model. An app that
  * fronts several models (a router) declares its own `model` input.
+ * Field order is schema order: the generated pydantic model, and the input
+ * form built from its JSON schema, list fields as they are declared here.
  */
 export interface LLMSettings {
+  system_prompt: string;
   context_size: number /* int */;
   temperature?: number /* float64 */;
   top_p?: number /* float64 */;
@@ -6793,23 +6796,24 @@ export interface LLMSettings {
   max_tokens?: number /* int */;
   reasoning_effort?: string;
   reasoning_max_tokens?: number /* int */;
-  system_prompt: string;
   tools?: Tool[];
   tool_choice?: ToolChoice;
   response_format?: ResponseFormat;
 }
 /**
- * LLMInput is the input envelope for an LLM provider task: the settings plus
- * the conversation, with the current turn split out of the context.
+ * LLMInput is the input envelope for an LLM provider task: the conversation,
+ * with the current turn split out of the context, plus the settings.
+ * Field order is schema order (see LLMSettings): the turn comes first, the
+ * settings last, so an input form shows what to say before how to say it.
  */
 export interface LLMInput extends LLMSettings {
-  context: LLMContextMessage[];
-  role?: ChatMessageRole;
   text?: string;
-  reasoning?: string;
-  attachments?: FileRef[];
   images?: string[];
   files?: string[];
+  attachments?: FileRef[];
+  context: LLMContextMessage[];
+  role?: ChatMessageRole;
+  reasoning?: string;
   tool_call_id?: string;
 }
 /**
