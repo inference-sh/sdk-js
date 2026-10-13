@@ -52,6 +52,37 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
+  it('should deserialize provider_info legal links on listAvailable() catalog entries', async () => {
+    const available = [
+      {
+        slug: 'acme-api',
+        provider: 'acme-api',
+        type: 'api_key',
+        name: 'Acme API key',
+        short_name: 'Acme',
+        description: 'BYOK',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        connection_scope: CredentialScopeTeam,
+        provider_info: {
+          slug: 'acme',
+          name: 'Acme CRM',
+          website: 'https://acme.example',
+          docs_url: 'https://docs.acme.example',
+          terms_url: 'https://acme.example/terms',
+          privacy_url: 'https://acme.example/privacy',
+        },
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.provider_info?.terms_url).toBe('https://acme.example/terms');
+    expect(result.data[0]?.provider_info?.privacy_url).toBe('https://acme.example/privacy');
+  });
+
   it('should deserialize auth_scheme_id on listAvailable() catalog entries', async () => {
     const available = [
       {
@@ -228,6 +259,35 @@ describe('CredentialsAPI', () => {
     expect(url).toContain('/credentials/configs');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize provider_info legal links on getConfigs() merged views', async () => {
+    const configs = [
+      {
+        slug: 'acme-api',
+        provider: 'acme-api',
+        type: 'api_key',
+        name: 'Acme API key',
+        short_name: 'Acme',
+        description: 'BYOK',
+        allows_byok: true,
+        available: true,
+        has_managed: false,
+        connection_scope: CredentialScopeTeam,
+        provider_info: {
+          slug: 'acme',
+          name: 'Acme CRM',
+          terms_url: 'https://acme.example/terms',
+          privacy_url: 'https://acme.example/privacy',
+        },
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0]?.provider_info?.privacy_url).toBe('https://acme.example/privacy');
+    expect(result.data[0]?.provider_info?.terms_url).toBe('https://acme.example/terms');
   });
 
   it('should deserialize auth_scheme_id on getConfigs() merged views', async () => {
