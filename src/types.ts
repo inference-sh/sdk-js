@@ -4148,6 +4148,34 @@ export interface MCPServerDTO {
    * to (user, team, org, platform); empty when not connected.
    */
   connection_scope?: CredentialScope;
+  /**
+   * Connection is the whole of it: the login's status and scope above,
+   * and what the connection made with that login holds.
+   */
+  connection?: ConnectionInfo;
+}
+/**
+ * ConnectionInfo is the caller's login for one requirement: its
+ * status (connected, expired, error; "" when none) and whose it is.
+ */
+export interface ConnectionInfo extends MCPConnectionFacts {
+  /**
+   * Status and Scope are the caller's login's for the server: whether
+   * they can call it, and whose the login is.
+   */
+  status?: string;
+  scope?: CredentialScope;
+}
+/**
+ * MCPConnectionFacts is what an MCP connection (a server reached through
+ * one login) has recorded: the catalogue it listed, its last call.
+ */
+export interface MCPConnectionFacts {
+  connection_id?: string;
+  tool_count?: number /* int */;
+  tools_listed_at?: string /* RFC3339 */;
+  last_called_at?: string /* RFC3339 */;
+  last_error?: string;
 }
 /**
  * MCPServerSetup is what a server's directory entry knows about setting the
