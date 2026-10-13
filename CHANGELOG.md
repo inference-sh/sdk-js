@@ -7,12 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Added: `mcpTool(name, { server, toolName, credentialId? })` names the MCP server by its slug (the API's model: a server declares the provider it signs in through); `credentialId` pins one connection. The old `mcpTool(name, credentialId, toolName)` still works (deprecated): the API saves such a tool with the server the connection's provider is declared by. `MCPServerUpdateBody` gains `credentials`; its `auth_type`, `oauth_client_id` and `oauth_secret_key` are no longer read by the API (the provider's OAuth app is set through `PUT /credentials/{slug}/app`). Generated types: `MCPToolConfig.server`; `MCPServerDTO.oauth_client_id`, `CredentialProviderMCP` and `CredentialTypeMCP` are gone from the API.
+## [0.27.0] - 2026-10-13
 
 ### Changed
 
 - `client.agent(...).sendMessage(text, { files })` sends the files as `MessageInput.attachments` (FileRefs with filename and content type) instead of the deprecated `images` / `files` URI lists.
 - A `tool(...).handler()` handler may return `{ result, attachments }` (`ClientToolResult`, now exported from the package root) like a `clientToolHandlers` handler: the result text plus files uploaded with `client.files.upload`.
+
+### Added
+
+- Generated types follow the API: `MCPServerDTO.connection` (`ConnectionInfo` with `MCPConnectionFacts`); `connection_status` is deprecated.
+
+## [0.26.2] - 2026-10-13
+
+Added: `mcpTool(name, { server, toolName, credentialId? })` names the MCP server by its slug (the API's model: a server declares the provider it signs in through); `credentialId` pins one connection. The old `mcpTool(name, credentialId, toolName)` still works (deprecated): the API saves such a tool with the server the connection's provider is declared by. `MCPServerUpdateBody` gains `credentials`; its `auth_type`, `oauth_client_id` and `oauth_secret_key` are no longer read by the API (the provider's OAuth app is set through `PUT /credentials/{slug}/app`). Generated types: `MCPToolConfig.server`; `MCPServerDTO.oauth_client_id`, `CredentialProviderMCP` and `CredentialTypeMCP` are gone from the API.
+
+### Changed
+
 - Generated types follow the API: `MCPToolConfig` is `{ server, tool_name, credential_id? }`; `MCPServerDTO` loses `oauth_client_id`; `CredentialProviderMCP` and `CredentialTypeMCP` are gone (a credential of an MCP provider has type `oauth` or `api_key` and the provider slug the server declares in `credential_slug`).
 
 ## [0.26.1] - 2026-10-12
