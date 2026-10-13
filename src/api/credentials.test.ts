@@ -26,6 +26,34 @@ describe('CredentialsAPI', () => {
 
   const api = () => new CredentialsAPI(new HttpClient({ apiKey: 'test-key' }));
 
+  it('should deserialize template on list() credential rows', async () => {
+    const page = {
+      items: [
+        {
+          id: 'cred-tpl',
+          provider: 'acme',
+          type: 'api_key',
+          template: true,
+          is_primary: false,
+        },
+        {
+          id: 'cred-real',
+          provider: 'acme',
+          type: 'api_key',
+          template: false,
+          is_primary: true,
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data?.items[0]?.template).toBe(true);
+    expect(result.data?.items[1]?.template).toBe(false);
+  });
+
   it('should POST /credentials/list for list()', async () => {
     const page = { items: [{ provider: 'slack' }], next_cursor: null };
     mockJsonResponse(page);
@@ -180,6 +208,7 @@ describe('CredentialsAPI', () => {
       display_name: 'Slack',
       scopes: ['chat:write'],
       is_primary: true,
+      template: false,
     };
     mockJsonResponse(credential);
 
@@ -187,6 +216,7 @@ describe('CredentialsAPI', () => {
 
     expect(result.data?.grant).toBe(CredentialGrantToken);
     expect(result.data?.app_credential_id).toBe('cred-slack-app');
+    expect(result.data?.template).toBe(false);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/slack');
     expect(url).not.toContain('/integrations/');
