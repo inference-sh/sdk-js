@@ -39,6 +39,35 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should deserialize secrets on list() credential rows', async () => {
+    const page = {
+      items: [
+        {
+          id: 'cred-2',
+          user_id: 'user-1',
+          team_id: 'team-1',
+          visibility: 'team',
+          provider: 'custom',
+          type: 'api_key',
+          grant: CredentialGrantToken,
+          scope: CredentialScopeTeam,
+          status: 'connected',
+          display_name: 'Custom API key',
+          scopes: [],
+          is_primary: false,
+          secrets: [{ id: 'sec-1', key: 'CUSTOM_KEY', updated_at: '2026-10-01T00:00:00Z' }],
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data?.items[0]?.secrets?.[0]?.key).toBe('CUSTOM_KEY');
+    expect(result.data?.items[0]?.secrets?.[0]).not.toHaveProperty('value');
+  });
+
   it('should forward cursor pagination params in list() body', async () => {
     const page = { items: [], next_cursor: 'cursor-2' };
     mockJsonResponse(page);
@@ -116,6 +145,7 @@ describe('CredentialsAPI', () => {
           display_name: 'GitHub login',
           scopes: ['repo'],
           is_primary: true,
+          secrets: [{ id: 'sec-oauth', key: 'GITHUB_TOKEN', updated_at: '2026-10-13T09:00:00Z' }],
         },
       },
     ];
@@ -127,6 +157,8 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]?.app?.grant).toBe(CredentialGrantCredentials);
     expect(result.data[0]?.credential?.grant).toBe(CredentialGrantToken);
     expect(result.data[0]?.credential?.app_credential_id).toBe('cred-app');
+    expect(result.data[0]?.credential?.secrets?.[0]?.key).toBe('GITHUB_TOKEN');
+    expect(result.data[0]?.credential?.secrets?.[0]).not.toHaveProperty('value');
     expect(result.data[0]).not.toHaveProperty('grant');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/available');
@@ -163,6 +195,42 @@ describe('CredentialsAPI', () => {
 
     expect(result.data).toEqual(response);
     expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
+  });
+
+  it('should deserialize linked secret refs (id/key only) on get()', async () => {
+    const credential = {
+      id: 'cred-api',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'team',
+      provider: 'acme',
+      type: 'api_key',
+      grant: CredentialGrantToken,
+      scope: CredentialScopeTeam,
+      status: 'connected',
+      display_name: 'Acme API key',
+      scopes: [],
+      is_primary: true,
+      secrets: [
+        {
+          id: 'sec-row-9',
+          key: 'ACME_API_KEY',
+          updated_at: '2026-10-13T12:00:00Z',
+        },
+      ],
+    };
+    mockJsonResponse(credential);
+
+    const result = await api().get('acme');
+
+    expect(result.data?.secrets).toEqual([
+      {
+        id: 'sec-row-9',
+        key: 'ACME_API_KEY',
+        updated_at: '2026-10-13T12:00:00Z',
+      },
+    ]);
+    expect(result.data?.secrets?.[0]).not.toHaveProperty('value');
   });
 
   it('should deserialize grant and app_credential_id on get()', async () => {
