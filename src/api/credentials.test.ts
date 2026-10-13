@@ -126,6 +126,8 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]?.connection_scope).toBe(CredentialScopeUser);
     expect(result.data[0]?.app?.grant).toBe(CredentialGrantCredentials);
     expect(result.data[0]?.credential?.grant).toBe(CredentialGrantToken);
+    expect(result.data[0]?.credential).not.toHaveProperty('template');
+    expect(result.data[0]?.app).not.toHaveProperty('template');
     expect(result.data[0]?.credential?.app_credential_id).toBe('cred-app');
     expect(result.data[0]).not.toHaveProperty('grant');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
@@ -185,6 +187,7 @@ describe('CredentialsAPI', () => {
 
     const result = await api().get('slack');
 
+    expect(result.data).not.toHaveProperty('template');
     expect(result.data?.grant).toBe(CredentialGrantToken);
     expect(result.data?.app_credential_id).toBe('cred-slack-app');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
