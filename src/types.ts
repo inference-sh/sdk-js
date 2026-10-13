@@ -2566,8 +2566,9 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   is_primary: boolean;
   error_message?: string;
   /**
-   * Template: the catalogue template of an api_key provider (the empty
-   * platform row teams connect their own key against), never a real key.
+   * Template: retired. It marked the catalogue template of an api_key
+   * provider; the platform api_key auth scheme carries that now and no
+   * row is written with it. Always false; dropped in a later release.
    */
   template: boolean;
   /**
