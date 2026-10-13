@@ -101,6 +101,7 @@ describe('CredentialsAPI', () => {
           display_name: 'GitHub app',
           scopes: [],
           is_primary: false,
+          template: false,
         },
         credential: {
           id: 'cred-login',
@@ -116,6 +117,7 @@ describe('CredentialsAPI', () => {
           display_name: 'GitHub login',
           scopes: ['repo'],
           is_primary: true,
+          template: false,
         },
       },
     ];
@@ -180,11 +182,13 @@ describe('CredentialsAPI', () => {
       display_name: 'Slack',
       scopes: ['chat:write'],
       is_primary: true,
+      template: false,
     };
     mockJsonResponse(credential);
 
     const result = await api().get('slack');
 
+    expect(result.data?.template).toBe(false);
     expect(result.data?.grant).toBe(CredentialGrantToken);
     expect(result.data?.app_credential_id).toBe('cred-slack-app');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
