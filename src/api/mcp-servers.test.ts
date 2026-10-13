@@ -1,9 +1,11 @@
 import { HttpClient } from '../http/client.js';
 import {
+  CredentialScopeTeam,
   ResultTypeComplete,
   ResultTypeInputRequired,
   ToolCallResponse,
   ToolContentTypeText,
+  type MCPServerDTO,
 } from '../types.js';
 import { MCPServersAPI } from './mcp-servers.js';
 
@@ -150,6 +152,76 @@ describe('MCPServersAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/mcps/filesystem');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize nested connection facts on get() (d28ee34)', async () => {
+    const server: MCPServerDTO = {
+      id: 'srv-1',
+      user_id: 'u-1',
+      team_id: 't-1',
+      visibility: 'team',
+      slug: 'notion',
+      name: 'Notion',
+      title: 'Notion',
+      description: '',
+      icon_url: '',
+      server_url: 'https://mcp.example/notion',
+      auth_type: 'oauth',
+      default_scopes: [],
+      documentation_url: '',
+      connection_scope: CredentialScopeTeam,
+      connection: {
+        connection_id: 'conn-1',
+        status: 'connected',
+        scope: CredentialScopeTeam,
+        tool_count: 3,
+        tools_listed_at: '2026-10-13T08:00:00Z',
+        last_called_at: '2026-10-13T08:01:00Z',
+      },
+    };
+    mockJsonResponse(server);
+
+    const result = await api().get('notion');
+    const data = result.data as MCPServerDTO;
+
+    expect(data.connection?.connection_id).toBe('conn-1');
+    expect(data.connection?.tool_count).toBe(3);
+    expect(data.connection?.scope).toBe(CredentialScopeTeam);
+    expect(data.connection_status).toBeUndefined();
+  });
+
+  it('should deserialize nested connection on getOwned() (648d3ff)', async () => {
+    const server: MCPServerDTO = {
+      id: 'mcp-owned-1',
+      user_id: 'u-1',
+      team_id: 't-1',
+      visibility: 'private',
+      slug: 'internal-tools',
+      name: 'Internal',
+      title: 'Internal',
+      description: '',
+      icon_url: '',
+      server_url: 'https://mcp.example/internal',
+      auth_type: 'api_key',
+      default_scopes: [],
+      documentation_url: '',
+      connection_status: 'connected',
+      connection: {
+        connection_id: 'conn-owned',
+        status: 'connected',
+        scope: CredentialScopeTeam,
+        last_error: '',
+      },
+    };
+    mockJsonResponse(server);
+
+    const result = await api().getOwned('mcp-owned-1');
+    const data = result.data as MCPServerDTO;
+
+    expect(data.connection?.connection_id).toBe('conn-owned');
+    expect(data.connection_status).toBe('connected');
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/mcp-servers/mcp-owned-1');
   });
 
   it('should POST /mcp-servers/list for listOwned()', async () => {
