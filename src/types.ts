@@ -2565,6 +2565,21 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   metadata?: { [key: string]: any};
   is_primary: boolean;
   error_message?: string;
+  /**
+   * Secrets are the secret rows linked to the credential (a key's values),
+   * by row and key, never by value. Filled on the vault's api_key configs
+   * and the admin provider tree.
+   */
+  secrets?: CredentialSecretRef[];
+}
+/**
+ * CredentialSecretRef names one secret linked to a credential: the row's
+ * id, the key it is stored under and when its value last changed.
+ */
+export interface CredentialSecretRef {
+  id: string;
+  key: string;
+  updated_at: string /* RFC3339 */;
 }
 /**
  * ProviderSummary is the company a credential slug belongs to: the
