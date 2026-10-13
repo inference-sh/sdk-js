@@ -2597,6 +2597,8 @@ export interface ProviderSummary {
   icon_url?: string;
   website?: string;
   docs_url?: string;
+  terms_url?: string;
+  privacy_url?: string;
 }
 /**
  * CredentialConfigDTO is the merged view: provider catalog + credential state.
