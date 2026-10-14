@@ -217,6 +217,7 @@ describe('CredentialsAPI', () => {
         available: true,
         has_managed: false,
         connection_scope: CredentialScopeTeam,
+        multi_account: false,
       },
     ];
     mockJsonResponse(configs);
@@ -224,10 +225,52 @@ describe('CredentialsAPI', () => {
     const result = await api().getConfigs();
 
     expect(result.data[0]?.connection_scope).toBe(CredentialScopeTeam);
+    expect(result.data[0]?.multi_account).toBe(false);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/credentials/configs');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize multi_account and accounts on listAvailable() catalog rows', async () => {
+    const available = [
+      {
+        slug: 'github',
+        provider: 'github',
+        type: 'oauth',
+        name: 'GitHub',
+        short_name: 'GitHub',
+        description: 'GitHub OAuth',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeUser,
+        multi_account: true,
+        accounts: [
+          {
+            id: 'cred-work',
+            user_id: 'user-1',
+            team_id: 'team-1',
+            visibility: 'private',
+            provider: 'github',
+            type: 'oauth',
+            grant: CredentialGrantToken,
+            scope: CredentialScopeUser,
+            status: 'connected',
+            display_name: 'Work',
+            scopes: ['repo'],
+            is_primary: true,
+          },
+        ],
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.multi_account).toBe(true);
+    expect(result.data[0]?.accounts?.[0]?.id).toBe('cred-work');
+    expect(result.data[0]?.accounts?.[0]?.is_primary).toBe(true);
   });
 
   it('should deserialize auth_scheme_id on getConfigs() merged views', async () => {
