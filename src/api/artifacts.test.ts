@@ -111,6 +111,23 @@ describe('ArtifactsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ shared_version_id: 'v1' });
   });
 
+  it('should surface access and cover_version_id from GET /artifacts/{id}', async () => {
+    const entry = {
+      id: 'art-1',
+      shared_version_id: 'v-shared',
+      cover_version_id: 'v-cover',
+      access: 'interact',
+    };
+    mockJsonResponse(entry);
+
+    const result = await api().get('art-1');
+
+    expect(result.data).toEqual(entry);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/artifacts/art-1');
+    expect(init.method).toBe('GET');
+  });
+
   it('should build render URLs with version and theme', () => {
     expect(api().renderUrl('art-1')).toBe('https://api.test/artifacts/art-1/render');
     expect(api().renderUrl('art-1', { versionId: 'v1', theme: 'dark' })).toBe('https://api.test/artifacts/art-1/render?version=v1&theme=dark');
