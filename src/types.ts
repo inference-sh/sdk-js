@@ -264,14 +264,6 @@ export interface MCPToolConfigDTO {
   credential_id?: string;
 }
 /**
- * AgentImages contains display images for an agent
- */
-export interface AgentImages {
-  card: string;
-  thumbnail: string;
-  banner: string;
-}
-/**
  * CoreAppConfigDTO references an app used as the agent's core
  */
 export interface CoreAppConfigDTO {
@@ -292,7 +284,7 @@ export interface AgentDTO extends BaseModelDTO, PermissionModelDTO, ProjectModel
    * Title is the human-readable name; empty falls back to Name.
    */
   title: string;
-  images: AgentImages;
+  images: ResourceImages;
   version_id: string;
   version?: AgentVersionDTO;
   /**
@@ -342,7 +334,7 @@ export interface CreateAgentRequest {
   id?: string;
   name: string;
   title?: string;
-  images?: AgentImages;
+  images?: ResourceImages;
   visibility?: Visibility;
   /**
    * Harness runs the agent: "inference" (ours) or an external harness.
@@ -557,7 +549,7 @@ export interface CreateAppRequest {
   description?: string;
   agent_description?: string;
   category?: AppCategory;
-  images?: AppImages;
+  images?: ResourceImages;
   /**
    * Tags replace the app's tags when given; omitted, a deploy takes them
    * from the version's metadata.tags, and keeps the stored ones if that is
@@ -1493,14 +1485,6 @@ export interface AppFunction {
   annotations?: ToolAnnotations;
 }
 /**
- * AppImages holds developer-provided images for the app.
- */
-export interface AppImages {
-  card: string;
-  thumbnail: string;
-  banner: string;
-}
-/**
  * AppGPUResource describes GPU requirements.
  */
 export interface AppGPUResource {
@@ -1597,7 +1581,7 @@ export interface AppDTO extends BaseModelDTO, PermissionModelDTO {
   description: string;
   agent_description: string;
   category: AppCategory;
-  images: AppImages;
+  images: ResourceImages;
   /**
    * Tags name what the app does and its traits, as lowercase slugs
    * (text-to-image, open-weights). GET /store/tags lists the ones in use
@@ -1762,24 +1746,12 @@ export interface PublicAppStoreDTO {
    */
   title: string;
   description: string;
-  images: AppImages;
+  images: ResourceImages;
   is_featured: boolean;
   rank: number /* int */;
   has_approved_version: boolean;
   page_id?: string;
   pricing_description?: string;
-}
-/**
- * ResourceImages is the display-image set every listable resource carries:
- * a card image for grids, a thumbnail for dense rows, a banner for headers.
- * AppImages and AgentImages predate this and hold the same three fields;
- * they should collapse onto this type, but aliasing them changes what
- * gotypegen emits for existing consumers, so that migration is separate.
- */
-export interface ResourceImages {
-  card: string;
-  thumbnail: string;
-  banner: string;
 }
 /**
  * ArtifactDTO is the API shape of an artifact entry.
@@ -1802,12 +1774,6 @@ export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
    * apps and agents. The favicon stays the rendered page's tab icon.
    */
   images: ResourceImages;
-  /**
-   * ImagesDark is the cover for a dark theme, set only by a capture of a
-   * page that looks different in dark. Empty means Images serve both
-   * themes.
-   */
-  images_dark?: ResourceImages;
   /**
    * VersionID points at the latest published version.
    */
@@ -2128,6 +2094,21 @@ export interface ResourceStatusDTO {
   id: string;
   status: any;
   updated_at: string /* RFC3339 */;
+}
+/**
+ * ResourceImages is the display-image set every listable resource carries
+ * (apps, agents, artifacts): a card image for grids, a thumbnail for dense
+ * rows, a banner for headers.
+ */
+export interface ResourceImages {
+  card: string;
+  thumbnail: string;
+  banner: string;
+  /**
+   * Dark holds the same slots for a dark theme. Nil means the slots above
+   * serve both themes.
+   */
+  dark?: ResourceImages;
 }
 /**
  * AvailabilityResponse answers "can I use this name?" — for page slugs, team

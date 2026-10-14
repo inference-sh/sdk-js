@@ -14,7 +14,7 @@
  */
 import type {
   AgentConfigInput,
-  AgentImages,
+  ResourceImages,
   AppDTO,
   ChatDTO,
   CredentialRequirements,
@@ -34,7 +34,7 @@ import type {
  */
 export interface AgentUpdateBody {
   visibility?: Visibility;
-  images?: AgentImages;
+  images?: ResourceImages;
   version?: AgentConfigInput;
 }
 
