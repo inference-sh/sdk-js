@@ -4761,6 +4761,26 @@ export interface SecretDTO extends BaseModelDTO, PermissionModelDTO {
    * a plain secret.
    */
   credential_id?: string;
+  /**
+   * The four below are read from the credential a listing preloads; a
+   * row read without it leaves them empty.
+   * Provider is the slug of the credential the secret belongs to.
+   */
+  provider?: string;
+  /**
+   * ProviderName is that credential's display name ("Anthropic").
+   */
+  provider_name?: string;
+  /**
+   * Label is the credential's account identifier: a key's label.
+   */
+  label?: string;
+  /**
+   * CredentialDefault is whether the credential is its owner's default.
+   * Always serialised: a linked non-default row and an unlabelled row
+   * must not read the same.
+   */
+  credential_default: boolean;
 }
 /**
  * SensitiveString is a string type that prevents accidental exposure of secrets.
