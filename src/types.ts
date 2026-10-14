@@ -1801,6 +1801,12 @@ export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
    */
   shared_version_id?: string;
   /**
+   * CoverVersionID is the version a captured cover shows. Empty means the
+   * cover (if any) was set by a person or agent, and a capture never
+   * replaces it.
+   */
+  cover_version_id?: string;
+  /**
    * Capabilities declared by the latest version (runtime features the page
    * may use). Reserved for the artifact runtime; opaque to the API.
    */
@@ -1810,6 +1816,11 @@ export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
    * URL is the canonical viewer URL for this artifact.
    */
   url?: string;
+  /**
+   * Access is the viewer's level on this artifact: read, interact (may
+   * change its data) or write (may edit it). Set on single reads only.
+   */
+  access?: Permission;
 }
 /**
  * ArtifactVersionDTO is one immutable publish of an artifact.
@@ -6073,9 +6084,15 @@ export const VisibilityUnlisted: Visibility = "unlisted";
 /**
  * Permission represents a permission level for access checks.
  */
-export type Permission = "read" | "write" | "use";
+export type Permission = "read" | "write" | "interact" | "use";
 export const PermRead: Permission = "read";
 export const PermWrite: Permission = "write";
+/**
+ * PermInteract changes what a page's people keep in it (an artifact's
+ * shared data) without editing the page. Write covers interact, and
+ * interact covers read; public and unlisted visibility grant read only.
+ */
+export const PermInteract: Permission = "interact";
 /**
  * PermUse is execute intent: run an app, load a skill/knowledge into an
  * agent context, invoke an MCP tool. Distinct from read — a public
