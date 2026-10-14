@@ -84,8 +84,13 @@ describe('SecretsAPI', () => {
   it('should deserialize credential_id on list() responses', async () => {
     const page = {
       items: [
-        { key: 'PLAIN_KEY', masked_value: '****' },
-        { key: 'LINKED_KEY', masked_value: '****', credential_id: 'cred-github-1' },
+        { key: 'PLAIN_KEY', masked_value: '****', credential_default: false },
+        {
+          key: 'LINKED_KEY',
+          masked_value: '****',
+          credential_id: 'cred-github-1',
+          credential_default: false,
+        },
       ],
       next_cursor: null,
     };
@@ -94,7 +99,49 @@ describe('SecretsAPI', () => {
     const result = await api().list();
 
     expect(result.data.items[0].credential_id).toBeUndefined();
+    expect(result.data.items[0].credential_default).toBe(false);
     expect(result.data.items[1].credential_id).toBe('cred-github-1');
+    expect(result.data.items[1].credential_default).toBe(false);
+  });
+
+  it('should deserialize provider metadata and credential_default on list() provider-linked rows', async () => {
+    const page = {
+      items: [
+        {
+          key: 'GOOGLE_SA_JSON',
+          masked_value: '****',
+          credential_id: 'cred-google-prod',
+          provider: 'google',
+          provider_name: 'Google',
+          label: 'prod',
+          credential_default: false,
+        },
+        {
+          key: 'GITHUB_TOKEN',
+          masked_value: '****',
+          credential_id: 'cred-github-default',
+          provider: 'github',
+          provider_name: 'GitHub',
+          credential_default: true,
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    const labeled = result.data.items[0];
+    expect(labeled.provider).toBe('google');
+    expect(labeled.provider_name).toBe('Google');
+    expect(labeled.label).toBe('prod');
+    expect(labeled.credential_default).toBe(false);
+
+    const defaultKey = result.data.items[1];
+    expect(defaultKey.provider).toBe('github');
+    expect(defaultKey.provider_name).toBe('GitHub');
+    expect(defaultKey.label).toBeUndefined();
+    expect(defaultKey.credential_default).toBe(true);
   });
 
   it('should PUT /secrets/{key} for update()', async () => {
