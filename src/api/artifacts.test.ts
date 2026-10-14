@@ -111,6 +111,30 @@ describe('ArtifactsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ shared_version_id: 'v1' });
   });
 
+  it('should deserialize images_dark from GET /artifacts/{id}', async () => {
+    const entry = {
+      id: 'art-themed',
+      images: {
+        card: 'https://cdn.test/card-light.png',
+        thumbnail: 'https://cdn.test/thumb-light.png',
+        banner: 'https://cdn.test/banner-light.png',
+      },
+      images_dark: {
+        card: 'https://cdn.test/card-dark.png',
+        thumbnail: 'https://cdn.test/thumb-dark.png',
+        banner: 'https://cdn.test/banner-dark.png',
+      },
+    };
+    mockJsonResponse(entry);
+
+    const result = await api().get('art-themed');
+
+    expect(result.data).toEqual(entry);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/artifacts/art-themed');
+    expect(init.method).toBe('GET');
+  });
+
   it('should build render URLs with version and theme', () => {
     expect(api().renderUrl('art-1')).toBe('https://api.test/artifacts/art-1/render');
     expect(api().renderUrl('art-1', { versionId: 'v1', theme: 'dark' })).toBe('https://api.test/artifacts/art-1/render?version=v1&theme=dark');
