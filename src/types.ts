@@ -756,6 +756,12 @@ export interface SecretCreateRequest {
    */
   provider_name?: string;
   provider_website?: string;
+  /**
+   * Label names this key among the owner's keys for Provider (prod,
+   * personal): a new label adds a key beside the others, the same label
+   * replaces that key's value. Empty: the owner's default key.
+   */
+  label?: string;
 }
 /**
  * SecretProviderRequest attaches an existing secret to a provider's
@@ -767,6 +773,11 @@ export interface SecretProviderRequest {
   connection_scope?: CredentialScope;
   provider_name?: string;
   provider_website?: string;
+  /**
+   * Label names the key among the owner's keys for Provider, as on
+   * SecretCreateRequest. Empty: the owner's default key.
+   */
+  label?: string;
 }
 export interface SecretUpdateRequest {
   value: string;
@@ -2666,6 +2677,12 @@ export interface CredentialConfigDTO {
    * connected.
    */
   accounts?: (CredentialDTO | undefined)[];
+  /**
+   * MultiAccount: several accounts of this provider can be connected side
+   * by side, each addressed by its account_id; the default (is_primary) is
+   * used where none is named.
+   */
+  multi_account: boolean;
 }
 /**
  * SecretFieldConfig defines a secret field for the UI
