@@ -1792,6 +1792,12 @@ export interface ArtifactDTO extends BaseModelDTO, PermissionModelDTO {
    */
   images: ResourceImages;
   /**
+   * ImagesDark is the cover for a dark theme, set only by a capture of a
+   * page that looks different in dark. Empty means Images serve both
+   * themes.
+   */
+  images_dark?: ResourceImages;
+  /**
    * VersionID points at the latest published version.
    */
   version_id: string;
