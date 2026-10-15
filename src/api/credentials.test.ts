@@ -136,7 +136,7 @@ describe('CredentialsAPI', () => {
 
   it('should POST /credentials for connect()', async () => {
     const payload = { provider: 'slack', config: { token: 'xoxb-123' } };
-    const response = { credential: { provider: 'slack' }, redirect_url: null };
+    const response = { credential: { provider: 'slack' }, auth_url: null };
     mockJsonResponse(response);
 
     const result = await api().connect(payload as never);
@@ -156,7 +156,7 @@ describe('CredentialsAPI', () => {
       scopes: ['repo'],
       connection_scope: CredentialScopeTeam,
     };
-    const response = { credential: { provider: 'github' }, redirect_url: 'https://github.com/login/oauth/authorize' };
+    const response = { credential: { provider: 'github' }, auth_url: 'https://github.com/login/oauth/authorize' };
     mockJsonResponse(response);
 
     const result = await api().connect(payload);
@@ -265,11 +265,11 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
-  it('should POST typed credential requirements with secrets and scopes for checkRequirements()', async () => {
+  it('should POST slug credential requirements with secrets and scopes for checkRequirements()', async () => {
     const payload = {
       credentials: [
         {
-          key: CredentialProviderGoogleSA,
+          slug: CredentialProviderGoogleSA,
           secrets: ['GOOGLE_SA_JSON'],
           scopes: ['https://www.googleapis.com/auth/calendar'],
         },
