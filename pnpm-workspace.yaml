@@ -1,0 +1,7 @@
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  unrs-resolver: set this to true or false
+# Security overrides for dev-only transitive dependencies (dependabot alerts).
+overrides:
+  'cookie@<0.7.0': ^0.7.2
+  'brace-expansion@>=2.0.0 <2.1.7': ^2.1.7
