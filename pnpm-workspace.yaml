@@ -1,6 +1,11 @@
+# sdk-js is its own pnpm workspace root once this file exists, so it does not
+# inherit the js workspace's allowBuilds; keep the build-script approvals that
+# root grants for sdk-js's dev deps, or a nested `pnpm install` fails with
+# ERR_PNPM_IGNORED_BUILDS (it broke the app image build).
 allowBuilds:
-  '@parcel/watcher': set this to true or false
-  unrs-resolver: set this to true or false
+  "@parcel/watcher": true
+  unrs-resolver: true
+
 # Security overrides for dev-only transitive dependencies (dependabot alerts).
 overrides:
   'cookie@<0.7.0': ^0.7.2
