@@ -1615,6 +1615,73 @@ describe('Agent.sendMessage (file attachments)', () => {
     expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/files')).length).toBe(0);
   });
 
+  it('should send text-only MessageInput when no files are attached', async () => {
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
+    });
+
+    await agent().sendMessage('plain text', { stream: false });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.input).toEqual({ text: 'plain text' });
+    expect(body.input).not.toHaveProperty('attachments');
+    expect(body.input).not.toHaveProperty('images');
+    expect(body.input).not.toHaveProperty('files');
+  });
+
+  it('should preserve FileRef size when mapping attachments', async () => {
+    const sizedFile: FileDTO = {
+      id: 'file-sized',
+      uri: 'inf://files/sized',
+      filename: 'data.bin',
+      content_type: 'application/octet-stream',
+      size: 4096,
+    } as FileDTO;
+
+    mockJsonResponse({
+      user_message: makeMessage({ id: 'user-1', role: 'user' }),
+      assistant_message: makeMessage(),
+    });
+    mockJsonResponse({ status: ChatStatusBusy });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusBusy, active_run: workingRun, chat_messages: [],
+    });
+    mockJsonResponse({ status: ChatStatusIdle });
+    mockJsonResponse({
+      id: 'chat-1', status: ChatStatusIdle, chat_messages: [],
+    });
+
+    await agent().sendMessage('with size', { stream: false, files: [sizedFile] });
+
+    const runCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/agents/run')
+    ) as [string, RequestInit];
+    const body = JSON.parse(String(runCall[1].body));
+
+    expect(body.input.attachments).toEqual([
+      {
+        id: 'file-sized',
+        uri: 'inf://files/sized',
+        filename: 'data.bin',
+        content_type: 'application/octet-stream',
+        size: 4096,
+      },
+    ]);
+  });
+
   it('should upload Blob attachments before POST /agents/run', async () => {
     const fileRecord = {
       id: 'file-blob',
@@ -2361,6 +2428,15 @@ describe('AgentsAPI.submitToolResult', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ result: 'shot', attachments: [ref] });
+  });
+
+  it('should omit empty attachments from the POST body', async () => {
+    mockJsonResponse(null);
+
+    await api().submitToolResult('inv-empty', 'shot', []);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ result: 'shot' });
   });
 });
 

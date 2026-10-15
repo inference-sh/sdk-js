@@ -457,6 +457,22 @@ describe('MCPToolBuilder (mcpTool)', () => {
 
     expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search', credential_id: 'cred-1' });
   });
+
+  it('supports legacy mcpTool(name, credentialId, toolName) without server slug (0e728c6)', () => {
+    const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
+
+    expect(t.type).toBe(ToolTypeMCP);
+    expect(t.mcp).toEqual({ credential_id: 'int-mcp-1', tool_name: 'search' });
+    expect(t.mcp).not.toHaveProperty('server');
+    expect(t.description).toBe('Search docs');
+  });
+
+  it('omits server and credential_id when only server slug and tool are set', () => {
+    const t = mcpTool('list_files', { server: 'filesystem', toolName: 'list' }).build();
+
+    expect(t.mcp).toEqual({ server: 'filesystem', tool_name: 'list' });
+    expect(t.mcp).not.toHaveProperty('credential_id');
+  });
 });
 
 describe('WebhookToolBuilder (webhookTool)', () => {
