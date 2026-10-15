@@ -75,6 +75,38 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]).not.toHaveProperty('custom_provider_id');
   });
 
+  it('should deserialize company and provider_info on listAvailable() (INF-1079)', async () => {
+    const company = {
+      slug: 'notion-labs',
+      name: 'Notion',
+      icon_url: 'https://cdn.example/notion.png',
+      website: 'https://notion.so',
+    };
+    const available = [
+      {
+        slug: 'notion',
+        provider: 'notion',
+        provider_info: company,
+        company,
+        type: 'oauth2',
+        name: 'Notion',
+        short_name: 'Notion',
+        description: 'Workspace docs',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeTeam,
+        multi_account: false,
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.company).toEqual(company);
+    expect(result.data[0]?.provider_info).toEqual(company);
+  });
+
   it('should deserialize connection_scope and nested app/credential grants on listAvailable()', async () => {
     const available = [
       {
