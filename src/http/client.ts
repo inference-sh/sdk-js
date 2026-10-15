@@ -75,6 +75,41 @@ export interface HttpClientConfig {
   pollIntervalMs?: number;
 }
 
+/** How long to wait before each new try of a read that got no response. */
+const NETWORK_RETRY_DELAYS_MS = [300, 1000];
+
+/**
+ * fetch, sending a GET or HEAD that got no response again after each of
+ * NETWORK_RETRY_DELAYS_MS: a dropped connection or a network change fails a
+ * read that would succeed a moment later, and a read changes nothing on the
+ * server, so sending it again is safe. fetch rejects with a TypeError only
+ * when no response came; a response of any status, an abort, or a request
+ * of another method is the caller's at once.
+ */
+function fetchRetryingReads(input: string | URL, init: RequestInit, attempt = 0): Promise<globalThis.Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const read = method === 'GET' || method === 'HEAD';
+  const sent = fetch(input, init);
+  if (!read) return sent;
+  return sent.catch(async (error: unknown) => {
+    const delay = NETWORK_RETRY_DELAYS_MS[attempt];
+    if (delay === undefined || !(error instanceof TypeError) || init.signal?.aborted) throw error;
+    await wait(delay, init.signal);
+    return fetchRetryingReads(input, init, attempt + 1);
+  });
+}
+
+/** Resolves after ms, or rejects with the abort when signal aborts first. */
+function wait(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
 /**
  * Low-level HTTP client for inference.sh API
  *
@@ -240,7 +275,7 @@ export class HttpClient {
     init: HttpFetchInit,
     refused: 'throw' | 'return'
   ): Promise<globalThis.Response> {
-    const send = (token: string | undefined) => fetch(url, {
+    const send = (token: string | undefined) => fetchRetryingReads(url, {
       ...init,
       headers: { ...init.headers, ...this.requestHeaders(targetUrl, token) },
       credentials: this.credentials,
@@ -337,7 +372,7 @@ export class HttpClient {
       fetchOptions.body = JSON.stringify(options.data);
     }
 
-    const response = await fetch(fetchUrl, fetchOptions);
+    const response = await fetchRetryingReads(fetchUrl, fetchOptions);
     const responseText = await response.text();
 
     let data: any = null;

@@ -221,10 +221,72 @@ describe('HttpClient', () => {
       const failure = new TypeError('Failed to fetch');
       mockFetch.mockRejectedValueOnce(failure);
 
-      await expect(new HttpClient({ apiKey: 'key', onError }).request('get', '/tasks/1', { handleErrors: false })).rejects.toBe(failure);
+      await expect(new HttpClient({ apiKey: 'key', onError }).request('post', '/tasks/1', { handleErrors: false })).rejects.toBe(failure);
 
       expect(onError).not.toHaveBeenCalled();
       expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    describe('a read that got no response', () => {
+      beforeEach(() => jest.useFakeTimers());
+      afterEach(() => jest.useRealTimers());
+
+      const ok = () => ({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ data: { id: '1' } })) });
+
+      it('should be sent again after a dropped connection and resolve with the answer', async () => {
+        const onError = jest.fn();
+        mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(ok());
+
+        const result = new HttpClient({ apiKey: 'key', onError }).request('get', '/tasks/1');
+        await jest.advanceTimersByTimeAsync(300);
+
+        await expect(result).resolves.toEqual({ data: { id: '1' }, messages: [] });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(onError).not.toHaveBeenCalled();
+      });
+
+      it('should go to onError once the network has dropped it three times', async () => {
+        const failure = new TypeError('Failed to fetch');
+        const onError = jest.fn(async (error: unknown) => { throw error; });
+        mockFetch.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+
+        const result = new HttpClient({ apiKey: 'key', onError }).request('get', '/tasks/1');
+        const settled = expect(result).rejects.toBe(failure);
+        await jest.advanceTimersByTimeAsync(1300);
+        await settled;
+
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(onError).toHaveBeenCalledTimes(1);
+      });
+
+      it('should not send a write again: the server may have acted on it', async () => {
+        const failure = new TypeError('Failed to fetch');
+        mockFetch.mockRejectedValueOnce(failure);
+
+        await expect(new HttpClient({ apiKey: 'key' }).request('post', '/tasks/1', { data: { x: 1 } })).rejects.toBe(failure);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should not send a read again when the failure is not the network', async () => {
+        const failure = new Error('boom');
+        mockFetch.mockRejectedValueOnce(failure);
+
+        await expect(new HttpClient({ apiKey: 'key' }).request('get', '/tasks/1')).rejects.toBe(failure);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should stop waiting to send it again when the caller aborts', async () => {
+        const controller = new AbortController();
+        const reason = new Error('left the page');
+        mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+        const result = new HttpClient({ apiKey: 'key' }).fetch('/tasks/1/stream', { signal: controller.signal });
+        const settled = expect(result).rejects.toBe(reason);
+        await jest.advanceTimersByTimeAsync(100);
+        controller.abort(reason);
+        await settled;
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('should throw RequirementsNotMetException for 412 without onError when handleErrors is false', async () => {
@@ -730,10 +792,17 @@ describe('HttpClient', () => {
       const onError = jest.fn(async (_error: unknown, retry: () => Promise<unknown>, _request: FailedRequest) => retry());
       const httpClient = new HttpClient({ apiKey: 'key', onError });
 
-      mockFetch.mockRejectedValueOnce(failure);
+      mockFetch.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
       const retried = mockRawResponse(200, '');
 
-      await expect(httpClient.fetch('/tasks/task-1/stream')).resolves.toBe(retried);
+      jest.useFakeTimers();
+      try {
+        const result = httpClient.fetch('/tasks/task-1/stream');
+        await jest.advanceTimersByTimeAsync(1300);
+        await expect(result).resolves.toBe(retried);
+      } finally {
+        jest.useRealTimers();
+      }
       expect(onError).toHaveBeenCalledWith(failure, expect.any(Function), { token: 'key' });
     });
 
@@ -741,9 +810,16 @@ describe('HttpClient', () => {
       const failure = new TypeError('Failed to fetch');
       const httpClient = new HttpClient({ apiKey: 'key', onError: async () => undefined });
 
-      mockFetch.mockRejectedValueOnce(failure);
+      mockFetch.mockRejectedValueOnce(failure).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
 
-      await expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toBe(failure);
+      jest.useFakeTimers();
+      try {
+        const settled = expect(httpClient.fetch('/tasks/task-1/stream')).rejects.toBe(failure);
+        await jest.advanceTimersByTimeAsync(1300);
+        await settled;
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('should not hand a request its caller aborted to onError', async () => {
