@@ -358,6 +358,50 @@ describe('createActions', () => {
       );
     });
 
+    it('omits attachments when the handler returns an empty attachments array', async () => {
+      const handler = jest.fn().mockResolvedValue({ result: 'no files', attachments: [] });
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () => new Map([['screenshot', handler]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-inv-empty-files',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusInProgress,
+              function: { name: 'screenshot', arguments: {} },
+            },
+          ],
+        })
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-empty-files',
+        'no files'
+      );
+      expect(mockAgentApi.submitToolResult).not.toHaveBeenCalledWith(
+        ctx.client,
+        'tool-inv-empty-files',
+        'no files',
+        []
+      );
+    });
+
     it('sends a client tool result again when the network drops it', async () => {
       jest.useFakeTimers();
       try {
