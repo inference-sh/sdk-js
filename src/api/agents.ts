@@ -465,10 +465,10 @@ export class Agent {
     // the two apart.
     const unchanged = {} as ChatDTO;
 
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       this.poller?.stop();
 
-      this.poller = new PollManager<ChatDTO>({
+      const poller: PollManager<ChatDTO> = new PollManager<ChatDTO>({
         pollFunction: async () => {
           // Lightweight status check first
           const statusResp = await this.http.request<ResourceStatusDTO>('get', `/chats/${this.chatId}/status`);
@@ -526,9 +526,18 @@ export class Agent {
         onError: (error) => {
           console.warn('[Agent] Poll error:', error);
         },
+        // PollManager gave up after maxRetries consecutive errors: it has
+        // already stopped polling, so fail the turn once. A caller stop
+        // (disconnect, abort, a newer turn) passes no error.
+        onStop: (error) => {
+          if (!error) return;
+          if (this.poller === poller) this.poller = null;
+          reject(error);
+        },
       });
 
-      this.poller.start();
+      this.poller = poller;
+      poller.start();
     });
   }
 }

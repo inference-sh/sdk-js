@@ -20,8 +20,12 @@ export interface PollManagerOptions<T> {
   onError?: (error: Error) => void;
   /** Called when polling starts */
   onStart?: () => void;
-  /** Called when polling stops (intentionally or after max retries) */
-  onStop?: () => void;
+  /**
+   * Called once when polling stops. `error` is the last poll error when the
+   * manager gave up after `maxRetries` consecutive errors; it is undefined
+   * when the caller stopped it.
+   */
+  onStop?: (error?: Error) => void;
 }
 
 export class PollManager<T> {
@@ -53,10 +57,14 @@ export class PollManager<T> {
 
   /** Stop polling and clean up. */
   stop(): void {
+    this.halt();
+  }
+
+  private halt(error?: Error): void {
     if (this.isStopped) return;
     this.isStopped = true;
     this.cleanup();
-    this.options.onStop?.();
+    this.options.onStop?.(error);
   }
 
   private cleanup(): void {
@@ -87,7 +95,7 @@ export class PollManager<T> {
       this.options.onError?.(error);
 
       if (this.consecutiveErrors >= this.options.maxRetries) {
-        this.stop();
+        this.halt(error);
       }
     }
   }

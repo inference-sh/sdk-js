@@ -539,7 +539,7 @@ describe('Agent.sendMessage (polling mode)', () => {
     expect(output).toBeNull();
   });
 
-  it('should warn on repeated poll errors without resolving sendMessage', async () => {
+  it('should reject once and stop polling after repeated poll errors', async () => {
     jest.useFakeTimers();
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -547,24 +547,32 @@ describe('Agent.sendMessage (polling mode)', () => {
       user_message: makeMessage({ id: 'user-1', role: 'user' }),
       assistant_message: makeMessage(),
     });
-    mockFetch.mockRejectedValue(new Error('status endpoint down'));
+    const pollError = new Error('status endpoint down');
+    mockFetch.mockRejectedValue(pollError);
 
     const sendPromise = agent().sendMessage('hello', { stream: false });
+    let outcome: 'pending' | 'resolved' | unknown = 'pending';
+    sendPromise.then(
+      () => { outcome = 'resolved'; },
+      (err) => { outcome = err; },
+    );
 
-    for (let i = 0; i < 6; i++) {
-      await Promise.resolve();
-      jest.advanceTimersByTime(20);
-      await Promise.resolve();
+    // PollManager's default maxRetries is 5; run well past it.
+    for (let i = 0; i < 10; i++) {
+      await jest.advanceTimersByTimeAsync(20);
     }
 
     expect(warnSpy).toHaveBeenCalledWith('[Agent] Poll error:', expect.any(Error));
+    const errorsBefore = warnSpy.mock.calls.length;
+    expect(errorsBefore).toBe(5);
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toContain('status endpoint down');
 
-    let settled = false;
-    sendPromise.then(() => {
-      settled = true;
-    });
-    await Promise.resolve();
-    expect(settled).toBe(false);
+    // The poller stopped: no further polls after the rejection.
+    const fetchesAfterReject = mockFetch.mock.calls.length;
+    await jest.advanceTimersByTimeAsync(200);
+    expect(mockFetch.mock.calls.length).toBe(fetchesAfterReject);
+    expect(warnSpy.mock.calls.length).toBe(errorsBefore);
 
     warnSpy.mockRestore();
     jest.useRealTimers();

@@ -83,8 +83,20 @@ describe('PollManager', () => {
     await Promise.resolve();
 
     expect(onError).toHaveBeenCalledTimes(3);
-    expect(onStop).toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onStop.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(onStop.mock.calls[0][0].message).toBe('network error');
     expect(pollFunction.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('should call onStop without an error when stopped by the caller', () => {
+    const onStop = jest.fn();
+    const manager = new PollManager({ pollFunction: jest.fn().mockResolvedValue({}), onStop });
+    manager.start();
+    manager.stop();
+    manager.stop();
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onStop).toHaveBeenCalledWith(undefined);
   });
 
   it('should not invoke onData after stop', async () => {
