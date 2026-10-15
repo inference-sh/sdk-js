@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-15
+
+### Changed
+- Types regenerated for the credentials vocabulary (INF-1079): `AuthSchemeDTO`, `AuthSchemeCreateRequest`, `AuthSchemeUpdateRequest`, `AuthSchemeHooksDTO`, `AuthSchemeSeedResult` are now `AuthProviderDTO`, `AuthProviderCreateRequest`, `AuthProviderUpdateRequest`, `AuthProviderHooksDTO`, `AuthProviderSeedResult`; `AuthSchemeSpec` and its `AuthScheme*` enums are `AuthMethod` and `AuthMethod*`; `ProviderDTO`, `ProviderSeed`, `ProviderSummary`, `ProviderTreeDTO`, `ProviderUpsertRequest`, `ProviderCategory`, `ProviderStatus` are `Company*`. `CredentialConfigDTO.company` is the company (`provider_info` still carries the same value, deprecated). Wire formats are unchanged.
+- `pollUntilIdle` rejects once and stops polling when the run fails; `sendMessage({ stream: false })` no longer hangs forever (99075b7).
+- Test mocks tidied (70cce44); dependabot overrides and `allowBuilds` in the pnpm workspace (75be627, 54b7ce1).
+
 ## [0.27.0] - 2026-10-13
 
 ### Changed
