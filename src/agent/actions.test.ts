@@ -499,6 +499,48 @@ describe('createActions', () => {
       }
     });
 
+    it('retries on HTTP 408 request timeouts', async () => {
+      jest.useFakeTimers();
+      try {
+        const handler = jest.fn().mockResolvedValue('tool ok');
+        mockAgentApi.submitToolResult
+          .mockRejectedValueOnce(Object.assign(new Error('gateway timeout'), { statusCode: 408 }))
+          .mockResolvedValueOnce(undefined);
+        const { ctx } = createTestContext({
+          getClientToolHandlers: () => new Map([['my_tool', handler]]),
+        });
+        const { internalActions } = createActions(ctx);
+
+        internalActions.streamChat('chat-full-id-123');
+        await Promise.resolve();
+
+        const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+          ([event]) => event === 'chat_messages'
+        )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+        onMessage(
+          makeMessage({
+            chat_id: 'chat-short',
+            tool_invocations: [
+              {
+                id: 'tool-inv-408',
+                type: ToolTypeClient,
+                status: ToolInvocationStatusInProgress,
+                function: { name: 'my_tool', arguments: {} },
+              },
+            ],
+          })
+        );
+
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(mockAgentApi.submitToolResult).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('retries on HTTP 429 rate limits', async () => {
       jest.useFakeTimers();
       try {
