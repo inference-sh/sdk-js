@@ -2682,6 +2682,29 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(result.data.harness).toBe('inference');
   });
 
+  it('should preserve images.dark on get() responses', async () => {
+    const agent = {
+      id: 'agent-themed',
+      name: 'support-bot',
+      harness: 'inference',
+      images: {
+        card: 'https://cdn.test/card-light.png',
+        thumbnail: 'https://cdn.test/thumb-light.png',
+        banner: 'https://cdn.test/banner-light.png',
+        dark: {
+          card: 'https://cdn.test/card-dark.png',
+          thumbnail: 'https://cdn.test/thumb-dark.png',
+          banner: 'https://cdn.test/banner-dark.png',
+        },
+      },
+    };
+    mockJsonResponse(agent);
+
+    const result = await api().get('agent-themed');
+
+    expect(result.data.images.dark?.thumbnail).toBe('https://cdn.test/thumb-dark.png');
+  });
+
   it('should preserve profile_id and remote_id on agent get() responses', async () => {
     const agent = {
       id: 'agent-1',

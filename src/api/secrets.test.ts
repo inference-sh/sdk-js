@@ -81,6 +81,23 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward label in create() for named provider secret keys', async () => {
+    const payload = {
+      key: 'GOOGLE_SA_JSON',
+      value: '{"type":"service_account"}',
+      provider: 'google',
+      label: 'prod',
+    };
+    const secret = { key: 'GOOGLE_SA_JSON', credential_id: 'cred-google-prod' };
+    mockJsonResponse(secret);
+
+    const result = await api().create(payload);
+
+    expect(result.data.credential_id).toBe('cred-google-prod');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should deserialize credential_id on list() responses', async () => {
     const page = {
       items: [
