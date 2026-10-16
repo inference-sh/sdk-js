@@ -6,7 +6,7 @@
 
 import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types.js';
 import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types.js';
-import { isRunInterrupted, isRunWorking } from '../utils.js';
+import { isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils.js';
 import type { AgentChatState, ChatAction } from './types.js';
 
 function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
@@ -27,6 +27,26 @@ function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
 function normalizeMessage(message: ChatMessageDTO, existing?: ChatMessageDTO): ChatMessageDTO {
   if (message.content != null) return message;
   return { ...message, content: existing?.content ?? [] };
+}
+
+/**
+ * Streamed text only grows until the message is done. Deltas build the text
+ * locally, while a message update carries the server's saved copy, which can
+ * lag behind them (often still empty). Taking that copy as-is blanks the text
+ * until the next delta, so while the message is still generating, a text
+ * that is an earlier version of what is shown keeps what is shown. Once the
+ * message is terminal the server's copy is final and wins.
+ */
+function keepStreamedText(updated: ChatMessageDTO, existing: ChatMessageDTO): ChatMessageDTO {
+  if (isMessageTerminal(updated.status)) return updated;
+  const shown = existing.content.find((c) => c.type === 'text')?.text;
+  if (!shown) return updated;
+  const incoming = updated.content.find((c) => c.type === 'text');
+  if (incoming?.text && !shown.startsWith(incoming.text)) return updated;
+  const content = incoming
+    ? updated.content.map((c) => (c === incoming ? { ...c, text: shown } : c))
+    : [{ type: 'text' as const, text: shown }, ...updated.content];
+  return { ...updated, content };
 }
 
 const normalizeMessages = (messages: ChatMessageDTO[]) => messages.map((m) => normalizeMessage(m));
@@ -130,9 +150,10 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const existingIndex = state.messages.findIndex((m) => m.id === message.id);
       if (existingIndex !== -1) {
         const existing = state.messages[existingIndex];
-        const updated = action.partial
-          ? normalizeMessage({ ...existing, ...message }, existing)
-          : normalizeMessage(message);
+        const updated = keepStreamedText(
+          action.partial ? normalizeMessage({ ...existing, ...message }, existing) : normalizeMessage(message),
+          existing,
+        );
         if (existing === updated) return state;
         const newMessages = [...state.messages];
         newMessages[existingIndex] = updated;
@@ -157,6 +178,9 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const target = msgs.find(m => m.id === messageId);
       if (!target) return state;
       const textBlock = target.content.find(c => c.type === 'text');
+      // Deltas from a stream joined mid-message start partway; the message
+      // update already showed more, so keep it until they catch up.
+      if (textBlock?.text && textBlock.text.startsWith(output.response ?? '')) return state;
       const newContent = textBlock
         ? target.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
         : [{ type: 'text' as const, text: output.response }, ...target.content];

@@ -556,3 +556,31 @@ describe('chatReducer message ingress: content is always an array', () => {
     expect(next.messages[0].content).toEqual([{ type: 'text', text: 'message m1' }]);
   });
 });
+
+describe('chatReducer streamed text never shrinks while generating', () => {
+  const generating = (text: string | null, status = 'generating') =>
+    ({ ...makeMessage('a1', 2), role: 'assistant', status, content: text === null ? [] : [{ type: 'text', text }] }) as ChatMessageDTO;
+  const textOf = (s: ReturnType<typeof chatReducer>) => s.messages[0].content.find((c) => c.type === 'text')?.text;
+  const streamed = (text: string) =>
+    chatReducer({ ...initialState, messages: [generating('')] }, { type: 'DELTA_TOKEN', payload: { messageId: 'a1', output: { response: text } } });
+
+  it('keeps the streamed text when an update carries an older copy', () => {
+    const s = chatReducer(streamed('hello wor'), { type: 'UPDATE_MESSAGE', payload: generating('hello') });
+    expect(textOf(s)).toBe('hello wor');
+  });
+
+  it('keeps the streamed text when an update carries none yet', () => {
+    expect(textOf(chatReducer(streamed('hello'), { type: 'UPDATE_MESSAGE', payload: generating('') }))).toBe('hello');
+    expect(textOf(chatReducer(streamed('hello'), { type: 'UPDATE_MESSAGE', payload: generating(null) }))).toBe('hello');
+  });
+
+  it('takes a newer copy, and the final one once the message is done', () => {
+    expect(textOf(chatReducer(streamed('hello'), { type: 'UPDATE_MESSAGE', payload: generating('hello world') }))).toBe('hello world');
+    expect(textOf(chatReducer(streamed('hello wor'), { type: 'UPDATE_MESSAGE', payload: generating('hello', 'ready') }))).toBe('hello');
+  });
+
+  it('ignores a delta behind what is shown', () => {
+    const s = chatReducer(streamed('hello world'), { type: 'DELTA_TOKEN', payload: { messageId: 'a1', output: { response: 'hello' } } });
+    expect(textOf(s)).toBe('hello world');
+  });
+});
