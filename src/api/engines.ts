@@ -3,6 +3,8 @@ import type { Response } from '../http/response.js';
 import type { EngineUpdateBody } from './write-bodies.js';
 import {
   EngineDTO as Engine,
+  EngineReleasesResponse,
+  EngineUpdateRequest,
   CursorListRequest,
   CursorListResponse,
 } from '../types.js';
@@ -106,10 +108,22 @@ export class EnginesAPI {
   }
 
   /**
-   * Update an engine binary (drain + restart with new version)
+   * Update an engine binary: it drains, installs the release and restarts.
+   * `version` is "stable" (the default: newest stable, lifting any pin),
+   * "canary" (the current canary build, pinned), or a version such as
+   * v1.9.3 (pinned). A pinned engine stays on its version until sent
+   * "stable" again.
    */
-  async updateBinary(engineId: string): Promise<Response<void>> {
-    return this.http.request<void>('post', `/engines/${engineId}/update`);
+  async updateBinary(engineId: string, version?: string): Promise<Response<void>> {
+    const body: EngineUpdateRequest = version ? { version } : {};
+    return this.http.request<void>('post', `/engines/${engineId}/update`, { data: body });
+  }
+
+  /**
+   * The head of each engine release channel (stable, canary) on dist.inference.sh.
+   */
+  async releases(): Promise<Response<EngineReleasesResponse>> {
+    return this.http.request<EngineReleasesResponse>('get', '/engines/releases');
   }
 }
 
