@@ -583,4 +583,22 @@ describe('chatReducer streamed text never shrinks while generating', () => {
     const s = chatReducer(streamed('hello world'), { type: 'DELTA_TOKEN', payload: { messageId: 'a1', output: { response: 'hello' } } });
     expect(textOf(s)).toBe('hello world');
   });
+
+  it('keeps streamed text on a partial update with a lagging copy', () => {
+    const state = streamed('hello world');
+    const lagging = {
+      id: 'a1',
+      content: [{ type: 'text', text: 'hello' }],
+      status: 'generating',
+    } as ChatMessageDTO;
+
+    const next = chatReducer(state, { type: 'UPDATE_MESSAGE', payload: lagging, partial: true });
+
+    expect(textOf(next)).toBe('hello world');
+  });
+
+  it('takes a non-prefix server correction while still generating', () => {
+    const next = chatReducer(streamed('hello world'), { type: 'UPDATE_MESSAGE', payload: generating('goodbye') });
+    expect(textOf(next)).toBe('goodbye');
+  });
 });
