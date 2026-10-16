@@ -58,6 +58,33 @@ describe('ArtifactsAPI', () => {
     expect(body.content_encoding).toBe('base64');
   });
 
+  it('should pass companion files through publish() without re-encoding them', async () => {
+    mockJsonResponse({ id: 'art-new' });
+    const files = [
+      { path: 'styles.css', content: 'body { margin: 0; }' },
+      { path: 'data.json', content: '{"ok":true}', content_encoding: 'base64' },
+    ];
+
+    await api().publish({ title: 'Site', content: '<h1>hi</h1>', files });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.files).toEqual(files);
+    expect(body.content_encoding).toBe('base64');
+  });
+
+  it('should pass companion files through publishVersion()', async () => {
+    mockJsonResponse({ id: 'art-1', version_id: 'v2' });
+    const files = [{ path: 'app.js', content: 'console.log(1)' }];
+
+    await api().publishVersion('art-1', { content: '<p>v2</p>', files });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.files).toEqual(files);
+    expect(body.content).toBe(Buffer.from('<p>v2</p>').toString('base64'));
+  });
+
   it('should pass base_version_id and force through for publish()', async () => {
     mockJsonResponse({ id: 'art-new' });
 
