@@ -1836,6 +1836,32 @@ export interface ArtifactVersionDTO extends BaseModelDTO {
   generated_by?: string; // "agent:<id>", "human:<email>"
   capabilities?: { [key: string]: any};
   created_by_user_id?: string;
+  /**
+   * Files are the pages and data served beside the index page.
+   */
+  files?: ArtifactVersionFileDTO[];
+}
+/**
+ * ArtifactVersionFileDTO is one file published beside a version's index.
+ */
+export interface ArtifactVersionFileDTO {
+  path: string;
+  size_bytes: number /* int64 */;
+  content_type: string;
+}
+/**
+ * ArtifactFileInput is one extra file in a publish, served at Path relative
+ * to the index page: another page (.html, .md), or css, js, json, svg, txt,
+ * xml, csv.
+ */
+export interface ArtifactFileInput {
+  path: string;
+  content: string;
+  /**
+   * ContentEncoding is "base64" when Content is base64-encoded, as for the
+   * main content.
+   */
+  content_encoding?: string;
 }
 /**
  * ArtifactCreateRequest is the body for POST /artifacts. Creates the entry
@@ -1861,6 +1887,11 @@ export interface ArtifactCreateRequest {
    * from browsers and CLIs: edge firewalls reject raw <script> in JSON bodies.
    */
   content_encoding?: string;
+  /**
+   * Files are published beside the index page. A publish is the whole
+   * site: files of the previous version are not carried over.
+   */
+  files?: ArtifactFileInput[];
   label?: string;
   notes?: string;
   origin?: string;
@@ -1905,6 +1936,11 @@ export interface ArtifactPublishRequest {
    * ContentEncoding is "base64" when Content is base64-encoded UTF-8.
    */
   content_encoding?: string;
+  /**
+   * Files are published beside the index page. A publish is the whole
+   * site: files of the previous version are not carried over.
+   */
+  files?: ArtifactFileInput[];
   label?: string;
   notes?: string;
   origin?: string;
@@ -2800,8 +2836,33 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
   api_url: string;
   status: EngineStatus;
   engine_version: string;
+  /**
+   * EnginePin is the version the engine is held on; empty follows stable.
+   */
+  engine_pin?: string;
   system_info?: SystemInfo;
   workers: (WorkerDTO | undefined)[];
+}
+/**
+ * EngineUpdateRequest names the release an engine should install: "stable",
+ * "canary", or a version such as v1.9.3. Empty is stable.
+ */
+export interface EngineUpdateRequest {
+  version?: string;
+}
+/**
+ * EngineRelease is one published engine build.
+ */
+export interface EngineRelease {
+  version: string;
+  release_date?: string;
+}
+/**
+ * EngineReleasesResponse is the head of each engine release channel.
+ */
+export interface EngineReleasesResponse {
+  stable?: EngineRelease;
+  canary?: EngineRelease;
 }
 /**
  * EngineSummary is a lightweight engine response embedded in tasks.

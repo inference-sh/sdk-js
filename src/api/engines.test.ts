@@ -213,6 +213,27 @@ describe('EnginesAPI', () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/engines/eng-1/update');
     expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({});
+  });
+
+  it('should send the release target in the update body', async () => {
+    mockJsonResponse(null);
+
+    await api().updateBinary('eng-1', 'v1.9.3-canary.0');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ version: 'v1.9.3-canary.0' });
+  });
+
+  it('should GET /engines/releases for releases()', async () => {
+    mockJsonResponse({ stable: { version: 'v1.9.2' }, canary: null });
+
+    const result = await api().releases();
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/engines/releases');
+    expect(init.method).toBe('GET');
+    expect(result.data?.stable?.version).toBe('v1.9.2');
   });
 
   it('should preserve restarting status on get() during engine restart transitions', async () => {
