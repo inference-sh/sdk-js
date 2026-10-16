@@ -225,6 +225,19 @@ describe('EnginesAPI', () => {
     expect(JSON.parse(String(init.body))).toEqual({ version: 'v1.9.3-canary.0' });
   });
 
+  it('should send stable and canary channel names in updateBinary()', async () => {
+    mockJsonResponse(null);
+
+    await api().updateBinary('eng-1', 'stable');
+    let [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ version: 'stable' });
+
+    mockJsonResponse(null);
+    await api().updateBinary('eng-2', 'canary');
+    [, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ version: 'canary' });
+  });
+
   it('should GET /engines/releases for releases()', async () => {
     mockJsonResponse({ stable: { version: 'v1.9.2' }, canary: null });
 
@@ -234,6 +247,28 @@ describe('EnginesAPI', () => {
     expect(url).toContain('/engines/releases');
     expect(init.method).toBe('GET');
     expect(result.data?.stable?.version).toBe('v1.9.2');
+    expect(result.data?.canary).toBeNull();
+  });
+
+  it('should surface canary release metadata from releases()', async () => {
+    mockJsonResponse({
+      stable: { version: 'v1.9.2', release_date: '2026-10-01' },
+      canary: { version: 'v1.9.3-canary.0', release_date: '2026-10-15' },
+    });
+
+    const result = await api().releases();
+
+    expect(result.data?.canary?.version).toBe('v1.9.3-canary.0');
+    expect(result.data?.canary?.release_date).toBe('2026-10-15');
+  });
+
+  it('should preserve engine_pin on get() when the engine is version-pinned', async () => {
+    const engine = makeEngine({ engine_pin: 'v1.9.3' });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.engine_pin).toBe('v1.9.3');
   });
 
   it('should preserve restarting status on get() during engine restart transitions', async () => {
