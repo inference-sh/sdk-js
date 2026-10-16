@@ -2,6 +2,7 @@ import { HttpClient } from '../http/client.js';
 import {
   AgentRunStateInputRequired,
   AgentRunStateWorking,
+  ChatMessageRoleCompaction,
   ChatStatusBusy,
   ChannelTypeSlack,
   GraphEdgeTypeInput,
@@ -318,6 +319,40 @@ describe('ChatsAPI', () => {
 
     expect(result.data.chat_messages?.[0]?.agent_run_id).toBe('run-1');
     expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
+  });
+
+  it('should preserve compaction_meta on compaction marker messages in get() responses', async () => {
+    const chat = {
+      id: 'chat-1',
+      status: ChatStatusBusy,
+      chat_messages: [
+        {
+          id: 'msg-compact',
+          chat_id: 'chat-1',
+          order: 12,
+          status: 'ready',
+          role: ChatMessageRoleCompaction,
+          content: [{ type: 'text', text: 'Compacted earlier turns.' }],
+          compaction_meta: {
+            compacted_up_to_order: 11,
+            compacted_count: 6,
+            estimated_tokens: 4800,
+            method: 'llm',
+          },
+        },
+      ],
+    };
+    mockJsonResponse(chat);
+
+    const result = await api().get('chat-1');
+
+    expect(result.data.chat_messages?.[0]?.role).toBe('compaction');
+    expect(result.data.chat_messages?.[0]?.compaction_meta).toEqual({
+      compacted_up_to_order: 11,
+      compacted_count: 6,
+      estimated_tokens: 4800,
+      method: 'llm',
+    });
   });
 
   it('should PATCH /chats/{id} for update()', async () => {
