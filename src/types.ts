@@ -1678,7 +1678,7 @@ export interface AppVersionDTO extends BaseModelDTO {
 export interface DeployWarning {
   /**
    * Code identifies the check: readonly_broad_credential,
-   * unused_credential, missing_annotations.
+   * unused_credential, missing_annotations, unapproved_platform_scope.
    */
   code: string;
   /**
@@ -2312,6 +2312,10 @@ export interface ChatMessageDTO extends BaseModelDTO, PermissionModelDTO {
   tools?: Tool[];
   tool_call_id?: string;
   tool_invocations?: ToolInvocationDTO[];
+  /**
+   * CompactionMeta is what a compaction (role compaction) retired.
+   */
+  compaction_meta?: CompactionMeta;
 }
 /**
  * PolicyRuleDTO is one rule, typed form Kind[selector](specifier).
@@ -2569,6 +2573,12 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   account_identifier?: string;
   account_name?: string;
   scopes: StringSlice;
+  /**
+   * AllowedScopes, on an OAuth app row (grant credentials), is every
+   * scope a login through it may request; absent when any scope may be
+   * (a team's own client by default). Never set on a login.
+   */
+  allowed_scopes?: StringSlice;
   expires_at?: string /* RFC3339 */;
   vault_id?: string;
   metadata?: { [key: string]: any};
@@ -2610,19 +2620,21 @@ export interface CredentialConfigDTO {
   slug: string;
   /**
    * Provider is the credential slug (what Credential.Provider stores):
-   * one way to authenticate. The company it belongs to is ProviderInfo.
+   * one way to authenticate. The company it belongs to is Company.
    */
   provider: string;
   /**
-   * ProviderInfo is the company this slug belongs to, for grouping: the
-   * providers row its auth provider names, else the slug's own identity.
-   */
-  provider_info?: CompanySummary;
-  /**
-   * Company is ProviderInfo under its settled name (INF-1079); provider_info
-   * stays one release.
+   * Company is the company this slug belongs to, for grouping: the
+   * companies row its auth provider names, else the slug's own identity.
    */
   company?: CompanySummary;
+  /**
+   * ProviderInfo is Company under its pre-INF-1079 name. Deprecated; it
+   * stays while released belt CLIs (v1.25.x) and the api-key scripts that
+   * read /credentials/configs still use it, and goes once a CLI that reads
+   * Company has shipped.
+   */
+  provider_info?: CompanySummary;
   type: string;
   name: string;
   short_name: string;
@@ -8207,6 +8219,16 @@ export interface ContextInjection {
    * the two stay in step.
    */
   items?: string[];
+}
+/**
+ * CompactionMeta is stored on ChatMessage for context compaction markers.
+ */
+export interface CompactionMeta {
+  compacted_up_to_order: number /* int */;
+  compacted_count: number /* int */;
+  estimated_tokens: number /* int */;
+  method?: string; // "extractive" or "llm"
+  analysis?: string;
 }
 /**
  * ToolCallEventData is the typed payload for agent.tool_call events.
