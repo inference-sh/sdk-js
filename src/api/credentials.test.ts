@@ -72,7 +72,7 @@ describe('CredentialsAPI', () => {
     const result = await api().listAvailable();
 
     expect(result.data[0]?.auth_provider_id).toBe('asch_abc');
-    expect(result.data[0]).not.toHaveProperty('custom_provider_id');
+    expect(result.data[0]).not.toHaveProperty('auth_scheme_id');
   });
 
   it('should deserialize connection_scope and nested app/credential grants on listAvailable()', async () => {
