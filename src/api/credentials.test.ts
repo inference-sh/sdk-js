@@ -252,6 +252,61 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]?.auth_scheme_id).toBe('asch_cfg_1');
   });
 
+  it('should deserialize company and legacy provider_info on getConfigs()', async () => {
+    const company = { slug: 'github', name: 'GitHub', website: 'https://github.com' };
+    const configs = [
+      {
+        slug: 'github',
+        provider: 'github',
+        type: 'oauth',
+        name: 'GitHub',
+        short_name: 'GitHub',
+        description: 'GitHub OAuth',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeTeam,
+        multi_account: true,
+        company,
+        provider_info: company,
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0]?.company).toEqual(company);
+    expect(result.data[0]?.provider_info).toEqual(company);
+  });
+
+  it('should deserialize allowed_scopes on OAuth app credentials from list()', async () => {
+    const page = {
+      items: [
+        {
+          id: 'cred-github-app',
+          user_id: 'user-1',
+          team_id: 'team-1',
+          visibility: 'private',
+          provider: 'github',
+          type: 'oauth',
+          grant: CredentialGrantCredentials,
+          scope: CredentialScopeTeam,
+          status: 'connected',
+          display_name: 'GitHub OAuth app',
+          scopes: [],
+          is_primary: false,
+          allowed_scopes: ['repo', 'read:org'],
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data.items[0]?.allowed_scopes).toEqual(['repo', 'read:org']);
+  });
+
   it('should GET /credentials/capabilities for getCapabilities()', async () => {
     const capabilities = { slack: ['post_message'] };
     mockJsonResponse(capabilities);
