@@ -2682,13 +2682,6 @@ export interface CredentialConfigDTO {
    * companies row its auth provider names, else the slug's own identity.
    */
   company?: CompanySummary;
-  /**
-   * ProviderInfo is Company under its pre-INF-1079 name. Deprecated; it
-   * stays while released belt CLIs (v1.25.x) and the api-key scripts that
-   * read /credentials/configs still use it, and goes once a CLI that reads
-   * Company has shipped.
-   */
-  provider_info?: CompanySummary;
   type: string;
   name: string;
   short_name: string;
@@ -2717,7 +2710,7 @@ export interface CredentialConfigDTO {
    * AuthProviderID is set when the provider is one the team defined
    * itself (models.AuthProvider), so the UI can offer edit and remove.
    */
-  auth_scheme_id?: string;
+  auth_provider_id?: string;
   /**
    * Credential is the login used where no account is named: the caller's
    * own, else the workspace's default account.

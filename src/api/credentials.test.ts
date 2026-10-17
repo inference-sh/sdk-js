@@ -52,7 +52,7 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
-  it('should deserialize auth_scheme_id on listAvailable() catalog entries', async () => {
+  it('should deserialize auth_provider_id on listAvailable() catalog entries', async () => {
     const available = [
       {
         slug: 'team-oauth',
@@ -64,14 +64,14 @@ describe('CredentialsAPI', () => {
         allows_byok: true,
         available: true,
         has_managed: false,
-        auth_scheme_id: 'asch_abc',
+        auth_provider_id: 'asch_abc',
       },
     ];
     mockJsonResponse(available);
 
     const result = await api().listAvailable();
 
-    expect(result.data[0]?.auth_scheme_id).toBe('asch_abc');
+    expect(result.data[0]?.auth_provider_id).toBe('asch_abc');
     expect(result.data[0]).not.toHaveProperty('custom_provider_id');
   });
 
@@ -230,7 +230,7 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
-  it('should deserialize auth_scheme_id on getConfigs() merged views', async () => {
+  it('should deserialize auth_provider_id on getConfigs() merged views', async () => {
     const configs = [
       {
         slug: 'team-api-key',
@@ -242,14 +242,14 @@ describe('CredentialsAPI', () => {
         allows_byok: true,
         available: true,
         has_managed: false,
-        auth_scheme_id: 'asch_cfg_1',
+        auth_provider_id: 'asch_cfg_1',
       },
     ];
     mockJsonResponse(configs);
 
     const result = await api().getConfigs();
 
-    expect(result.data[0]?.auth_scheme_id).toBe('asch_cfg_1');
+    expect(result.data[0]?.auth_provider_id).toBe('asch_cfg_1');
   });
 
   it('should GET /credentials/capabilities for getCapabilities()', async () => {
