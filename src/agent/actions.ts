@@ -27,6 +27,7 @@ import type {
 import { isAdHocConfig, extractClientToolHandlers } from './types.js';
 import * as api from './api.js';
 import { buildMCPInputResult } from './mcp-input.js';
+import { applyChatUpdate } from './reducer.js';
 import { isInferenceError } from '../http/errors.js';
 
 // =============================================================================
@@ -255,11 +256,15 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     // Listen for Chat object updates (status changes only — don't replace messages)
-    manager.addEventListener<ChatDTO>('chats', (chatData) => {
-      dispatch({ type: 'UPDATE_CHAT', payload: chatData });
-      if (chatData) {
-        callbacks.onStatusChange?.(isChatBusy(chatData) ? 'streaming' : 'idle');
-        checkTurnEnd(chatData);
+    manager.addEventListener<ChatDTO>('chats', (chatData, fields) => {
+      if (!chatData) return;
+      dispatch({ type: 'UPDATE_CHAT', payload: chatData, fields });
+      // A partial update (a plan step writing agent_data) says nothing about
+      // the turn on its own: judge the chat it merges into.
+      const chat = applyChatUpdate(getState().chat, chatData, fields);
+      if (chat) {
+        callbacks.onStatusChange?.(isChatBusy(chat) ? 'streaming' : 'idle');
+        checkTurnEnd(chat);
       }
     });
 
@@ -275,8 +280,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     });
 
     // Listen for AgentRun updates (state transitions, output)
-    manager.addEventListener<AgentRunDTO>('agent_runs', (run) => {
-      dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run });
+    manager.addEventListener<AgentRunDTO>('agent_runs', (run, fields) => {
+      dispatch({ type: 'UPDATE_ACTIVE_RUN', payload: run, fields });
+      // A partial update (the run's output) carries no state.
+      if (fields) return;
       callbacks.onStatusChange?.(isRunWorking(run.state) || isRunInterrupted(run.state) ? 'streaming' : 'idle');
       const currentChat = getState().chat;
       if (currentChat) checkTurnEnd({ ...currentChat, active_run: run });

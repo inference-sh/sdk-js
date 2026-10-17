@@ -4,7 +4,7 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { AgentRunDTO, ChatMessageDTO, ChatStatus } from '../types.js';
+import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ChatStatus } from '../types.js';
 import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle } from '../types.js';
 import { isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils.js';
 import type { AgentChatState, ChatAction } from './types.js';
@@ -14,6 +14,36 @@ function deriveChatStatus(run: AgentRunDTO | undefined | null): ChatStatus {
   if (isRunWorking(run.state)) return ChatStatusBusy;
   if (isRunInterrupted(run.state)) return ChatStatusAwaitingInput;
   return ChatStatusIdle;
+}
+
+/**
+ * A partial stream update (`fields` set) carries only the fields it names, so
+ * it merges into the object it updates instead of replacing it: a chat update
+ * naming only agent_data (a plan step) keeps the chat's status and active run.
+ * A named field missing from the payload was cleared (omitempty).
+ */
+function mergeFields<T extends object>(existing: T, update: T, fields: string[]): T {
+  const merged = { ...existing } as Record<string, unknown>;
+  for (const field of fields) merged[field] = (update as Record<string, unknown>)[field];
+  return merged as T;
+}
+
+/**
+ * The chat after a chats event: replaced by a full one, merged with a partial
+ * one. A partial update to another chat (or before any chat) is dropped.
+ */
+export function applyChatUpdate(existing: ChatDTO | null, update: ChatDTO, fields?: string[]): ChatDTO | null {
+  if (!fields) return update;
+  if (!existing || existing.id !== update.id) return existing;
+  const merged = mergeFields(existing, update, fields);
+  // The projector's update names active_run_id, which ChatDTO does not
+  // declare. The run object belongs to that id: a new or cleared active run
+  // drops it until the run's own event arrives.
+  if (fields.includes('active_run_id')) {
+    const runId = (update as { active_run_id?: string }).active_run_id;
+    if (merged.active_run && merged.active_run.id !== runId) merged.active_run = undefined;
+  }
+  return merged;
 }
 
 /**
@@ -87,9 +117,9 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
 
     case 'UPDATE_CHAT': {
       // Update chat metadata without replacing messages
-      const chat = action.payload;
-      if (!chat) return state;
-      return { ...state, chat };
+      if (!action.payload) return state;
+      const chat = applyChatUpdate(state.chat, action.payload, action.fields);
+      return chat === state.chat ? state : { ...state, chat };
     }
 
     // The settings and set-agent endpoints answer with only what they wrote.
@@ -131,7 +161,14 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
 
     case 'UPDATE_ACTIVE_RUN': {
       if (!state.chat) return state;
-      return { ...state, chat: { ...state.chat, active_run: action.payload, status: deriveChatStatus(action.payload) } };
+      let run = action.payload;
+      if (action.fields) {
+        // A partial update (the run's output) needs the run it belongs to.
+        const existing = state.chat.active_run;
+        if (!existing || existing.id !== run.id) return state;
+        run = mergeFields(existing, run, action.fields);
+      }
+      return { ...state, chat: { ...state.chat, active_run: run, status: deriveChatStatus(run) } };
     }
 
     case 'SET_MESSAGES':

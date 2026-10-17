@@ -16,6 +16,7 @@ import {
   HookDecisionDeny,
 } from '../types.js';
 import { chatReducer, initialState } from './reducer.js';
+import { isChatBusy } from '../utils.js';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
   return {
@@ -582,5 +583,73 @@ describe('chatReducer streamed text never shrinks while generating', () => {
   it('ignores a delta behind what is shown', () => {
     const s = chatReducer(streamed('hello world'), { type: 'DELTA_TOKEN', payload: { messageId: 'a1', output: { response: 'hello' } } });
     expect(textOf(s)).toBe('hello world');
+  });
+});
+
+// The stream sends partial updates as {data, fields}, with only the named
+// fields in data. Sequence captured from a plan_update turn on the live API.
+describe('partial chat and run updates', () => {
+  const run = (overrides: Partial<AgentRunDTO>) => ({ id: 'run-1', state: AgentRunStateWorking, ...overrides }) as AgentRunDTO;
+  const busy = () => {
+    let state = chatReducer(initialState, { type: 'SET_CHAT', payload: makeChat({ status: ChatStatusIdle }) });
+    state = chatReducer(state, { type: 'UPDATE_ACTIVE_RUN', payload: run({ state: AgentRunStateSubmitted }) });
+    state = chatReducer(state, {
+      type: 'UPDATE_CHAT',
+      payload: { id: 'chat-1', status: ChatStatusBusy, active_run_id: 'run-1' } as unknown as ChatDTO,
+      fields: ['id', 'status', 'active_run_id'],
+    });
+    return chatReducer(state, { type: 'UPDATE_ACTIVE_RUN', payload: run({ state: AgentRunStateWorking }) });
+  };
+
+  it('keeps the chat busy through an agent_data update (a plan step)', () => {
+    const next = chatReducer(busy(), {
+      type: 'UPDATE_CHAT',
+      payload: { id: 'chat-1', agent_data: { plan_steps: [] } } as unknown as ChatDTO,
+      fields: ['id', 'agent_data'],
+    });
+    expect(isChatBusy(next.chat)).toBe(true);
+    expect(next.chat?.name).toBe('Test chat');
+    expect(next.chat?.agent_data).toEqual({ plan_steps: [] });
+  });
+
+  it('clears a field the update names but omits, and drops the run it no longer points at', () => {
+    const next = chatReducer(busy(), {
+      type: 'UPDATE_CHAT',
+      payload: { id: 'chat-1', status: ChatStatusIdle } as ChatDTO,
+      fields: ['id', 'status', 'active_run_id'],
+    });
+    expect(next.chat?.active_run).toBeUndefined();
+    expect(isChatBusy(next.chat)).toBe(false);
+  });
+
+  it('ignores a partial update for another chat', () => {
+    const state = busy();
+    const next = chatReducer(state, {
+      type: 'UPDATE_CHAT',
+      payload: { id: 'chat-2', status: ChatStatusIdle } as ChatDTO,
+      fields: ['id', 'status'],
+    });
+    expect(next).toBe(state);
+  });
+
+  it('merges a partial run update into the active run', () => {
+    const next = chatReducer(busy(), {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { id: 'run-1', output: { answer: 42 } } as unknown as AgentRunDTO,
+      fields: ['id', 'output'],
+    });
+    expect(next.chat?.active_run?.state).toBe(AgentRunStateWorking);
+    expect(next.chat?.active_run?.output).toEqual({ answer: 42 });
+    expect(isChatBusy(next.chat)).toBe(true);
+  });
+
+  it('ignores a partial run update for a run that is not active', () => {
+    const state = busy();
+    const next = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { id: 'run-0', output: {} } as unknown as AgentRunDTO,
+      fields: ['id', 'output'],
+    });
+    expect(next).toBe(state);
   });
 });
