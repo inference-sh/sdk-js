@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-17
+
+### Removed
+- `CredentialConfigDTO.provider_info` is gone: read `company` (INF-1079). The API stopped sending it in api-v1313.
+
+### Changed
+- `CredentialConfigDTO.auth_scheme_id` is `auth_provider_id`, matching the API (INF-1079).
+- Generated types follow the API: engine release targets (`client.engines.updateBinary` takes a release target, `releases()` lists channel heads), `EngineDTO.capabilities` (`EngineCapability`, `EngineCapabilities`), `ChatMessageDTO.compaction_meta`.
+
+### Fixed
+- Partial chat and run stream updates merge instead of replacing, and streamed text never blinks back to an older copy.
+- A read that got no response is sent again, twice.
+
 ## [0.28.0] - 2026-10-15
 
 ### Changed
