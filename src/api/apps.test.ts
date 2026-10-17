@@ -116,6 +116,28 @@ describe('AppsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve images.dark on get() store catalog payloads', async () => {
+    const app = {
+      id: 'app-themed',
+      name: 'veo',
+      images: {
+        card: 'https://cdn.test/card-light.png',
+        thumbnail: 'https://cdn.test/thumb-light.png',
+        banner: 'https://cdn.test/banner-light.png',
+        dark: {
+          card: 'https://cdn.test/card-dark.png',
+          thumbnail: 'https://cdn.test/thumb-dark.png',
+          banner: 'https://cdn.test/banner-dark.png',
+        },
+      },
+    };
+    mockJsonResponse(app);
+
+    const result = await api().get('app-themed');
+
+    expect(result.data.images.dark?.banner).toBe('https://cdn.test/banner-dark.png');
+  });
+
   it('should GET versioned app for getByVersionId()', async () => {
     const app = { id: 'app-1', version_id: 'ver-1' };
     mockJsonResponse(app);

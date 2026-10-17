@@ -245,6 +245,29 @@ describe('HttpClient', () => {
         expect(onError).not.toHaveBeenCalled();
       });
 
+      it('should succeed after two dropped connections using both retry delays', async () => {
+        const onError = jest.fn();
+        mockFetch
+          .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+          .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+          .mockResolvedValueOnce(ok());
+
+        const result = new HttpClient({ apiKey: 'key', onError }).request('get', '/tasks/1');
+        await jest.advanceTimersByTimeAsync(1300);
+
+        await expect(result).resolves.toEqual({ data: { id: '1' }, messages: [] });
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(onError).not.toHaveBeenCalled();
+      });
+
+      it('should not send DELETE again when the network drops', async () => {
+        const failure = new TypeError('Failed to fetch');
+        mockFetch.mockRejectedValueOnce(failure);
+
+        await expect(new HttpClient({ apiKey: 'key' }).request('delete', '/tasks/1')).rejects.toBe(failure);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
       it('should go to onError once the network has dropped it three times', async () => {
         const failure = new TypeError('Failed to fetch');
         const onError = jest.fn(async (error: unknown) => { throw error; });
@@ -844,6 +867,40 @@ describe('HttpClient', () => {
 
       mockRawResponse(412, JSON.stringify({ errors: [{ type: 'secret', key: 'K', message: 'missing' }] }));
       await expect(new HttpClient({ apiKey: 'key' }).fetch('/x')).rejects.toBeInstanceOf(RequirementsNotMetException);
+    });
+
+    it('should retry a read that got no response without onError and resolve', async () => {
+      mockFetch
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('stream-body', { status: 200 }));
+
+      jest.useFakeTimers();
+      try {
+        const result = new HttpClient({ apiKey: 'key' }).fetch('/tasks/task-1/stream');
+        await jest.advanceTimersByTimeAsync(300);
+        await expect(result).resolves.toMatchObject({ status: 200 });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('should retry a HEAD that got no response before succeeding', async () => {
+      mockFetch
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      jest.useFakeTimers();
+      try {
+        const result = new HttpClient({ apiKey: 'key' }).fetch('/tasks/1', { method: 'HEAD' });
+        await jest.advanceTimersByTimeAsync(300);
+        await expect(result).resolves.toMatchObject({ status: 204 });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(init.method).toBe('HEAD');
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
