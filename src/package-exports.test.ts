@@ -129,6 +129,10 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('exports EngineCapability constants for scheduler capability matching (INF-1076)', () => {
+      expect(main.EngineCapabilityEgressGateway).toBe('egress_gateway');
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {
