@@ -2005,9 +2005,23 @@ export interface ArtifactDataRequest {
    */
   data?: { [key: string]: any};
   /**
-   * Limit caps a list; the server clamps it.
+   * Limit caps a list; the server clamps it to 200.
    */
   limit?: number /* int */;
+  /**
+   * Cursor continues a list from the next_cursor of the page before.
+   */
+  cursor?: string;
+  /**
+   * Order is the list order: -updated_at (the default), updated_at,
+   * -created_at or created_at.
+   */
+  order?: string;
+  /**
+   * Where keeps only documents whose top-level fields equal these values
+   * (string, number, boolean, or null for a missing field).
+   */
+  where?: { [key: string]: any};
 }
 /**
  * ArtifactDataListResponse is a page of documents from one collection.
@@ -2016,6 +2030,10 @@ export interface ArtifactDataListResponse {
   collection: string;
   documents: ArtifactDataDTO[];
   count: number /* int */;
+  /**
+   * NextCursor fetches the page after this one; empty on the last page.
+   */
+  next_cursor?: string;
 }
 /**
  * ArtifactViewerDTO is what the user capability tells a page about whoever
@@ -2840,6 +2858,10 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
    * EnginePin is the version the engine is held on; empty follows stable.
    */
   engine_pin?: string;
+  /**
+   * Capabilities are what the engine last reported it can do.
+   */
+  capabilities?: EngineCapabilities;
   system_info?: SystemInfo;
   workers: (WorkerDTO | undefined)[];
 }
@@ -2942,6 +2964,19 @@ export interface WorkerRAM {
   worker_id: string;
   total: number /* uint64 */;
 }
+/**
+ * EngineCapability is something an engine can do beyond the base contract
+ * every engine meets. An engine reports the ones it has (EngineTelemetry);
+ * a task lists the ones it needs (Task.Requires); the scheduler only sends
+ * a task to an engine that has every one it needs.
+ */
+export type EngineCapability = "egress_gateway";
+export const EngineCapabilityEgressGateway: EngineCapability = "egress_gateway";
+/**
+ * EngineCapabilities is a set of capabilities, kept as a list. Nil and
+ * empty are the same: nothing beyond the base contract.
+ */
+export type EngineCapabilities = EngineCapability[];
 /**
  * EntitlementDTO for API responses
  */
