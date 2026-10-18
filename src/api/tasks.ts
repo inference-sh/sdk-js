@@ -12,6 +12,7 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
+  TaskStatusRejected,
   CursorListRequest,
   CursorListResponse,
   TaskFileDTO,
@@ -72,6 +73,9 @@ function settleTerminal(data: Pick<Task, 'status' | 'error'>, stripped: Task, se
       break;
     case TaskStatusCancelled:
       settle.reject(new Error('task cancelled'));
+      break;
+    case TaskStatusRejected:
+      settle.reject(new Error(data.error || 'task rejected'));
       break;
   }
 }

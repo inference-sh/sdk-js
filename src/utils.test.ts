@@ -2,6 +2,7 @@ import {
   TaskStatusCancelled,
   TaskStatusCompleted,
   TaskStatusFailed,
+  TaskStatusRejected,
   TaskStatusRunning,
   TaskStatusUnknown,
   AgentRunStateWorking,
@@ -107,6 +108,7 @@ describe('parseStatus', () => {
     expect(parseStatus('completed')).toBe(TaskStatusCompleted);
     expect(parseStatus('failed')).toBe(TaskStatusFailed);
     expect(parseStatus('cancelled')).toBe(TaskStatusCancelled);
+    expect(parseStatus('rejected')).toBe(TaskStatusRejected);
   });
 
   it('should be case-insensitive for string statuses', () => {
@@ -124,13 +126,15 @@ describe('parseStatus', () => {
 });
 
 describe('isTerminalStatus', () => {
-  it('should be true for completed, failed, and cancelled (int or string)', () => {
+  it('should be true for completed, failed, cancelled, and rejected (int or string)', () => {
     expect(isTerminalStatus(TaskStatusCompleted)).toBe(true);
     expect(isTerminalStatus(TaskStatusFailed)).toBe(true);
     expect(isTerminalStatus(TaskStatusCancelled)).toBe(true);
     expect(isTerminalStatus('completed')).toBe(true);
     expect(isTerminalStatus('failed')).toBe(true);
     expect(isTerminalStatus('cancelled')).toBe(true);
+    expect(isTerminalStatus(TaskStatusRejected)).toBe(true);
+    expect(isTerminalStatus('rejected')).toBe(true);
   });
 
   it('should be false for non-terminal statuses', () => {

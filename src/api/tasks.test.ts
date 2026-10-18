@@ -3,6 +3,7 @@ import {
   TaskStatusCancelled,
   TaskStatusCompleted,
   TaskStatusFailed,
+  TaskStatusRejected,
   TaskStatusRunning,
   type DecisionInput,
   type DecisionOutput,
@@ -130,6 +131,19 @@ describe('TasksAPI.run (polling mode)', () => {
     await expect(
       api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
     ).rejects.toThrow('task cancelled');
+  });
+
+  it('should reject with the task error when polling detects a rejected task', async () => {
+    const runningTask = makeTask();
+    const rejectedTask = makeTask({ status: TaskStatusRejected, error: 'insufficient balance' });
+
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRejected });
+    mockJsonResponse(rejectedTask);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
+    ).rejects.toThrow('insufficient balance');
   });
 
   it('should reject when full task fetch fails after status change', async () => {

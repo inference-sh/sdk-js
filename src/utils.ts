@@ -21,6 +21,7 @@ import {
   TaskStatusCompleted,
   TaskStatusFailed,
   TaskStatusCancelled,
+  TaskStatusRejected,
   AgentRunStateWorking,
   AgentRunStateSubmitted,
   AgentRunStateInputRequired,
@@ -52,6 +53,7 @@ const STATUS_STRING_MAP: Record<string, TaskStatus> = {
   completed: TaskStatusCompleted,
   failed: TaskStatusFailed,
   cancelled: TaskStatusCancelled,
+  rejected: TaskStatusRejected,
 };
 
 /**
@@ -72,12 +74,12 @@ export function parseStatus(status: number | string | undefined | null): TaskSta
 }
 
 /**
- * Check if a task status is terminal (completed, failed, or cancelled).
+ * Check if a task status is terminal (completed, failed, cancelled, or rejected).
  * Handles both int and string status values.
  */
 export function isTerminalStatus(status: number | string | undefined | null): boolean {
   const parsed = parseStatus(status);
-  return parsed === TaskStatusCompleted || parsed === TaskStatusFailed || parsed === TaskStatusCancelled;
+  return parsed === TaskStatusCompleted || parsed === TaskStatusFailed || parsed === TaskStatusCancelled || parsed === TaskStatusRejected;
 }
 
 // Run and message state predicates. Ports of the Go methods AgentRunState.IsTerminal/
