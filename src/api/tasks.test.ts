@@ -825,6 +825,20 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should pass through server-only task fields such as egress until types regen (e86a493)', async () => {
+    const task = makeTask({
+      egress: { bytes_out: 2048, bytes_in: 512 },
+    });
+    mockJsonResponse(task);
+
+    const result = await api().get('task-1');
+
+    expect((result.data as Record<string, unknown>).egress).toEqual({
+      bytes_out: 2048,
+      bytes_in: 512,
+    });
+  });
+
   it('should DELETE /tasks/{id} for delete()', async () => {
     mockJsonResponse(null);
 
