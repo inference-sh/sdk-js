@@ -267,19 +267,18 @@ class HTTPToolBuilder extends ToolBuilder {
   }
 
   /**
-   * How the tool authenticates: `credential` sends a connected account's
-   * access token (pick the account with `credentialId`), `apiKey` / `bearer`
-   * send a vault secret.
+   * How the tool authenticates: `credential` sends the access token of the
+   * runner's own connection to that provider, `apiKey` / `bearer` send a
+   * vault secret.
    */
   auth(config: {
     credential?: string;
-    credentialId?: string;
     apiKey?: string;
     bearer?: string;
     header?: string;
   }): this {
     if (config.credential) {
-      this.authConfig = { type: ToolAuthTypeCredential, provider: config.credential, credential_id: config.credentialId };
+      this.authConfig = { type: ToolAuthTypeCredential, provider: config.credential };
     } else if (config.apiKey) {
       this.authConfig = { type: ToolAuthTypeAPIKey, secret: config.apiKey, header: config.header || 'X-API-Key' };
     } else if (config.bearer) {
@@ -338,30 +337,20 @@ export interface MCPToolTarget {
   /** The MCP server's slug (a workspace registration or a directory entry). */
   server: string;
   toolName: string;
-  /** Pins one connection to the server's provider; by default the runner's own is used. */
-  credentialId?: string;
 }
 
 /**
  * Create an MCP tool: `toolName` on the MCP server `target.server` (its slug).
- * The call signs in with the runner's connection to the server's provider;
- * `credentialId` pins one connection instead.
- *
- * The older form `mcpTool(name, credentialId, toolName)` (a string second
- * argument) still works: a tool naming only a connection is saved with the
- * server that connection's provider is declared by.
+ * The call signs in with the runner's own connection to the server's provider.
  */
-export function mcpTool(name: string, target: MCPToolTarget | string, toolName?: string): MCPToolBuilder {
-  if (typeof target === 'string') {
-    return new MCPToolBuilder(name, { toolName: toolName ?? '', credentialId: target });
-  }
+export function mcpTool(name: string, target: MCPToolTarget): MCPToolBuilder {
   return new MCPToolBuilder(name, target);
 }
 
 class MCPToolBuilder extends ToolBuilder {
-  private target: Partial<MCPToolTarget> & { toolName: string };
+  private target: MCPToolTarget;
 
-  constructor(name: string, target: Partial<MCPToolTarget> & { toolName: string }) {
+  constructor(name: string, target: MCPToolTarget) {
     super(name);
     this.target = target;
   }
@@ -374,9 +363,8 @@ class MCPToolBuilder extends ToolBuilder {
       type: ToolTypeMCP,
       require_approval: this.approval || undefined,
       mcp: {
+        server: this.target.server,
         tool_name: this.target.toolName,
-        ...(this.target.server ? { server: this.target.server } : {}),
-        ...(this.target.credentialId ? { credential_id: this.target.credentialId } : {}),
       },
     };
   }

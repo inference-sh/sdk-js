@@ -177,7 +177,6 @@ export const ToolAuthTypeBearer: ToolAuthType = "bearer";
 export interface ToolAuthConfig {
   type: ToolAuthType;
   provider?: string;
-  credential_id?: string;
   secret?: string;
   header?: string;
 }
@@ -204,15 +203,12 @@ export interface HTTPToolConfig {
 /**
  * MCPToolConfig is a tool of an MCP server: the server by its slug (the
  * agent's team's registration, its org's or the directory's) and the tool
- * to call. CredentialID pins the connection the call signs in with; without
- * it the runner's connection to the server's provider is used. A tool
- * written with only a connection is saved with the server that
- * connection's provider is declared by.
+ * to call. Each call signs in with the runner's connection to the
+ * server's provider (Credential.ToolConnection).
  */
 export interface MCPToolConfig {
   server?: string;
   tool_name: string;
-  credential_id?: string;
 }
 export interface AppToolConfigDTO {
   ref: string;
@@ -261,7 +257,6 @@ export interface HTTPToolConfigDTO {
 export interface MCPToolConfigDTO {
   server: string;
   tool_name: string;
-  credential_id?: string;
 }
 /**
  * CoreAppConfigDTO references an app used as the agent's core

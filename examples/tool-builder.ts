@@ -115,7 +115,7 @@ console.log('\nsend_slack (webhook tool):', JSON.stringify(sendSlack, null, 2));
 const gmailSend = httpTool('gmail_send', 'https://api.example.com/send')
   .describe('Send email via a connected Gmail account')
   .method('POST')
-  .auth({ credential: CredentialProviderGoogle, credentialId: 'cred-123' })
+  .auth({ credential: CredentialProviderGoogle })
   .build();
 
 console.log('\ngmail_send (http tool, credential auth):', JSON.stringify(gmailSend, null, 2));

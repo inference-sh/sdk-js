@@ -346,17 +346,26 @@ describe('HTTPToolBuilder (httpTool)', () => {
     expect(t.http?.auth).toBeUndefined();
   });
 
-  it('should attach credential auth with provider and credential id', () => {
+  it('should attach credential auth with provider only (INF-1012)', () => {
     const t = httpTool('gmail_send', 'https://api.example.com/send')
-      .auth({ credential: CredentialProviderGoogle, credentialId: 'int-123' })
+      .auth({ credential: CredentialProviderGoogle })
       .build();
 
     expect(t.type).toBe(ToolTypeHTTP);
     expect(t.http?.auth).toEqual({
       type: 'credential',
       provider: CredentialProviderGoogle,
-      credential_id: 'int-123',
     });
+    expect(t.http?.auth).not.toHaveProperty('credential_id');
+  });
+
+  it('rejects credentialId at compile time and drops it at runtime (INF-1012)', () => {
+    const t = httpTool('gmail_send', 'https://api.example.com/send')
+      // @ts-expect-error credentialId was removed from auth()
+      .auth({ credential: CredentialProviderGoogle, credentialId: 'int-123' })
+      .build();
+
+    expect(t.http?.auth).toEqual({ type: 'credential', provider: CredentialProviderGoogle });
   });
 
   it('ignores removed integration / integrationId auth options (v0.8.0)', () => {
@@ -452,22 +461,27 @@ describe('MCPToolBuilder (mcpTool)', () => {
     expect(t.description).toBe('Search docs');
   });
 
-  it('pins a connection with credential_id', () => {
-    const t = mcpTool('search_docs', { server: 'notion', toolName: 'search', credentialId: 'cred-1' }).build();
+  it('emits only server and tool_name (INF-1012)', () => {
+    const t = mcpTool('x', { server: 'notion', toolName: 'search' }).build();
 
-    expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search', credential_id: 'cred-1' });
+    expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search' });
   });
 
-  it('supports legacy mcpTool(name, credentialId, toolName) without server slug (0e728c6)', () => {
-    const t = mcpTool('search_docs', 'int-mcp-1', 'search').describe('Search docs').build();
+  it('rejects credentialId at compile time and drops it at runtime (INF-1012)', () => {
+    // @ts-expect-error credentialId was removed from MCPToolTarget
+    const t = mcpTool('x', { server: 'notion', toolName: 'search', credentialId: 'cred-1' }).build();
 
-    expect(t.type).toBe(ToolTypeMCP);
-    expect(t.mcp).toEqual({ credential_id: 'int-mcp-1', tool_name: 'search' });
-    expect(t.mcp).not.toHaveProperty('server');
-    expect(t.description).toBe('Search docs');
+    expect(t.mcp).toEqual({ server: 'notion', tool_name: 'search' });
   });
 
-  it('omits server and credential_id when only server slug and tool are set', () => {
+  it('rejects the removed positional form and a missing server at compile time (INF-1012)', () => {
+    // @ts-expect-error mcpTool(name, credentialId, toolName) was removed
+    expect(() => mcpTool('x', 'cred-1', 'search')).toBeDefined();
+    // @ts-expect-error server is required
+    expect(() => mcpTool('x', { toolName: 'search' })).toBeDefined();
+  });
+
+  it('omits credential_id when only server slug and tool are set', () => {
     const t = mcpTool('list_files', { server: 'filesystem', toolName: 'list' }).build();
 
     expect(t.mcp).toEqual({ server: 'filesystem', tool_name: 'list' });
