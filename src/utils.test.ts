@@ -267,4 +267,11 @@ describe('pendingWait', () => {
     expect(pendingWait([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(pendingWait(null)).toBeNull();
   });
+
+  it('uses the first pending wait interrupt and coerces non-string notes', () => {
+    const first = interrupt({ id: 'int-first', meta: { note: 'first' } });
+    const second = interrupt({ id: 'int-second', meta: { note: 'second' } });
+    expect(pendingWait([first, second])?.interruptId).toBe('int-first');
+    expect(pendingWait([interrupt({ meta: { note: 42 } as unknown as InterruptDTO['meta'] })])?.note).toBe('');
+  });
 });
