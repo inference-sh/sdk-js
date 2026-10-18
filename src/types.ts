@@ -5166,7 +5166,6 @@ export interface TaskLog {
   content: string;
 }
 /**
- * TaskDTO is the full API response for a task.
  * TaskEgress is what a task's sandbox sent to and received from the
  * internet through the engine's egress gateway, in bytes.
  */
@@ -5174,6 +5173,9 @@ export interface TaskEgress {
   bytes_out: number /* int64 */;
   bytes_in: number /* int64 */;
 }
+/**
+ * TaskDTO is the full API response for a task.
+ */
 export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   graph_id?: string;
   user_public_key: string;
