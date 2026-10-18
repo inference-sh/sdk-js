@@ -5174,13 +5174,7 @@ export interface TaskLog {
 }
 /**
  * TaskDTO is the full API response for a task.
- * TaskEgress is what a task's sandbox sent to and received from the
- * internet through the engine's egress gateway, in bytes.
  */
-export interface TaskEgress {
-  bytes_out: number /* int64 */;
-  bytes_in: number /* int64 */;
-}
 export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   graph_id?: string;
   user_public_key: string;
@@ -5214,12 +5208,6 @@ export interface TaskDTO extends BaseModelDTO, PermissionModelDTO {
   events: TaskEvent[];
   logs: TaskLog[];
   usage_events: (UsageEventDTO | undefined)[];
-  /**
-   * Egress is what the task's sandbox moved through the engine's egress
-   * gateway, reported by the engine when the task ended. Absent for a
-   * task that ran without the gateway.
-   */
-  egress?: TaskEgress;
   session_id?: string;
   session_timeout?: number /* int */;
 }
