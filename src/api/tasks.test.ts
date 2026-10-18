@@ -413,6 +413,16 @@ describe('TasksAPI.run (streaming mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
+  it('should reject when NDJSON stream reports rejection', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusRejected, id: 'task-1', error: 'insufficient balance' })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('insufficient balance');
+  });
+
   it('should reject when partial stream reports failure', async () => {
     setupStreamMocks([
       `${JSON.stringify({
@@ -437,6 +447,19 @@ describe('TasksAPI.run (streaming mode)', () => {
     await expect(
       api().run({ app: 'test-app', input: {} }, {}, { wait: true })
     ).rejects.toThrow('task cancelled');
+  });
+
+  it('should reject when partial stream reports rejection', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        data: { status: TaskStatusRejected, id: 'task-1', error: 'no payment method' },
+        fields: ['status'],
+      })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('no payment method');
   });
 
   it('should reject with the stream error once the stream stops retrying', async () => {
