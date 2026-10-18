@@ -3,7 +3,7 @@
  * Provides future compatibility when API migrates from int to string status.
  */
 
-import { InterruptReasonToolApproval, InterruptResourceTurn, InterruptStatusPending } from './types.js';
+import { InterruptReasonToolApproval, InterruptReasonWait, InterruptResourceTurn, InterruptStatusPending } from './types.js';
 import type { ApprovalRequiredPayload, InterruptDTO } from './types.js';
 
 import {
@@ -184,4 +184,22 @@ export function heldTurn(interrupts: InterruptDTO[] | null | undefined): HeldTur
   if (!interrupt) return null;
   const { steps } = parseMeta<{ steps: number }>(interrupt);
   return { interruptId: interrupt.id, runId: interrupt.run_id, steps: typeof steps === 'number' ? steps : null };
+}
+
+/** A run paused by its agent's wait tool (InterruptReasonWait): it continues at `until`, or sooner when the person ends the wait ("continue now", allow) or cancels it (deny). */
+export type PendingWait = {
+  interruptId: string;
+  runId: string;
+  /** When the wait ends, RFC3339; null when the api gives no deadline. */
+  until: string | null;
+  /** What the agent said it will do when the wait ends. */
+  note: string;
+};
+
+/** The wait among a run's pending interrupts, if the run is waiting. */
+export function pendingWait(interrupts: InterruptDTO[] | null | undefined): PendingWait | null {
+  const interrupt = interrupts?.find(i => i.reason === InterruptReasonWait && i.status === InterruptStatusPending);
+  if (!interrupt) return null;
+  const { note } = parseMeta<{ note: string }>(interrupt);
+  return { interruptId: interrupt.id, runId: interrupt.run_id, until: interrupt.expires_at ?? null, note: typeof note === 'string' ? note : '' };
 }

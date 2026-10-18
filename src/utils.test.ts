@@ -22,6 +22,7 @@ import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types.js';
 import {
   InterruptReasonToolApproval,
   InterruptReasonConfirmation,
+  InterruptReasonWait,
   InterruptResourceTurn,
   InterruptResourceToolInvocation,
   InterruptReasonWidget,
@@ -39,6 +40,7 @@ import {
   isMessageTerminal,
   pendingApprovals,
   heldTurn,
+  pendingWait,
 } from './utils.js';
 
 describe('pendingApprovals', () => {
@@ -228,5 +230,41 @@ describe('heldTurn', () => {
   it('is null without a pending held turn', () => {
     expect(heldTurn([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(heldTurn(undefined)).toBeNull();
+  });
+});
+
+describe('pendingWait', () => {
+  const interrupt = (overrides: Partial<InterruptDTO>): InterruptDTO =>
+    ({
+      id: 'int-wait',
+      chat_id: 'chat-1',
+      run_id: 'run-1',
+      reason: InterruptReasonWait,
+      source: 'wait',
+      status: InterruptStatusPending,
+      resource_id: 'inv-1',
+      resource_type: InterruptResourceToolInvocation,
+      expires_at: '2026-10-19T14:20:00Z',
+      meta: { note: 'check the deploy finished' },
+      ...overrides,
+    }) as unknown as InterruptDTO;
+
+  it('finds the pending wait, its end and its note', () => {
+    expect(pendingWait([interrupt({ id: 'int-approval', reason: InterruptReasonToolApproval }), interrupt({})])).toEqual({
+      interruptId: 'int-wait',
+      runId: 'run-1',
+      until: '2026-10-19T14:20:00Z',
+      note: 'check the deploy finished',
+    });
+  });
+
+  it('reads string meta and tolerates none', () => {
+    expect(pendingWait([interrupt({ meta: '{"note":"n"}' as unknown as InterruptDTO['meta'] })])?.note).toBe('n');
+    expect(pendingWait([interrupt({ meta: undefined, expires_at: undefined })])).toMatchObject({ note: '', until: null });
+  });
+
+  it('is null without a pending wait', () => {
+    expect(pendingWait([interrupt({ status: InterruptStatusResolved })])).toBeNull();
+    expect(pendingWait(null)).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ export interface InternalToolsConfig {
   agent?: boolean;
   remote?: boolean;
   knowledge?: boolean;
+  wait?: boolean;
 }
 /**
  * AgentPermissions is what an agent's new chats in its own workspace may do
@@ -48,6 +49,11 @@ export interface AgentTool {
   description: string;
   type: ToolType;
   require_approval?: boolean;
+  /**
+   * ApprovalTimeout is how many seconds a call of this tool waits for its
+   * approval before it is refused. 0 waits until someone answers.
+   */
+  approval_timeout?: number /* int */;
   app?: AppToolConfig;
   agent?: AgentToolConfig;
   hook?: HookToolConfig;
@@ -102,6 +108,7 @@ export interface AgentToolDTO {
   description: string;
   type: ToolType;
   require_approval?: boolean;
+  approval_timeout?: number /* int */;
   app?: AppToolConfigDTO;
   agent?: AgentToolConfigDTO;
   hook?: HookToolConfigDTO;
@@ -6871,6 +6878,13 @@ export const GraphEdgeTypeOutput: GraphEdgeType = "output";
  */
 export const InterruptResourceTurn: InterruptResourceType = "turn";
 /**
+ * InterruptReasonWait is a tool call the agent made to wait: the run is
+ * paused until the interrupt's deadline, when its own expiry trigger settles
+ * it (allow), or until a person ends the wait sooner. Its resource is the
+ * wait call (InterruptResourceToolInvocation).
+ */
+export const InterruptReasonWait: InterruptReason = "wait";
+/**
  * MergeStrategy defines how a delta field should be merged by consumers.
  */
 export type MergeStrategy = "concat" | "replace" | "indexed" | "nested";
@@ -8212,6 +8226,7 @@ export const AgentRunStateRejected: AgentRunState = "rejected";
  * Aligns with AG-UI interrupt outcome reasons.
  */
 export type InterruptReason =
+  | "wait"
   | "tool_approval"
   | "client_tool"
   | "widget"
