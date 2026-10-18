@@ -21,6 +21,7 @@ import type {
   CoreAppConfigInput as CoreAppConfig,
   FileRef,
   ElicitResult,
+  InterruptDTO,
 } from '../types.js';
 import type { HttpClient } from '../http/client.js';
 import type { ClientToolResult } from '../tool-builder.js';
@@ -238,6 +239,8 @@ export interface AgentChatActions {
    * `requires_sign_in` (ErrorCodeRequiresSignIn).
    */
   resolveInterrupt: (interruptId: string, decision: 'allow' | 'deny') => Promise<void>;
+  /** A run's pending interrupts (`heldTurn` finds a held turn among them). */
+  listRunInterrupts: (runId: string) => Promise<InterruptDTO[]>;
   /** Load older messages (scroll-up pagination). Returns true if more exist. */
   loadOlderMessages: () => Promise<boolean>;
   /** Whether there are older messages to load */

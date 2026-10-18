@@ -110,8 +110,9 @@ export {
   isRunWorking,
   isMessageTerminal,
   pendingApprovals,
+  heldTurn,
 } from './utils.js';
-export type { PendingApproval } from './utils.js';
+export type { PendingApproval, HeldTurn } from './utils.js';
 
 // Types - includes TaskStatus constants and all DTOs
 export * from './types.js';

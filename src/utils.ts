@@ -3,7 +3,7 @@
  * Provides future compatibility when API migrates from int to string status.
  */
 
-import { InterruptReasonToolApproval, InterruptStatusPending } from './types.js';
+import { InterruptReasonToolApproval, InterruptResourceTurn, InterruptStatusPending } from './types.js';
 import type { ApprovalRequiredPayload, InterruptDTO } from './types.js';
 
 import {
@@ -131,17 +131,18 @@ export type PendingApproval = {
   arguments: Record<string, unknown>;
 };
 
-function parseApprovalMeta(interrupt: InterruptDTO): Partial<ApprovalRequiredPayload> {
+/** An interrupt's meta, which arrives as an object or a JSON string. */
+function parseMeta<T>(interrupt: InterruptDTO): Partial<T> {
   const meta = interrupt.meta as unknown;
   if (!meta) return {};
   if (typeof meta === 'string') {
     try {
-      return JSON.parse(meta) as ApprovalRequiredPayload;
+      return JSON.parse(meta) as T;
     } catch {
       return {};
     }
   }
-  return meta as ApprovalRequiredPayload;
+  return meta as T;
 }
 
 /**
@@ -155,7 +156,7 @@ export function pendingApprovals(chat: ChatDTO | null | undefined): PendingAppro
     if (interrupt.reason !== InterruptReasonToolApproval || interrupt.status !== InterruptStatusPending) {
       continue;
     }
-    const meta = parseApprovalMeta(interrupt);
+    const meta = parseMeta<ApprovalRequiredPayload>(interrupt);
     out.push({
       interruptId: interrupt.id,
       toolInvocationId: interrupt.resource_id ?? meta.tool_invocation_id ?? '',
@@ -165,4 +166,20 @@ export function pendingApprovals(chat: ChatDTO | null | undefined): PendingAppro
     });
   }
   return out;
+}
+
+/** A run's next turn held for the person (InterruptResourceTurn): after a long stretch without them, it waits for "keep going" (allow) or "stop" (deny). */
+export type HeldTurn = {
+  interruptId: string;
+  runId: string;
+  /** Steps the run took without the person, when the api says. */
+  steps: number | null;
+};
+
+/** The held turn among a run's pending interrupts, if one is held. */
+export function heldTurn(interrupts: InterruptDTO[] | null | undefined): HeldTurn | null {
+  const interrupt = interrupts?.find(i => i.resource_type === InterruptResourceTurn && i.status === InterruptStatusPending);
+  if (!interrupt) return null;
+  const { steps } = parseMeta<{ steps: number }>(interrupt);
+  return { interruptId: interrupt.id, runId: interrupt.run_id, steps: typeof steps === 'number' ? steps : null };
 }

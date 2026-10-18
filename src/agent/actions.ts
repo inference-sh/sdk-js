@@ -623,6 +623,8 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     },
 
+    listRunInterrupts: (runId: string) => api.listRunInterrupts(client, runId),
+
     loadOlderMessages: async () => {
       const chatId = getChatId();
       const cursor = getState().messageCursor;

@@ -20,6 +20,9 @@ import {
 import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types.js';
 import {
   InterruptReasonToolApproval,
+  InterruptReasonConfirmation,
+  InterruptResourceTurn,
+  InterruptResourceToolInvocation,
   InterruptReasonWidget,
   InterruptStatusPending,
   InterruptStatusResolved,
@@ -34,6 +37,7 @@ import {
   isRunSettled,
   isMessageTerminal,
   pendingApprovals,
+  heldTurn,
 } from './utils.js';
 
 describe('pendingApprovals', () => {
@@ -186,5 +190,39 @@ describe('run and message state predicates', () => {
     expect(isAwaitingHuman({ active_run: { state: AgentRunStateWorking } } as unknown as ChatDTO)).toBe(false);
     expect(isAwaitingHuman({ status: 'awaiting_input' } as unknown as ChatDTO)).toBe(true);
     expect(isAwaitingHuman(null)).toBe(false);
+  });
+});
+
+describe('heldTurn', () => {
+  const interrupt = (overrides: Partial<InterruptDTO>): InterruptDTO =>
+    ({
+      id: 'int-held',
+      chat_id: 'chat-1',
+      run_id: 'run-1',
+      reason: InterruptReasonConfirmation,
+      source: 'step_limit',
+      status: InterruptStatusPending,
+      resource_id: 'run-1',
+      resource_type: InterruptResourceTurn,
+      meta: { steps: 2000 },
+      ...overrides,
+    }) as unknown as InterruptDTO;
+
+  it('finds the pending held turn and its steps', () => {
+    expect(heldTurn([interrupt({ id: 'int-tool', resource_type: InterruptResourceToolInvocation }), interrupt({})])).toEqual({
+      interruptId: 'int-held',
+      runId: 'run-1',
+      steps: 2000,
+    });
+  });
+
+  it('reads string meta and tolerates none', () => {
+    expect(heldTurn([interrupt({ meta: '{"steps":7}' as unknown as InterruptDTO['meta'] })])?.steps).toBe(7);
+    expect(heldTurn([interrupt({ meta: undefined })])?.steps).toBeNull();
+  });
+
+  it('is null without a pending held turn', () => {
+    expect(heldTurn([interrupt({ status: InterruptStatusResolved })])).toBeNull();
+    expect(heldTurn(undefined)).toBeNull();
   });
 });
