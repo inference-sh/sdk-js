@@ -160,6 +160,7 @@ describe('createActions', () => {
       resolution: 'allow',
       resource_type: 'tool_invocation',
     } as never);
+    mockAgentApi.listRunInterrupts.mockResolvedValue([]);
     mockAgentApi.approveTool.mockResolvedValue(undefined);
     mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue({ rules: [] });
@@ -2573,6 +2574,23 @@ describe('createActions', () => {
         payload: 'cancel failed',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'cancel failed' }));
+    });
+  });
+
+  describe('listRunInterrupts', () => {
+    it('should GET pending interrupts for a run via the agent API', async () => {
+      const interrupts = [
+        { id: 'int-turn', status: 'pending', resource_type: 'turn', run_id: 'run-9' },
+        { id: 'int-tool', status: 'pending', resource_type: 'tool_invocation' },
+      ];
+      mockAgentApi.listRunInterrupts.mockResolvedValueOnce(interrupts as never);
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.listRunInterrupts('run-9');
+
+      expect(mockAgentApi.listRunInterrupts).toHaveBeenCalledWith(ctx.client, 'run-9');
+      expect(result).toEqual(interrupts);
     });
   });
 
