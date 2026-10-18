@@ -170,6 +170,7 @@ describe('createActions', () => {
       chat_id: 'chat-full', name: 'a chat', visibility: 'private', allow_all_tools: true, disable_hooks: false, memory: {},
     } as never);
     mockAgentApi.cancelMessage.mockResolvedValue(undefined);
+    mockAgentApi.listRunInterrupts.mockResolvedValue([]);
     mockAgentApi.uploadFile.mockResolvedValue({
       id: 'file-1',
       uri: 'inf://files/uploaded',
@@ -2601,6 +2602,22 @@ describe('createActions', () => {
         payload: 'error',
       });
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'resolve failed' }));
+    });
+  });
+
+  describe('listRunInterrupts', () => {
+    it('should call API with run id and return interrupts', async () => {
+      const interrupts = [
+        { id: 'int-1', status: 'pending', resource_type: 'turn' },
+      ];
+      mockAgentApi.listRunInterrupts.mockResolvedValueOnce(interrupts as never);
+      const { ctx } = createTestContext();
+      const { publicActions } = createActions(ctx);
+
+      const result = await publicActions.listRunInterrupts('run-99');
+
+      expect(mockAgentApi.listRunInterrupts).toHaveBeenCalledWith(ctx.client, 'run-99');
+      expect(result).toEqual(interrupts);
     });
   });
 
