@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-18
+
 ### Removed
 - `credentialId` on `httpTool().auth()` and `mcpTool()`, and the positional `mcpTool(name, credentialId, toolName)`: a tool no longer pins a connection. Credential-auth HTTP tools and MCP tools always sign in with the caller's own login to the provider at run time; `mcpTool(name, { server, toolName })` requires `server` (INF-1012). Generated types: `ToolAuthConfig`, `MCPToolConfig` and `MCPToolConfigDTO` lose `credential_id`.
 
