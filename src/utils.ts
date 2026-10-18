@@ -178,9 +178,14 @@ export type HeldTurn = {
   steps: number | null;
 };
 
+/** The first pending interrupt among a run's that matches. */
+function pendingInterrupt(interrupts: InterruptDTO[] | null | undefined, match: (i: InterruptDTO) => boolean): InterruptDTO | undefined {
+  return interrupts?.find(i => i.status === InterruptStatusPending && match(i));
+}
+
 /** The held turn among a run's pending interrupts, if one is held. */
 export function heldTurn(interrupts: InterruptDTO[] | null | undefined): HeldTurn | null {
-  const interrupt = interrupts?.find(i => i.resource_type === InterruptResourceTurn && i.status === InterruptStatusPending);
+  const interrupt = pendingInterrupt(interrupts, i => i.resource_type === InterruptResourceTurn);
   if (!interrupt) return null;
   const { steps } = parseMeta<{ steps: number }>(interrupt);
   return { interruptId: interrupt.id, runId: interrupt.run_id, steps: typeof steps === 'number' ? steps : null };
@@ -198,7 +203,7 @@ export type PendingWait = {
 
 /** The wait among a run's pending interrupts, if the run is waiting. */
 export function pendingWait(interrupts: InterruptDTO[] | null | undefined): PendingWait | null {
-  const interrupt = interrupts?.find(i => i.reason === InterruptReasonWait && i.status === InterruptStatusPending);
+  const interrupt = pendingInterrupt(interrupts, i => i.reason === InterruptReasonWait);
   if (!interrupt) return null;
   const { note } = parseMeta<{ note: string }>(interrupt);
   return { interruptId: interrupt.id, runId: interrupt.run_id, until: interrupt.expires_at ?? null, note: typeof note === 'string' ? note : '' };
