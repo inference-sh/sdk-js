@@ -1895,6 +1895,20 @@ describe('createActions', () => {
       expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-late', 'allow');
     });
 
+    it("rejectTool reads the run's interrupts when the chat state has not caught up", async () => {
+      const state = chatAwaiting('inv-other', 'int-other');
+      mockAgentApi.listRunInterrupts.mockResolvedValueOnce([
+        { id: 'int-late-reject', run_id: 'run-1', reason: 'tool_approval', status: 'pending', resource_id: 'inv-late-reject' },
+      ] as never);
+      const { ctx } = createTestContext({ getState: () => state });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.rejectTool('inv-late-reject', 'policy');
+
+      expect(mockAgentApi.listRunInterrupts).toHaveBeenCalledWith(ctx.client, 'run-1');
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-late-reject', 'deny', 'policy');
+    });
+
     it('approveTool refuses a call that is not awaiting approval', async () => {
       mockAgentApi.listRunInterrupts.mockResolvedValueOnce([] as never);
       const onError = jest.fn();
