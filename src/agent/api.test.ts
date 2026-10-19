@@ -355,6 +355,7 @@ describe('agent/api', () => {
   describe('listRunInterrupts', () => {
     it('should GET pending interrupts with resource_type discriminators', async () => {
       const interrupts = [
+        { id: 'int-0', status: 'pending', resource_type: 'turn', run_id: 'run-xyz' },
         { id: 'int-1', status: 'pending', resource_type: 'tool_invocation' },
         { id: 'int-2', status: 'pending', resource_type: 'hook_event' },
       ];
@@ -363,8 +364,9 @@ describe('agent/api', () => {
       const result = await listRunInterrupts(makeClient(), 'run-xyz');
 
       expect(result).toEqual(interrupts);
-      expect(result[0].resource_type).toBe('tool_invocation');
-      expect(result[1].resource_type).toBe('hook_event');
+      expect(result[0].resource_type).toBe('turn');
+      expect(result[1].resource_type).toBe('tool_invocation');
+      expect(result[2].resource_type).toBe('hook_event');
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toContain('/agent-runs/run-xyz/interrupts');
       expect(init.method).toBe('GET');

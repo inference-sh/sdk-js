@@ -129,6 +129,12 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('exports heldTurn helpers and InterruptResourceTurn (c056862)', () => {
+      expect(main.InterruptResourceTurn).toBe('turn');
+      expect(main.heldTurn).toEqual(expect.any(Function));
+      expect(main.heldTurn(undefined)).toBeNull();
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

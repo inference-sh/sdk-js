@@ -231,6 +231,12 @@ describe('heldTurn', () => {
     expect(heldTurn([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(heldTurn(undefined)).toBeNull();
   });
+
+  it('treats invalid string meta as no steps', () => {
+    expect(
+      heldTurn([interrupt({ meta: 'not-json' as unknown as InterruptDTO['meta'] })])?.steps
+    ).toBeNull();
+  });
 });
 
 describe('pendingWait', () => {
