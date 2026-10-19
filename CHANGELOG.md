@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-20
+
 ### Changed
 - `approveTool` and `rejectTool` resolve the call's interrupt (`POST /interrupts/{id}/resolve`), the same answer as every other pause (a wait, a hook gate, a held turn); they no longer post to `/tools/{id}/invoke|reject`. A call that is not awaiting approval rejects with "Tool call … is not awaiting approval".
 - `resolveInterrupt` (agent actions and `AgentsAPI`) takes an optional `reason`, sent with a deny as `data.reason`.
