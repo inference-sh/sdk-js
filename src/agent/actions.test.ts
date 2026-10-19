@@ -2509,6 +2509,107 @@ describe('createActions', () => {
       onAgentRun(authRequiredRun);
       expect(onTurnEnd).not.toHaveBeenCalled();
     });
+
+    it('should not call onStatusChange or onTurnEnd for partial agent_runs (output-only)', async () => {
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const busyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: { id: 'run-1', state: AgentRunStateWorking },
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      const { ctx, dispatch } = createTestContext({
+        callbacks: { onStatusChange, onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: busyChat,
+        }),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      onStatusChange.mockClear();
+
+      const onAgentRun = getAgentRunsListener() as (run: AgentRunDTO, fields?: string[]) => void;
+      onAgentRun(
+        { id: 'run-1', output: { answer: 42 } } as unknown as AgentRunDTO,
+        ['id', 'output'],
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_ACTIVE_RUN',
+        payload: { id: 'run-1', output: { answer: 42 } },
+        fields: ['id', 'output'],
+      });
+      expect(onStatusChange).not.toHaveBeenCalled();
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('partial stream chat updates', () => {
+    function getChatsListener() {
+      return streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chats',
+      )?.[1] as (chat: ChatDTO, fields?: string[]) => void;
+    }
+
+    it('should dispatch UPDATE_CHAT with fields when the stream sends a partial chat', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      getChatsListener()(
+        { id: 'chat-full-id-123', agent_data: { plan_steps: [] } } as unknown as ChatDTO,
+        ['id', 'agent_data'],
+      );
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'UPDATE_CHAT',
+        payload: { id: 'chat-full-id-123', agent_data: { plan_steps: [] } },
+        fields: ['id', 'agent_data'],
+      });
+    });
+
+    it('should keep streaming status when a plan step updates only agent_data', async () => {
+      const onStatusChange = jest.fn();
+      const onTurnEnd = jest.fn();
+      const busyChat = {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: workingRun,
+        chat_messages: [],
+      } as unknown as ChatDTO;
+      const { ctx } = createTestContext({
+        callbacks: { onStatusChange, onTurnEnd },
+        getState: () => ({
+          chatId: 'chat-short',
+          messages: [],
+          connectionStatus: 'streaming' as const,
+          chat: busyChat,
+        }),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      onStatusChange.mockClear();
+
+      getChatsListener()(
+        { id: 'chat-full-id-123', agent_data: { plan_steps: [{ id: 's1' }] } } as unknown as ChatDTO,
+        ['id', 'agent_data'],
+      );
+
+      expect(onStatusChange).toHaveBeenCalledWith('streaming');
+      expect(onTurnEnd).not.toHaveBeenCalled();
+    });
   });
 
   describe('setChatId', () => {
