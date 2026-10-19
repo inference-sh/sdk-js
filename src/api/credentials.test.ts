@@ -252,6 +252,34 @@ describe('CredentialsAPI', () => {
     expect(result.data[0]?.auth_provider_id).toBe('asch_cfg_1');
   });
 
+  it('should deserialize company on getConfigs() without legacy provider_info', async () => {
+    const company = { slug: 'github', name: 'GitHub', website: 'https://github.com' };
+    const configs = [
+      {
+        slug: 'github',
+        provider: 'github',
+        type: 'oauth',
+        name: 'GitHub',
+        short_name: 'GitHub',
+        description: 'GitHub OAuth',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeTeam,
+        multi_account: true,
+        company,
+        auth_provider_id: 'aprov_gh',
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    expect(result.data[0]?.company).toEqual(company);
+    expect(result.data[0]?.auth_provider_id).toBe('aprov_gh');
+    expect(result.data[0]).not.toHaveProperty('provider_info');
+  });
+
   it('should GET /credentials/capabilities for getCapabilities()', async () => {
     const capabilities = { slack: ['post_message'] };
     mockJsonResponse(capabilities);
