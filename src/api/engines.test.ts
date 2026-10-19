@@ -236,6 +236,29 @@ describe('EnginesAPI', () => {
     expect(result.data?.stable?.version).toBe('v1.9.2');
   });
 
+  it('should preserve reported capabilities on get() for scheduler matching', async () => {
+    const engine = makeEngine({
+      capabilities: ['egress_gateway'],
+    });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.capabilities).toEqual(['egress_gateway']);
+  });
+
+  it('should preserve capabilities in list() and getForResources() responses', async () => {
+    const engine = makeEngine({ capabilities: ['egress_gateway'] });
+    mockJsonResponse({ items: [engine], next_cursor: null });
+
+    const listResult = await api().list();
+    expect(listResult.data.items[0]?.capabilities).toEqual(['egress_gateway']);
+
+    mockJsonResponse([engine]);
+    const resourcesResult = await api().getForResources({ app_ids: ['app-1'] });
+    expect(resourcesResult.data[0]?.capabilities).toEqual(['egress_gateway']);
+  });
+
   it('should preserve restarting status on get() during engine restart transitions', async () => {
     const engine = makeEngine({ status: EngineStatusRestarting });
     mockJsonResponse(engine);
