@@ -627,9 +627,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
       }
     },
 
-    resolveInterrupt: async (interruptId: string, decision: 'allow' | 'deny') => {
+    resolveInterrupt: async (interruptId: string, decision: 'allow' | 'deny', reason?: string) => {
       try {
-        await api.resolveInterrupt(client, interruptId, decision);
+        await api.resolveInterrupt(client, interruptId, decision, reason);
       } catch (error) {
         console.error('[AgentSDK] Failed to resolve interrupt:', error);
         const err = error instanceof Error ? error : new Error('Failed to resolve interrupt');

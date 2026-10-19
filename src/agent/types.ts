@@ -239,8 +239,10 @@ export interface AgentChatActions {
    * Needs the account holder's own sign-in (approvals:write): with an API
    * key, an app's token or the server proxy it rejects with 403
    * `requires_sign_in` (ErrorCodeRequiresSignIn).
+   *
+   * `reason`, with deny, is sent back to the agent with the refused call.
    */
-  resolveInterrupt: (interruptId: string, decision: 'allow' | 'deny') => Promise<void>;
+  resolveInterrupt: (interruptId: string, decision: 'allow' | 'deny', reason?: string) => Promise<void>;
   /** A run's pending interrupts (`heldTurn` finds a held turn among them). */
   listRunInterrupts: (runId: string) => Promise<InterruptDTO[]>;
   /** Load older messages (scroll-up pagination). Returns true if more exist. */
