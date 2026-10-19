@@ -679,15 +679,17 @@ export class AgentsAPI {
   }
 
   /**
-   * Resolve an interrupt gate on an agent run.
+   * Resolve an interrupt on an agent run: a tool call waiting for approval, a
+   * wait, a hook gate or a held turn, all the same way. `reason`, with deny,
+   * goes back to the agent with the refused call.
    *
    * Needs approvals:write, which only the account holder's own sign-in holds:
    * with an API key, an app's OAuth token or the server proxy it rejects with
    * 403 `requires_sign_in` (ErrorCodeRequiresSignIn).
    */
-  async resolveInterrupt(interruptId: string, decision: 'allow' | 'deny'): Promise<Response<InterruptDTO>> {
+  async resolveInterrupt(interruptId: string, decision: 'allow' | 'deny', reason?: string): Promise<Response<InterruptDTO>> {
     return this.http.request<InterruptDTO>('post', `/interrupts/${interruptId}/resolve`, {
-      data: { decision }
+      data: reason ? { decision, data: { reason } } : { decision }
     });
   }
 

@@ -41,6 +41,7 @@ import {
   pendingApprovals,
   heldTurn,
   pendingWait,
+  approvalInterrupt,
 } from './utils.js';
 
 describe('pendingApprovals', () => {
@@ -230,6 +231,22 @@ describe('heldTurn', () => {
   it('is null without a pending held turn', () => {
     expect(heldTurn([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(heldTurn(undefined)).toBeNull();
+  });
+});
+
+describe('approvalInterrupt', () => {
+  const approval = (over: Partial<InterruptDTO>): InterruptDTO =>
+    ({ id: 'int-1', run_id: 'run-1', chat_id: 'chat-1', reason: InterruptReasonToolApproval, status: InterruptStatusPending, resource_id: 'inv-1', ...over }) as InterruptDTO;
+
+  it("finds the pending approval of a call, by its resource or its meta", () => {
+    expect(approvalInterrupt([approval({ id: 'int-other', resource_id: 'inv-2' }), approval({})], 'inv-1')?.id).toBe('int-1');
+    expect(approvalInterrupt([approval({ resource_id: undefined, meta: { tool_invocation_id: 'inv-1' } as never })], 'inv-1')?.id).toBe('int-1');
+  });
+
+  it('skips a resolved approval and other pauses of the same call', () => {
+    expect(approvalInterrupt([approval({ status: InterruptStatusResolved })], 'inv-1')).toBeUndefined();
+    expect(approvalInterrupt([approval({ reason: InterruptReasonWait })], 'inv-1')).toBeUndefined();
+    expect(approvalInterrupt(undefined, 'inv-1')).toBeUndefined();
   });
 });
 

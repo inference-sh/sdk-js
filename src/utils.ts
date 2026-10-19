@@ -191,6 +191,14 @@ export function heldTurn(interrupts: InterruptDTO[] | null | undefined): HeldTur
   return { interruptId: interrupt.id, runId: interrupt.run_id, steps: typeof steps === 'number' ? steps : null };
 }
 
+/** The interrupt a tool call awaiting approval waits on, among a chat's or a run's pending interrupts. */
+export function approvalInterrupt(interrupts: InterruptDTO[] | null | undefined, toolInvocationId: string): InterruptDTO | undefined {
+  return pendingInterrupt(
+    interrupts,
+    i => i.reason === InterruptReasonToolApproval && (i.resource_id || parseMeta<ApprovalRequiredPayload>(i).tool_invocation_id) === toolInvocationId,
+  );
+}
+
 /** A run paused by its agent's wait tool (InterruptReasonWait): it continues at `until`, or sooner when the person ends the wait ("continue now", allow) or cancels it (deny). */
 export type PendingWait = {
   interruptId: string;

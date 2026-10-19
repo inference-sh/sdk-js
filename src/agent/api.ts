@@ -230,30 +230,6 @@ export async function submitToolResult(
 }
 
 /**
- * Approve a call awaiting approval; the api then runs it.
- *
- * Needs approvals:write, which only the account holder's own sign-in holds
- * (the web app, or a `belt login` session). An API key, an app's OAuth token
- * or the server proxy is refused with 403 `requires_sign_in`
- * (ErrorCodeRequiresSignIn); the error's message says what to do.
- */
-export async function approveTool(client: AgentClient, toolInvocationId: string): Promise<void> {
-  await client.http.request<void>('post', `/tools/${toolInvocationId}/invoke`);
-}
-
-/**
- * Reject a call awaiting approval, with an optional reason the agent sees.
- *
- * Needs approvals:write, which only the account holder's own sign-in holds
- * (the web app, or a `belt login` session). An API key, an app's OAuth token
- * or the server proxy is refused with 403 `requires_sign_in`
- * (ErrorCodeRequiresSignIn); the error's message says what to do.
- */
-export async function rejectTool(client: AgentClient, toolInvocationId: string, reason?: string): Promise<void> {
-  await client.http.request<void>('post', `/tools/${toolInvocationId}/reject`, { data: { reason } });
-}
-
-/**
  * What "always allow" can save for a call awaiting approval, narrowest first.
  * The api computes the options from the call; each one, saved, answers it again.
  */
@@ -331,7 +307,9 @@ export async function updateChatSettings(
 // =========================================================================
 
 /**
- * Allow or deny an interrupt gate on an agent run.
+ * Allow or deny an interrupt on an agent run: a tool call waiting for
+ * approval, a wait, a hook gate or a held turn, all the same way. `reason`,
+ * with deny, goes back to the agent with the refused call.
  *
  * Needs approvals:write, which only the account holder's own sign-in holds
  * (the web app, or a `belt login` session). An API key, an app's OAuth token
@@ -341,10 +319,11 @@ export async function updateChatSettings(
 export async function resolveInterrupt(
   client: AgentClient,
   interruptId: string,
-  decision: 'allow' | 'deny'
+  decision: 'allow' | 'deny',
+  reason?: string
 ): Promise<InterruptDTO> {
   const resp = await client.http.request<InterruptDTO>('post', `/interrupts/${interruptId}/resolve`, {
-    data: { decision }
+    data: reason ? { decision, data: { reason } } : { decision }
   });
   return resp.data;
 }

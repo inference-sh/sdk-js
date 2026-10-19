@@ -180,7 +180,8 @@ export interface AgentChatActions {
   /** Answer an MCP tool call's input requests (AwaitingInput status with MCPInputState data) */
   submitMCPInput: (toolInvocationId: string, responses: Record<string, ElicitResult>) => Promise<void>;
   /**
-   * Approve a tool (for HIL approval - AwaitingApproval status)
+   * Approve a tool (for HIL approval - AwaitingApproval status). Resolves the
+   * call's interrupt with allow, as resolveInterrupt does for every pause.
    *
    * Needs the account holder's own sign-in (approvals:write): with an API
    * key, an app's token or the server proxy it rejects with 403
@@ -188,7 +189,8 @@ export interface AgentChatActions {
    */
   approveTool: (toolInvocationId: string) => Promise<void>;
   /**
-   * Reject a tool (for HIL approval - AwaitingApproval status)
+   * Reject a tool (for HIL approval - AwaitingApproval status). Resolves the
+   * call's interrupt with deny; `reason` goes back to the agent.
    *
    * Needs the account holder's own sign-in (approvals:write): with an API
    * key, an app's token or the server proxy it rejects with 403

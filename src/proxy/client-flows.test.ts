@@ -153,13 +153,12 @@ describe('SDK client through the proxy', () => {
     const { seen } = installNetwork({ allowedEndpoints: ['ana/*'] });
     const client = new Inference({ proxyUrl: PROXY });
     const calls: [string, () => Promise<unknown>][] = [
-      ['approve', () => agentApi.approveTool(client, TOOL)],
-      ['reject', () => agentApi.rejectTool(client, TOOL, 'no')],
       ['always-allow options', () => agentApi.getAlwaysAllowOptions(client, CHAT, TOOL)],
       ['always allow', () => agentApi.alwaysAllowTool(client, CHAT, TOOL)],
       ['explain', () => agentApi.explainTool(client, CHAT, TOOL)],
       ['allow all tools', () => agentApi.updateChatSettings(client, CHAT, { allow_all_tools: true })],
-      ['resolve', () => agentApi.resolveInterrupt(client, INTERRUPT, 'allow')],
+      ['approve or resolve', () => agentApi.resolveInterrupt(client, INTERRUPT, 'allow')],
+      ['reject', () => agentApi.resolveInterrupt(client, INTERRUPT, 'deny', 'no')],
       ['list interrupts', () => agentApi.listRunInterrupts(client, RUN)],
     ];
     for (const [name, call] of calls) {

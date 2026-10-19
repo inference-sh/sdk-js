@@ -11,7 +11,7 @@ import {
   ToolInvocationStatusInProgress,
   ToolTypeClient,
 } from '../types.js';
-import { isChatBusy, isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils.js';
+import { approvalInterrupt, isChatBusy, isMessageTerminal, isRunInterrupted, isRunWorking } from '../utils.js';
 import { StreamableManager } from '../http/streamable.js';
 import { PollManager } from '../http/poll.js';
 import { createLLMDeltaAccumulator, type DeltaAccumulator } from '../delta.js';
@@ -47,6 +47,23 @@ function isTransient(err: unknown): boolean {
 export function createActions(ctx: ActionsContext): ActionsResult {
   const dispatchedToolInvocations = new Set<string>();
   const { client, dispatch, getState, getConfig, getChatId, getClientToolHandlers, getStreamManager, setStreamManager, getStreamEnabled, getPollIntervalMs, callbacks } = ctx;
+
+  /**
+   * The interrupt a call awaiting approval waits on: approving or rejecting
+   * the call resolves it, like every other pause. The chat's pending
+   * interrupts carry it; when they have not caught up with the call yet, the
+   * run's are read from the api.
+   */
+  const approvalInterruptId = async (toolInvocationId: string): Promise<string> => {
+    const chat = getState().chat;
+    let interrupt = approvalInterrupt(chat?.pending_interrupts, toolInvocationId);
+    const runId = chat?.active_run?.id;
+    if (!interrupt && runId) {
+      interrupt = approvalInterrupt(await api.listRunInterrupts(client, runId), toolInvocationId);
+    }
+    if (!interrupt) throw new Error(`Tool call ${toolInvocationId} is not awaiting approval`);
+    return interrupt.id;
+  };
 
   let prevChatWasBusy = false;
   // Bumped by every streamChat() and stopStream(). A stream whose generation
@@ -496,7 +513,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     approveTool: async (toolInvocationId: string) => {
       try {
-        await api.approveTool(client, toolInvocationId);
+        await api.resolveInterrupt(client, await approvalInterruptId(toolInvocationId), 'allow');
       } catch (error) {
         console.error('[AgentSDK] Failed to approve tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to approve tool');
@@ -509,7 +526,7 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     rejectTool: async (toolInvocationId: string, reason?: string) => {
       try {
-        await api.rejectTool(client, toolInvocationId, reason);
+        await api.resolveInterrupt(client, await approvalInterruptId(toolInvocationId), 'deny', reason);
       } catch (error) {
         console.error('[AgentSDK] Failed to reject tool:', error);
         const err = error instanceof Error ? error : new Error('Failed to reject tool');

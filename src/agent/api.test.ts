@@ -12,8 +12,6 @@ import {
   submitToolResult,
   resolveInterrupt,
   listRunInterrupts,
-  approveTool,
-  rejectTool,
   alwaysAllowTool,
   getAlwaysAllowOptions,
   explainTool,
@@ -350,6 +348,15 @@ describe('agent/api', () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
     });
+
+    it('should POST a deny reason as data.reason', async () => {
+      mockJsonResponse({ id: 'int-3', status: 'resolved', resolution: 'deny' });
+
+      await resolveInterrupt(makeClient(), 'int-3', 'deny', 'not safe');
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny', data: { reason: 'not safe' } });
+    });
   });
 
   describe('listRunInterrupts', () => {
@@ -517,20 +524,6 @@ describe('agent/api', () => {
   });
 
   describe('HIL tool approval', () => {
-    it('approveTool should POST to /tools/{id}/invoke', async () => {
-      mockJsonResponse(null);
-      await approveTool(makeClient(), 'inv-approve');
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(url).toContain('/tools/inv-approve/invoke');
-    });
-
-    it('rejectTool should POST reason to /tools/{id}/reject', async () => {
-      mockJsonResponse(null);
-      await rejectTool(makeClient(), 'inv-reject', 'not safe');
-      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(JSON.parse(String(init.body))).toEqual({ reason: 'not safe' });
-    });
-
     it('getAlwaysAllowOptions should GET the options for the call', async () => {
       const options = {
         options: [

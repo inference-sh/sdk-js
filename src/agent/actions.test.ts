@@ -160,8 +160,6 @@ describe('createActions', () => {
       resolution: 'allow',
       resource_type: 'tool_invocation',
     } as never);
-    mockAgentApi.approveTool.mockResolvedValue(undefined);
-    mockAgentApi.rejectTool.mockResolvedValue(undefined);
     mockAgentApi.alwaysAllowTool.mockResolvedValue({ rules: [] });
     mockAgentApi.getAlwaysAllowOptions.mockResolvedValue({ options: [], default: '' } as never);
     mockAgentApi.explainTool.mockResolvedValue({ risk_level: 'low', explanation: 'e', reasoning: 'r', risk: 'x' } as never);
@@ -1854,26 +1852,59 @@ describe('createActions', () => {
   });
 
   describe('HIL tool actions', () => {
-    it('approveTool should delegate to the API', async () => {
-      const { ctx } = createTestContext();
+    // A chat whose state carries the pending approval interrupt of a call.
+    const chatAwaiting = (toolInvocationId: string, interruptId: string) => ({
+      chatId: 'chat-short', messages: [], connectionStatus: 'idle' as const,
+      chat: {
+        id: 'chat-short',
+        active_run: { id: 'run-1' },
+        pending_interrupts: [{ id: interruptId, run_id: 'run-1', chat_id: 'chat-short', reason: 'tool_approval', status: 'pending', resource_id: toolInvocationId, resource_type: 'tool_invocation' }],
+      } as never,
+    });
+
+    it("approveTool resolves the call's interrupt with allow", async () => {
+      const { ctx } = createTestContext({ getState: () => chatAwaiting('inv-approve', 'int-approve') });
       const { publicActions } = createActions(ctx);
 
       await publicActions.approveTool('inv-approve');
 
-      expect(mockAgentApi.approveTool).toHaveBeenCalledWith(ctx.client, 'inv-approve');
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-approve', 'allow');
+      expect(mockAgentApi.listRunInterrupts).not.toHaveBeenCalled();
     });
 
-    it('rejectTool should pass an optional reason', async () => {
-      const { ctx } = createTestContext();
+    it("rejectTool resolves the call's interrupt with deny and the reason", async () => {
+      const { ctx } = createTestContext({ getState: () => chatAwaiting('inv-reject', 'int-reject') });
       const { publicActions } = createActions(ctx);
 
       await publicActions.rejectTool('inv-reject', 'unsafe');
 
-      expect(mockAgentApi.rejectTool).toHaveBeenCalledWith(
-        ctx.client,
-        'inv-reject',
-        'unsafe'
-      );
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-reject', 'deny', 'unsafe');
+    });
+
+    it("approveTool reads the run's interrupts when the chat state has not caught up", async () => {
+      const state = chatAwaiting('inv-other', 'int-other');
+      mockAgentApi.listRunInterrupts.mockResolvedValueOnce([
+        { id: 'int-late', run_id: 'run-1', reason: 'tool_approval', status: 'pending', resource_id: 'inv-late' },
+      ] as never);
+      const { ctx } = createTestContext({ getState: () => state });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.approveTool('inv-late');
+
+      expect(mockAgentApi.listRunInterrupts).toHaveBeenCalledWith(ctx.client, 'run-1');
+      expect(mockAgentApi.resolveInterrupt).toHaveBeenCalledWith(ctx.client, 'int-late', 'allow');
+    });
+
+    it('approveTool refuses a call that is not awaiting approval', async () => {
+      mockAgentApi.listRunInterrupts.mockResolvedValueOnce([] as never);
+      const onError = jest.fn();
+      const { ctx } = createTestContext({ getState: () => chatAwaiting('inv-other', 'int-other'), callbacks: { onError } });
+      const { publicActions } = createActions(ctx);
+
+      await expect(publicActions.approveTool('inv-gone')).rejects.toThrow('Tool call inv-gone is not awaiting approval');
+
+      expect(mockAgentApi.resolveInterrupt).not.toHaveBeenCalled();
+      expect(onError).toHaveBeenCalled();
     });
 
     it('alwaysAllowTool should no-op without a chatId', async () => {
@@ -2134,9 +2165,9 @@ describe('createActions', () => {
     });
 
     it('approveTool should set error state when API fails', async () => {
-      mockAgentApi.approveTool.mockRejectedValueOnce(new Error('approve failed'));
+      mockAgentApi.resolveInterrupt.mockRejectedValueOnce(new Error('approve failed'));
       const onError = jest.fn();
-      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { ctx, dispatch } = createTestContext({ getState: () => chatAwaiting('inv-1', 'int-1'), callbacks: { onError } });
       const { publicActions } = createActions(ctx);
 
       await expect(publicActions.approveTool('inv-1')).rejects.toThrow('approve failed');
@@ -2149,9 +2180,9 @@ describe('createActions', () => {
     });
 
     it('rejectTool should set error state when API fails', async () => {
-      mockAgentApi.rejectTool.mockRejectedValueOnce(new Error('reject failed'));
+      mockAgentApi.resolveInterrupt.mockRejectedValueOnce(new Error('reject failed'));
       const onError = jest.fn();
-      const { ctx, dispatch } = createTestContext({ callbacks: { onError } });
+      const { ctx, dispatch } = createTestContext({ getState: () => chatAwaiting('inv-1', 'int-1'), callbacks: { onError } });
       const { publicActions } = createActions(ctx);
 
       await expect(publicActions.rejectTool('inv-1', 'unsafe')).rejects.toThrow('reject failed');
