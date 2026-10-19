@@ -825,6 +825,29 @@ describe('TasksAPI (CRUD and admin)', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should preserve egress byte counters on get() for gateway-metered tasks', async () => {
+    const task = makeTask({
+      egress: { bytes_out: 2048, bytes_in: 512 },
+    });
+    mockJsonResponse(task);
+
+    const result = await api().get('task-1');
+
+    expect(result.data.egress).toEqual({ bytes_out: 2048, bytes_in: 512 });
+  });
+
+  it('should preserve egress on list() items when the API reports gateway usage', async () => {
+    const page = {
+      items: [makeTask({ egress: { bytes_out: 10, bytes_in: 20 } })],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().list();
+
+    expect(result.data.items[0]?.egress).toEqual({ bytes_out: 10, bytes_in: 20 });
+  });
+
   it('should DELETE /tasks/{id} for delete()', async () => {
     mockJsonResponse(null);
 
