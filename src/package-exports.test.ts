@@ -129,6 +129,12 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('exports pendingWait and InterruptReasonWait (33da4b2)', () => {
+      expect(main.InterruptReasonWait).toBe('wait');
+      expect(main.pendingWait).toEqual(expect.any(Function));
+      expect(main.pendingWait(null)).toBeNull();
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

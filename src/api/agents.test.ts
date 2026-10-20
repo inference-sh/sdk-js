@@ -2576,6 +2576,7 @@ describe('AgentsAPI (template CRUD)', () => {
       artifact: true,
       meta: true,
       remote: true,
+      wait: true,
     };
     const payload = { name: 'support-bot', core_app: { ref: 'app/ref' }, internal_tools };
     const created = { id: 'agent-new', ...payload };
@@ -2720,6 +2721,30 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward approval_timeout on tools through createAgent()', async () => {
+    const payload = {
+      name: 'gated-bot',
+      core_app: { ref: 'openrouter/claude@latest' },
+      tools: [
+        {
+          name: 'deploy',
+          description: 'Deploy to prod',
+          type: ToolTypeClient,
+          require_approval: true,
+          approval_timeout: 120,
+          client: { input_schema: { type: 'object', properties: {} } },
+        },
+      ],
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).tools[0].approval_timeout).toBe(120);
   });
 
   it('should forward app.fixed_input on tools through update()', async () => {
