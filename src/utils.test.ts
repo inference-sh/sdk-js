@@ -104,6 +104,7 @@ describe('parseStatus', () => {
   it('should pass through numeric status values', () => {
     expect(parseStatus(TaskStatusRunning)).toBe(TaskStatusRunning);
     expect(parseStatus(TaskStatusCompleted)).toBe(TaskStatusCompleted);
+    expect(parseStatus(TaskStatusRejected)).toBe(TaskStatusRejected);
   });
 
   it('should map lowercase string status names to TaskStatus', () => {

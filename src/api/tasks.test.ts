@@ -146,6 +146,32 @@ describe('TasksAPI.run (polling mode)', () => {
     ).rejects.toThrow('insufficient balance');
   });
 
+  it('should use a default message when a rejected task has no error field', async () => {
+    const runningTask = makeTask();
+    const rejectedTask = makeTask({ status: TaskStatusRejected });
+
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRejected });
+    mockJsonResponse(rejectedTask);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
+    ).rejects.toThrow('task rejected');
+  });
+
+  it('should parse string rejected status from the status endpoint', async () => {
+    const runningTask = makeTask();
+    const rejectedTask = makeTask({ status: TaskStatusRejected, error: 'no payment method' });
+
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: 'rejected' });
+    mockJsonResponse(rejectedTask);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
+    ).rejects.toThrow('no payment method');
+  });
+
   it('should reject when full task fetch fails after status change', async () => {
     const runningTask = makeTask();
 
@@ -413,6 +439,16 @@ describe('TasksAPI.run (streaming mode)', () => {
     ).rejects.toThrow('task cancelled');
   });
 
+  it('should reject when NDJSON stream reports admission refusal', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusRejected, id: 'task-1', error: 'insufficient balance' })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('insufficient balance');
+  });
+
   it('should reject when partial stream reports failure', async () => {
     setupStreamMocks([
       `${JSON.stringify({
@@ -437,6 +473,19 @@ describe('TasksAPI.run (streaming mode)', () => {
     await expect(
       api().run({ app: 'test-app', input: {} }, {}, { wait: true })
     ).rejects.toThrow('task cancelled');
+  });
+
+  it('should reject when partial stream reports admission refusal', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({
+        data: { status: TaskStatusRejected, id: 'task-1', error: 'quota exceeded' },
+        fields: ['status', 'error'],
+      })}\n`,
+    ]);
+
+    await expect(
+      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
+    ).rejects.toThrow('quota exceeded');
   });
 
   it('should reject with the stream error once the stream stops retrying', async () => {
