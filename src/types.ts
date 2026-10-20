@@ -3952,6 +3952,29 @@ export interface InstanceTypeBootTime {
   updated_at: string;
   sample_size: number /* int */;
 }
+/**
+ * InstancePriceHistoryPointDTO is one day's cheapest hourly prices, in cents,
+ * for a GPU type. List prices rarely move; the in-stock price does, as stock
+ * comes and goes. A price with no listing (or no stock) that day is omitted.
+ */
+export interface InstancePriceHistoryPointDTO {
+  day: string; // YYYY-MM-DD, UTC
+  /**
+   * OnDemand and Spot are the cheapest listed prices, in stock or not.
+   */
+  on_demand?: number /* int */;
+  spot?: number /* int */;
+  /**
+   * OnDemandInStock and SpotInStock are the cheapest prices that had stock.
+   */
+  on_demand_in_stock?: number /* int */;
+  spot_in_stock?: number /* int */;
+  providers: number /* int */;
+  /**
+   * Regions is the number of provider regions with on-demand stock.
+   */
+  regions: number /* int */;
+}
 export interface InterruptDTO extends BaseModelDTO, PermissionModelDTO {
   run_id: string;
   chat_id: string;
