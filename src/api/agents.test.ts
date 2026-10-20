@@ -2913,6 +2913,23 @@ describe('AgentsAPI.resolveInterrupt', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ decision: 'deny' });
   });
+
+  it('should POST a deny reason as data.reason (tool refusal and rejectTool parity)', async () => {
+    mockJsonResponse({
+      id: 'int-deny',
+      status: 'resolved',
+      resolution: 'deny',
+      resource_type: 'tool_invocation',
+    });
+
+    await api().resolveInterrupt('int-deny', 'deny', 'unsafe call');
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      decision: 'deny',
+      data: { reason: 'unsafe call' },
+    });
+  });
 });
 
 describe('AgentsAPI.listRunInterrupts', () => {
