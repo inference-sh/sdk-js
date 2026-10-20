@@ -232,6 +232,19 @@ describe('heldTurn', () => {
     expect(heldTurn([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(heldTurn(undefined)).toBeNull();
   });
+
+  it('skips resolved held turns and uses the first pending one', () => {
+    const resolved = interrupt({ id: 'int-old', status: InterruptStatusResolved, meta: { steps: 1 } });
+    const pending = interrupt({ id: 'int-current', meta: { steps: 9 } });
+    expect(heldTurn([resolved, pending])).toEqual({
+      interruptId: 'int-current',
+      runId: 'run-1',
+      steps: 9,
+    });
+    const first = interrupt({ id: 'int-first', meta: { steps: 3 } });
+    const second = interrupt({ id: 'int-second', meta: { steps: 4 } });
+    expect(heldTurn([first, second])?.interruptId).toBe('int-first');
+  });
 });
 
 describe('approvalInterrupt', () => {
@@ -283,5 +296,16 @@ describe('pendingWait', () => {
   it('is null without a pending wait', () => {
     expect(pendingWait([interrupt({ status: InterruptStatusResolved })])).toBeNull();
     expect(pendingWait(null)).toBeNull();
+  });
+
+  it('skips resolved waits and returns the later pending wait', () => {
+    const resolved = interrupt({ id: 'int-old', status: InterruptStatusResolved, meta: { note: 'done' } });
+    const pending = interrupt({ id: 'int-current', meta: { note: 'still waiting' } });
+    expect(pendingWait([resolved, pending])).toEqual({
+      interruptId: 'int-current',
+      runId: 'run-1',
+      until: '2026-10-19T14:20:00Z',
+      note: 'still waiting',
+    });
   });
 });
