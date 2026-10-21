@@ -591,7 +591,11 @@ export interface AuthResponse {
   session_id: string;
   is_new?: boolean;
   otp_required?: boolean;
-  otp_method?: string; // "email" or "totp"
+  /**
+   * OTPMethods are the second factors the sign-in may be finished with,
+   * the default first (POST /auth/otp/verify with method).
+   */
+  otp_methods?: SecondFactor[];
   challenge_token?: string; // pre-session 2FA token
   redirect_to?: string;
   provider?: string;
@@ -3132,6 +3136,7 @@ export type ErrorCode =
   | "browser_session_required"
   | "invalid_ttl"
   | "admin_authenticator_required"
+  | "last_authenticator"
   | "limit_exceeded"
   | "feature_not_available"
   | "entitlement_unavailable"
@@ -3268,6 +3273,13 @@ export const ErrorCodeInvalidTTL: ErrorCode = "invalid_ttl";
  * has not proved it gets otp_required instead: re-authenticate with it.
  */
 export const ErrorCodeAdminAuthenticatorRequired: ErrorCode = "admin_authenticator_required";
+/**
+ * ErrorCodeLastAuthenticator (409): the change would leave two-step
+ * verification on with no method to prove it (removing the last
+ * authenticator app or passkey), or turn it on with none enrolled.
+ * Turn two-step verification off first, or enroll a method.
+ */
+export const ErrorCodeLastAuthenticator: ErrorCode = "last_authenticator";
 /**
  * Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
  * EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
@@ -5558,7 +5570,17 @@ export interface UserDTO extends BaseModelDTO {
   avatar_url: string;
   banned_at?: string /* RFC3339 */;
   ban_note?: string;
+  /**
+   * TOTPEnabled mirrors TwoFactorEnabled for clients built before it
+   * (the Swift SDK decodes it as required).
+   * Deprecated: read TwoFactorEnabled. Kept until no Swift app build older
+   * than sdk-swift 0.23.0 is in use, since those fail to decode /me without it.
+   */
   totp_enabled: boolean;
+  /**
+   * TwoFactorEnabled is the account's two-step verification switch.
+   */
+  two_factor_enabled: boolean;
   metadata?: UserMetadataDTO;
 }
 /**
@@ -7255,6 +7277,33 @@ export type MCPServerAuthType = "oauth" | "api_key" | "none";
 export const MCPServerAuthOAuth: MCPServerAuthType = "oauth";
 export const MCPServerAuthAPIKey: MCPServerAuthType = "api_key";
 export const MCPServerAuthNone: MCPServerAuthType = "none";
+/**
+ * SecondFactor is one way a person proves their second factor. It names
+ * what a session proved (AuthSession.SecondFactor), what a login challenge
+ * offers, the method a verify request picks, and the kind of an enrolled
+ * method (SecondFactorMethod.Kind: the enrollable ones).
+ */
+export type SecondFactor = "totp" | "passkey" | "recovery" | "email";
+/**
+ * SecondFactorTOTP: a code from an enrolled authenticator app.
+ */
+export const SecondFactorTOTP: SecondFactor = "totp";
+/**
+ * SecondFactorPasskey: a WebAuthn assertion from an enrolled passkey.
+ */
+export const SecondFactorPasskey: SecondFactor = "passkey";
+/**
+ * SecondFactorRecovery: one of the account's single-use recovery codes.
+ * Not enrolled on its own: issued once an authenticator exists.
+ */
+export const SecondFactorRecovery: SecondFactor = "recovery";
+/**
+ * SecondFactorEmail: a code emailed to the account. The weakest: the
+ * same mailbox a magic link lands in, so it is offered only to an
+ * account with two-step verification off (a platform admin's first
+ * sign-in, re-auth before they enroll).
+ */
+export const SecondFactorEmail: SecondFactor = "email";
 /**
  * TeamInviteStatus represents the status of a team invitation
  */
