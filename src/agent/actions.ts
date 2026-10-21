@@ -433,11 +433,14 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         if (result) {
           const { chatId: newChatId, userMessage } = result;
 
-          // Add user message from POST response immediately
-          if (userMessage) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
-
-          // Start streaming if not already connected
+          // An open stream carries the message, in order with every later
+          // change; the response is the message as created, which the stream
+          // may already have moved on (a message that ends a wait is taken up
+          // before the response returns). With no stream yet, the response
+          // shows it now, and the stream's first fetch brings it up to date.
           const streamManager = getStreamManager();
+          if (userMessage && !streamManager) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
+
           if (newChatId && !streamManager) {
             // Either new chat or stream was stopped - restart streaming
             if (!chatId) {

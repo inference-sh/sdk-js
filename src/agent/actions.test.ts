@@ -1137,6 +1137,16 @@ describe('createActions', () => {
       );
     });
 
+    it('shows the sent message from the POST response only when no stream is open', async () => {
+      const { ctx, dispatch } = createTestContext({ getChatId: () => null });
+      await createActions(ctx).publicActions.sendMessage('hello');
+      expect(dispatch).toHaveBeenCalledWith({ type: 'UPDATE_MESSAGE', payload: expect.objectContaining({ id: 'u1' }) });
+
+      const streaming = createTestContext({ getStreamManager: () => ({ stop: jest.fn() }) as never });
+      await createActions(streaming.ctx).publicActions.sendMessage('hello');
+      expect(streaming.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_MESSAGE' }));
+    });
+
     it('should reset connection status when the API returns no result', async () => {
       mockAgentApi.sendMessage.mockResolvedValueOnce(null);
       const onStatusChange = jest.fn();
