@@ -1137,14 +1137,17 @@ describe('createActions', () => {
       );
     });
 
-    it('shows the sent message from the POST response only when no stream is open', async () => {
-      const { ctx, dispatch } = createTestContext({ getChatId: () => null });
+    it.each([
+      ['no stream', undefined, true],
+      ['polling', PollManager, true],
+      ['an SSE stream', StreamableManager, false],
+    ])('with %s, shows the sent message from the POST response: %s', async (_, Manager, shown) => {
+      const { ctx, dispatch, setStreamManager } = createTestContext();
+      if (Manager) setStreamManager(Object.create(Manager.prototype) as UpdateManager);
       await createActions(ctx).publicActions.sendMessage('hello');
-      expect(dispatch).toHaveBeenCalledWith({ type: 'UPDATE_MESSAGE', payload: expect.objectContaining({ id: 'u1' }) });
-
-      const streaming = createTestContext({ getStreamManager: () => ({ stop: jest.fn() }) as never });
-      await createActions(streaming.ctx).publicActions.sendMessage('hello');
-      expect(streaming.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_MESSAGE' }));
+      const sent = { type: 'UPDATE_MESSAGE', payload: expect.objectContaining({ id: 'u1' }) };
+      if (shown) expect(dispatch).toHaveBeenCalledWith(sent);
+      else expect(dispatch).not.toHaveBeenCalledWith(sent);
     });
 
     it('should reset connection status when the API returns no result', async () => {

@@ -433,16 +433,14 @@ export function createActions(ctx: ActionsContext): ActionsResult {
         if (result) {
           const { chatId: newChatId, userMessage } = result;
 
-          // An open stream carries the message, in order with every later
-          // change; the response is the message as created, which the stream
-          // may already have moved on (a message that ends a wait is taken up
-          // before the response returns). With no stream yet, the response
-          // shows it now, and the stream's first fetch brings it up to date.
-          const streamManager = getStreamManager();
-          if (userMessage && !streamManager) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
+          // An open SSE stream owns the message: it may already have moved it
+          // on (a message that ends a wait is taken up before this response
+          // returns). Polling refetches only when the chat's status changes,
+          // so it shows the response, as does a chat with no stream yet.
+          const manager = getStreamManager();
+          if (userMessage && !(manager instanceof StreamableManager)) dispatch({ type: 'UPDATE_MESSAGE', payload: userMessage });
 
-          if (newChatId && !streamManager) {
-            // Either new chat or stream was stopped - restart streaming
+          if (newChatId && !manager) {
             if (!chatId) {
               dispatch({ type: 'SET_CHAT_ID', payload: newChatId });
               callbacks.onChatCreated?.(newChatId);
