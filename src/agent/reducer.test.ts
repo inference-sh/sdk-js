@@ -1,5 +1,7 @@
 import type { AgentRunDTO, ChatDTO, ChatMessageDTO } from '../types.js';
 import {
+  ChatStatusWaiting,
+  InterruptReasonWait,
   AgentRunStateCompleted,
   AgentRunStateInputRequired,
   AgentRunStateAuthRequired,
@@ -277,6 +279,18 @@ describe('chatReducer', () => {
       payload: { state: AgentRunStateAuthRequired } as AgentRunDTO,
     });
     expect(authRequired.chat?.status).toBe(ChatStatusAwaitingInput);
+  });
+
+  it('UPDATE_ACTIVE_RUN should derive chat.status=waiting for a run paused on a wait', () => {
+    const chat = makeChat({ status: ChatStatusBusy });
+    const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
+
+    const waiting = chatReducer(state, {
+      type: 'UPDATE_ACTIVE_RUN',
+      payload: { state: AgentRunStateInputRequired, interrupt_reason: InterruptReasonWait } as AgentRunDTO,
+    });
+    expect(waiting.chat?.status).toBe(ChatStatusWaiting);
+    expect(isChatBusy(waiting.chat)).toBe(true);
   });
 
   it('UPDATE_ACTIVE_RUN should derive chat.status=idle for completed runs', () => {

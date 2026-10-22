@@ -166,6 +166,7 @@ describe('isChatBusy', () => {
   it('should fall back to chat.status when no active_run', () => {
     expect(isChatBusy(chatWithStatus('busy'))).toBe(true);
     expect(isChatBusy(chatWithStatus('awaiting_input'))).toBe(true);
+    expect(isChatBusy(chatWithStatus('waiting'))).toBe(true);
     expect(isChatBusy(chatWithStatus('idle'))).toBe(false);
     expect(isChatBusy(chatWithStatus('completed'))).toBe(false);
   });
@@ -196,6 +197,8 @@ describe('run and message state predicates', () => {
     expect(isAwaitingHuman({ active_run: { state: AgentRunStateAuthRequired } } as unknown as ChatDTO)).toBe(true);
     expect(isAwaitingHuman({ active_run: { state: AgentRunStateWorking } } as unknown as ChatDTO)).toBe(false);
     expect(isAwaitingHuman({ status: 'awaiting_input' } as unknown as ChatDTO)).toBe(true);
+    expect(isAwaitingHuman({ active_run: { state: AgentRunStateInputRequired, interrupt_reason: 'wait' } } as unknown as ChatDTO)).toBe(false);
+    expect(isAwaitingHuman({ status: 'waiting' } as unknown as ChatDTO)).toBe(false);
     expect(isAwaitingHuman(null)).toBe(false);
   });
 });

@@ -106,6 +106,7 @@ export {
   isAwaitingHuman,
   isRunTerminal,
   isRunInterrupted,
+  isRunWaiting,
   isRunSettled,
   isRunWorking,
   isMessageTerminal,

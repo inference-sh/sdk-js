@@ -35,8 +35,9 @@ import {
   ChatMessageStatusCancelled,
   ChatStatusBusy,
   ChatStatusAwaitingInput,
+  ChatStatusWaiting,
 } from './types.js';
-import type { AgentRunState, ChatDTO, ChatMessageStatus } from './types.js';
+import type { AgentRunDTO, AgentRunState, ChatDTO, ChatMessageStatus } from './types.js';
 
 /** Map string status names to TaskStatus values (for future string-based API) */
 const STATUS_STRING_MAP: Record<string, TaskStatus> = {
@@ -94,6 +95,11 @@ export function isRunInterrupted(state: AgentRunState | null | undefined): boole
   return state === AgentRunStateInputRequired || state === AgentRunStateAuthRequired;
 }
 
+/** Paused on the agent's own wait call: it resumes at its deadline or on a message, so nobody has to act. */
+export function isRunWaiting(run: Pick<AgentRunDTO, 'state' | 'interrupt_reason'> | null | undefined): boolean {
+  return !!run && isRunInterrupted(run.state) && run.interrupt_reason === InterruptReasonWait;
+}
+
 /** The run produces no further events this turn: terminal or interrupted. */
 export function isRunSettled(state: AgentRunState | null | undefined): boolean {
   return isRunTerminal(state) || isRunInterrupted(state);
@@ -108,19 +114,19 @@ export function isMessageTerminal(status: ChatMessageStatus | null | undefined):
   return status === ChatMessageStatusReady || status === ChatMessageStatusFailed || status === ChatMessageStatusCancelled;
 }
 
-/** The turn is still open: the run is working or parked on a human (approval, input, authorization). */
+/** The turn is still open: the run is working, waiting, or parked on a human (approval, input, authorization). */
 export function isChatBusy(chat: ChatDTO | null | undefined): boolean {
   const run = chat?.active_run;
   if (run) {
     return isRunWorking(run.state) || isRunInterrupted(run.state);
   }
-  return chat?.status === ChatStatusBusy || chat?.status === ChatStatusAwaitingInput;
+  return chat?.status === ChatStatusBusy || chat?.status === ChatStatusAwaitingInput || chat?.status === ChatStatusWaiting;
 }
 
 /** The chat is blocked on a human: nothing more arrives until someone approves, answers or authorizes. */
 export function isAwaitingHuman(chat: ChatDTO | null | undefined): boolean {
   const run = chat?.active_run;
-  if (run) return isRunInterrupted(run.state);
+  if (run) return isRunInterrupted(run.state) && !isRunWaiting(run);
   return chat?.status === ChatStatusAwaitingInput;
 }
 
