@@ -45,10 +45,12 @@ export function useAgentChat(): AgentChatState {
  *
  * @example
  * ```tsx
+ * import { isChatBusy } from '@inferencesh/sdk';
+ *
  * function SendButton() {
  *   const { sendMessage, stopGeneration } = useAgentActions();
  *   const { chat } = useAgentChat();
- *   const isBusy = chat?.status === 'busy';
+ *   const isBusy = isChatBusy(chat); // covers busy, waiting, and awaiting_input
  *
  *   return (
  *     <button onClick={() => isBusy ? stopGeneration() : sendMessage('Hello!')}>
@@ -98,10 +100,12 @@ export function useMessage(messageId: string): ChatMessageDTO | undefined {
  *
  * @example
  * ```tsx
+ * import { isChatBusy } from '@inferencesh/sdk';
+ *
  * function ChatInput() {
  *   const { state, actions } = useAgentChatContext();
  *   const [input, setInput] = useState('');
- *   const isBusy = state.chat?.status === 'busy';
+ *   const isBusy = isChatBusy(state.chat); // covers busy, waiting, and awaiting_input
  *
  *   return (
  *     <form onSubmit={() => actions.sendMessage(input)}>

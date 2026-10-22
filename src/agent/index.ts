@@ -5,7 +5,7 @@
  *
  * @example
  * ```tsx
- * import { inference } from '@inferencesh/sdk';
+ * import { inference, isChatBusy } from '@inferencesh/sdk';
  * import {
  *   AgentChatProvider,
  *   useAgentChat,
@@ -31,7 +31,7 @@
  * function ChatUI() {
  *   const { chat, messages } = useAgentChat();
  *   const { sendMessage, stopGeneration } = useAgentActions();
- *   const isBusy = chat?.status === 'busy';
+ *   const isBusy = isChatBusy(chat); // covers busy, waiting, and awaiting_input
  *
  *   return (
  *     <div>
