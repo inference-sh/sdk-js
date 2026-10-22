@@ -951,7 +951,8 @@ export type Scope =
   | "admin:read"
   | "admin:write"
   | "store:pricing"
-  | "store:submit";
+  | "store:submit"
+  | "content:write";
 /**
  * API Key Scopes - hierarchical permission system.
  * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
@@ -1259,6 +1260,14 @@ export const ScopeStorePricing: Scope = "store:pricing";
  */
 export const ScopeStoreSubmit: Scope = "store:submit";
 /**
+ * ScopeContentWrite writes the site's content (/content): blog and docs
+ * pages, menus and the platform media library. Held like
+ * ScopeStorePricing: only in the platform's workspace, by its members,
+ * their keys and runs, and its own keys. Reads of published content take
+ * no scope.
+ */
+export const ScopeContentWrite: Scope = "content:write";
+/**
  * ScopeGroup identifies a category of scopes for UI grouping
  */
 export type ScopeGroup =
@@ -1282,7 +1291,8 @@ export type ScopeGroup =
   | "settings"
   | "approvals"
   | "admin"
-  | "store";
+  | "store"
+  | "content";
 export const ScopeGroupAgents: ScopeGroup = "agents";
 export const ScopeGroupApps: ScopeGroup = "apps";
 export const ScopeGroupConversations: ScopeGroup = "conversations";
@@ -1304,6 +1314,7 @@ export const ScopeGroupSettings: ScopeGroup = "settings";
 export const ScopeGroupApprovals: ScopeGroup = "approvals";
 export const ScopeGroupAdmin: ScopeGroup = "admin";
 export const ScopeGroupStore: ScopeGroup = "store";
+export const ScopeGroupContent: ScopeGroup = "content";
 /**
  * ScopeDefinition describes a single scope for UI rendering
  */
@@ -6924,8 +6935,8 @@ export const GraphEdgeTypeOutput: GraphEdgeType = "output";
 export const InterruptResourceTurn: InterruptResourceType = "turn";
 /**
  * InterruptReasonWait is a tool call the agent made to wait: the run is
- * paused until the interrupt's deadline, when its own expiry trigger settles
- * it (allow), or until a person ends the wait sooner. Its resource is the
+ * paused until the interrupt's deadline, when the expiry sweep settles it
+ * (allow), or until a person ends the wait sooner. Its resource is the
  * wait call (InterruptResourceToolInvocation).
  */
 export const InterruptReasonWait: InterruptReason = "wait";
