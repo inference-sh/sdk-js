@@ -140,7 +140,6 @@
       "path": "/chats/messages/{messageId}/cancel",
       "purpose": "cancel a message",
       "scopes": [
-        "conversations:read",
         "conversations:write"
       ]
     },
