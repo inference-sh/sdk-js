@@ -1468,9 +1468,6 @@ export interface AppPricing {
   description: string;
   description_rendered?: string;
 }
-/**
- * AppFunction represents a callable entry point within an app version.
- */
 export interface AppFunction {
   name: string;
   description?: string;
@@ -6528,7 +6525,7 @@ export interface ChatMessageContent {
   tool_calls?: ToolCall[];
   event?: ChatEvent;
 }
-export type ChatEventType = "hook" | "run_failed";
+export type ChatEventType = "hook" | "run_failed" | "run_ended";
 export const ChatEventTypeHook: ChatEventType = "hook";
 /**
  * ChatEventTypeRunFailed marks the point a run ended in failure; the
@@ -6536,12 +6533,41 @@ export const ChatEventTypeHook: ChatEventType = "hook";
  */
 export const ChatEventTypeRunFailed: ChatEventType = "run_failed";
 /**
+ * ChatEventTypeRunEnded marks the point a run completed or was stopped;
+ * the event's run says how, and the content's text, when set, why.
+ */
+export const ChatEventTypeRunEnded: ChatEventType = "run_ended";
+/**
+ * RunEndReason is why a run that completed ended the way it did, when its
+ * last turn did not end with a reply.
+ */
+export type RunEndReason = "output_limit" | "no_reply";
+/**
+ * RunEndReasonOutputLimit: the model's last turn hit its output limit
+ * (max_tokens) before it replied or called a tool.
+ */
+export const RunEndReasonOutputLimit: RunEndReason = "output_limit";
+/**
+ * RunEndReasonNoReply: the model ended its last turn with no reply and
+ * no tool call.
+ */
+export const RunEndReasonNoReply: RunEndReason = "no_reply";
+/**
+ * ChatRunEvent is how a run ended, on a run_ended event.
+ */
+export interface ChatRunEvent {
+  run_id: string;
+  state: AgentRunState;
+  reason?: RunEndReason;
+}
+/**
  * ChatEvent is the payload of an event-role message: system info shown in the
  * chat but never sent to the model.
  */
 export interface ChatEvent {
   type: ChatEventType;
   hook?: ChatHookEvent;
+  run?: ChatRunEvent;
 }
 /**
  * ChatHookEvent records one lifecycle hook handler run.
@@ -7963,10 +7989,17 @@ export const TaskStatusRejected: TaskStatus = 13;
 /**
  * Infra defines where a task should run.
  */
-export type Infra = "private" | "cloud" | "private_first";
+export type Infra = "private" | "cloud" | "private_first" | "remote";
 export const InfraPrivate: Infra = "private";
 export const InfraCloud: Infra = "cloud";
 export const InfraPrivateFirst: Infra = "private_first";
+/**
+ * InfraRemote is a model call a harness on the caller's own remote
+ * answers (an agent whose model app is a harness model app). The
+ * scheduler never takes it: the remote model service sends it to the
+ * remote's daemon, whose frames end it.
+ */
+export const InfraRemote: Infra = "remote";
 /**
  * TaskLogType defines the type of task log.
  */

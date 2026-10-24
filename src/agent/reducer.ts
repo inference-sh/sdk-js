@@ -4,8 +4,15 @@
  * Pure reducer for managing agent chat state.
  */
 
-import type { AgentRunDTO, ChatDTO, ChatMessageDTO, ChatStatus } from '../types.js';
-import { ChatStatusBusy, ChatStatusAwaitingInput, ChatStatusIdle, ChatStatusWaiting } from '../types.js';
+import type { AgentRunDTO, ChatDTO, ChatMessageContentType, ChatMessageDTO, ChatStatus } from '../types.js';
+import {
+  ChatMessageContentTypeReasoning,
+  ChatMessageContentTypeText,
+  ChatStatusBusy,
+  ChatStatusAwaitingInput,
+  ChatStatusIdle,
+  ChatStatusWaiting,
+} from '../types.js';
 import { isMessageTerminal, isRunInterrupted, isRunWaiting, isRunWorking } from '../utils.js';
 import type { AgentChatState, ChatAction } from './types.js';
 
@@ -61,23 +68,56 @@ function normalizeMessage(message: ChatMessageDTO, existing?: ChatMessageDTO): C
 }
 
 /**
- * Streamed text only grows until the message is done. Deltas build the text
- * locally, while a message update carries the server's saved copy, which can
- * lag behind them (often still empty). Taking that copy as-is blanks the text
- * until the next delta, so while the message is still generating, a text
- * that is an earlier version of what is shown keeps what is shown. Once the
- * message is terminal the server's copy is final and wins.
+ * The content blocks deltas stream, and the delta field each is built from.
+ * An optional block gets no block until something streams into it.
  */
-function keepStreamedText(updated: ChatMessageDTO, existing: ChatMessageDTO): ChatMessageDTO {
+const streamedBlocks = [
+  { type: ChatMessageContentTypeText, field: 'response', optional: false },
+  { type: ChatMessageContentTypeReasoning, field: 'reasoning', optional: true },
+] as const;
+
+/** content with the block of type set to text, added in front when missing. */
+function withBlockText(content: ChatMessageDTO['content'], type: ChatMessageContentType, text: string | undefined): ChatMessageDTO['content'] {
+  return content.some((c) => c.type === type)
+    ? content.map((c) => (c.type === type ? { ...c, text } : c))
+    : [{ type, text } as ChatMessageDTO['content'][number], ...content];
+}
+
+const blockText = (message: ChatMessageDTO, type: ChatMessageContentType) => message.content.find((c) => c.type === type)?.text;
+
+/** copy is an earlier version of shown: shown already has all of it and more. */
+const isBehind = (copy: string | undefined, shown: string | undefined) => !!shown && shown.startsWith(copy ?? '');
+
+/**
+ * Streamed text and reasoning only grow until the message is done. Deltas
+ * build them locally, while a message update carries the server's saved
+ * copy, which can lag behind them (often still empty). While the message is
+ * generating, a server copy behind what is shown keeps what is shown. Once
+ * the message is terminal the server's copy is final and wins.
+ */
+function keepStreamedBlocks(updated: ChatMessageDTO, existing: ChatMessageDTO): ChatMessageDTO {
   if (isMessageTerminal(updated.status)) return updated;
-  const shown = existing.content.find((c) => c.type === 'text')?.text;
-  if (!shown) return updated;
-  const incoming = updated.content.find((c) => c.type === 'text');
-  if (incoming?.text && !shown.startsWith(incoming.text)) return updated;
-  const content = incoming
-    ? updated.content.map((c) => (c === incoming ? { ...c, text: shown } : c))
-    : [{ type: 'text' as const, text: shown }, ...updated.content];
-  return { ...updated, content };
+  let content = updated.content;
+  for (const { type } of streamedBlocks) {
+    const shown = blockText(existing, type);
+    if (isBehind(blockText(updated, type), shown)) content = withBlockText(content, type, shown);
+  }
+  return content === updated.content ? updated : { ...updated, content };
+}
+
+/**
+ * The message with what the deltas have built so far. Deltas from a stream
+ * joined mid-message start partway, behind what the message already shows,
+ * so the message keeps its copy until they catch up.
+ */
+function applyStreamedOutput(message: ChatMessageDTO, output: Record<string, any>): ChatMessageDTO {
+  let content = message.content;
+  for (const { type, field, optional } of streamedBlocks) {
+    const streamed: string | undefined = output[field];
+    if (optional && !streamed) continue;
+    if (!isBehind(streamed, blockText(message, type))) content = withBlockText(content, type, streamed);
+  }
+  return content === message.content ? message : { ...message, content };
 }
 
 const normalizeMessages = (messages: ChatMessageDTO[]) => messages.map((m) => normalizeMessage(m));
@@ -188,7 +228,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       const existingIndex = state.messages.findIndex((m) => m.id === message.id);
       if (existingIndex !== -1) {
         const existing = state.messages[existingIndex];
-        const updated = keepStreamedText(
+        const updated = keepStreamedBlocks(
           action.partial ? normalizeMessage({ ...existing, ...message }, existing) : normalizeMessage(message),
           existing,
         );
@@ -215,15 +255,9 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       // rather than misattributed; the text still arrives with the message.
       const target = msgs.find(m => m.id === messageId);
       if (!target) return state;
-      const textBlock = target.content.find(c => c.type === 'text');
-      // Deltas from a stream joined mid-message start partway; the message
-      // update already showed more, so keep it until they catch up.
-      if (textBlock?.text && textBlock.text.startsWith(output.response ?? '')) return state;
-      const newContent = textBlock
-        ? target.content.map(c => c.type === 'text' ? { ...c, text: output.response } : c)
-        : [{ type: 'text' as const, text: output.response }, ...target.content];
-      const newMessages = msgs.map(m => m.id === target.id ? { ...target, content: newContent } : m);
-      return { ...state, messages: newMessages };
+      const next = applyStreamedOutput(target, output);
+      if (next === target) return state;
+      return { ...state, messages: msgs.map(m => (m.id === target.id ? next : m)) };
     }
 
     case 'SET_CONNECTION_STATUS':

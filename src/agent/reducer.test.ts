@@ -600,6 +600,36 @@ describe('chatReducer streamed text never shrinks while generating', () => {
   });
 });
 
+describe('chatReducer streams reasoning', () => {
+  const generating = (content: ChatMessageDTO['content'], status = 'generating') =>
+    ({ ...makeMessage('a1', 2), role: 'assistant', status, content }) as ChatMessageDTO;
+  const reasoningOf = (s: ReturnType<typeof chatReducer>) => s.messages[0].content.find((c) => c.type === 'reasoning')?.text;
+  const delta = (state: ReturnType<typeof chatReducer>, output: Record<string, any>) =>
+    chatReducer(state, { type: 'DELTA_TOKEN', payload: { messageId: 'a1', output } });
+  const start = () => ({ ...initialState, messages: [generating([])] });
+
+  it('shows reasoning as its deltas arrive, before any text', () => {
+    let s = delta(start(), { response: '', reasoning: 'let me' });
+    expect(reasoningOf(s)).toBe('let me');
+    s = delta(s, { response: '', reasoning: 'let me think' });
+    expect(reasoningOf(s)).toBe('let me think');
+  });
+
+  it('keeps streamed reasoning when an update carries an older copy, takes the final one', () => {
+    const s = delta(start(), { response: '', reasoning: 'let me think' });
+    const older = generating([{ type: 'reasoning', text: 'let' }]);
+    expect(reasoningOf(chatReducer(s, { type: 'UPDATE_MESSAGE', payload: older }))).toBe('let me think');
+    expect(reasoningOf(chatReducer(s, { type: 'UPDATE_MESSAGE', payload: generating([]) }))).toBe('let me think');
+    const final = generating([{ type: 'reasoning', text: 'done' }], 'ready');
+    expect(reasoningOf(chatReducer(s, { type: 'UPDATE_MESSAGE', payload: final }))).toBe('done');
+  });
+
+  it('adds no reasoning block when none streamed', () => {
+    const s = delta(start(), { response: 'hi' });
+    expect(s.messages[0].content.some((c) => c.type === 'reasoning')).toBe(false);
+  });
+});
+
 // The stream sends partial updates as {data, fields}, with only the named
 // fields in data. Sequence captured from a plan_update turn on the live API.
 describe('partial chat and run updates', () => {
