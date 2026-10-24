@@ -29,9 +29,8 @@ export interface PollManagerOptions<T> {
 }
 
 export class PollManager<T> {
-  private options: any;
+  private options: PollManagerOptions<T> & { intervalMs: number; maxRetries: number; retryDelayMs: number };
   private interval: ReturnType<typeof setInterval> | null = null;
-  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private consecutiveErrors = 0;
   private isStopped = true;
   private polling = false;
@@ -71,10 +70,6 @@ export class PollManager<T> {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
-    }
-    if (this.retryTimeout) {
-      clearTimeout(this.retryTimeout);
-      this.retryTimeout = null;
     }
   }
 
