@@ -690,9 +690,52 @@ describe('agent/api', () => {
       expect(result).toEqual({
         description: 'A helpful agent',
         example_prompts: ['What can you do?', 'Help me write code'],
+        model_capabilities: undefined,
       });
       const [url] = mockFetch.mock.calls[0] as [string];
       expect(url).toContain('/agents/infsh/my-agent');
+    });
+
+    it('should map core app version metadata capabilities to model_capabilities', async () => {
+      mockJsonResponse({
+        version: {
+          description: 'Vision agent',
+          example_prompts: ['Describe this image'],
+          core_app: {
+            app: {
+              version: {
+                metadata: { capabilities: ['image', 'file'] },
+              },
+            },
+          },
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/vision');
+
+      expect(result).toEqual({
+        description: 'Vision agent',
+        example_prompts: ['Describe this image'],
+        model_capabilities: ['image', 'file'],
+      });
+    });
+
+    it('should omit model_capabilities when metadata capabilities is not an array', async () => {
+      mockJsonResponse({
+        version: {
+          core_app: {
+            app: {
+              version: {
+                metadata: { capabilities: { image: true } },
+              },
+            },
+          },
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/bad-meta');
+
+      expect(result?.model_capabilities).toBeUndefined();
     });
 
     it('should return null when agent fetch fails', async () => {
