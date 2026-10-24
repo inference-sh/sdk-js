@@ -10,6 +10,16 @@ describe('LLM delta accumulator', () => {
     expect(acc.toOutput().response).toBe('Hello world');
   });
 
+  it('concatenates reasoning tokens for streamed thinking blocks', () => {
+    const acc = createLLMDeltaAccumulator();
+    acc.apply({ response: '', reasoning: 'let' });
+    acc.apply({ response: '', reasoning: ' me' });
+    acc.apply({ response: 'answer', reasoning: ' think' });
+    const out = acc.toOutput();
+    expect(out.reasoning).toBe('let me think');
+    expect(out.response).toBe('answer');
+  });
+
   // LLMDelta.Response is a plain Go string with no omitempty, so every delta
   // on the wire carries "response": "" — including a turn that is only tool
   // calls. Concatenating "" is a no-op, so without a reset the accumulator
