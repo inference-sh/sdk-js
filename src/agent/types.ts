@@ -132,7 +132,13 @@ export function isTemplateConfig(config: AgentOptions): config is TemplateAgentC
 /**
  * Agent metadata fetched from the backend for template configs
  */
-export type AgentInfo = Partial<Pick<AgentVersionDTO, 'description' | 'example_prompts'>>;
+export type AgentInfo = Partial<Pick<AgentVersionDTO, 'description' | 'example_prompts'>> & {
+  /**
+   * What the agent's model takes besides text ("image", "file", ...), from
+   * its app version. Undefined when unknown; then assume everything.
+   */
+  model_capabilities?: string[];
+};
 
 /**
  * Status of the chat

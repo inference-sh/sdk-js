@@ -129,9 +129,11 @@ export async function fetchAgentInfo(
   try {
     const resp = await client.http.request<AgentDTO>('get', `/agents/${agentRef}`);
     const version = resp.data?.version;
+    const capabilities = version?.core_app?.app?.version?.metadata?.capabilities;
     return {
       description: version?.description,
       example_prompts: version?.example_prompts,
+      model_capabilities: Array.isArray(capabilities) ? capabilities : undefined,
     };
   } catch {
     return null;
