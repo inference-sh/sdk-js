@@ -1273,6 +1273,23 @@ describe('createActions', () => {
       });
     });
 
+    it('should accumulate reasoning in delta output alongside response text', async () => {
+      const { ctx, dispatch } = createTestContext();
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onDelta = getDeltaListener();
+      onDelta({ delta: { response: '', reasoning: 'let' }, seq: 1, resource_id: 'msg-1' });
+      onDelta({ delta: { response: 'Hi', reasoning: ' me' }, seq: 2, resource_id: 'msg-1' });
+
+      expect(lastDeltaTokenPayload(dispatch)).toEqual({
+        messageId: 'msg-1',
+        output: { response: 'Hi', reasoning: 'let me' },
+      });
+    });
+
     it('should keep per-message accumulators independent', async () => {
       const { ctx, dispatch } = createTestContext();
       const { internalActions } = createActions(ctx);
