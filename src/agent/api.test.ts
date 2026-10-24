@@ -702,6 +702,69 @@ describe('agent/api', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should extract model_capabilities from core_app.app.version.metadata.capabilities', async () => {
+      mockJsonResponse({
+        version: {
+          description: 'A vision agent',
+          example_prompts: ['Describe this image'],
+          core_app: {
+            app: {
+              version: {
+                metadata: {
+                  capabilities: ['image', 'file'],
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/vision-agent');
+
+      expect(result).toEqual({
+        description: 'A vision agent',
+        example_prompts: ['Describe this image'],
+        model_capabilities: ['image', 'file'],
+      });
+    });
+
+    it('should set model_capabilities to undefined when capabilities is not an array', async () => {
+      mockJsonResponse({
+        version: {
+          description: 'Agent with non-array capabilities',
+          example_prompts: [],
+          core_app: {
+            app: {
+              version: {
+                metadata: {
+                  capabilities: { image: true },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/my-agent');
+
+      expect(result).not.toBeNull();
+      expect(result!.model_capabilities).toBeUndefined();
+    });
+
+    it('should set model_capabilities to undefined when core_app is absent', async () => {
+      mockJsonResponse({
+        version: {
+          description: 'Text-only agent',
+          example_prompts: [],
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/text-agent');
+
+      expect(result).not.toBeNull();
+      expect(result!.model_capabilities).toBeUndefined();
+    });
   });
 
   describe('setAgent', () => {
