@@ -6528,8 +6528,13 @@ export interface ChatMessageContent {
   tool_calls?: ToolCall[];
   event?: ChatEvent;
 }
-export type ChatEventType = "hook";
+export type ChatEventType = "hook" | "run_failed";
 export const ChatEventTypeHook: ChatEventType = "hook";
+/**
+ * ChatEventTypeRunFailed marks the point a run ended in failure; the
+ * content's text is the run's error.
+ */
+export const ChatEventTypeRunFailed: ChatEventType = "run_failed";
 /**
  * ChatEvent is the payload of an event-role message: system info shown in the
  * chat but never sent to the model.
