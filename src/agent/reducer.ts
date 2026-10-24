@@ -114,6 +114,7 @@ function applyStreamedOutput(message: ChatMessageDTO, output: Record<string, any
   let content = message.content;
   for (const { type, field, optional } of streamedBlocks) {
     const streamed: string | undefined = output[field];
+    if (streamed === undefined) continue;
     if (optional && !streamed) continue;
     if (!isBehind(streamed, blockText(message, type))) content = withBlockText(content, type, streamed);
   }

@@ -628,6 +628,14 @@ describe('chatReducer streams reasoning', () => {
     const s = delta(start(), { response: 'hi' });
     expect(s.messages[0].content.some((c) => c.type === 'reasoning')).toBe(false);
   });
+
+  it('does not create a text block with undefined text when response is absent from the delta', () => {
+    // A reasoning-only delta (no response field) should not insert { type: 'text', text: undefined }
+    const s = delta(start(), { reasoning: 'thinking' });
+    expect(reasoningOf(s)).toBe('thinking');
+    const textBlock = s.messages[0].content.find((c) => c.type === 'text');
+    expect(textBlock).toBeUndefined();
+  });
 });
 
 // The stream sends partial updates as {data, fields}, with only the named
