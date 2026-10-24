@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-24
+
+### Breaking
+- `AuthResponse.otp_method` is gone: read `otp_methods`, the ordered `SecondFactor[]` (`totp`, `passkey`, `recovery`, `email`) a sign-in may be finished with.
+
+### Added
+- The agent reducer applies streamed reasoning as it arrives; before, only text streamed.
+- `AgentInfo.model_capabilities`: what the agent's model takes besides text (`image`, `file`, ...), from its core app version.
+- `isRunWaiting(run)`. A chat whose run waits on the agent's own wait call (`ChatStatusWaiting`) counts as an open turn, not as one needing a person.
+- Generated types: `ChatStatusWaiting`, `ToolInvocationStatusWaiting`, `ChatEventTypeRunFailed`, `ChatEventTypeRunEnded`, `ChatRunEvent`, `RunEndReason`, `SecondFactor`, `InfraRemote`, `ScopeContentWrite`, `ErrorCodeLastAuthenticator`, `InstancePriceHistoryPointDTO`, app capability and remote llm direct mode types.
+
+### Changed
+- Proxy endpoints: cancelling a queued message needs `conversations:write` only.
+
 ## [0.32.0] - 2026-10-20
 
 ### Changed
