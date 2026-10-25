@@ -391,6 +391,10 @@ export interface AgentRunDTO extends BaseModelDTO, PermissionModelDTO {
   state: AgentRunState;
   error?: string;
   output?: any;
+  /**
+   * FinishedAt is when the run reached a terminal state; nil while it runs.
+   */
+  finished_at?: string /* RFC3339 */;
   interrupt_reason?: InterruptReason;
   interrupt_tool_id?: string;
   interrupt_meta?: any;
