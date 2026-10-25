@@ -2824,7 +2824,6 @@ export interface SortOrder {
  */
 export interface CursorListRequest {
   cursor: string;
-  page?: number /* int */; // Page number for offset-based pagination (used when Cursor is empty)
   limit: number /* int */;
   direction: string;
   search?: SearchRequest;
@@ -2850,7 +2849,6 @@ export interface CursorListResponse<T extends any> {
   has_next: boolean;
   has_previous: boolean;
   items_per_page: number /* int */;
-  total_items: number /* int */;
 }
 /**
  * CountResponse is the response for count endpoints.
