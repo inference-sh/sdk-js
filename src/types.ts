@@ -6558,6 +6558,11 @@ export interface ChatRunEvent {
   run_id: string;
   state: AgentRunState;
   reason?: RunEndReason;
+  /**
+   * DurationMs is how long the run took, from its start to its end. The
+   * event message's created_at is when it ended.
+   */
+  duration_ms?: number /* int64 */;
 }
 /**
  * ChatEvent is the payload of an event-role message: system info shown in the
