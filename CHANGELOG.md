@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-26
+
+### Breaking
+- `CursorListRequest.page` and `CursorListResponse.total_items` are gone: lists are cursor-only. Page with `cursor` and `has_more`.
+
+### Added
+- `ToolInvocationDTO.action`: the phrase the model wrote for the call ("Fetch unread emails from alice@x.com"). Empty when it left it out.
+- `AgentRunDTO.finished_at`: when the run reached a terminal state.
+- `ChatRunEvent.duration_ms`: how long the run took, from its start to its end.
+
+### Changed
+- Auth scheme scopes (`scopes`, `required_scopes`) are the provider's own scope names; `scope_aliases` are optional shorthand for them.
+
 ## [0.33.0] - 2026-10-24
 
 ### Breaking
