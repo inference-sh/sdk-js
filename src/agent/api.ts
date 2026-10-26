@@ -134,6 +134,8 @@ export async function fetchAgentInfo(
       description: version?.description,
       example_prompts: version?.example_prompts,
       model_capabilities: Array.isArray(capabilities) ? capabilities : undefined,
+      agent_id: resp.data?.id,
+      version_id: resp.data?.version_id || version?.id,
     };
   } catch {
     return null;

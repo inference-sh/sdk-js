@@ -138,6 +138,13 @@ export type AgentInfo = Partial<Pick<AgentVersionDTO, 'description' | 'example_p
    * its app version. Undefined when unknown; then assume everything.
    */
   model_capabilities?: string[];
+  /** The agent's id. */
+  agent_id?: string;
+  /**
+   * The agent's current version. A chat stays on the version it started
+   * with; one on another version can move to this one with switchAgent.
+   */
+  version_id?: string;
 };
 
 /**
