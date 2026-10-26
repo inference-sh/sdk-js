@@ -5507,6 +5507,11 @@ export interface ToolInvocationDTO extends BaseModelDTO, PermissionModelDTO {
   tool_invocation_id: string;
   type: ToolType;
   display_name?: string;
+  /**
+   * Action is what the model said the call does, as an imperative phrase
+   * ("Fetch unread emails from alice@x.com"). Empty when it left it out.
+   */
+  action?: string;
   execution_id?: string;
   function: ToolInvocationFunction;
   status: ToolInvocationStatus;
