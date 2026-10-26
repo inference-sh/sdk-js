@@ -695,6 +695,38 @@ describe('agent/api', () => {
       expect(url).toContain('/agents/infsh/my-agent');
     });
 
+    it('should include agent_id and version_id from the response root', async () => {
+      mockJsonResponse({
+        id: 'agent-abc',
+        version_id: 'ver-xyz',
+        version: {
+          description: 'My agent',
+          example_prompts: [],
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/my-agent');
+
+      expect(result?.agent_id).toBe('agent-abc');
+      expect(result?.version_id).toBe('ver-xyz');
+    });
+
+    it('should fall back to version.id when version_id is absent at root', async () => {
+      mockJsonResponse({
+        id: 'agent-abc',
+        version: {
+          id: 'ver-from-version',
+          description: 'My agent',
+          example_prompts: [],
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/my-agent');
+
+      expect(result?.agent_id).toBe('agent-abc');
+      expect(result?.version_id).toBe('ver-from-version');
+    });
+
     it('should return null when agent fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('not found'));
 
