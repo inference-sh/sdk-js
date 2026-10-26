@@ -695,6 +695,25 @@ describe('agent/api', () => {
       expect(url).toContain('/agents/infsh/my-agent');
     });
 
+    it('should map agent id and version_id for switchAgent comparison', async () => {
+      mockJsonResponse({
+        id: 'agent-42',
+        version_id: 'ver-live',
+        version: {
+          id: 'ver-live',
+          description: 'Live agent',
+        },
+      });
+
+      const result = await fetchAgentInfo(makeClient(), 'infsh/live-agent');
+
+      expect(result).toMatchObject({
+        agent_id: 'agent-42',
+        version_id: 'ver-live',
+        description: 'Live agent',
+      });
+    });
+
     it('should return null when agent fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('not found'));
 
