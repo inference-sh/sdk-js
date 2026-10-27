@@ -10,8 +10,8 @@ import {
   HookHandlerTask,
   HookHandlerBuiltin,
   BuiltinHook,
-  BuiltinHookBeltSuggest,
-  BuiltinHookBeltExtract,
+  BuiltinHookSuggest,
+  BuiltinHookExtract,
   HookEventTurnStart,
   HookEventAgentComplete,
   HookEventPreCompact,
@@ -46,7 +46,7 @@ export class LifecycleHookBuilder {
     return this;
   }
 
-  /** Set handler to a builtin the platform runs itself (e.g. belt:suggest) */
+  /** Set handler to a builtin the platform runs itself (e.g. suggest) */
   builtin(name: BuiltinHook): this {
     this.handlerType = HookHandlerBuiltin;
     this.handlerRef = name;
@@ -93,11 +93,11 @@ export const lifecycleHook = (event: HookEvent) => new LifecycleHookBuilder(even
 export function learningHooks(opts: { suggest?: boolean; learn?: boolean }): LifecycleHookConfig[] {
   const hooks: LifecycleHookConfig[] = [];
   if (opts.suggest) {
-    hooks.push(lifecycleHook(HookEventTurnStart).builtin(BuiltinHookBeltSuggest).build());
+    hooks.push(lifecycleHook(HookEventTurnStart).builtin(BuiltinHookSuggest).build());
   }
   if (opts.learn) {
     for (const event of [HookEventAgentComplete, HookEventPreCompact]) {
-      hooks.push(lifecycleHook(event).builtin(BuiltinHookBeltExtract).build());
+      hooks.push(lifecycleHook(event).builtin(BuiltinHookExtract).build());
     }
   }
   return hooks;

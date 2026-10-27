@@ -41,8 +41,8 @@ import {
   createClient,
   CredentialGrantCredentials,
   CredentialGrantToken,
-  BuiltinHookBeltSuggest,
-  BuiltinHookBeltExtract,
+  BuiltinHookSuggest,
+  BuiltinHookExtract,
   HookHandlerBuiltin,
   lifecycleHook,
   learningHooks,
@@ -224,11 +224,11 @@ describe('package type exports', () => {
 
   it('exports builtin hook constants and builders for belt learning hooks', () => {
     expect(HookHandlerBuiltin).toBe('builtin');
-    expect(BuiltinHookBeltSuggest).toBe('belt:suggest');
-    expect(BuiltinHookBeltExtract).toBe('belt:extract');
+    expect(BuiltinHookSuggest).toBe('suggest');
+    expect(BuiltinHookExtract).toBe('extract');
     expect(lifecycleHook).toEqual(expect.any(Function));
     expect(learningHooks).toEqual(expect.any(Function));
-    expect(learningHooks({ suggest: true })[0]?.handler).toBe(BuiltinHookBeltSuggest);
+    expect(learningHooks({ suggest: true })[0]?.handler).toBe(BuiltinHookSuggest);
   });
 
   it('exports DescriptionLimit constants aligned with API listing vs skill caps', () => {

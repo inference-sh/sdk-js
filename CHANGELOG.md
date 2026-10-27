@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+- The builtin hooks are `suggest` and `extract`, not `belt:suggest` and `belt:extract`. `BuiltinHookBeltSuggest` and `BuiltinHookBeltExtract` are now `BuiltinHookSuggest` and `BuiltinHookExtract`; `learningHooks()` writes the new names.
+
+### Added
+- `ChatHookEvent.injection_ids`: the injection messages a hook run wrote.
+
 ## [0.34.0] - 2026-10-26
 
 ### Breaking
