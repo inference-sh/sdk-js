@@ -81,7 +81,7 @@ export interface UploadFileOptions {
 export interface ResolvedUpload {
   contentType: string;
   filename?: string;
-  size?: number;
+  size: number;
   /** The bytes to PUT, normalised from a Blob, a data URI or bare base64. */
   body: Blob;
 }
@@ -116,7 +116,7 @@ export function resolveUpload(data: string | Blob, options: UploadFileOptions = 
   return {
     contentType,
     filename,
-    size: data instanceof Blob ? data.size : undefined,
+    size: body.size,
     body,
   };
 }

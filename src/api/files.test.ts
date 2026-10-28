@@ -264,6 +264,19 @@ describe('FilesAPI', () => {
       expect(putInit.headers).toMatchObject({ 'Content-Type': 'image/jpeg' });
     });
 
+    it('should send the decoded size for data URI and base64 content', async () => {
+      for (const data of ['data:text/plain;base64,aGVsbG8=', 'aGVsbG8=']) {
+        mockFetch.mockReset();
+        mockJsonResponse([{ id: 'f', uri: 'inf://files/f', upload_url: 'https://upload.example.com/put' }]);
+        mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+        await api().upload(data);
+
+        const [, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(JSON.parse(createInit.body as string).files[0].size).toBe(5);
+      }
+    });
+
     it('should extract filename from File objects when options.filename is omitted', async () => {
       const fileRecord = {
         id: 'file-named',
