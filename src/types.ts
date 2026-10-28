@@ -495,6 +495,12 @@ export interface ApiAgentRunRequest {
   input: MessageInput;
   context?: { [key: string]: string};
   stream?: boolean;
+  /**
+   * ProjectID files the chat this message starts in a project. Ignored
+   * when the message posts into an existing chat (chat_id): a chat moves
+   * with POST /chats/{id}/project.
+   */
+  project_id?: string;
 }
 export interface CreateAgentMessageResponse {
   user_message?: ChatMessageDTO;
@@ -2356,7 +2362,7 @@ export interface ChatAgentDTO {
 /**
  * ChatDTO for API responses
  */
-export interface ChatDTO extends BaseModelDTO, PermissionModelDTO {
+export interface ChatDTO extends BaseModelDTO, PermissionModelDTO, ProjectModelDTO {
   parent_id?: string;
   parent?: ChatDTO;
   children: (ChatDTO | undefined)[];

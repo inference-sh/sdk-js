@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-10-28
+
+### Added
+- `ChatDTO.project_id`: the project a chat is filed in. `ApiAgentRunRequest.project_id` files the chat a run starts in a project.
+
 ## [0.35.0] - 2026-10-28
 
 ### Breaking
