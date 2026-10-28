@@ -241,6 +241,8 @@ export interface ProxyManifestEndpoint {
     purpose: string;
     /** Scopes the call takes: what the site's API key must hold (the manifest's preset grants them all). */
     scopes: string[];
+    /** Scopes the call asks for in part of what it does (filing a chat in a project takes projects:read): a key without one is refused that part only. */
+    also?: string[];
 }
 
 export interface ProxyEndpoint {
@@ -253,6 +255,8 @@ export interface ProxyEndpoint {
     purpose: string;
     /** Scopes the call takes, from the manifest. */
     scopes: readonly string[];
+    /** Scopes it asks for in part of what it does, from the manifest. */
+    also: readonly string[];
     /** Set when the request names an app or agent: checked against allowedEndpoints. */
     ref?: RefSource;
     /** Set when only these body fields may be sent. */
@@ -316,6 +320,7 @@ function fromManifest(e: ProxyManifestEndpoint): ProxyEndpoint {
         path: pathPattern(e.path),
         purpose: e.purpose,
         scopes: e.scopes,
+        also: e.also ?? [],
         ...RULES_BY_KEY.get(routeKey(route)),
     };
 }

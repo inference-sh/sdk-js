@@ -24,6 +24,7 @@ describe('proxy endpoints come from the API manifest', () => {
     PROXY_ENDPOINTS.forEach((e, i) => {
       expect(e.purpose).toBe(manifest.endpoints[i].purpose);
       expect(e.scopes).toEqual(manifest.endpoints[i].scopes);
+      expect(e.also).toEqual((manifest.endpoints[i] as { also?: string[] }).also ?? []);
     });
   });
 

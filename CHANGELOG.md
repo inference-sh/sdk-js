@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-10-28
+
+### Added
+- `ProxyEndpoint.also` and `ProxyManifestEndpoint.also`: scopes a proxied call asks for in part of what it does (filing a chat in a project takes `projects:read`). A key without one is refused that part only. `src/proxy/endpoints.json` is regenerated from the API.
+
 ## [0.36.0] - 2026-10-28
 
 ### Added

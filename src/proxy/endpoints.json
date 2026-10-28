@@ -10,6 +10,12 @@
         "apps:execute",
         "apps:read",
         "conversations:read"
+      ],
+      "also": [
+        "billing:read",
+        "conversations:write",
+        "credentials:read",
+        "secrets:reveal"
       ]
     },
     {
@@ -52,6 +58,9 @@
       "purpose": "cancel a task",
       "scopes": [
         "apps:execute"
+      ],
+      "also": [
+        "engines:write"
       ]
     },
     {
@@ -61,6 +70,22 @@
       "scopes": [
         "agents:execute",
         "conversations:read"
+      ],
+      "also": [
+        "agents:read",
+        "agents:write",
+        "apps:execute",
+        "apps:read",
+        "billing:read",
+        "conversations:read",
+        "conversations:write",
+        "credentials:read",
+        "files:read",
+        "knowledge:read",
+        "knowledge:write",
+        "projects:read",
+        "remotes:read",
+        "secrets:reveal"
       ]
     },
     {
@@ -69,6 +94,12 @@
       "purpose": "start a chat with an agent",
       "scopes": [
         "conversations:write"
+      ],
+      "also": [
+        "agents:read",
+        "apps:read",
+        "conversations:read",
+        "projects:read"
       ]
     },
     {
@@ -77,6 +108,22 @@
       "purpose": "send a message in a chat",
       "scopes": [
         "agents:execute"
+      ],
+      "also": [
+        "agents:read",
+        "agents:write",
+        "apps:execute",
+        "apps:read",
+        "billing:read",
+        "conversations:read",
+        "conversations:write",
+        "credentials:read",
+        "files:read",
+        "knowledge:read",
+        "knowledge:write",
+        "projects:read",
+        "remotes:read",
+        "secrets:reveal"
       ]
     },
     {
@@ -85,6 +132,11 @@
       "purpose": "hand a chat to another agent",
       "scopes": [
         "conversations:write"
+      ],
+      "also": [
+        "agents:read",
+        "apps:read",
+        "conversations:read"
       ]
     },
     {
@@ -93,6 +145,9 @@
       "purpose": "read an agent's info",
       "scopes": [
         "agents:read"
+      ],
+      "also": [
+        "apps:read"
       ]
     },
     {
@@ -133,6 +188,20 @@
       "purpose": "stop a chat",
       "scopes": [
         "conversations:write"
+      ],
+      "also": [
+        "agents:execute",
+        "agents:read",
+        "apps:execute",
+        "apps:read",
+        "billing:read",
+        "conversations:read",
+        "credentials:read",
+        "engines:write",
+        "knowledge:read",
+        "remotes:read",
+        "remotes:write",
+        "secrets:reveal"
       ]
     },
     {
@@ -141,6 +210,9 @@
       "purpose": "cancel a message",
       "scopes": [
         "conversations:write"
+      ],
+      "also": [
+        "conversations:read"
       ]
     },
     {
@@ -149,6 +221,9 @@
       "purpose": "answer a client tool call",
       "scopes": [
         "conversations:write"
+      ],
+      "also": [
+        "conversations:read"
       ]
     }
   ]
