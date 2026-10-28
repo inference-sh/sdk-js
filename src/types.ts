@@ -955,6 +955,8 @@ export type Scope =
   | "engines:write"
   | "remotes:read"
   | "remotes:write"
+  | "sandboxes:read"
+  | "sandboxes:write"
   | "apikeys:read"
   | "apikeys:write"
   | "knowledge:read"
@@ -1214,6 +1216,16 @@ export const ScopeRemotesRead: Scope = "remotes:read";
  */
 export const ScopeRemotesWrite: Scope = "remotes:write";
 /**
+ * Action-level scopes for Sandboxes (managed boxes that run a remote)
+ */
+export const ScopeSandboxesRead: Scope = "sandboxes:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeSandboxesWrite: Scope = "sandboxes:write";
+/**
  * Action-level scopes for API Keys
  */
 export const ScopeApiKeysRead: Scope = "apikeys:read";
@@ -1347,6 +1359,7 @@ export type ScopeGroup =
   | "credentials"
   | "engines"
   | "remotes"
+  | "sandboxes"
   | "apikeys"
   | "knowledge"
   | "artifacts"
@@ -1371,6 +1384,7 @@ export const ScopeGroupSecrets: ScopeGroup = "secrets";
 export const ScopeGroupCredentials: ScopeGroup = "credentials";
 export const ScopeGroupEngines: ScopeGroup = "engines";
 export const ScopeGroupRemotes: ScopeGroup = "remotes";
+export const ScopeGroupSandboxes: ScopeGroup = "sandboxes";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
 export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupArtifacts: ScopeGroup = "artifacts";
@@ -3096,8 +3110,18 @@ export interface WorkerRAM {
  * a task lists the ones it needs (Task.Requires); the scheduler only sends
  * a task to an engine that has every one it needs.
  */
-export type EngineCapability = "egress_gateway";
+export type EngineCapability = "egress_gateway" | "sandboxes";
+/**
+ * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
+ * the egress gateway, so it can take bound secrets (the v2 secrets
+ * envelope) and place each value only toward its hosts (INF-1076).
+ */
 export const EngineCapabilityEgressGateway: EngineCapability = "egress_gateway";
+/**
+ * EngineCapabilitySandboxes: the engine has boxd connected and a VM
+ * space up, so it can take sandbox_start (INF-833).
+ */
+export const EngineCapabilitySandboxes: EngineCapability = "sandboxes";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -5041,6 +5065,61 @@ export interface ShareRequest {
   team_id?: string;
   org?: boolean;
   permission: Permission;
+}
+/**
+ * SandboxStatus is where the API's record of a sandbox stands. A sandbox is
+ * a Firecracker box on one of our engines that runs `belt remote start` and
+ * connects back as an ordinary Remote.
+ */
+export type SandboxStatus =
+  | "pending"
+  | "starting"
+  | "running"
+  | "stopping"
+  | "stopped"
+  | "failed";
+export const SandboxStatusPending: SandboxStatus = "pending";
+export const SandboxStatusStarting: SandboxStatus = "starting";
+export const SandboxStatusRunning: SandboxStatus = "running";
+export const SandboxStatusStopping: SandboxStatus = "stopping";
+export const SandboxStatusStopped: SandboxStatus = "stopped";
+export const SandboxStatusFailed: SandboxStatus = "failed";
+/**
+ * SandboxDesiredState is what the owner asked for; the reconciler moves the
+ * status toward it.
+ */
+export type SandboxDesiredState = "running" | "stopped" | "deleted";
+export const SandboxDesiredRunning: SandboxDesiredState = "running";
+export const SandboxDesiredStopped: SandboxDesiredState = "stopped";
+export const SandboxDesiredDeleted: SandboxDesiredState = "deleted";
+/**
+ * CreateSandboxRequest is POST /sandboxes. Sizes left at zero take the
+ * defaults.
+ */
+export interface CreateSandboxRequest {
+  name: string;
+  vcpus?: number /* int */; // default 2, max 8
+  memory_mib?: number /* int64 */; // default 4096, max 16384
+  disk_mib?: number /* int64 */; // default 10240, max 51200
+}
+/**
+ * SandboxDTO is the API response for a sandbox.
+ */
+export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
+  name: string;
+  image: string;
+  vcpus: number /* int */;
+  memory_mib: number /* int64 */;
+  disk_mib: number /* int64 */;
+  desired_state: SandboxDesiredState;
+  status: SandboxStatus;
+  status_reason?: string;
+  /**
+   * RemoteID is the Remote the box connects as; the same across restarts.
+   */
+  remote_id?: string;
+  started_at?: string /* RFC3339 */;
+  stopped_at?: string /* RFC3339 */;
 }
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
@@ -7767,6 +7846,7 @@ export type EntitlementResource =
   | "feature:seedance"
   | "feature:marketplace_publish"
   | "feature:forms"
+  | "feature:sandboxes"
   | "feature:scopes"
   | "feature:webhooks"
   | "feature:team_billing"
@@ -7803,6 +7883,10 @@ export const ResourceFeatureMarketplacePublish: EntitlementResource = "feature:m
  * Granted per team: creating forms is by invitation for now.
  */
 export const ResourceFeatureForms: EntitlementResource = "feature:forms";
+/**
+ * Granted per team: managed sandboxes are by invitation for now (INF-833).
+ */
+export const ResourceFeatureSandboxes: EntitlementResource = "feature:sandboxes";
 /**
  * Legacy feature gates — kept for DB compatibility, no longer gated
  */
