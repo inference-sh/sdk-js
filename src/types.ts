@@ -5115,6 +5115,16 @@ export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
   status: SandboxStatus;
   status_reason?: string;
   /**
+   * Generation counts starts, restarts included.
+   */
+  generation: number /* int64 */;
+  /**
+   * EngineID and WorkerID place the current generation; empty while
+   * pending or stopped.
+   */
+  engine_id?: string;
+  worker_id?: string;
+  /**
    * RemoteID is the Remote the box connects as; the same across restarts.
    */
   remote_id?: string;
