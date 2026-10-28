@@ -2407,6 +2407,26 @@ describe('Agent.submitToolResult', () => {
   });
 });
 
+describe('Agent.submitToolError', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should POST ToolResultRequest with empty result and error text', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockJsonResponse(null);
+
+    await agentInstance.submitToolError('inv-fail', 'handler boom');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-fail');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ result: '', error: 'handler boom' });
+  });
+});
+
 describe('AgentsAPI.submitToolResult', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -2445,6 +2465,31 @@ describe('AgentsAPI.submitToolResult', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ result: 'shot' });
+  });
+});
+
+describe('AgentsAPI.submitToolError', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should POST ToolResultRequest with empty result and error text', async () => {
+    mockJsonResponse(null);
+
+    await api().submitToolError('inv-fail', 'Client tool "foo" is not available in this environment');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-fail');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({
+      result: '',
+      error: 'Client tool "foo" is not available in this environment',
+    });
   });
 });
 

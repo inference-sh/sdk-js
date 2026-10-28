@@ -10,6 +10,7 @@ import {
 import {
   sendMessage,
   submitToolResult,
+  submitToolError,
   resolveInterrupt,
   listRunInterrupts,
   alwaysAllowTool,
@@ -263,6 +264,17 @@ describe('agent/api', () => {
       await submitToolResult(makeClient(), 'inv-4', 'shot', []);
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(String(init.body))).toEqual({ result: 'shot' });
+    });
+  });
+
+  describe('submitToolError', () => {
+    it('should POST { error } to fail the client tool call', async () => {
+      mockJsonResponse(null);
+      await submitToolError(makeClient(), 'inv-err', 'node "x" does not exist');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/tools/inv-err');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({ error: 'node "x" does not exist' });
     });
   });
 
