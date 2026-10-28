@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-28
+
 ### Breaking
 - The builtin hooks are `suggest` and `extract`, not `belt:suggest` and `belt:extract`. `BuiltinHookBeltSuggest` and `BuiltinHookBeltExtract` are now `BuiltinHookSuggest` and `BuiltinHookExtract`; `learningHooks()` writes the new names.
 
