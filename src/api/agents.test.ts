@@ -2448,6 +2448,48 @@ describe('AgentsAPI.submitToolResult', () => {
   });
 });
 
+describe('Agent.submitToolError', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should POST { result: "", error } to /tools/{invocationId}', async () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    const agentInstance = new AgentsAPI(http, new FilesAPI(http)).create('my-agent');
+
+    mockJsonResponse(null);
+
+    await agentInstance.submitToolError('inv-err', 'handler not found');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-err');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ result: '', error: 'handler not found' });
+  });
+});
+
+describe('AgentsAPI.submitToolError', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'test-key' });
+    return new AgentsAPI(http, new FilesAPI(http));
+  };
+
+  it('should POST { result: "", error } to /tools/{invocationId}', async () => {
+    mockJsonResponse(null);
+
+    await api().submitToolError('inv-err', 'handler not found');
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/tools/inv-err');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ result: '', error: 'handler not found' });
+  });
+});
+
 describe('AgentsAPI (template CRUD)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
