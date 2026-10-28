@@ -28,8 +28,10 @@ export interface PollManagerOptions<T> {
   onStop?: (error?: Error) => void;
 }
 
+type ResolvedPollOptions<T> = PollManagerOptions<T> & Required<Pick<PollManagerOptions<T>, 'intervalMs' | 'maxRetries' | 'retryDelayMs'>>;
+
 export class PollManager<T> {
-  private options: any;
+  private options: ResolvedPollOptions<T>;
   private interval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private consecutiveErrors = 0;
@@ -42,7 +44,7 @@ export class PollManager<T> {
       maxRetries: 5,
       retryDelayMs: 1000,
       ...options,
-    };
+    } as ResolvedPollOptions<T>;
   }
 
   /** Start polling. First poll is immediate, then at intervalMs. */
