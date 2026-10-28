@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-28
+
+### Added
+- A client tool handler can return `{ error }`: the call completes as failed and the model reads the error. `submitToolError` sends one directly.
+- `ToolResultRequest.error`.
+
+### Changed
+- A client tool with no handler, or whose handler throws, now fails its call. It used to complete with the error text as its result.
+
 ## [0.35.1] - 2026-10-28
 
 ### Added
