@@ -141,11 +141,13 @@ describe('createActions', () => {
     });
 
     mockAgentApi.fetchChat.mockResolvedValue({
-      id: 'chat-full-id-123',
-      status: ChatStatusBusy,
-      active_run: workingRun,
-      chat_messages: [],
-    } as unknown as ChatDTO);
+      chat: {
+        id: 'chat-full-id-123',
+        status: ChatStatusBusy,
+        active_run: workingRun,
+        chat_messages: [],
+      } as unknown as ChatDTO,
+    });
     mockAgentApi.fetchMessages.mockResolvedValue([]);
     mockAgentApi.fetchMessagesPage.mockResolvedValue({ items: [], next_cursor: '', has_next: false });
     mockAgentApi.chatStreamRequest.mockReturnValue(chatStream);
@@ -840,7 +842,7 @@ describe('createActions', () => {
 
       internalActions.streamChat('chat-full-id-123');
       await flush();
-      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
+      mockAgentApi.fetchChat.mockResolvedValueOnce({ chat: idleChat });
 
       streamInstances[0].options.onEnd?.();
       await flush();
@@ -873,7 +875,7 @@ describe('createActions', () => {
       const poller = pollInstances[0];
       expect(setStreamManager).toHaveBeenLastCalledWith(poller);
 
-      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
+      mockAgentApi.fetchChat.mockResolvedValueOnce({ chat: idleChat });
       await poller.options.onData?.({ status: ChatStatusIdle });
 
       expect(onTurnEnd).toHaveBeenCalledTimes(1);
@@ -999,7 +1001,7 @@ describe('createActions', () => {
       // The run completed and the final message landed while the stream was down.
       const final = makeMessage({ id: 'msg-final', chat_id: 'chat-short-full', status: ChatMessageStatusReady });
       const finished = { ...idleChat, chat_messages: [final] } as ChatDTO;
-      mockAgentApi.fetchChat.mockResolvedValueOnce(finished);
+      mockAgentApi.fetchChat.mockResolvedValueOnce({ chat: finished });
 
       await streamInstances[0].options.onReconnect?.(1);
 
@@ -1052,7 +1054,7 @@ describe('createActions', () => {
       createActions(ctx).internalActions.streamChat('chat-full-id-123');
       await flush();
       jest.spyOn(console, 'warn').mockImplementation(() => {});
-      mockAgentApi.fetchChat.mockResolvedValueOnce(idleChat);
+      mockAgentApi.fetchChat.mockResolvedValueOnce({ chat: idleChat });
 
       streamInstances[0].options.onError?.(new Error('HTTP 404: gone'));
       streamInstances[0].options.onEnd?.();
@@ -1095,14 +1097,14 @@ describe('createActions', () => {
       await flush();
       const { options } = streamInstances[0];
 
-      let resolveFetch!: (chat: ChatDTO) => void;
+      let resolveFetch!: (result: { chat: ChatDTO }) => void;
       mockAgentApi.fetchChat.mockReturnValueOnce(new Promise((resolve) => { resolveFetch = resolve; }));
       const resync = options.onReconnect?.(1);
       internalActions.streamChat('chat-other');
       await flush();
       dispatch.mockClear();
 
-      resolveFetch(idleChat);
+      resolveFetch({ chat: idleChat });
       await resync;
 
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
@@ -1544,10 +1546,12 @@ describe('createActions', () => {
       const { internalActions } = createActions(ctx);
 
       mockAgentApi.fetchChat.mockResolvedValue({
-        id: 'chat-full-id-123',
-        status: ChatStatusBusy,
-        chat_messages: [],
-      } as unknown as ChatDTO);
+        chat: {
+          id: 'chat-full-id-123',
+          status: ChatStatusBusy,
+          chat_messages: [],
+        } as unknown as ChatDTO,
+      });
 
       internalActions.streamChat('chat-full-id-123');
       await Promise.resolve();
@@ -2309,10 +2313,12 @@ describe('createActions', () => {
     it('should not call onTurnEnd when chat goes from idle to busy or stays busy', async () => {
       const onTurnEnd = jest.fn();
       mockAgentApi.fetchChat.mockResolvedValueOnce({
-        id: 'chat-full-id-123',
-        status: ChatStatusIdle,
-        chat_messages: [],
-      } as unknown as ChatDTO);
+        chat: {
+          id: 'chat-full-id-123',
+          status: ChatStatusIdle,
+          chat_messages: [],
+        } as unknown as ChatDTO,
+      });
 
       const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
       const { internalActions } = createActions(ctx);
@@ -2334,10 +2340,12 @@ describe('createActions', () => {
     it('should not call onTurnEnd on initial fetch when chat is already idle', async () => {
       const onTurnEnd = jest.fn();
       mockAgentApi.fetchChat.mockResolvedValueOnce({
-        id: 'chat-full-id-123',
-        status: ChatStatusIdle,
-        chat_messages: [],
-      } as unknown as ChatDTO);
+        chat: {
+          id: 'chat-full-id-123',
+          status: ChatStatusIdle,
+          chat_messages: [],
+        } as unknown as ChatDTO,
+      });
 
       const { ctx } = createTestContext({ callbacks: { onTurnEnd } });
       const { internalActions } = createActions(ctx);
@@ -2758,12 +2766,14 @@ describe('createActions', () => {
   describe('streamChat pagination metadata', () => {
     it('should propagate fetchChat pagination metadata through SET_CHAT', async () => {
       mockAgentApi.fetchChat.mockResolvedValueOnce({
-        id: 'chat-full-id-123',
-        status: ChatStatusIdle,
-        chat_messages: [makeMessage({ id: 'msg-1', order: 1 })],
-        _messageCursor: 'cursor-page-2',
-        _hasOlderMessages: true,
-      } as unknown as ChatDTO);
+        chat: {
+          id: 'chat-full-id-123',
+          status: ChatStatusIdle,
+          chat_messages: [makeMessage({ id: 'msg-1', order: 1 })],
+        } as unknown as ChatDTO,
+        messageCursor: 'cursor-page-2',
+        hasOlderMessages: true,
+      });
 
       const { ctx, dispatch } = createTestContext();
       const { internalActions } = createActions(ctx);
@@ -2772,11 +2782,9 @@ describe('createActions', () => {
 
       expect(dispatch).toHaveBeenCalledWith({
         type: 'SET_CHAT',
-        payload: expect.objectContaining({
-          id: 'chat-full-id-123',
-          _messageCursor: 'cursor-page-2',
-          _hasOlderMessages: true,
-        }),
+        payload: expect.objectContaining({ id: 'chat-full-id-123' }),
+        messageCursor: 'cursor-page-2',
+        hasOlderMessages: true,
       });
     });
   });

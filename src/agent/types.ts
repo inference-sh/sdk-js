@@ -354,7 +354,7 @@ export function extractClientToolHandlers(
  */
 export type ChatAction =
   | { type: 'SET_CHAT_ID'; payload: string | null }
-  | { type: 'SET_CHAT'; payload: ChatDTO | null }
+  | { type: 'SET_CHAT'; payload: ChatDTO | null; messageCursor?: string; hasOlderMessages?: boolean }
   | { type: 'UPDATE_CHAT'; payload: ChatDTO | null; fields?: string[] }
   | { type: 'MERGE_CHAT_SETTINGS'; payload: ChatSettingsDTO }
   | { type: 'MERGE_CHAT_AGENT'; payload: ChatAgentDTO }

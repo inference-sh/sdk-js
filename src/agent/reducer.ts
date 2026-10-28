@@ -151,9 +151,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
         return { ...state, chat: null, messages: [], connectionStatus: 'idle', messageCursor: undefined, hasOlderMessages: undefined };
       }
       const messages = normalizeMessages(chat.chat_messages || []).sort((a, b) => a.order - b.order);
-      const cursor = (chat as any)?._messageCursor as string | undefined;
-      const hasOlder = (chat as any)?._hasOlderMessages as boolean | undefined;
-      return { ...state, chat, messages, messageCursor: cursor, hasOlderMessages: hasOlder };
+      return { ...state, chat, messages, messageCursor: action.messageCursor, hasOlderMessages: action.hasOlderMessages };
     }
 
     case 'UPDATE_CHAT': {

@@ -176,7 +176,13 @@ export async function fetchMessagesPage(client: AgentClient, chatId: string, opt
   }
 }
 
-export async function fetchChat(client: AgentClient, chatId: string): Promise<ChatDTO | null> {
+export interface FetchChatResult {
+  chat: ChatDTO;
+  messageCursor?: string;
+  hasOlderMessages?: boolean;
+}
+
+export async function fetchChat(client: AgentClient, chatId: string): Promise<FetchChatResult | null> {
   try {
     const resp = await client.http.request<ChatDTO>('get', `/chats/${chatId}`);
     const chat = resp.data;
@@ -184,11 +190,9 @@ export async function fetchChat(client: AgentClient, chatId: string): Promise<Ch
     if (chat && (!chat.chat_messages || chat.chat_messages.length === 0)) {
       const page = await fetchMessagesPage(client, chatId);
       chat.chat_messages = page.items;
-      // Store pagination info on the chat for the reducer to pick up
-      (chat as any)._messageCursor = page.next_cursor;
-      (chat as any)._hasOlderMessages = page.has_next;
+      return { chat, messageCursor: page.next_cursor, hasOlderMessages: page.has_next };
     }
-    return chat;
+    return chat ? { chat } : null;
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch chat:', error);
   }

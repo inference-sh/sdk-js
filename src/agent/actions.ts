@@ -26,6 +26,7 @@ import type {
 } from './types.js';
 import { isAdHocConfig, extractClientToolHandlers } from './types.js';
 import * as api from './api.js';
+import type { FetchChatResult } from './api.js';
 import { buildMCPInputResult } from './mcp-input.js';
 import { applyChatUpdate } from './reducer.js';
 import { isInferenceError } from '../http/errors.js';
@@ -103,8 +104,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   // Internal helpers
   // =========================================================================
 
-  const setChat = (chat: ChatDTO | null) => {
-    dispatch({ type: 'SET_CHAT', payload: chat });
+  const setChat = (result: FetchChatResult | null) => {
+    const chat = result?.chat ?? null;
+    dispatch({ type: 'SET_CHAT', payload: chat, messageCursor: result?.messageCursor, hasOlderMessages: result?.hasOlderMessages });
     if (chat) {
       callbacks.onStatusChange?.(isChatBusy(chat) ? 'streaming' : 'idle');
       checkTurnEnd(chat);
@@ -178,11 +180,11 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
     try {
       // Fetch initial chat (fetchChat loads messages separately since Chat.Get no longer preloads them)
-      const chat = await api.fetchChat(client, id);
+      const fetchResult = await api.fetchChat(client, id);
       // Stopped or switched to another chat while fetching.
       if (generation !== streamGeneration) return;
-      if (chat) {
-        setChat(chat);
+      if (fetchResult) {
+        setChat(fetchResult);
       }
     } catch (error) {
       console.error('[AgentSDK] Failed to fetch chat:', error);
@@ -208,8 +210,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
     // The API does not replay what the stream missed: the chat as fetched is
     // the source of truth. Messages are merged, so older pages stay loaded.
     const resync = async (): Promise<ChatDTO | null> => {
-      const chat = await api.fetchChat(client, id);
-      if (!chat || !isCurrent()) return null;
+      const fetchResult = await api.fetchChat(client, id);
+      if (!fetchResult || !isCurrent()) return null;
+      const { chat } = fetchResult;
       for (const message of chat.chat_messages ?? []) {
         updateMessage(message);
       }
@@ -350,9 +353,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
         // Status changed — fetch chat (fetchChat loads messages)
         try {
-          const chat = await api.fetchChat(client, id);
-          if (chat) {
-            setChat(chat);
+          const fetchResult = await api.fetchChat(client, id);
+          if (fetchResult) {
+            setChat(fetchResult);
+            const { chat } = fetchResult;
             if (chat.chat_messages) {
               for (const message of chat.chat_messages) {
                 updateMessage(message);

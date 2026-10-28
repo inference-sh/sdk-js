@@ -394,8 +394,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result?.channel_context?.channel_type).toBe('slack');
-      expect(result?.channel_context?.channel_metadata).toEqual({
+      expect(result?.chat.channel_context?.channel_type).toBe('slack');
+      expect(result?.chat.channel_context?.channel_metadata).toEqual({
         channel_id: 'C123',
         thread_ts: '1234.5678',
       });
@@ -409,12 +409,9 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result).toEqual({
-        ...chat,
-        chat_messages: messages,
-        _messageCursor: '',
-        _hasOlderMessages: false,
-      });
+      expect(result?.chat).toEqual({ ...chat, chat_messages: messages });
+      expect(result?.messageCursor).toBe('');
+      expect(result?.hasOlderMessages).toBe(false);
       expect(mockFetch).toHaveBeenCalledTimes(2);
       const [messagesUrl] = mockFetch.mock.calls[1] as [string, RequestInit];
       expect(messagesUrl).toContain('/chats/chat-1/messages');
@@ -429,8 +426,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect((result as unknown as Record<string, unknown>)._messageCursor).toBe('page-2');
-      expect((result as unknown as Record<string, unknown>)._hasOlderMessages).toBe(true);
+      expect(result?.messageCursor).toBe('page-2');
+      expect(result?.hasOlderMessages).toBe(true);
     });
 
     it('should preserve harness_session_id when fetching chat', async () => {
@@ -446,8 +443,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result?.harness_session_id).toBe('sess-resume-42');
-      expect(result?.forked_from_message_id).toBe('msg-root');
+      expect(result?.chat.harness_session_id).toBe('sess-resume-42');
+      expect(result?.chat.forked_from_message_id).toBe('msg-root');
     });
 
     it('should skip message fetch when chat_messages are already preloaded', async () => {
@@ -457,7 +454,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result).toEqual(chat);
+      expect(result?.chat).toEqual(chat);
+      expect(result?.messageCursor).toBeUndefined();
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -474,8 +472,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result?.work_dir).toBe('/tmp/harness-wd');
-      expect(result?.harness_session_id).toBe('resume-id');
+      expect(result?.chat.work_dir).toBe('/tmp/harness-wd');
+      expect(result?.chat.harness_session_id).toBe('resume-id');
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -486,12 +484,9 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect(result).toEqual({
-        ...chat,
-        chat_messages: [],
-        _messageCursor: '',
-        _hasOlderMessages: false,
-      });
+      expect(result?.chat).toEqual({ ...chat, chat_messages: [] });
+      expect(result?.messageCursor).toBe('');
+      expect(result?.hasOlderMessages).toBe(false);
     });
 
     it('should return null when chat fetch fails', async () => {
