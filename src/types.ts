@@ -518,6 +518,12 @@ export interface ToolResultRequest {
    * when it accepts images.
    */
   attachments?: FileRef[];
+  /**
+   * Error, when set, says the call failed: it completes as failed and the
+   * model reads Error in place of Result. A client sets it when it has no
+   * handler for the tool or the handler failed.
+   */
+  error?: string;
 }
 /**
  * PartialFile is the clean DTO version (no gorm tags).
