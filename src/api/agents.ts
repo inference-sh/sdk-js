@@ -312,6 +312,15 @@ export class Agent {
     await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
   }
 
+  /**
+   * Fail a client tool call the caller could not run: the chat shows it
+   * failed and the model reads `error`.
+   */
+  async submitToolError(toolInvocationId: string, error: string): Promise<void> {
+    const data: ToolResultRequest = { result: '', error };
+    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
+  }
+
   /** Stop streaming/polling and cleanup */
   disconnect(): void {
     this.stream?.stop();
@@ -675,6 +684,15 @@ export class AgentsAPI {
     if (attachments && attachments.length > 0) {
       data.attachments = attachments;
     }
+    await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
+  }
+
+  /**
+   * Fail a client tool call the caller could not run: the chat shows it
+   * failed and the model reads `error`.
+   */
+  async submitToolError(toolInvocationId: string, error: string): Promise<void> {
+    const data: ToolResultRequest = { result: '', error };
     await this.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
   }
 

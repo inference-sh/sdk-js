@@ -154,6 +154,7 @@ describe('createActions', () => {
       userMessage: makeMessage({ id: 'u1', role: 'user' }),
     });
     mockAgentApi.submitToolResult.mockResolvedValue(undefined);
+    mockAgentApi.submitToolError.mockResolvedValue(undefined);
     mockAgentApi.resolveInterrupt.mockResolvedValue({
       id: 'int-1',
       status: 'resolved',
@@ -657,7 +658,7 @@ describe('createActions', () => {
       );
     });
 
-    it('should submit a JSON error when a client tool handler throws', async () => {
+    it('fails the call when a client tool handler throws', async () => {
       const handler = jest.fn().mockRejectedValue(new Error('handler boom'));
       const { ctx } = createTestContext({
         getClientToolHandlers: () => new Map([['my_tool', handler]]),
@@ -687,14 +688,14 @@ describe('createActions', () => {
 
       await new Promise((resolve) => setImmediate(resolve));
 
-      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+      expect(mockAgentApi.submitToolError).toHaveBeenCalledWith(
         ctx.client,
         'tool-inv-err',
         expect.stringContaining('handler boom')
       );
     });
 
-    it('should submit not_available when a client tool has no handler', async () => {
+    it('fails the call when a client tool has no handler', async () => {
       const { ctx } = createTestContext({
         getClientToolHandlers: () =>
           new Map([['other_tool', jest.fn().mockResolvedValue('ok')]]),
@@ -724,11 +725,51 @@ describe('createActions', () => {
 
       await Promise.resolve();
 
-      expect(mockAgentApi.submitToolResult).toHaveBeenCalledWith(
+      expect(mockAgentApi.submitToolError).toHaveBeenCalledWith(
         ctx.client,
         'tool-missing-handler',
-        expect.stringContaining('not_available')
+        expect.stringContaining('not available')
       );
+      expect(mockAgentApi.submitToolResult).not.toHaveBeenCalled();
+    });
+
+    it('fails the call when a handler returns { error }', async () => {
+      const { ctx } = createTestContext({
+        getClientToolHandlers: () =>
+          new Map([['missing_tool', jest.fn().mockResolvedValue({ error: 'node "x" does not exist' })]]),
+      });
+      const { internalActions } = createActions(ctx);
+
+      internalActions.streamChat('chat-full-id-123');
+      await Promise.resolve();
+
+      const onMessage = streamInstances[0].addEventListener.mock.calls.find(
+        ([event]) => event === 'chat_messages'
+      )?.[1] as (msg: ReturnType<typeof makeMessage>) => void;
+
+      onMessage(
+        makeMessage({
+          chat_id: 'chat-short',
+          tool_invocations: [
+            {
+              id: 'tool-handler-error',
+              type: ToolTypeClient,
+              status: ToolInvocationStatusAwaitingInput,
+              function: { name: 'missing_tool', arguments: {} },
+            },
+          ],
+        })
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockAgentApi.submitToolError).toHaveBeenCalledWith(
+        ctx.client,
+        'tool-handler-error',
+        'node "x" does not exist'
+      );
+      expect(mockAgentApi.submitToolResult).not.toHaveBeenCalled();
     });
   });
 

@@ -233,6 +233,11 @@ export async function submitToolResult(
   await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data });
 }
 
+/** Fail a client tool call: the chat shows it failed and the model reads `error`. */
+export async function submitToolError(client: AgentClient, toolInvocationId: string, error: string): Promise<void> {
+  await client.http.request<void>('post', `/tools/${toolInvocationId}`, { data: { error } });
+}
+
 /**
  * What "always allow" can save for a call awaiting approval, narrowest first.
  * The api computes the options from the call; each one, saved, answers it again.

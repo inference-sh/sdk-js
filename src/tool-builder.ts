@@ -9,7 +9,9 @@ import { AgentTool, FileRef, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAP
 // =============================================================================
 
 /**
- * What a client tool handler returns: the result text, or the text plus files.
+ * What a client tool handler returns: the result text, the text plus files, or
+ * `{ error }` when the tool could not do what was asked. An error fails the
+ * call: the chat shows it failed and the model reads the error text.
  *
  * `attachments` are files already uploaded with POST /files (for example with
  * `client.files.upload(dataUrlOrBlob)` or the chat's `uploadFile`), passed as
@@ -17,7 +19,7 @@ import { AgentTool, FileRef, InternalToolsConfig, ToolAuthConfig, ToolAuthTypeAP
  * model as image input when the model supports images; other files are listed
  * on the tool message.
  */
-export type ClientToolResult = string | { result: string; attachments?: FileRef[] };
+export type ClientToolResult = string | { result: string; attachments?: FileRef[] } | { error: string };
 
 /** Handler function for client tools (executed in browser/Node) */
 export type ClientToolHandler = (args: Record<string, unknown>) => Promise<ClientToolResult> | ClientToolResult;

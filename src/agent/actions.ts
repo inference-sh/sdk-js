@@ -74,11 +74,14 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   // A client tool's result is the only way its turn continues: the server
   // waits on it. A result lost to a network drop left the turn stuck on
   // "running" for good, so it is sent again until it lands or is refused.
-  const deliverToolResult = async (invocationId: string, result: string, attachments?: FileRef[]) => {
+  // Posts a handler's output: a result, or an error that fails the call.
+  const deliverToolResult = async (invocationId: string, output: ClientToolResult) => {
     for (let attempt = 1; ; attempt++) {
       try {
-        if (attachments?.length) await api.submitToolResult(client, invocationId, result, attachments);
-        else await api.submitToolResult(client, invocationId, result);
+        if (typeof output === 'string') await api.submitToolResult(client, invocationId, output);
+        else if ('error' in output) await api.submitToolError(client, invocationId, output.error);
+        else if (output.attachments?.length) await api.submitToolResult(client, invocationId, output.result, output.attachments);
+        else await api.submitToolResult(client, invocationId, output.result);
         return;
       } catch (err) {
         if (!isTransient(err) || attempt >= TOOL_RESULT_MAX_ATTEMPTS) {
@@ -138,10 +141,9 @@ export function createActions(ctx: ActionsContext): ActionsResult {
 
           if (!handler) {
             console.warn(`[AgentSDK] No handler for client tool: ${functionName}`);
-            deliverToolResult(invocation.id, JSON.stringify({
-              status: 'not_available',
-              message: `Client tool "${functionName}" is not available in this environment`,
-            }));
+            deliverToolResult(invocation.id, {
+              error: `Client tool "${functionName}" is not available in this environment`,
+            });
             continue;
           }
 
@@ -149,16 +151,10 @@ export function createActions(ctx: ActionsContext): ActionsResult {
           // Use Promise.resolve to handle both sync and async handlers
           const args = invocation.function?.arguments || {};
           Promise.resolve(handler(args))
-            .then((output: ClientToolResult) =>
-              typeof output === 'string'
-                ? deliverToolResult(invocation.id, output)
-                : deliverToolResult(invocation.id, output.result, output.attachments),
-            )
+            .then((output: ClientToolResult) => deliverToolResult(invocation.id, output))
             .catch((error: unknown) => {
               console.error(`[AgentSDK] Client tool ${functionName} error:`, error);
-              return deliverToolResult(invocation.id, JSON.stringify({
-                error: String(error)
-              }));
+              return deliverToolResult(invocation.id, { error: String(error) });
             });
         }
       }
