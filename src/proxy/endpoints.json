@@ -175,6 +175,14 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/chats/{id}/messages/list",
+      "purpose": "list a chat's messages",
+      "scopes": [
+        "conversations:read"
+      ]
+    },
+    {
       "method": "GET",
       "path": "/chats/{id}/stream",
       "purpose": "stream a chat",

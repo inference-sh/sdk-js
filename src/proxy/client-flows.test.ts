@@ -25,6 +25,12 @@ const INTERRUPT = '01j9z3m8k2c9v7b4n6q5r0n7r1';
 
 type Seen = { method: string; path: string };
 
+// Endpoints the proxy forwards for older SDK clients only, each with why.
+// A proxy upgraded before its pages keeps serving their calls.
+const forwardedForOlderClients: Record<string, string> = {
+  'GET /chats/{id}/messages': 'sdk-js 0.37.0 and older read a chat\'s messages with GET; newer clients POST /chats/{id}/messages/list',
+};
+
 const ndjson = (lines: unknown[]) =>
   new Response(lines.map((l) => JSON.stringify(l)).join('\n') + '\n', {
     status: 200,
@@ -47,7 +53,7 @@ function fakeApi(method: string, url: URL): Response {
   if (p === '/agents/run') return json({ user_message: { id: MSG1, chat_id: CHAT }, assistant_message: assistant });
   if (p === '/chats' && method === 'POST') return json(chat);
   if (p === `/chats/${CHAT}/messages` && method === 'POST') return json({ id: MSG1, chat_id: CHAT });
-  if (p === `/chats/${CHAT}/messages`) return json({ items: [], next_cursor: '', has_next: false });
+  if (p === `/chats/${CHAT}/messages/list`) return json({ items: [], next_cursor: '', has_next: false });
   if (p === `/chats/${CHAT}/status`) return json({ status: 'idle' });
   if (p === `/chats/${CHAT}`) return json(chat);
   if (p === `/chats/${CHAT}/stream`) {
@@ -145,8 +151,8 @@ describe('SDK client through the proxy', () => {
     const used = new Set(seen.map(({ method, path }) =>
       PROXY_ENDPOINTS.findIndex((e) => e.method === method && e.path.test(path))));
     expect(used.has(-1)).toBe(false);
-    const unused = PROXY_ENDPOINTS.filter((_, i) => !used.has(i)).map((e) => `${e.method} ${e.path.source}`);
-    expect(unused).toEqual([]);
+    const unused = PROXY_ENDPOINTS.filter((_, i) => !used.has(i)).map((e) => e.route);
+    expect(unused).toEqual(Object.keys(forwardedForOlderClients));
   });
 
   it('refuses tool approvals and "allow all tools": the API takes them only from the account holder\'s sign-in', async () => {

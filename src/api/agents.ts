@@ -418,7 +418,7 @@ export class Agent {
         deltaAccums.clear();
         const [{ data: chat }, { data: page }] = await Promise.all([
           this.http.request<ChatDTO>('get', `/chats/${chatId}`),
-          this.http.request<CursorListResponse<ChatMessageDTO>>('get', `/chats/${chatId}/messages`),
+          this.http.request<CursorListResponse<ChatMessageDTO>>('post', `/chats/${chatId}/messages/list`),
         ]);
         for (const message of page?.items ?? []) observeMessage(message);
         observeChat(chat);

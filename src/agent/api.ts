@@ -18,6 +18,7 @@ import type {
   ChatMessageDTO,
   ChatSettingsDTO,
   ChatSettingsRequest,
+  CursorListRequest,
   InterruptDTO,
   ToolExplanationDTO,
 } from '../types.js';
@@ -164,11 +165,11 @@ export async function fetchMessages(client: AgentClient, chatId: string, options
 
 export async function fetchMessagesPage(client: AgentClient, chatId: string, options?: FetchMessagesOptions): Promise<FetchMessagesResult> {
   try {
-    const params: Record<string, string | number> = {};
-    if (options?.limit !== undefined) params.limit = options.limit;
-    if (options?.cursor) params.cursor = options.cursor;
+    const body: Partial<CursorListRequest> = {};
+    if (options?.limit !== undefined) body.limit = options.limit;
+    if (options?.cursor) body.cursor = options.cursor;
 
-    const resp = await client.http.request<FetchMessagesResult>('get', `/chats/${chatId}/messages`, { params });
+    const resp = await client.http.request<FetchMessagesResult>('post', `/chats/${chatId}/messages/list`, { data: body });
     return resp.data || { items: [], next_cursor: '', has_next: false };
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch messages:', error);

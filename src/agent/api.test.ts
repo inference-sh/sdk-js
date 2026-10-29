@@ -267,26 +267,26 @@ describe('agent/api', () => {
   });
 
   describe('fetchMessagesPage', () => {
-    it('should GET /chats/{id}/messages without limit when options omitted', async () => {
+    it('should POST /chats/{id}/messages/list without limit when options omitted', async () => {
       const messages = [{ id: 'm1', chat_id: 'chat-1', role: 'user', content: 'hi' }];
       mockJsonResponse({ items: messages, next_cursor: '', has_next: false });
 
       const result = await fetchMessagesPage(makeClient(), 'chat-1');
 
       expect(result.items).toEqual(messages);
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(url).toContain('/chats/chat-1/messages');
-      expect(url).not.toContain('limit=');
-      expect(url).not.toContain('cursor=');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toMatch(/\/chats\/chat-1\/messages\/list$/);
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(String(init.body))).toEqual({});
     });
 
-    it('should pass cursor when provided in options', async () => {
+    it('should pass limit and cursor in the body when provided in options', async () => {
       mockJsonResponse({ items: [], next_cursor: 'cursor-abc', has_next: true });
 
-      await fetchMessagesPage(makeClient(), 'chat-1', { cursor: 'cursor-abc' });
+      await fetchMessagesPage(makeClient(), 'chat-1', { limit: 20, cursor: 'cursor-abc' });
 
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(url).toContain('cursor=cursor-abc');
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ limit: 20, cursor: 'cursor-abc' });
     });
 
     it('should return empty page when message fetch fails', async () => {
@@ -306,8 +306,8 @@ describe('agent/api', () => {
       const result = await fetchMessages(makeClient(), 'chat-1', { limit: 25 });
 
       expect(result).toEqual(messages);
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(url).toContain('limit=25');
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ limit: 25 });
     });
   });
 
@@ -416,9 +416,9 @@ describe('agent/api', () => {
         _hasOlderMessages: false,
       });
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      const [messagesUrl] = mockFetch.mock.calls[1] as [string, RequestInit];
-      expect(messagesUrl).toContain('/chats/chat-1/messages');
-      expect(messagesUrl).not.toContain('limit=');
+      const [messagesUrl, messagesInit] = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(messagesUrl).toMatch(/\/chats\/chat-1\/messages\/list$/);
+      expect(JSON.parse(String(messagesInit.body))).toEqual({});
     });
 
     it('should attach pagination metadata when more message pages exist', async () => {

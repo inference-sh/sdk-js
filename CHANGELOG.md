@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Reading a chat's messages (`fetchMessages`, `fetchMessagesPage`, `fetchChat`, and the stream's resync after a dropped connection) sends `POST /chats/{id}/messages/list` with the limit and cursor in the body. It was `GET /chats/{id}/messages`.
+
+### Added
+- The server proxy forwards `POST /chats/{id}/messages/list` (`conversations:read`). It still forwards `GET /chats/{id}/messages` for clients on 0.37.0 and older. A page on this version needs a proxy on this version or newer. `src/proxy/endpoints.json` is regenerated from the API.
+
 ## [0.37.0] - 2026-10-29
 
 ### Added
