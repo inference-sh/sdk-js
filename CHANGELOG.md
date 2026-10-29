@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-29
+
+### Added
+- `ChatDTO.origin` (`ChatOrigin`: ui, api, trigger, integration, openai_client, embed, hook, subagent, branch): how the chat came to be. `GET /chats` filters on it. `ChatData.client` names the app a chat was started from (X-Client-Source).
+
+### Changed
+- `ChatDTO.origin` is required, so a `ChatDTO` object literal must set it.
+
 ## [0.36.2] - 2026-10-28
 
 ### Fixed
