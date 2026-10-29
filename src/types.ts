@@ -2408,6 +2408,12 @@ export interface ChatDTO extends BaseModelDTO, PermissionModelDTO, ProjectModelD
    * ForkedFromMessageID is the message this chat was branched at.
    */
   forked_from_message_id?: string;
+  /**
+   * Origin is how the chat came to be: "ui" for a person in one of our
+   * apps, else api, trigger, integration, openai_client, embed, hook,
+   * subagent or branch. GET /chats filters on it.
+   */
+  origin: ChatOrigin;
 }
 /**
  * ChatMessageDTO for API responses
@@ -6522,7 +6528,68 @@ export interface ChatData {
    * that reviews it.
    */
   disable_hooks?: boolean;
+  /**
+   * Client is the app the chat was started from (web, mac, ios, cli,
+   * sdk-js), as the request named itself (X-Client-Source). Shown, never
+   * trusted or filtered on: Chat.Origin is what a chat list filters.
+   */
+  client?: string;
 }
+/**
+ * ChatOrigin is how a chat came to be. A chat list shows a person's own
+ * sessions (ChatOriginUI) and keeps the rest, which nobody sat in front of,
+ * out of the way.
+ */
+export type ChatOrigin =
+  | "ui"
+  | "api"
+  | "trigger"
+  | "integration"
+  | "openai_client"
+  | "embed"
+  | "hook"
+  | "subagent"
+  | "branch";
+/**
+ * ChatOriginUI is a person in one of our apps: web, mac, ios, watch or
+ * the CLI.
+ */
+export const ChatOriginUI: ChatOrigin = "ui";
+/**
+ * ChatOriginAPI is anything else that called the API: a key, an SDK, A2A.
+ */
+export const ChatOriginAPI: ChatOrigin = "api";
+/**
+ * ChatOriginTrigger is a trigger firing (Chat.TriggerID).
+ */
+export const ChatOriginTrigger: ChatOrigin = "trigger";
+/**
+ * ChatOriginIntegration is a message on a messaging channel: Slack,
+ * Telegram, Discord or Teams.
+ */
+export const ChatOriginIntegration: ChatOrigin = "integration";
+/**
+ * ChatOriginOpenAIClient is a client of the OpenAI-compatible agent route.
+ */
+export const ChatOriginOpenAIClient: ChatOrigin = "openai_client";
+/**
+ * ChatOriginEmbed is a visitor to an embedded agent.
+ */
+export const ChatOriginEmbed: ChatOrigin = "embed";
+/**
+ * ChatOriginHook is a lifecycle hook handing its event to an agent.
+ */
+export const ChatOriginHook: ChatOrigin = "hook";
+/**
+ * ChatOriginSubagent is a sub-agent's chat, started by a tool call
+ * (Chat.ParentID).
+ */
+export const ChatOriginSubagent: ChatOrigin = "subagent";
+/**
+ * ChatOriginBranch is a fork of another chat, a review branch among them
+ * (Chat.ForkedFromMessageID).
+ */
+export const ChatOriginBranch: ChatOrigin = "branch";
 /**
  * PlanStep represents a step in an agent's execution plan
  */
@@ -7660,6 +7727,10 @@ export type CredentialStatus =
   | "disconnected"
   | "expired"
   | "error";
+/**
+ * CredentialStatusPending is no longer written: a credential row exists
+ * once it holds a key or a login. Rows soft-deleted before then carry it.
+ */
 export const CredentialStatusPending: CredentialStatus = "pending";
 export const CredentialStatusConnected: CredentialStatus = "connected";
 export const CredentialStatusDisconnected: CredentialStatus = "disconnected";
