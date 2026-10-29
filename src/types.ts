@@ -4949,26 +4949,33 @@ export interface CheckRequirementsResponse {
   satisfied: boolean;
   errors?: RequirementError[];
 }
+/**
+ * ResourceShareDTO is one share: an acl_entries row naming a person, a team
+ * or an org (INF-1133). UserID, TeamID or OrgID repeats the grantee for
+ * clients that read those.
+ */
 export interface ResourceShareDTO extends BaseModelDTO {
   resource_id: string;
   resource_type: string;
-  /**
-   * UserID names the person a share is to; TeamID, with UserID empty,
-   * the resource's whole team.
-   */
+  grantee_type: ACLGrantee;
+  grantee_id: string;
   user_id: string;
   team_id?: string;
+  org_id?: string;
   user?: UserRelationDTO;
   permission: Permission;
 }
 /**
  * ShareRequest is POST /{resource}/{id}/share: a share to one person
- * (user_id) or to the resource's whole team (team: true), at a permission
- * (read when empty).
+ * (user_id), to a team (team: true for the resource's own team, or team_id
+ * for another team of its org) or to the resource's whole org (org: true),
+ * at a permission (read when empty).
  */
 export interface ShareRequest {
   user_id?: string;
   team?: boolean;
+  team_id?: string;
+  org?: boolean;
   permission: Permission;
 }
 /**
@@ -6453,6 +6460,18 @@ export const PermInteract: Permission = "interact";
  * governed by their team/org usage policy (reach, INF-808).
  */
 export const PermUse: Permission = "use";
+/**
+ * ACLGrantee is who an ACL entry is for (models.ACLEntry, INF-1130).
+ */
+export type ACLGrantee = "user" | "team" | "org" | "everyone";
+export const ACLGranteeUser: ACLGrantee = "user";
+export const ACLGranteeTeam: ACLGrantee = "team";
+export const ACLGranteeOrg: ACLGrantee = "org";
+/**
+ * ACLGranteeEveryone: every caller. Only a platform-scope credential
+ * may carry one (the acl service's rule).
+ */
+export const ACLGranteeEveryone: ACLGrantee = "everyone";
 export type SubscriptionStatus =
   | "trialing"
   | "active"
