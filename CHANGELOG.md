@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-29
+
 ### Changed
 - Reading a chat's messages (`fetchMessages`, `fetchMessagesPage`, `fetchChat`, and the stream's resync after a dropped connection) sends `POST /chats/{id}/messages/list` with the limit and cursor in the body. It was `GET /chats/{id}/messages`.
 
