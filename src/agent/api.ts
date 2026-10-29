@@ -22,7 +22,7 @@ import type {
   InterruptDTO,
   ToolExplanationDTO,
 } from '../types.js';
-import type { AgentOptions, AgentClient, AgentInfo, FileRef } from './types.js';
+import type { AgentOptions, AgentClient, AgentInfo, FileRef, ChatFetchResult } from './types.js';
 import type { StreamRequest } from '../http/streamable.js';
 import { isAdHocConfig } from './types.js';
 
@@ -177,19 +177,17 @@ export async function fetchMessagesPage(client: AgentClient, chatId: string, opt
   }
 }
 
-export async function fetchChat(client: AgentClient, chatId: string): Promise<ChatDTO | null> {
+export async function fetchChat(client: AgentClient, chatId: string): Promise<ChatFetchResult | null> {
   try {
     const resp = await client.http.request<ChatDTO>('get', `/chats/${chatId}`);
     const chat = resp.data;
+    if (!chat) return null;
     // Chat.Get no longer preloads messages — fetch them separately and attach
-    if (chat && (!chat.chat_messages || chat.chat_messages.length === 0)) {
+    if (!chat.chat_messages || chat.chat_messages.length === 0) {
       const page = await fetchMessagesPage(client, chatId);
-      chat.chat_messages = page.items;
-      // Store pagination info on the chat for the reducer to pick up
-      (chat as any)._messageCursor = page.next_cursor;
-      (chat as any)._hasOlderMessages = page.has_next;
+      return { ...chat, chat_messages: page.items, _messageCursor: page.next_cursor, _hasOlderMessages: page.has_next };
     }
-    return chat;
+    return chat as ChatFetchResult;
   } catch (error) {
     console.error('[AgentSDK] Failed to fetch chat:', error);
   }

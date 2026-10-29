@@ -18,6 +18,7 @@ import {
   HookDecisionDeny,
 } from '../types.js';
 import { chatReducer, initialState } from './reducer.js';
+import type { ChatFetchResult } from './types.js';
 import { isChatBusy } from '../utils.js';
 
 function makeMessage(id: string, order: number, chatId = 'chat-1'): ChatMessageDTO {
@@ -339,9 +340,7 @@ describe('chatReducer', () => {
   });
 
   it('SET_CHAT with null should clear chat, messages, and pagination metadata', () => {
-    const chat = makeChat();
-    (chat as unknown as Record<string, unknown>)._messageCursor = 'cursor-1';
-    (chat as unknown as Record<string, unknown>)._hasOlderMessages = true;
+    const chat: ChatFetchResult = { ...makeChat(), _messageCursor: 'cursor-1', _hasOlderMessages: true };
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
 
     const next = chatReducer(state, { type: 'SET_CHAT', payload: null });
@@ -354,9 +353,7 @@ describe('chatReducer', () => {
   });
 
   it('SET_CHAT should extract pagination metadata from the chat object', () => {
-    const chat = makeChat();
-    (chat as unknown as Record<string, unknown>)._messageCursor = 'cursor-xyz';
-    (chat as unknown as Record<string, unknown>)._hasOlderMessages = true;
+    const chat: ChatFetchResult = { ...makeChat(), _messageCursor: 'cursor-xyz', _hasOlderMessages: true };
 
     const next = chatReducer(initialState, { type: 'SET_CHAT', payload: chat });
 

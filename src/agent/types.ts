@@ -350,11 +350,24 @@ export function extractClientToolHandlers(
 // =============================================================================
 
 /**
+ * Internal: ChatDTO with pagination metadata attached by fetchChat().
+ * Carries cursor state from the messages/list response through the SET_CHAT
+ * dispatch without exposing extra fields on AgentChatState.chat (ChatDTO).
+ * @internal
+ */
+export interface ChatFetchResult extends ChatDTO {
+  /** Cursor for the next page of older messages (empty string = first page) */
+  _messageCursor?: string;
+  /** Whether older message pages exist beyond the current one */
+  _hasOlderMessages?: boolean;
+}
+
+/**
  * Reducer action types
  */
 export type ChatAction =
   | { type: 'SET_CHAT_ID'; payload: string | null }
-  | { type: 'SET_CHAT'; payload: ChatDTO | null }
+  | { type: 'SET_CHAT'; payload: ChatFetchResult | null }
   | { type: 'UPDATE_CHAT'; payload: ChatDTO | null; fields?: string[] }
   | { type: 'MERGE_CHAT_SETTINGS'; payload: ChatSettingsDTO }
   | { type: 'MERGE_CHAT_AGENT'; payload: ChatAgentDTO }

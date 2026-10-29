@@ -17,7 +17,7 @@ import {
   HookEventToolCall,
   HookHandlerGate,
 } from '../types.js';
-import type { ActionsContext, AgentOptions, UpdateManager } from './types.js';
+import type { ActionsContext, AgentOptions, UpdateManager, ChatFetchResult } from './types.js';
 import type { ChatDTO, ChatMessageDTO, AgentRunDTO } from '../types.js';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
@@ -2804,7 +2804,7 @@ describe('createActions', () => {
         chat_messages: [makeMessage({ id: 'msg-1', order: 1 })],
         _messageCursor: 'cursor-page-2',
         _hasOlderMessages: true,
-      } as unknown as ChatDTO);
+      } as ChatFetchResult);
 
       const { ctx, dispatch } = createTestContext();
       const { internalActions } = createActions(ctx);

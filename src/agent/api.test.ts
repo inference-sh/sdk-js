@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client.js';
 import { FilesAPI } from '../api/files.js';
-import type { AgentClient } from './types.js';
+import type { AgentClient, ChatFetchResult } from './types.js';
 import {
   PolicyEffectAllow,
   PolicyKindMcp,
@@ -429,8 +429,8 @@ describe('agent/api', () => {
 
       const result = await fetchChat(makeClient(), 'chat-1');
 
-      expect((result as unknown as Record<string, unknown>)._messageCursor).toBe('page-2');
-      expect((result as unknown as Record<string, unknown>)._hasOlderMessages).toBe(true);
+      expect((result as ChatFetchResult)._messageCursor).toBe('page-2');
+      expect((result as ChatFetchResult)._hasOlderMessages).toBe(true);
     });
 
     it('should preserve harness_session_id when fetching chat', async () => {

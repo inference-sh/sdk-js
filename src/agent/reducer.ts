@@ -146,14 +146,18 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
       return { ...state, chatId: action.payload };
 
     case 'SET_CHAT': {
-      const chat = action.payload;
-      if (!chat) {
+      const fetchResult = action.payload;
+      if (!fetchResult) {
         return { ...state, chat: null, messages: [], connectionStatus: 'idle', messageCursor: undefined, hasOlderMessages: undefined };
       }
-      const messages = normalizeMessages(chat.chat_messages || []).sort((a, b) => a.order - b.order);
-      const cursor = (chat as any)?._messageCursor as string | undefined;
-      const hasOlder = (chat as any)?._hasOlderMessages as boolean | undefined;
-      return { ...state, chat, messages, messageCursor: cursor, hasOlderMessages: hasOlder };
+      const messages = normalizeMessages(fetchResult.chat_messages || []).sort((a, b) => a.order - b.order);
+      return {
+        ...state,
+        chat: fetchResult,
+        messages,
+        messageCursor: fetchResult._messageCursor,
+        hasOlderMessages: fetchResult._hasOlderMessages,
+      };
     }
 
     case 'UPDATE_CHAT': {
