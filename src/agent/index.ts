@@ -101,4 +101,5 @@ export {
   type ElicitRequestParams,
   type ElicitRequestedSchema,
   type ElicitPropertySchema,
+  type ElicitChoice,
 } from './mcp-input.js';

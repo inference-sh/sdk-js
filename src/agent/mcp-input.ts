@@ -21,9 +21,21 @@ export interface MCPInputState {
   round: number;
 }
 
-/** One property of a form-mode requestedSchema (MCP restricts these to flat primitives). */
+/** A choice of a single- or multi-select property: its value and label. */
+export interface ElicitChoice {
+  const: string;
+  title?: string;
+  /** Not in MCP's schema; agents' questions carry one per choice. */
+  description?: string;
+}
+
+/**
+ * One property of a form-mode requestedSchema. MCP restricts these to flat
+ * primitives, single-select strings (enum or oneOf) and, since 2025-11-25,
+ * multi-select arrays whose items are an enum or anyOf.
+ */
 export interface ElicitPropertySchema {
-  type?: 'string' | 'number' | 'integer' | 'boolean';
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array';
   title?: string;
   description?: string;
   default?: unknown;
@@ -34,7 +46,11 @@ export interface ElicitPropertySchema {
   maximum?: number;
   enum?: string[];
   enumNames?: string[];
-  oneOf?: { const: string; title?: string }[];
+  oneOf?: ElicitChoice[];
+  /** A multi-select's choices (type array). */
+  items?: { type?: 'string'; enum?: string[]; anyOf?: ElicitChoice[] };
+  minItems?: number;
+  maxItems?: number;
 }
 
 export interface ElicitRequestedSchema {

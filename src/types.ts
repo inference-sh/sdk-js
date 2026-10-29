@@ -2932,6 +2932,11 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
    * Capabilities are what the engine last reported it can do.
    */
   capabilities?: EngineCapabilities;
+  /**
+   * LastUpdate is the last update the engine was asked for and how it
+   * went; nil when it was never asked.
+   */
+  last_update?: UpdateStatus;
   system_info?: SystemInfo;
   workers: (WorkerDTO | undefined)[];
 }
@@ -5538,6 +5543,70 @@ export interface ToolInvocationDTO extends BaseModelDTO, PermissionModelDTO {
   widget?: Widget;
 }
 /**
+ * UpdateState is where the last update a remote or an engine was asked for
+ * stands.
+ */
+export type UpdateState =
+  | "requested"
+  | "installing"
+  | "installed"
+  | "current"
+  | "refused"
+  | "failed";
+/**
+ * UpdateRequested: the request was sent and nothing has answered it yet.
+ * An engine older than engine_update_result never answers, so its update stays here.
+ */
+export const UpdateRequested: UpdateState = "requested";
+/**
+ * UpdateInstalling: a different release is being installed. The machine
+ * finishes its running work and restarts on it.
+ */
+export const UpdateInstalling: UpdateState = "installing";
+/**
+ * UpdateInstalled: the machine reconnected on To.
+ */
+export const UpdateInstalled: UpdateState = "installed";
+/**
+ * UpdateCurrent: the machine already runs To; nothing was installed.
+ */
+export const UpdateCurrent: UpdateState = "current";
+/**
+ * UpdateRefused: the binary cannot replace itself (a development build,
+ * an install a package manager owns, or a directory the machine's user
+ * cannot write to). Error says what to do on the machine.
+ */
+export const UpdateRefused: UpdateState = "refused";
+/**
+ * UpdateFailed: the release could not be checked, downloaded or
+ * installed. Error says why. The machine keeps the version it has.
+ */
+export const UpdateFailed: UpdateState = "failed";
+/**
+ * UpdateStatus is the last update a remote or an engine was asked for and
+ * what came of it. An engine restarts after every update request, whatever
+ * the outcome; a remote restarts only once its install succeeded.
+ */
+export interface UpdateStatus {
+  state: UpdateState;
+  /**
+   * Target is what was asked for: stable, canary or a version (engines).
+   * Remotes always update to the latest release and leave it empty.
+   */
+  target?: string;
+  /**
+   * From is the version the machine ran when asked; To the version it
+   * installs or found itself already on.
+   */
+  from?: string;
+  to?: string;
+  error?: string;
+  /**
+   * At is when State was reached.
+   */
+  at: string /* RFC3339 */;
+}
+/**
  * MetaItem represents metadata about an input or output item
  */
 export interface MetaItem {
@@ -6612,7 +6681,7 @@ export interface ChatMessageContent {
   tool_calls?: ToolCall[];
   event?: ChatEvent;
 }
-export type ChatEventType = "hook" | "run_failed" | "run_ended";
+export type ChatEventType = "hook" | "run_failed" | "run_ended" | "background";
 export const ChatEventTypeHook: ChatEventType = "hook";
 /**
  * ChatEventTypeRunFailed marks the point a run ended in failure; the
@@ -6624,6 +6693,26 @@ export const ChatEventTypeRunFailed: ChatEventType = "run_failed";
  * the event's run says how, and the content's text, when set, why.
  */
 export const ChatEventTypeRunEnded: ChatEventType = "run_ended";
+/**
+ * ChatEventTypeBackground marks background work a harness left running
+ * ending; the event's background says what and how. A turn the harness
+ * then starts about it answers this message.
+ */
+export const ChatEventTypeBackground: ChatEventType = "background";
+/**
+ * ChatBackgroundEvent is background work ending, on a background event.
+ */
+export interface ChatBackgroundEvent {
+  task_id: string;
+  kind?: BackgroundKind;
+  command?: string;
+  status: BackgroundStatus;
+  exit_code?: number /* int */;
+  /**
+   * ToolInvocationID is the tool call that started it.
+   */
+  tool_invocation_id?: string;
+}
 /**
  * RunEndReason is why a run that completed ended the way it did, when its
  * last turn did not end with a reply.
@@ -6660,6 +6749,10 @@ export interface ChatEvent {
   type: ChatEventType;
   hook?: ChatHookEvent;
   run?: ChatRunEvent;
+  /**
+   * Background is set on a background event.
+   */
+  background?: ChatBackgroundEvent;
 }
 /**
  * ChatHookEvent records one lifecycle hook handler run.
@@ -8263,6 +8356,8 @@ export type AgentEventType =
   | "account.updated"
   | "context.compacted"
   | "error"
+  | "background.started"
+  | "background.completed"
   | "subagent.started"
   | "subagent.updated"
   | "subagent.completed";
@@ -8338,7 +8433,23 @@ export interface RunStateChangedPayload {
 export interface TurnStartedPayload {
   turn_index: number /* int */;
   model?: string;
+  /**
+   * Origin is what started the turn: empty for a prompt, TurnOriginBackground
+   * for one the agent started itself when background work it left running
+   * finished (TaskID names it).
+   */
+  origin?: TurnOrigin;
+  task_id?: string;
 }
+/**
+ * TurnOrigin is what started a turn.
+ */
+export type TurnOrigin = "background";
+/**
+ * TurnOriginBackground is a turn the agent started on its own, with no
+ * prompt, because background work it left running finished.
+ */
+export const TurnOriginBackground: TurnOrigin = "background";
 export interface TurnCompletedPayload {
   turn_index: number /* int */;
   tool_count: number /* int */;
@@ -8383,6 +8494,12 @@ export interface ApprovalRequiredPayload {
   tool_name: string;
   arguments?: StringEncodedMap;
   reason: InterruptReason;
+  /**
+   * Input is set when the agent asks the person questions rather than
+   * for permission (Reason is then input). The answer is the resolution's
+   * values, one per Input.Schema property; a deny declines to answer.
+   */
+  input?: InputForm;
   /**
    * SubagentID is set when a subagent asks: its tool call, not the
    * agent's.
@@ -8459,14 +8576,59 @@ export type InterruptReason =
   | "widget"
   | "auth"
   | "confirmation"
-  | "hook_gate";
+  | "hook_gate"
+  | "input";
 export const InterruptReasonToolApproval: InterruptReason = "tool_approval";
 export const InterruptReasonClientTool: InterruptReason = "client_tool";
 export const InterruptReasonWidget: InterruptReason = "widget";
 export const InterruptReasonAuth: InterruptReason = "auth";
 export const InterruptReasonConfirmation: InterruptReason = "confirmation";
 export const InterruptReasonHookGate: InterruptReason = "hook_gate";
+export const InterruptReasonInput: InterruptReason = "input";
+export const AgentEventBackgroundStarted: AgentEventType = "background.started";
+export const AgentEventBackgroundCompleted: AgentEventType = "background.completed";
+/**
+ * BackgroundKind is what kind of background work a task is.
+ */
+export type BackgroundKind = "command" | "monitor";
+/**
+ * BackgroundCommand is a shell command left running.
+ */
+export const BackgroundCommand: BackgroundKind = "command";
+/**
+ * BackgroundMonitor watches something (a command's output, a file) and
+ * reports what it sees until it is stopped or times out.
+ */
+export const BackgroundMonitor: BackgroundKind = "monitor";
+/**
+ * BackgroundStatus is how background work ended.
+ */
+export type BackgroundStatus = "completed" | "failed" | "cancelled" | "timed_out";
+export const BackgroundCompleted: BackgroundStatus = "completed";
+export const BackgroundFailed: BackgroundStatus = "failed";
+export const BackgroundCancelled: BackgroundStatus = "cancelled";
+export const BackgroundTimedOut: BackgroundStatus = "timed_out";
 export type StringEncodedMap = { [key: string]: any};
+/**
+ * InputForm is a set of questions an agent asks the person, as a form:
+ * form-mode elicitation as MCP and ACP define it. Schema is a flat JSON
+ * object schema whose properties are the questions:
+ *   - a string, number, integer or boolean field;
+ *   - a single choice: a string with enum (and enumNames) or oneOf
+ *     ({const, title}) for the choices;
+ *   - several choices: an array whose items have enum or anyOf.
+ * A property's title is the question's short label and its description the
+ * question itself. The answer is an object with a value per property; one
+ * left out was not answered.
+ * Agents ask in their own shapes (Claude Code's AskUserQuestion, Grok's
+ * x.ai/ask_user_question, ACP's elicitation/create); a driver turns each into
+ * an InputForm and the answer back into the agent's shape, so a person
+ * answers every agent the same way.
+ */
+export interface InputForm {
+  message?: string;
+  requested_schema: any;
+}
 /**
  * InterruptStatus tracks the lifecycle of an interrupt gate.
  */
