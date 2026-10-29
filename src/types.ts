@@ -7739,23 +7739,18 @@ export const CredentialStatusError: CredentialStatus = "error";
 /**
  * CredentialScope controls resolution priority and ownership.
  */
-export type CredentialScope =
-  | "platform"
-  | "org"
-  | "team"
-  | "user"
-  | "agent";
+export type CredentialScope = "platform" | "org" | "team" | "user";
 export const CredentialScopePlatform: CredentialScope = "platform";
 /**
  * CredentialScopeOrg: shared across all teams of an org. In the enum for
  * end-to-end typing (connect-level pickers); connects with it are refused
  * until the org domain lands (INF-795 Phase 2). Resolution order once
- * live: agent > user > team > org > platform.
+ * live: user > team > org > platform. Credentials an agent uses are
+ * composed by vaults (INF-737), not by a scope.
  */
 export const CredentialScopeOrg: CredentialScope = "org";
 export const CredentialScopeTeam: CredentialScope = "team";
 export const CredentialScopeUser: CredentialScope = "user";
-export const CredentialScopeAgent: CredentialScope = "agent";
 /**
  * CredentialGrant is which layer a credential row is. OAuth has two: the
  * app (client id and secret, owned by the platform, an org or a team) and
