@@ -3201,6 +3201,7 @@ export type ErrorCode =
   | "internal_error"
   | "requirements_not_met"
   | "team_role_required"
+  | "in_other_workspace"
   | "blocked_by_usage_policy"
   | "last_owner"
   | "account_deactivated"
@@ -3273,6 +3274,11 @@ export const ErrorCodeRequirementsNotMet: ErrorCode = "requirements_not_met";
  * capability gate refused it.
  */
 export const ErrorCodeTeamRoleRequired: ErrorCode = "team_role_required";
+/**
+ * ErrorCodeInOtherWorkspace: the resource lives in another workspace
+ * the caller belongs to and could open there (InOtherWorkspaceMeta).
+ */
+export const ErrorCodeInOtherWorkspace: ErrorCode = "in_other_workspace";
 /**
  * ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
  * usage policy. The message names who to ask.
@@ -3447,6 +3453,13 @@ export interface TeamRoleRequiredMeta {
   actual_role?: TeamRole;
   required_role?: TeamRole;
   requires_org_admin?: boolean;
+}
+/**
+ * InOtherWorkspaceMeta is the meta of an in_other_workspace error: the
+ * workspace to switch to.
+ */
+export interface InOtherWorkspaceMeta {
+  team_id: string;
 }
 /**
  * ScopeRefusedMeta is the meta of an insufficient_scope or
