@@ -923,6 +923,8 @@ export type Scope =
   | "teams"
   | "billing"
   | "artifacts"
+  | "forms"
+  | "bounties"
   | "agents:read"
   | "agents:write"
   | "agents:execute"
@@ -959,6 +961,11 @@ export type Scope =
   | "knowledge:write"
   | "artifacts:read"
   | "artifacts:write"
+  | "forms:read"
+  | "forms:write"
+  | "forms:execute"
+  | "bounties:read"
+  | "bounties:execute"
   | "user:read"
   | "user:write"
   | "settings:read"
@@ -1039,6 +1046,18 @@ export const ScopeBilling: Scope = "billing";
  * Empty scopes = full access (for backwards compatibility with existing keys).
  */
 export const ScopeArtifacts: Scope = "artifacts";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeForms: Scope = "forms";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeBounties: Scope = "bounties";
 /**
  * Action-level scopes for Agents
  */
@@ -1225,6 +1244,34 @@ export const ScopeArtifactsRead: Scope = "artifacts:read";
  */
 export const ScopeArtifactsWrite: Scope = "artifacts:write";
 /**
+ * Action-level scopes for Forms: read sees forms, write creates and
+ * manages them and reads their answers, execute submits answers.
+ */
+export const ScopeFormsRead: Scope = "forms:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFormsWrite: Scope = "forms:write";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeFormsExecute: Scope = "forms:execute";
+/**
+ * Action-level scopes for Bounties: read lists the programs, execute
+ * claims one (only the account holder's own sign-in).
+ */
+export const ScopeBountiesRead: Scope = "bounties:read";
+/**
+ * API Key Scopes - hierarchical permission system.
+ * Resource-level scopes (e.g., "agents") imply all action-level scopes (e.g., "agents:read").
+ * Empty scopes = full access (for backwards compatibility with existing keys).
+ */
+export const ScopeBountiesExecute: Scope = "bounties:execute";
+/**
  * Action-level scopes for User profile
  */
 export const ScopeUserRead: Scope = "user:read";
@@ -1303,6 +1350,8 @@ export type ScopeGroup =
   | "apikeys"
   | "knowledge"
   | "artifacts"
+  | "forms"
+  | "bounties"
   | "user"
   | "settings"
   | "approvals"
@@ -1325,6 +1374,8 @@ export const ScopeGroupRemotes: ScopeGroup = "remotes";
 export const ScopeGroupApiKeys: ScopeGroup = "apikeys";
 export const ScopeGroupKnowledge: ScopeGroup = "knowledge";
 export const ScopeGroupArtifacts: ScopeGroup = "artifacts";
+export const ScopeGroupForms: ScopeGroup = "forms";
+export const ScopeGroupBounties: ScopeGroup = "bounties";
 export const ScopeGroupUser: ScopeGroup = "user";
 export const ScopeGroupSettings: ScopeGroup = "settings";
 export const ScopeGroupApprovals: ScopeGroup = "approvals";
