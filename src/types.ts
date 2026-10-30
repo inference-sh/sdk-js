@@ -7894,7 +7894,8 @@ export const ResourceFeatureMarketplacePublish: EntitlementResource = "feature:m
  */
 export const ResourceFeatureForms: EntitlementResource = "feature:forms";
 /**
- * Granted per team: managed sandboxes are by invitation for now (INF-833).
+ * Managed sandboxes (INF-833): open to every team; a row with enabled
+ * false shuts one team out.
  */
 export const ResourceFeatureSandboxes: EntitlementResource = "feature:sandboxes";
 /**
