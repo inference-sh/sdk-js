@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-10-31
+
+### Added
+- `EngineCapacity`, `CapacityAmount`, `CapacityGPU`: new types for engine capacity reporting (INF-1156). `EngineDTO.capacity` carries what a capacity-reporting engine last told the server it offers and has given out (CPUs, cores, memory, disk, optional GPUs, plus reserve/allocatable/committed/used breakdowns). `EngineCapabilityCapacity` is the capability flag engines advertise when they report this data.
+
 ## [0.38.0] - 2026-10-29
 
 ### Changed

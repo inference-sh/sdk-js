@@ -257,6 +257,49 @@ describe('EnginesAPI', () => {
     expect(result.data.items[0]?.status).toBe(EngineStatusRestarting);
   });
 
+  it('should pass through capacity field on get()', async () => {
+    const capacity = {
+      cpus: 8,
+      cores: 4,
+      memory_bytes: 16_000_000_000,
+      disk_bytes: 500_000_000_000,
+      disk_free_bytes: 250_000_000_000,
+      reserve: { cpus: 1.0, memory_bytes: 1_000_000_000 },
+      allocatable: { cpus: 7.0, memory_bytes: 15_000_000_000 },
+      committed: { cpus: 2.0, memory_bytes: 4_000_000_000 },
+      used: { cpus: 1.5, memory_bytes: 3_500_000_000 },
+    };
+    const engine = makeEngine({ capacity });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.capacity).toEqual(capacity);
+    expect(result.data.capacity?.allocatable.cpus).toBe(7.0);
+  });
+
+  it('should pass through capacity with GPU data on get()', async () => {
+    const capacity = {
+      cpus: 16,
+      cores: 8,
+      memory_bytes: 64_000_000_000,
+      disk_bytes: 1_000_000_000_000,
+      disk_free_bytes: 800_000_000_000,
+      gpus: [{ id: 'GPU-0', vram_bytes: 24_000_000_000 }],
+      reserve: { cpus: 2.0, memory_bytes: 2_000_000_000 },
+      allocatable: { cpus: 14.0, memory_bytes: 62_000_000_000 },
+      committed: { cpus: 4.0, memory_bytes: 8_000_000_000 },
+      used: { cpus: 3.5, memory_bytes: 7_000_000_000 },
+    };
+    const engine = makeEngine({ capacity });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.capacity?.gpus).toHaveLength(1);
+    expect(result.data.capacity?.gpus?.[0]?.vram_bytes).toBe(24_000_000_000);
+  });
+
   it('should preserve top-level engine_version independently of system_info.engine_version', async () => {
     const engine = makeEngine({
       engine_version: '3.0.0',
