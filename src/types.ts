@@ -3003,6 +3003,11 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
    */
   last_update?: UpdateStatus;
   system_info?: SystemInfo;
+  /**
+   * Capacity is what the engine last reported it offers and has given
+   * out; nil from an engine that does not report it.
+   */
+  capacity?: EngineCapacity;
   workers: (WorkerDTO | undefined)[];
 }
 /**
@@ -3110,7 +3115,7 @@ export interface WorkerRAM {
  * a task lists the ones it needs (Task.Requires); the scheduler only sends
  * a task to an engine that has every one it needs.
  */
-export type EngineCapability = "egress_gateway" | "sandboxes";
+export type EngineCapability = "egress_gateway" | "sandboxes" | "capacity";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3123,10 +3128,56 @@ export const EngineCapabilityEgressGateway: EngineCapability = "egress_gateway";
  */
 export const EngineCapabilitySandboxes: EngineCapability = "sandboxes";
 /**
+ * EngineCapabilityCapacity: the engine reports EngineTelemetry.Capacity
+ * (INF-1156).
+ */
+export const EngineCapabilityCapacity: EngineCapability = "capacity";
+/**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
  */
 export type EngineCapabilities = EngineCapability[];
+/**
+ * EngineCapacity is what an engine offers and what it has given out
+ * (INF-1156): the machine, the host reserve kept back from it, what is
+ * left to give (allocatable), what it has promised (committed: app
+ * workers' quotas and sandbox boxes' sizes) and what is in use now.
+ * Reported by engines with EngineCapabilityCapacity.
+ */
+export interface EngineCapacity {
+  /**
+   * CPUs are the logical CPUs (hardware threads) the engine may use;
+   * Cores the physical cores they are on.
+   */
+  cpus: number /* int */;
+  cores: number /* int */;
+  memory_bytes: number /* uint64 */;
+  /**
+   * DiskBytes and DiskFreeBytes are the volume the engine's data is on.
+   */
+  disk_bytes: number /* uint64 */;
+  disk_free_bytes: number /* uint64 */;
+  gpus?: CapacityGPU[];
+  reserve: CapacityAmount;
+  allocatable: CapacityAmount;
+  committed: CapacityAmount;
+  used: CapacityAmount;
+}
+/**
+ * CapacityAmount is an amount of CPU and memory. CPUs are logical CPUs,
+ * fractional for use (1.5 is one and a half CPUs busy).
+ */
+export interface CapacityAmount {
+  cpus: number /* float64 */;
+  memory_bytes: number /* uint64 */;
+}
+/**
+ * CapacityGPU is one GPU of an engine.
+ */
+export interface CapacityGPU {
+  id: string;
+  vram_bytes: number /* uint64 */;
+}
 /**
  * EntitlementDTO for API responses
  */
