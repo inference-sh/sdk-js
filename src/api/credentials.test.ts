@@ -3,6 +3,7 @@ import { CredentialsAPI } from './credentials.js';
 import {
   CredentialGrantCredentials,
   CredentialGrantToken,
+  CredentialProviderGitHubApp,
   CredentialProviderGoogleSA,
   CredentialScopeTeam,
   CredentialScopeUser,
@@ -132,6 +133,30 @@ describe('CredentialsAPI', () => {
     expect(url).toContain('/credentials/available');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize app_noun on listAvailable() for GitHub App installs (00724ff)', async () => {
+    const available = [
+      {
+        slug: 'github-app',
+        provider: CredentialProviderGitHubApp,
+        type: 'oauth',
+        name: 'GitHub App',
+        short_name: 'GitHub App',
+        description: 'Connect a GitHub App installation',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeTeam,
+        app_noun: 'GitHub App',
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.app_noun).toBe('GitHub App');
+    expect(result.data[0]?.provider).toBe('github-app');
   });
 
   it('should POST /credentials for connect()', async () => {
