@@ -7989,6 +7989,7 @@ export type CredentialProvider =
   | "slack"
   | "notion"
   | "github"
+  | "github-app"
   | "x"
   | "microsoft"
   | "salesforce"
@@ -8015,6 +8016,10 @@ export const CredentialProviderNotion: CredentialProvider = "notion";
  * Credential.Provider is a plain string; cast with string(...) when assigning.
  */
 export const CredentialProviderGitHub: CredentialProvider = "github";
+/**
+ * Credential.Provider is a plain string; cast with string(...) when assigning.
+ */
+export const CredentialProviderGitHubApp: CredentialProvider = "github-app";
 /**
  * Credential.Provider is a plain string; cast with string(...) when assigning.
  */
