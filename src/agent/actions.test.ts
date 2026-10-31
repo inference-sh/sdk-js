@@ -2465,7 +2465,7 @@ describe('createActions', () => {
     function getAgentRunsListener() {
       return streamInstances[0].addEventListener.mock.calls.find(
         ([event]) => event === 'agent_runs'
-      )?.[1] as (run: AgentRunDTO) => void;
+      )?.[1] as (run: AgentRunDTO, fields?: string[]) => void;
     }
 
     it('should dispatch UPDATE_ACTIVE_RUN when agent_runs event is received', async () => {
@@ -2620,7 +2620,7 @@ describe('createActions', () => {
 
       onStatusChange.mockClear();
 
-      const onAgentRun = getAgentRunsListener() as (run: AgentRunDTO, fields?: string[]) => void;
+      const onAgentRun = getAgentRunsListener();
       onAgentRun(
         { id: 'run-1', output: { answer: 42 } } as unknown as AgentRunDTO,
         ['id', 'output'],
