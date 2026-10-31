@@ -55,6 +55,37 @@ describe('elicitParams', () => {
   it('returns null for other methods', () => {
     expect(elicitParams({ method: 'sampling/createMessage', params: {} })).toBeNull();
   });
+
+  it('preserves multi-select requestedSchema (array items anyOf/enum)', () => {
+    const requestedSchema = {
+      type: 'object' as const,
+      properties: {
+        tags: {
+          type: 'array' as const,
+          items: {
+            type: 'string' as const,
+            anyOf: [
+              { const: 'a', title: 'Alpha' },
+              { const: 'b', title: 'Beta', description: 'second' },
+            ],
+          },
+          minItems: 1,
+          maxItems: 3,
+        },
+        colors: {
+          type: 'array' as const,
+          items: { type: 'string' as const, enum: ['red', 'blue'] },
+        },
+      },
+      required: ['tags'],
+    };
+    expect(
+      elicitParams({
+        method: 'elicitation/create',
+        params: { mode: 'form', message: 'pick', requestedSchema },
+      })?.requestedSchema,
+    ).toEqual(requestedSchema);
+  });
 });
 
 describe('isURLElicitation', () => {
