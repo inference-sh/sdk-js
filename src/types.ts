@@ -6889,7 +6889,7 @@ export interface ChatBackgroundEvent {
  * RunEndReason is why a run that completed ended the way it did, when its
  * last turn did not end with a reply.
  */
-export type RunEndReason = "output_limit" | "no_reply";
+export type RunEndReason = "output_limit" | "no_reply" | "refusal";
 /**
  * RunEndReasonOutputLimit: the model's last turn hit its output limit
  * (max_tokens) before it replied or called a tool.
@@ -6900,6 +6900,13 @@ export const RunEndReasonOutputLimit: RunEndReason = "output_limit";
  * no tool call.
  */
 export const RunEndReasonNoReply: RunEndReason = "no_reply";
+/**
+ * RunEndReasonRefusal: the provider's safety system ended the model's
+ * last turn. The run's messages stay in the chat and are left out of
+ * the context every later turn sends (BuildContext), so the next
+ * message is not refused for what this run held.
+ */
+export const RunEndReasonRefusal: RunEndReason = "refusal";
 /**
  * ChatRunEvent is how a run ended, on a run_ended event.
  */
