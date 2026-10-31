@@ -1,6 +1,7 @@
 import { HttpClient } from '../http/client.js';
 import { CredentialsAPI } from './credentials.js';
 import {
+  CredentialProviderGitHubApp,
   CredentialGrantCredentials,
   CredentialGrantToken,
   CredentialProviderGoogleSA,
@@ -191,6 +192,29 @@ describe('CredentialsAPI', () => {
     expect(url).toContain('/credentials/slack');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize github-app provider on get() (models v0.8.154)', async () => {
+    const credential = {
+      id: 'cred-gh-app',
+      user_id: 'user-1',
+      team_id: 'team-1',
+      visibility: 'team',
+      provider: CredentialProviderGitHubApp,
+      type: 'oauth',
+      grant: CredentialGrantToken,
+      scope: CredentialScopeTeam,
+      status: 'connected',
+      display_name: 'Org GitHub App',
+      scopes: [],
+      is_primary: true,
+    };
+    mockJsonResponse(credential);
+
+    const result = await api().get('github-app');
+
+    expect(result.data?.provider).toBe('github-app');
+    expect(result.data?.provider).not.toBe('github');
   });
 
   it('should DELETE /credentials/{provider} for disconnect()', async () => {
