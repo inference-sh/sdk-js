@@ -8363,17 +8363,10 @@ export const TaskStatusRejected: TaskStatus = 13;
 /**
  * Infra defines where a task should run.
  */
-export type Infra = "private" | "cloud" | "private_first" | "remote";
+export type Infra = "private" | "cloud" | "private_first";
 export const InfraPrivate: Infra = "private";
 export const InfraCloud: Infra = "cloud";
 export const InfraPrivateFirst: Infra = "private_first";
-/**
- * InfraRemote is a model call a harness on the caller's own remote
- * answers (an agent whose model app is a harness model app). The
- * scheduler never takes it: the remote model service sends it to the
- * remote's daemon, whose frames end it.
- */
-export const InfraRemote: Infra = "remote";
 /**
  * TaskLogType defines the type of task log.
  */
