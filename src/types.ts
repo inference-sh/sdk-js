@@ -2769,8 +2769,9 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   error_message?: string;
   /**
    * Secrets are the secret rows linked to the credential (a key's values),
-   * by row and key, never by value. Filled on the vault's api_key configs
-   * and the admin provider tree.
+   * by row and key, never by value. Filled on the vault's api_key configs,
+   * on a config's app when it is the caller's workspace's own (which of
+   * its keys are set) and on the admin provider tree.
    */
   secrets?: CredentialSecretRef[];
 }
@@ -2846,6 +2847,13 @@ export interface CredentialConfigDTO {
    * login itself.
    */
   app?: CredentialDTO;
+  /**
+   * AppNoun is what that app is called ("GitHub App") when it is not an
+   * OAuth sign-in app: its logins connect something other than a person
+   * signing in (an installation). Empty: an OAuth app logins sign in
+   * through.
+   */
+  app_noun?: string;
   /**
    * AuthProviderID is set when the provider is one the team defined
    * itself (models.AuthProvider), so the UI can offer edit and remove.
