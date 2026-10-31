@@ -2,6 +2,7 @@
 jest.mock('./provider', () => ({ AgentChatProvider: () => null }), { virtual: true });
 
 import * as agentBarrel from './index.js';
+import type { ElicitChoice } from './index.js';
 import {
   MCPMethodElicitationCreate,
   buildMCPInputResult,
@@ -25,5 +26,10 @@ describe('agent MCP input public surface', () => {
     expect(elicitParams).toEqual(expect.any(Function));
     expect(isURLElicitation).toEqual(expect.any(Function));
     expect(buildMCPInputResult).toEqual(expect.any(Function));
+  });
+
+  it('exports ElicitChoice for multi-select elicitation UIs (691cc60)', () => {
+    const choice: ElicitChoice = { const: 'opt-a', title: 'Option A', description: 'hint' };
+    expect(choice.const).toBe('opt-a');
   });
 });
