@@ -52,6 +52,31 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(params);
   });
 
+  it('should deserialize hook_url on listAvailable() GitHub App catalog entries', async () => {
+    const available = [
+      {
+        slug: 'github-app',
+        provider: 'github-app',
+        type: 'oauth',
+        name: 'GitHub App',
+        short_name: 'GitHub App',
+        description: 'Install a GitHub App',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        connection_scope: CredentialScopeTeam,
+        app_noun: 'GitHub App',
+        hook_url: 'https://api.inference.sh/hooks/github-app/team-1',
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.hook_url).toBe('https://api.inference.sh/hooks/github-app/team-1');
+    expect(result.data[0]?.app_noun).toBe('GitHub App');
+  });
+
   it('should deserialize auth_provider_id on listAvailable() catalog entries', async () => {
     const available = [
       {
