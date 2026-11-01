@@ -2856,8 +2856,8 @@ export interface CredentialConfigDTO {
   app_noun?: string;
   /**
    * HookURL is where App delivers its events (the GitHub App's webhook
-   * URL, to paste in its settings): the platform's app's, or this
-   * workspace's own app's. Empty when the provider's apps deliver none.
+   * URL, to paste in its settings). Empty when the provider's apps
+   * deliver none.
    */
   hook_url?: string;
   /**
