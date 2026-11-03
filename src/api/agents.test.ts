@@ -17,6 +17,7 @@ import type { AgentRunDTO } from '../types.js';
 import { learningHooks } from '../hook-builder.js';
 import { FilesAPI } from './files.js';
 import { AgentsAPI } from './agents.js';
+import type { AgentUpdateBody } from './write-bodies.js';
 
 const workingRun = { state: AgentRunStateWorking } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
@@ -2865,6 +2866,21 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
+  });
+
+  it('should POST only AgentUpdateBody fields on update(), not visibility', async () => {
+    const payload: AgentUpdateBody = {
+      version: { description: 'New instructions' },
+      images: { card: 'card.png', thumbnail: '', banner: '' },
+    };
+    mockJsonResponse({ id: 'agent-1' });
+
+    await api().update('agent-1', payload);
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/agents/agent-1');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 });
 
