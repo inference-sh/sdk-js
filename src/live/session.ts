@@ -117,7 +117,7 @@ export interface LiveSessionOptions {
 }
 
 export interface RealtimeOptions {
-  /** Binary frames kept while the app cannot read yet, newest first (default 10: 200 ms of 20 ms frames). */
+  /** Binary frames kept while the app cannot read yet, the newest (default 5: 100 ms of 20 ms frames). */
   holdFrames?: number;
   /** Bytes the WebSocket may have queued before a binary frame is dropped (default 8192: about 250 ms of 16 kHz audio). */
   maxBufferedAmount?: number;
@@ -129,7 +129,7 @@ export interface RealtimeOptions {
   signalTimeoutMs?: number;
 }
 
-const REALTIME_DEFAULTS: Required<RealtimeOptions> = { holdFrames: 10, maxBufferedAmount: 8192, signalTimeoutMs: 1500 };
+const REALTIME_DEFAULTS: Required<RealtimeOptions> = { holdFrames: 5, maxBufferedAmount: 8192, signalTimeoutMs: 1500 };
 
 const MAX_REDIALS = 5;
 
