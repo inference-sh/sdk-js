@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client.js';
 import type { Response } from '../http/response.js';
-import type { MCPServerUpdateBody } from './write-bodies.js';
+import type { MCPServerCreateBody, MCPServerUpdateBody } from './write-bodies.js';
 import {
   MCPServerDTO,
   CursorListRequest,
@@ -58,7 +58,7 @@ export class MCPServersAPI {
   /**
    * Create an MCP server
    */
-  async create(data: Partial<MCPServerDTO>): Promise<Response<MCPServerDTO>> {
+  async create(data: MCPServerCreateBody): Promise<Response<MCPServerDTO>> {
     return this.http.request<MCPServerDTO>('post', '/mcp-servers', { data });
   }
 

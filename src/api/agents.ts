@@ -586,8 +586,8 @@ export class AgentsAPI {
   }
 
   /**
-   * Update an agent template: its visibility and images, and a new version
-   * when `version` is set (see AgentUpdateBody).
+   * Update an agent template: its images, and a new version when `version`
+   * is set (see AgentUpdateBody). Visibility: `updateVisibility`.
    */
   async update(agentId: string, data: AgentUpdateBody): Promise<Response<AgentDTO>> {
     return this.http.request<AgentDTO>('post', `/agents/${agentId}`, { data });

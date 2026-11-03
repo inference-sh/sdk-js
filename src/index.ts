@@ -43,8 +43,11 @@ export type {
   FlowPatchBody,
   FlowViewportBody,
   ProjectWriteBody,
+  ProjectCreateBody,
+  ProjectUpdateBody,
   KnowledgeUpdateBody,
   TeamUpdateBody,
+  MCPServerCreateBody,
   MCPServerUpdateBody,
 } from './api/write-bodies.js';
 export { TeamsAPI } from './api/teams.js';

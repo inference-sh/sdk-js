@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client.js';
 import type { Response } from '../http/response.js';
-import type { ProjectWriteBody } from './write-bodies.js';
+import type { ProjectCreateBody, ProjectUpdateBody } from './write-bodies.js';
 import {
   ProjectDTO,
   CursorListRequest,
@@ -30,7 +30,7 @@ export class ProjectsAPI {
   /**
    * Create a project
    */
-  async create(data: ProjectWriteBody): Promise<Response<ProjectDTO>> {
+  async create(data: ProjectCreateBody): Promise<Response<ProjectDTO>> {
     return this.http.request<ProjectDTO>('post', '/projects', { data });
   }
 
@@ -38,7 +38,7 @@ export class ProjectsAPI {
    * Update a project (PATCH): only the fields sent are written, the others
    * keep their value.
    */
-  async update(id: string, data: ProjectWriteBody): Promise<Response<ProjectDTO>> {
+  async update(id: string, data: ProjectUpdateBody): Promise<Response<ProjectDTO>> {
     return this.http.request<ProjectDTO>('patch', `/projects/${id}`, { data });
   }
 

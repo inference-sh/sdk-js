@@ -1,5 +1,9 @@
 import { HttpClient } from '../http/client.js';
+import { AgentsAPI } from './agents.js';
 import { ChatsAPI } from './chats.js';
+import { FilesAPI } from './files.js';
+import { MCPServersAPI } from './mcp-servers.js';
+import { ProjectsAPI } from './projects.js';
 import { FlowsAPI } from './flows.js';
 import { TeamsAPI } from './teams.js';
 import type {
@@ -7,7 +11,9 @@ import type {
   ChatUpdateBody,
   FlowPatchBody,
   KnowledgeUpdateBody,
+  MCPServerCreateBody,
   MCPServerUpdateBody,
+  ProjectUpdateBody,
   TeamUpdateBody,
 } from './write-bodies.js';
 
@@ -40,7 +46,13 @@ describe('write bodies', () => {
     const knowledge: KnowledgeUpdateBody = { name: 'renamed' };
     // @ts-expect-error visibility has POST /mcp-servers/{id}/visibility
     const mcp: MCPServerUpdateBody = { visibility: 'public' };
-    expect([chat, agent, team, flow, knowledge, mcp]).toHaveLength(6);
+    // @ts-expect-error visibility has POST /agents/{id}/visibility
+    const agentVisibility: AgentUpdateBody = { visibility: 'public' };
+    // @ts-expect-error a project's visibility is set on create only
+    const project: ProjectUpdateBody = { visibility: 'public' };
+    // @ts-expect-error the owner comes from the caller
+    const mcpCreate: MCPServerCreateBody = { team_id: 'other' };
+    expect([chat, agent, team, flow, knowledge, mcp, agentVisibility, project, mcpCreate]).toHaveLength(9);
   });
 });
 
@@ -87,22 +99,72 @@ describe('FlowsAPI.patch and saveViewport', () => {
   });
 });
 
-describe('update methods still take a loaded object sent back', () => {
+// The API refuses a write body's unknown keys, relations and changed
+// read-only fields (enforce mode), so each method sends only what it is given.
+describe('write methods send only the fields given', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('accepts a DTO spread with the change on top', async () => {
-    mockJsonResponse({ id: 'team-1' });
-    const loaded = { id: 'team-1', username: 'acme', name: 'Acme' };
-
-    await new TeamsAPI(http()).update('team-1', { ...loaded, name: 'Acme Inc' });
-
+  const sent = () => {
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('/teams/team-1');
-    expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body as string)).toEqual({
-      id: 'team-1',
-      username: 'acme',
-      name: 'Acme Inc',
+    return { url, method: init.method, body: JSON.parse(init.body as string) };
+  };
+
+  it('TeamsAPI.update PATCHes the changed profile field', async () => {
+    mockJsonResponse({ id: 'team-1' });
+    await new TeamsAPI(http()).update('team-1', { name: 'Acme Inc' });
+    expect(sent()).toEqual({ url: expect.stringContaining('/teams/team-1'), method: 'PATCH', body: { name: 'Acme Inc' } });
+  });
+
+  it('AgentsAPI.update POSTs images and version, visibility through updateVisibility', async () => {
+    const h = http();
+    const agents = new AgentsAPI(h, new FilesAPI(h));
+    mockJsonResponse({ id: 'agent-1' });
+    await agents.update('agent-1', { images: { card: 'c', thumbnail: '', banner: '' } });
+    expect(sent()).toEqual({
+      url: expect.stringContaining('/agents/agent-1'),
+      method: 'POST',
+      body: { images: { card: 'c', thumbnail: '', banner: '' } },
     });
+
+    jest.clearAllMocks();
+    mockJsonResponse({ id: 'agent-1' });
+    await agents.updateVisibility('agent-1', 'public');
+    expect(sent()).toEqual({
+      url: expect.stringContaining('/agents/agent-1/visibility'),
+      method: 'POST',
+      body: { visibility: 'public' },
+    });
+  });
+
+  it('ProjectsAPI.update PATCHes without visibility', async () => {
+    mockJsonResponse({ id: 'proj-1' });
+    await new ProjectsAPI(http()).update('proj-1', { name: 'Renamed', color: '#fff' });
+    expect(sent()).toEqual({
+      url: expect.stringContaining('/projects/proj-1'),
+      method: 'PATCH',
+      body: { name: 'Renamed', color: '#fff' },
+    });
+  });
+
+  it('ProjectsAPI.create takes visibility', async () => {
+    mockJsonResponse({ id: 'proj-1' });
+    await new ProjectsAPI(http()).create({ name: 'New', type: 'agent', visibility: 'team' });
+    expect(sent()).toEqual({
+      url: expect.stringMatching(/\/projects$/),
+      method: 'POST',
+      body: { name: 'New', type: 'agent', visibility: 'team' },
+    });
+  });
+
+  it('MCPServersAPI.create POSTs the create fields only', async () => {
+    mockJsonResponse({ id: 'mcp-1' });
+    const body: MCPServerCreateBody = {
+      name: 'gh',
+      server_url: 'https://mcp.example/sse',
+      auth_type: 'oauth',
+      visibility: 'private',
+    };
+    await new MCPServersAPI(http()).create(body);
+    expect(sent()).toEqual({ url: expect.stringMatching(/\/mcp-servers$/), method: 'POST', body });
   });
 });

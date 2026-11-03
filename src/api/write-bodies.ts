@@ -1,14 +1,17 @@
 /**
  * Request bodies of the generic create/update routes.
  *
- * Each type names exactly the fields its route writes; the API leaves every
- * other field of the body alone (a full DTO sent back is fine, its other
- * fields are ignored). A field with its own endpoint is listed next to the
- * type that cannot set it.
+ * Each type names exactly the fields its route writes. Send only the fields
+ * you change: the API checks every key of a write body against the route's
+ * writable fields (go/api docs/writable-fields.md), and in enforce mode it
+ * answers 400 `validation_error`, with `meta.fields` naming each field and
+ * its reason, to a body carrying an unknown key, a relation (`user`, `team`,
+ * `project`, ...) or a read-only field whose value differs from the stored
+ * one. Do not send a fetched DTO back. A field with its own endpoint is
+ * listed next to the type that cannot set it.
  *
- * A POST /{resource}/{id} update writes every field below that the route
- * takes: a field left out of the body is written empty. A PATCH writes only
- * the fields sent. The SDK's update methods for projects, knowledge, skills,
+ * Both a POST /{resource}/{id} update and a PATCH write the fields sent and
+ * keep the others. The SDK's update methods for projects, knowledge, skills,
  * chats, engines and teams send PATCH; apps.patch and flows.patch are the
  * partial siblings of the POST updates that also edit a version.
  */
@@ -22,18 +25,19 @@ import type {
   FlowDTO,
   FlowVersionDTO,
   KnowledgeDTO,
+  MCPServerDTO,
   ProjectDTO,
   TeamDTO,
   Visibility,
 } from '../types.js';
 
 /**
- * POST /agents/{id}. Visibility and images, and a new version when
- * `version` is set. Name, title, harness, placement: set at creation.
- * Project: `agents.moveToProject`; owner: `agents.transferOwnership`.
+ * POST /agents/{id}. Images, and a new version when `version` is set.
+ * Visibility: `agents.updateVisibility`. Name, title, harness, placement:
+ * set at creation. Project: `agents.moveToProject`; owner:
+ * `agents.transferOwnership`.
  */
 export interface AgentUpdateBody {
-  visibility?: Visibility;
   images?: ResourceImages;
   version?: AgentConfigInput;
 }
@@ -86,14 +90,20 @@ export interface FlowViewportBody {
 }
 
 /**
- * POST /projects and PATCH /projects/{id}. Visibility is taken on create
- * only; no route changes it afterwards. Parent: none.
+ * PATCH /projects/{id}. Name, description, type, color and icon. Visibility
+ * is set on create only; no route changes it afterwards. Parent: none.
  */
-export type ProjectWriteBody = Partial<
+export type ProjectUpdateBody = Partial<
   Pick<ProjectDTO, 'name' | 'description' | 'type' | 'color' | 'icon'>
-> & {
+>;
+
+/** POST /projects. The update fields, plus visibility. */
+export type ProjectCreateBody = ProjectUpdateBody & {
   visibility?: Visibility;
 };
+
+/** @deprecated Use ProjectCreateBody or ProjectUpdateBody. */
+export type ProjectWriteBody = ProjectCreateBody;
 
 /**
  * PATCH /knowledge/{id} and PATCH /skills/{id}. Copy and lifecycle. Name and
@@ -113,6 +123,28 @@ export interface KnowledgeUpdateBody {
  * and does not change here.
  */
 export type TeamUpdateBody = Partial<Pick<TeamDTO, 'name' | 'email' | 'avatar_url'>>;
+
+/**
+ * POST /mcp-servers. The server's address, copy, auth and credentials, and
+ * its visibility. Owner and namespace come from the caller.
+ */
+export type MCPServerCreateBody = Partial<
+  Pick<
+    MCPServerDTO,
+    | 'slug'
+    | 'name'
+    | 'title'
+    | 'description'
+    | 'icon_url'
+    | 'server_url'
+    | 'auth_type'
+    | 'default_scopes'
+    | 'headers'
+    | 'documentation_url'
+    | 'credentials'
+    | 'visibility'
+  >
+>;
 
 /**
  * PUT /mcp-servers/{id}. A field left out keeps its value. Title,
