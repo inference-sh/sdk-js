@@ -28,9 +28,11 @@ export interface InternalToolsConfig {
    * (Remote on), declared as an app's credentials are (provider slug,
    * scopes): the runner's own, as a task of theirs resolves it; a runner
    * with none is asked to connect it and the call waits. None declared,
-   * none given. The model's arguments never add any.
+   * none given. The model's arguments never add any. Each entry's mode
+   * says when the box gets it: auto (the default) at once, ask on first
+   * use once a person approves it (SandboxCredential).
    */
-  sandbox_credentials?: CredentialRequirement[];
+  sandbox_credentials?: SandboxCredential[];
 }
 /**
  * AgentPermissions is what an agent's new chats in its own workspace may do
@@ -3150,7 +3152,7 @@ export interface WorkerRAM {
  * a task lists the ones it needs (Task.Requires); the scheduler only sends
  * a task to an engine that has every one it needs.
  */
-export type EngineCapability = "egress_gateway" | "sandboxes" | "capacity";
+export type EngineCapability = "egress_gateway" | "sandboxes" | "capacity" | "egress_pending";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3167,6 +3169,14 @@ export const EngineCapabilitySandboxes: EngineCapability = "sandboxes";
  * (INF-1156).
  */
 export const EngineCapabilityCapacity: EngineCapability = "capacity";
+/**
+ * EngineCapabilityEgressPending: the engine's gateway takes pending
+ * bound secrets (BoundSecret.Pending: no value) and fetches each value
+ * on first use through POST /engines/{id}/egress/resolve, with the
+ * triggers EgressTrigger names; it also reports the hosts its boxes
+ * reach (POST /engines/{id}/egress/hosts) (INF-1173).
+ */
+export const EngineCapabilityEgressPending: EngineCapability = "egress_pending";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -5220,7 +5230,76 @@ export interface CreateSandboxRequest {
    * engine's gateway places the values toward those hosts and renews
    * the ones that expire, always from the login chosen here.
    */
-  credentials?: CredentialRequirement[];
+  credentials?: SandboxCredential[];
+}
+/**
+ * SandboxCredentialMode is when a sandbox's login is given to its box.
+ */
+export type SandboxCredentialMode = "auto" | "ask";
+/**
+ * SandboxCredentialAuto (the default): the login is chosen when the
+ * sandbox is made and given without asking.
+ */
+export const SandboxCredentialAuto: SandboxCredentialMode = "auto";
+/**
+ * SandboxCredentialAsk: the box gets the login on first use, once a
+ * person approves it on the tool call running there; a run nobody
+ * watches (a trigger, a schedule) never gets it (INF-1173). Needs an
+ * engine with EngineCapabilityEgressPending.
+ */
+export const SandboxCredentialAsk: SandboxCredentialMode = "ask";
+/**
+ * SandboxCredential is a login a sandbox's box gets: a requirement by
+ * provider, as an app declares one, and when it is given (Mode, auto when
+ * unset). It reads and writes as the requirement's fields plus "mode", so
+ * a plain requirement is an auto one.
+ */
+export interface SandboxCredential {
+  slug?: string;
+  capabilities?: string[];
+  description?: string;
+  optional?: boolean;
+  secrets?: string[];
+  scopes?: string[];
+  /**
+   * Provider describes the company the credential belongs to, for a
+   * catalog row that does not exist yet. Its slug defaults to the
+   * credential slug.
+   */
+  provider?: CompanySeed;
+  /**
+   * Auth is the credential's auth provider, for a slug no row defines yet.
+   */
+  auth?: AuthMethod;
+  /**
+   * The rest describe the platform api_key scheme a platform app's deploy
+   * catalogues for the slug: set on the scheme it creates, and filled into
+   * an existing one only where that is still empty (an admin's edit
+   * stands). Any other deploy ignores them.
+   * DisplayName is the scheme's name ("Claude Code"); at most
+   * MaxCredentialDisplayName characters.
+   */
+  display_name?: string;
+  /**
+   * ConnectionScope is who a connection belongs to: team (empty) or user.
+   */
+  connection_scope?: CredentialScope;
+  /**
+   * Instructions tell a person how to get the key (markdown, at most
+   * MaxAuthProviderInstructions characters).
+   */
+  instructions?: string;
+  /**
+   * DocsURL is the scheme's documentation link.
+   */
+  docs_url?: string;
+  /**
+   * ExpiresAfterDays is how long a saved key lasts: it counts as expired
+   * this many days after it is saved. 0 is never; at most
+   * MaxExpiresAfterDays.
+   */
+  expires_after_days?: number /* int */;
+  mode?: SandboxCredentialMode;
 }
 /**
  * SandboxDTO is the API response for a sandbox.
@@ -7481,6 +7560,16 @@ export const InterruptResourceTurn: InterruptResourceType = "turn";
  */
 export const InterruptReasonWait: InterruptReason = "wait";
 /**
+ * InterruptReasonEgressLogin asks whether a sandbox's box gets one of its
+ * owner's logins, on the tool call running there (a remote_exec) when the
+ * box first reaches the login's host (INF-1173). Its resource is that call
+ * (InterruptResourceToolInvocation), which keeps running: the engine holds
+ * the request until the answer, and asks for it again
+ * (POST /engines/{id}/egress/resolve). Allow gives the login, deny or no
+ * answer in time refuses it for the sandbox. Meta is EgressLoginAskMeta.
+ */
+export const InterruptReasonEgressLogin: InterruptReason = "egress_login";
+/**
  * MergeStrategy defines how a delta field should be merged by consumers.
  */
 export type MergeStrategy = "concat" | "replace" | "indexed" | "nested";
@@ -8980,6 +9069,7 @@ export const AgentRunStateRejected: AgentRunState = "rejected";
  */
 export type InterruptReason =
   | "wait"
+  | "egress_login"
   | "tool_approval"
   | "client_tool"
   | "widget"
