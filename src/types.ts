@@ -729,11 +729,15 @@ export interface MeResponse {
   team_view?: TeamViewDTO;
   diagnostics?: DiagnosticsConfig;
   /**
-   * Notice is an operator's notice about the caller's access, set only
-   * when the request comes from an address restricted to sign-in and the
-   * CLI. Empty otherwise.
+   * Notice is a notice about the caller's access, set only when the
+   * redlist restricts this request (a restricted address, or a
+   * restricted account): the text an access_restricted refusal carries
+   * as its detail. Empty otherwise. NoticeReference and NoticeContact
+   * are that refusal's meta.reference and meta.contact.
    */
   notice?: string;
+  notice_reference?: string;
+  notice_contact?: string;
   /**
    * PersonalTeamID is the caller's personal workspace, empty for a managed
    * account, which has none.
@@ -2989,6 +2993,119 @@ export interface CountResponse {
   count: number /* int64 */;
 }
 /**
+ * EgressGrantScope is what a grant lets use a login: a task or a sandbox.
+ */
+export type EgressGrantScope = "task" | "sandbox";
+export const EgressGrantScopeTask: EgressGrantScope = "task";
+export const EgressGrantScopeSandbox: EgressGrantScope = "sandbox";
+/**
+ * EgressGrantState is where a grant stands.
+ */
+export type EgressGrantState =
+  | "open"
+  | "asked"
+  | "allowed"
+  | "declined"
+  | "ended";
+/**
+ * EgressGrantOpen: the scope may be asked for the login; nobody has
+ * been yet.
+ */
+export const EgressGrantOpen: EgressGrantState = "open";
+/**
+ * EgressGrantAsked: a card is open (EgressGrantDTO.InterruptID).
+ */
+export const EgressGrantAsked: EgressGrantState = "asked";
+/**
+ * EgressGrantAllowed: the scope gets the login.
+ */
+export const EgressGrantAllowed: EgressGrantState = "allowed";
+/**
+ * EgressGrantDeclined: a person said no, for the scope's life.
+ */
+export const EgressGrantDeclined: EgressGrantState = "declined";
+/**
+ * EgressGrantEnded: the grant no longer holds (Reason says why); the
+ * scope keeps running, and its next use decides again.
+ */
+export const EgressGrantEnded: EgressGrantState = "ended";
+/**
+ * EgressGrantSource is where a grant came from.
+ */
+export type EgressGrantSource =
+  | "app_declared"
+  | "agent_config"
+  | "sandbox_create"
+  | "owner_approval"
+  | "connected_offer"
+  | "reconnect";
+export const EgressGrantSourceAppDeclared: EgressGrantSource = "app_declared";
+export const EgressGrantSourceAgentConfig: EgressGrantSource = "agent_config";
+export const EgressGrantSourceSandboxCreate: EgressGrantSource = "sandbox_create";
+export const EgressGrantSourceOwnerApproval: EgressGrantSource = "owner_approval";
+export const EgressGrantSourceConnectedOffer: EgressGrantSource = "connected_offer";
+export const EgressGrantSourceReconnect: EgressGrantSource = "reconnect";
+/**
+ * EgressGrantReason is why a grant was declined or ended.
+ */
+export type EgressGrantReason =
+  | "declined"
+  | "login_deleted"
+  | "login_disconnected"
+  | "not_owner"
+  | "expired_lifetime"
+  | "scopes_missing"
+  | "scope_ended"
+  | "revoked_by_owner";
+export const EgressGrantReasonDeclined: EgressGrantReason = "declined";
+export const EgressGrantReasonLoginDeleted: EgressGrantReason = "login_deleted";
+export const EgressGrantReasonLoginDisconnected: EgressGrantReason = "login_disconnected";
+export const EgressGrantReasonNotOwner: EgressGrantReason = "not_owner";
+export const EgressGrantReasonExpiredLifetime: EgressGrantReason = "expired_lifetime";
+export const EgressGrantReasonScopesMissing: EgressGrantReason = "scopes_missing";
+export const EgressGrantReasonScopeEnded: EgressGrantReason = "scope_ended";
+export const EgressGrantReasonRevokedByOwner: EgressGrantReason = "revoked_by_owner";
+/**
+ * EgressGrantDTO is one decision that a task or a sandbox may use a
+ * provider's login through the engine's egress gateway: what was allowed,
+ * who allowed it and why, and which login answers (INF-1173). It never
+ * holds a value. GET /sandboxes/{id}/grants, GET /tasks/{id}/grants.
+ */
+export interface EgressGrantDTO {
+  id: string;
+  scope: EgressGrantScope;
+  scope_id: string;
+  /**
+   * Provider is the provider's slug.
+   */
+  provider: string;
+  mode: SandboxCredentialMode;
+  state: EgressGrantState;
+  source: EgressGrantSource;
+  /**
+   * GrantedBy is the user who allowed it: the task's user for an app's
+   * declaration, the agent config's owner for its own, the answering
+   * owner for an approval.
+   */
+  granted_by?: string;
+  /**
+   * CredentialID is the login that answers; empty until first use picks
+   * one.
+   */
+  credential_id?: string;
+  /**
+   * Host is the first host it was wanted for.
+   */
+  host?: string;
+  /**
+   * Reason is why it was declined or ended.
+   */
+  reason?: EgressGrantReason;
+  created_at: string /* RFC3339 */;
+  updated_at: string /* RFC3339 */;
+  ended_at?: string /* RFC3339 */;
+}
+/**
  * EngineConfig holds engine configuration (no gorm tags).
  */
 export interface EngineConfig {
@@ -3160,7 +3277,12 @@ export interface WorkerRAM {
  * a task lists the ones it needs (Task.Requires); the scheduler only sends
  * a task to an engine that has every one it needs.
  */
-export type EngineCapability = "egress_gateway" | "sandboxes" | "capacity" | "egress_pending";
+export type EngineCapability =
+  | "egress_gateway"
+  | "sandboxes"
+  | "capacity"
+  | "egress_pending"
+  | "egress_grants";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3185,6 +3307,15 @@ export const EngineCapabilityCapacity: EngineCapability = "capacity";
  * reach (POST /engines/{id}/egress/hosts) (INF-1173).
  */
 export const EngineCapabilityEgressPending: EngineCapability = "egress_pending";
+/**
+ * EngineCapabilityEgressGrants: the engine's gateway holds a fetched
+ * value only BoundSecret.KeepFor (at most until it expires), answers a
+ * refused binding with EgressResolveResponse.Reason, wipes a binding's
+ * held value when it is declined, and takes egress_revoke
+ * (WsEgressRevokePayload). Tasks are sent pending bindings only on such
+ * an engine (INF-1173).
+ */
+export const EngineCapabilityEgressGrants: EngineCapability = "egress_grants";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -3335,6 +3466,7 @@ export type ErrorCode =
   | "method_not_allowed"
   | "rate_limited"
   | "internal_error"
+  | "access_restricted"
   | "web_access_restricted"
   | "requirements_not_met"
   | "team_role_required"
@@ -3400,9 +3532,16 @@ export const ErrorCodeMethodNotAllowed: ErrorCode = "method_not_allowed";
 export const ErrorCodeRateLimited: ErrorCode = "rate_limited";
 export const ErrorCodeInternalError: ErrorCode = "internal_error";
 /**
- * ErrorCodeWebAccessRestricted (403): the request comes from an address
- * restricted to sign-in and the CLI; detail is the operator's notice
- * and meta is WebAccessRestrictedMeta.
+ * ErrorCodeAccessRestricted (403): the redlist refuses the request (a
+ * restricted address, or a restricted account outside sign-in, /me,
+ * telemetry and balance). detail is the notice to show the person, as
+ * is; meta is AccessRestrictedMeta: a reference to quote and who to
+ * contact.
+ */
+export const ErrorCodeAccessRestricted: ErrorCode = "access_restricted";
+/**
+ * ErrorCodeWebAccessRestricted is no longer sent: refusals are
+ * access_restricted. Kept so clients that name it still build.
  */
 export const ErrorCodeWebAccessRestricted: ErrorCode = "web_access_restricted";
 /**
