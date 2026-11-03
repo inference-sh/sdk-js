@@ -1763,6 +1763,7 @@ export interface AppUIRef {
  * 	sandbox:
  * 	  host_network: true          # share the host's network namespace
  * 	  capabilities: [SYS_PTRACE]  # Linux capabilities the app's processes keep
+ * 	  user_namespaces: true       # unprivileged user namespaces (Chromium's sandbox)
  * The API reads it from the package when the version is deployed and stores
  * it on the version (server-owned: no caller writes it). Engines enforce the
  * copy the task dispatch carries, and store review shows it. The empty value
@@ -1780,6 +1781,13 @@ export interface AppSandbox {
    * them.
    */
   capabilities?: string[];
+  /**
+   * UserNamespaces lets the app's processes create unprivileged user
+   * namespaces, which Chromium's sandbox needs. The container's seccomp
+   * profile allows clone, unshare, setns and chroot; it gains no
+   * capability on the host.
+   */
+  user_namespaces?: boolean;
 }
 /**
  * AppVersionDTO is the API response for an app version.
