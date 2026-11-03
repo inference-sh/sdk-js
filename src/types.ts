@@ -739,6 +739,11 @@ export interface MeResponse {
   notice_reference?: string;
   notice_contact?: string;
   /**
+   * AccessNotice is the same notice in structured form: its stage (lure
+   * or legal) and, on the lure, how to install the CLI.
+   */
+  access_notice?: AccessNoticeDTO;
+  /**
    * PersonalTeamID is the caller's personal workspace, empty for a managed
    * account, which has none.
    */
@@ -5053,6 +5058,30 @@ export interface ProjectDTO extends BaseModelDTO, PermissionModelDTO {
   parent_id?: string;
   parent?: ProjectDTO;
   children: (ProjectDTO | undefined)[];
+}
+/**
+ * AccessNoticeDTO is the redlist's notice to a restricted caller, as a
+ * refusal's meta.notice and /me's access_notice carry it.
+ */
+export interface AccessNoticeDTO {
+  /**
+   * Stage: lure (install the CLI and sign in) or legal (the legal
+   * warning).
+   */
+  stage: string;
+  text: string;
+  reference: string;
+  contact: string;
+  /**
+   * InstallURL and InstallCommand, on the lure: where to get the belt
+   * CLI.
+   */
+  install_url?: string;
+  install_command?: string;
+  /**
+   * Case, on the legal notice when a report reference is configured.
+   */
+  case?: string;
 }
 export interface DiagnosticsConfig {
   level: number /* int */;
