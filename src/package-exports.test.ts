@@ -129,6 +129,14 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('re-exports strict write body types for create/update routes (a4ea89e)', () => {
+      const indexSource = readFileSync(join(__dirname, 'index.ts'), 'utf8');
+      expect(indexSource).toMatch(/ProjectCreateBody,/);
+      expect(indexSource).toMatch(/ProjectUpdateBody,/);
+      expect(indexSource).toMatch(/MCPServerCreateBody,/);
+      expect(indexSource).toMatch(/AgentUpdateBody,/);
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {

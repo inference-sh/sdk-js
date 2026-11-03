@@ -69,6 +69,21 @@ describe('ProjectsAPI', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('should include visibility on create() but not on update()', async () => {
+    mockJsonResponse({ id: 'proj-1' });
+
+    await api().create({ name: 'Team space', type: 'agent', visibility: 'team' });
+    const createBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(createBody).toEqual({ name: 'Team space', type: 'agent', visibility: 'team' });
+
+    jest.clearAllMocks();
+    mockJsonResponse({ id: 'proj-1' });
+    await api().update('proj-1', { name: 'Renamed only' });
+    const [, updateInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(updateInit.method).toBe('PATCH');
+    expect(JSON.parse(updateInit.body as string)).toEqual({ name: 'Renamed only' });
+  });
+
   it('should DELETE /projects/{id} for delete()', async () => {
     mockJsonResponse(null);
 
