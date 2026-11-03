@@ -243,6 +243,7 @@ export class LiveSession {
       if (this.ws !== ws) return;
       this.ws = null;
       this.released = false;
+      this.held = [];
       this.clearSignalTimer();
       const waiting = this.current !== 'live';
       if (!this.closedByCaller && waiting && REDIAL_CODES.has(event.code) && this.redials < MAX_REDIALS) {
@@ -384,7 +385,10 @@ export class LiveSession {
     if (!this.released) {
       // The app cannot read yet: keep the newest few, so what it hears
       // first is what was just said, not what was said during its cold start.
-      this.held.push(data);
+      const bytes = ArrayBuffer.isView(data)
+        ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+        : new Uint8Array(data);
+      this.held.push(new Uint8Array(bytes));
       if (this.held.length > realtime.holdFrames) {
         this.held.shift();
         this.dropped += 1;
