@@ -193,16 +193,27 @@ describe('TeamsAPI', () => {
   });
 
   it('should POST /teams/{id}/members for addMember()', async () => {
-    const payload = { user_id: 'user-4', role: 'member' };
-    const member = { ...payload };
-    mockJsonResponse(member);
+    const payload = { email: 'dev@example.com', role: 'member' };
+    const added = { outcome: 'added', member: { id: 'm-1', user_id: 'user-4', team_id: 'team-1', role: 'member' } };
+    mockJsonResponse(added);
 
     const result = await api().addMember('team-1', payload as never);
 
-    expect(result.data).toEqual(member);
+    expect(result.data).toEqual(added);
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/teams/team-1/members');
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should return the invite when addMember() invites instead', async () => {
+    const invited = { outcome: 'invited', invite: { id: 'inv-9', email: 'stranger@example.com' } };
+    mockJsonResponse(invited);
+
+    const result = await api().addMember('team-1', { email: 'stranger@example.com', role: 'member' } as never);
+
+    expect(result.data.outcome).toBe('invited');
+    expect(result.data.invite?.email).toBe('stranger@example.com');
+    expect(result.data.member).toBeUndefined();
   });
 
   it('should GET /teams/{id}/invites for listInvites()', async () => {

@@ -5,6 +5,7 @@ import {
   MeResponse,
   TeamDTO,
   TeamMemberDTO,
+  TeamMemberAddResultDTO,
   TeamInviteDTO,
   TeamCreateRequest,
   TeamMemberAddRequest,
@@ -78,8 +79,13 @@ export class TeamsAPI {
   /**
    * Add a team member
    */
-  async addMember(teamId: string, data: TeamMemberAddRequest): Promise<Response<TeamMemberDTO>> {
-    return this.http.request<TeamMemberDTO>('post', `/teams/${teamId}/members`, { data });
+  /**
+   * Add an existing account to a team. An account the team's org owns joins
+   * straight away (`outcome: "added"`, `member`); anyone else is sent an
+   * invite they accept (`outcome: "invited"`, `invite`).
+   */
+  async addMember(teamId: string, data: TeamMemberAddRequest): Promise<Response<TeamMemberAddResultDTO>> {
+    return this.http.request<TeamMemberAddResultDTO>('post', `/teams/${teamId}/members`, { data });
   }
 
   /**
