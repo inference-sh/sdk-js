@@ -413,6 +413,16 @@ describe('LiveSession realtime', () => {
     expect(FakeWebSocket.dialed[1].url).toBe('wss://relay.test/sockets/sock-1?access_token=tok-1');
   });
 
+  it('keeps five frames by default while waiting for paired (100 ms at 20 ms frames)', () => {
+    const { session, ws } = start({ realtime: true });
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    for (let n = 1; n <= 8; n++) session.sendBinary(frame(n));
+    ws().message('{"$relay":"paired"}');
+    expect(sentBytes(ws())).toEqual([4, 5, 6, 7, 8]);
+    expect(session.droppedFrames).toBe(3);
+  });
+
   it('holds the microphone until the relay says the socket paired, then sends only the newest frames', () => {
     const { session, states, patches, ws } = start({ realtime: { holdFrames: 3 } });
     ws().open();

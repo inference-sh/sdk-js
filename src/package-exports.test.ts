@@ -129,6 +129,11 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('exports live realtime protocol and session types (v0.38.8)', () => {
+      expect(main.RELAY_KEY).toBe('$relay');
+      expect(main.LiveSession).toEqual(expect.any(Function));
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {
