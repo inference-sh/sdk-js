@@ -1,6 +1,6 @@
 import { HttpClient } from '../http/client.js';
 import type { Response } from '../http/response.js';
-import { LiveSession, type LiveHandlers, type WebSocketConstructor } from '../live/session.js';
+import { LiveSession, type LiveHandlers, type RealtimeOptions, type WebSocketConstructor } from '../live/session.js';
 import type { JsonSchema } from '../live/schema.js';
 import { CursorListRequest, CursorListResponse, OpEqual, SocketAccess, SocketDTO, TaskDTO as Task } from '../types.js';
 import type { TasksAPI } from './tasks.js';
@@ -21,6 +21,8 @@ export interface OpenSocketOptions {
   inputSchema?: JsonSchema | null;
   /** The function's output schema: frames arrive at `onUpdate` as fields. */
   outputSchema?: JsonSchema | null;
+  /** The binary frames sent are live media (a microphone); see LiveSessionOptions.realtime. */
+  realtime?: boolean | RealtimeOptions;
 }
 
 /**
@@ -86,6 +88,7 @@ export class SocketsAPI {
       webSocket: options.webSocket,
       inputSchema: options.inputSchema,
       outputSchema: options.outputSchema,
+      realtime: options.realtime,
     });
     session.connect();
     return session;

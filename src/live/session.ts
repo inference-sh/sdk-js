@@ -12,7 +12,7 @@
  */
 import type { SocketAccess } from '../types.js';
 import type { TaskWatch as TasksWatch } from '../api/tasks.js';
-import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES } from './protocol.js';
+import { CLEAR_KEY, ERROR_KEY, REDIAL_CODES, RELAY_KEY } from './protocol.js';
 import { binaryLiveField, splitLiveSchema, type JsonSchema } from './schema.js';
 
 export type LiveState = 'connecting' | 'waiting' | 'live' | 'ended';
@@ -80,6 +80,8 @@ export interface WebSocketLike {
   onclose: ((event: { code: number; reason: string }) => void) | null;
   send(data: string | ArrayBuffer | ArrayBufferView): void;
   close(code?: number, reason?: string): void;
+  /** Bytes queued and not yet sent; browsers and `ws` have it. */
+  readonly bufferedAmount?: number;
 }
 
 export type WebSocketConstructor = new (url: string) => WebSocketLike;
@@ -103,7 +105,31 @@ export interface LiveSessionOptions {
   inputSchema?: JsonSchema | null;
   /** The function's output schema: frames arrive at onUpdate as fields. */
   outputSchema?: JsonSchema | null;
+  /**
+   * The binary frames sent are live media, a microphone: perishable, so late
+   * is worse than lost. The session then holds them until the app can read
+   * them (the relay says the socket paired, or the app's first frame
+   * arrives), keeping only the newest few, and drops a frame rather than
+   * queue it behind a full send buffer. Leave it off for binary data that
+   * must all arrive (a file sent in chunks).
+   */
+  realtime?: boolean | RealtimeOptions;
 }
+
+export interface RealtimeOptions {
+  /** Binary frames kept while the app cannot read yet, newest first (default 10: 200 ms of 20 ms frames). */
+  holdFrames?: number;
+  /** Bytes the WebSocket may have queued before a binary frame is dropped (default 8192: about 250 ms of 16 kHz audio). */
+  maxBufferedAmount?: number;
+  /**
+   * How long to wait, once open, for the relay to say it will report pairing.
+   * A relay that does not (an older one) is treated as today: frames go out
+   * once the socket is open. Default 1500 ms.
+   */
+  signalTimeoutMs?: number;
+}
+
+const REALTIME_DEFAULTS: Required<RealtimeOptions> = { holdFrames: 10, maxBufferedAmount: 8192, signalTimeoutMs: 1500 };
 
 const MAX_REDIALS = 5;
 
@@ -140,6 +166,12 @@ export class LiveSession {
   private readonly inputKnown: boolean;
   private readonly inputBinary: string | undefined;
   private resolveEnded!: (end: LiveEnd) => void;
+  private readonly realtime: Required<RealtimeOptions> | null;
+  /** Realtime: binary frames may go out now. Set per connection. */
+  private released = false;
+  private held: Array<ArrayBuffer | ArrayBufferView> = [];
+  private signalTimer: ReturnType<typeof setTimeout> | null = null;
+  private dropped = 0;
 
   /** Settles when the session has ended, however it ended. */
   readonly ended: Promise<LiveEnd>;
@@ -155,6 +187,7 @@ export class LiveSession {
     this.outputFields = new Set(Object.keys(options.outputSchema?.properties ?? {}));
     this.inputKnown = !!options.inputSchema;
     this.inputBinary = binaryLiveField(splitLiveSchema(options.inputSchema).live)?.key;
+    this.realtime = options.realtime ? { ...REALTIME_DEFAULTS, ...(options.realtime === true ? {} : options.realtime) } : null;
     this.ended = new Promise<LiveEnd>((resolve) => {
       this.resolveEnded = resolve;
     });
@@ -168,16 +201,37 @@ export class LiveSession {
     return this.ws?.readyState === WS_OPEN;
   }
 
+  /** Realtime: binary frames dropped, as stale (held past holdFrames) or behind a full send buffer. */
+  get droppedFrames(): number {
+    return this.dropped;
+  }
+
   /** Dials the relay. The session reports its progress through onState. */
   connect(): void {
     this.setState('connecting');
     this.watchTask();
-    const ws = new this.WebSocket(accessUrl(this.access));
+    // Realtime: ask the relay to say when the app is there (see release).
+    const ws = new this.WebSocket(accessUrl(this.access) + (this.realtime ? '&signals=paired' : ''));
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
+    this.released = false;
+    this.clearSignalTimer();
 
-    ws.onopen = () => this.setState('waiting');
+    ws.onopen = () => {
+      this.setState('waiting');
+      const realtime = this.realtime;
+      if (realtime) {
+        // A relay that reports pairing says so first thing. One that says
+        // nothing is an older relay: send as soon as open, as before.
+        this.signalTimer = setTimeout(() => {
+          this.signalTimer = null;
+          this.release();
+        }, realtime.signalTimeoutMs);
+      }
+    };
     ws.onmessage = (event) => {
+      if (typeof event.data === 'string' && this.relaySignal(event.data)) return;
+      this.release(); // the app is there: it reads what we send
       if (this.current !== 'live') {
         this.setState('live');
         this.task?.stop(); // the app is there; the task's fate now shows on the socket
@@ -188,6 +242,8 @@ export class LiveSession {
     ws.onclose = (event) => {
       if (this.ws !== ws) return;
       this.ws = null;
+      this.released = false;
+      this.clearSignalTimer();
       const waiting = this.current !== 'live';
       if (!this.closedByCaller && waiting && REDIAL_CODES.has(event.code) && this.redials < MAX_REDIALS) {
         this.redials += 1;
@@ -196,6 +252,38 @@ export class LiveSession {
       }
       this.end({ code: event.code, reason: event.reason, byCaller: this.closedByCaller, taskEnded: false });
     };
+  }
+
+  /**
+   * `{"$relay": "waiting" | "paired"}`, written by the relay itself to a
+   * client that dialed with ?signals=paired. True when the frame was one.
+   */
+  private relaySignal(text: string): boolean {
+    if (!text.startsWith(`{"${RELAY_KEY}"`)) return false;
+    let signal: unknown;
+    try {
+      signal = (JSON.parse(text) as Record<string, unknown>)[RELAY_KEY];
+    } catch {
+      return false;
+    }
+    if (signal === 'waiting') this.clearSignalTimer(); // it will say when it pairs: hold until then
+    else if (signal === 'paired') this.release();
+    return true;
+  }
+
+  /** Realtime: the app can read now. Sends the newest held frames and stops holding. */
+  private release(): void {
+    if (this.released) return;
+    this.released = true;
+    this.clearSignalTimer();
+    const held = this.held;
+    this.held = [];
+    for (const frame of held) this.sendBinary(frame);
+  }
+
+  private clearSignalTimer(): void {
+    if (this.signalTimer) clearTimeout(this.signalTimer);
+    this.signalTimer = null;
   }
 
   private deliverText(text: string): void {
@@ -288,7 +376,27 @@ export class LiveSession {
 
   /** One item of the input's binary live field. */
   sendBinary(data: ArrayBuffer | ArrayBufferView): void {
-    if (this.isOpen) this.ws!.send(data);
+    const realtime = this.realtime;
+    if (!realtime) {
+      if (this.isOpen) this.ws!.send(data);
+      return;
+    }
+    if (!this.released) {
+      // The app cannot read yet: keep the newest few, so what it hears
+      // first is what was just said, not what was said during its cold start.
+      this.held.push(data);
+      if (this.held.length > realtime.holdFrames) {
+        this.held.shift();
+        this.dropped += 1;
+      }
+      return;
+    }
+    if (!this.isOpen) return;
+    if ((this.ws!.bufferedAmount ?? 0) > realtime.maxBufferedAmount) {
+      this.dropped += 1; // the network is behind: this frame would arrive late
+      return;
+    }
+    this.ws!.send(data);
   }
 
   /**

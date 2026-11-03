@@ -399,3 +399,110 @@ describe('accessUrl', () => {
     expect(accessUrl({ url: 'wss://relay.test/sockets/s1?region=eu', token: 't' })).toBe('wss://relay.test/sockets/s1?region=eu&access_token=t');
   });
 });
+
+describe('LiveSession realtime', () => {
+  const frame = (n: number) => new Uint8Array([n]);
+  const sentBytes = (ws: FakeWebSocket) => ws.sent.filter((d) => d instanceof Uint8Array).map((d) => (d as Uint8Array)[0]);
+
+  afterEach(() => jest.useRealTimers());
+
+  it('asks the relay for the pairing signal, and only when realtime', () => {
+    start({ realtime: true });
+    expect(FakeWebSocket.dialed[0].url).toBe('wss://relay.test/sockets/sock-1?access_token=tok-1&signals=paired');
+    start();
+    expect(FakeWebSocket.dialed[1].url).toBe('wss://relay.test/sockets/sock-1?access_token=tok-1');
+  });
+
+  it('holds the microphone until the relay says the socket paired, then sends only the newest frames', () => {
+    const { session, states, patches, ws } = start({ realtime: { holdFrames: 3 } });
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    for (let n = 1; n <= 10; n++) session.sendBinary(frame(n)); // a cold start's worth of talking
+    expect(ws().sent).toEqual([]);
+
+    ws().message('{"$relay":"paired"}');
+    expect(sentBytes(ws())).toEqual([8, 9, 10]);
+    expect(session.droppedFrames).toBe(7);
+    session.sendBinary(frame(11));
+    expect(sentBytes(ws())).toEqual([8, 9, 10, 11]);
+
+    // The signals are the relay's, not the app's: no patch, not live yet.
+    expect(patches).toEqual([]);
+    expect(session.state).toBe('waiting');
+    ws().message('{"effect":"none"}');
+    expect(states.map((s) => s.state)).toEqual(['connecting', 'waiting', 'live']);
+  });
+
+  it("sends once the app's first frame arrives, even before a paired signal", () => {
+    const { session, ws } = start({ realtime: true });
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    session.sendBinary(frame(1));
+    ws().message('{"effect":"robot"}');
+    expect(sentBytes(ws())).toEqual([1]);
+  });
+
+  it('falls back to sending once open behind a relay that sends no signals', () => {
+    jest.useFakeTimers();
+    const { session, ws } = start({ realtime: { holdFrames: 2, signalTimeoutMs: 1000 } });
+    ws().open();
+    session.sendBinary(frame(1));
+    session.sendBinary(frame(2));
+    session.sendBinary(frame(3));
+    jest.advanceTimersByTime(999);
+    expect(ws().sent).toEqual([]);
+    // An app that waits to hear audio before it says anything still hears it.
+    jest.advanceTimersByTime(1);
+    expect(sentBytes(ws())).toEqual([2, 3]);
+    session.sendBinary(frame(4));
+    expect(sentBytes(ws())).toEqual([2, 3, 4]);
+  });
+
+  it('waits past the fallback for a relay that said it will signal', () => {
+    jest.useFakeTimers();
+    const { session, ws } = start({ realtime: { signalTimeoutMs: 1000 } });
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    session.sendBinary(frame(1));
+    jest.advanceTimersByTime(60_000); // a long cold start
+    expect(ws().sent).toEqual([]);
+    ws().message('{"$relay":"paired"}');
+    expect(sentBytes(ws())).toEqual([1]);
+  });
+
+  it('drops a frame rather than queue it behind a full send buffer', () => {
+    const { session, ws } = start({ realtime: { maxBufferedAmount: 100 } });
+    ws().open();
+    ws().message('{"$relay":"paired"}');
+    const socket = ws() as FakeWebSocket & { bufferedAmount: number };
+    socket.bufferedAmount = 500;
+    session.sendBinary(frame(1));
+    socket.bufferedAmount = 0;
+    session.sendBinary(frame(2));
+    session.sendPatch({ voice: 'eve' }); // patches are never dropped
+    expect(ws().sent).toEqual([frame(2), '{"voice":"eve"}']);
+    expect(session.droppedFrames).toBe(1);
+  });
+
+  it('holds again after a redial until the new socket pairs', async () => {
+    const renew = jest.fn(async () => access(2));
+    const { session, ws } = start({ realtime: true, renew });
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    ws().serverClose(1012, 'restarting');
+    await tick();
+    ws().open();
+    ws().message('{"$relay":"waiting"}');
+    session.sendBinary(frame(1));
+    expect(ws().sent).toEqual([]);
+    ws().message('{"$relay":"paired"}');
+    expect(sentBytes(ws())).toEqual([1]);
+  });
+
+  it('sends binary as before without realtime', () => {
+    const { session, ws } = start();
+    ws().open();
+    session.sendBinary(frame(1));
+    expect(sentBytes(ws())).toEqual([1]);
+  });
+});

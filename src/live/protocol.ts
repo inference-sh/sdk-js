@@ -18,6 +18,13 @@ export const CLEAR_KEY = '$clear';
 export const ERROR_KEY = '$error';
 
 /**
+ * `{"$relay": "waiting" | "paired"}`: written by the relay, not the app, to a
+ * client that dialed with `?signals=paired`. "waiting" on attach says this
+ * relay reports pairing; "paired" says the worker is there.
+ */
+export const RELAY_KEY = '$relay';
+
+/**
  * Relay close codes that mean "dial again". 1012: the relay is restarting and
  * closed an end that still waited for its peer. 1013: the peer did not come in
  * time. Neither means anything once frames have flowed.
