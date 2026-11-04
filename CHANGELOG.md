@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ErrorCodePublishQuarantined` (`publish_quarantined`, 403): a new account (younger than 72 h), an account with an unverified email, or a flagged account may not publish publicly or as unlisted. Meta is `PublishQuarantinedMeta` (resource, visibility, reason, optional until).
+- `PublishQuarantineReason` (`new_account` | `unverified_email` | `flagged`) and its three constants: `PublishQuarantineNewAccount`, `PublishQuarantineUnverifiedEmail`, `PublishQuarantineFlagged`.
+- `ArtifactAssetListResponse.total_bytes` / `.budget_bytes`: the bytes currently used by the artifact's assets and the per-artifact upload ceiling.
+
 ## [0.38.0] - 2026-10-29
 
 ### Changed
