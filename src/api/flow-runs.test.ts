@@ -123,12 +123,12 @@ describe('FlowRunsAPI', () => {
   });
 
   it('should POST visibility for updateVisibility()', async () => {
-    const flowRun = { id: 'fr-1', visibility: 'public' };
+    const flowRun = { id: 'fr-1', visibility: 'team' };
     mockJsonResponse(flowRun);
 
-    await api().updateVisibility('fr-1', 'public');
+    await api().updateVisibility('fr-1', 'team');
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
   });
 });

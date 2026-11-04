@@ -917,14 +917,14 @@ describe('TasksAPI (CRUD and admin)', () => {
   });
 
   it('should POST visibility for updateVisibility()', async () => {
-    const task = makeTask({ visibility: 'public' });
+    const task = makeTask({ visibility: 'team' });
     mockJsonResponse(task);
 
-    const result = await api().updateVisibility('task-1', 'public');
+    const result = await api().updateVisibility('task-1', 'team');
 
     expect(result.data).toEqual(task);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
+    expect(JSON.parse(init.body as string)).toEqual({ visibility: 'team' });
   });
 
   it('should POST is_featured for feature()', async () => {
