@@ -3287,7 +3287,8 @@ export type EngineCapability =
   | "sandboxes"
   | "capacity"
   | "egress_pending"
-  | "egress_grants";
+  | "egress_grants"
+  | "egress_decide";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3321,6 +3322,14 @@ export const EngineCapabilityEgressPending: EngineCapability = "egress_pending";
  * an engine (INF-1173).
  */
 export const EngineCapabilityEgressGrants: EngineCapability = "egress_grants";
+/**
+ * EngineCapabilityEgressDecide: the engine's gateway reports what it
+ * saw on a request (EgressResolveRequest.Observed) and carries out the
+ * API's answer, every time in it included (HoldUntil, HoldOffMs,
+ * MaxHoldMs, Resend, the retry status); it wakes held requests on
+ * egress_answer and acks egress_revoke (INF-1173).
+ */
+export const EngineCapabilityEgressDecide: EngineCapability = "egress_decide";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
