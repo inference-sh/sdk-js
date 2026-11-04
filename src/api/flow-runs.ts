@@ -73,7 +73,9 @@ export class FlowRunsAPI {
   }
 
   /**
-   * Set who can see a flow run: `private`, `team`, `unlisted` or `public`.
+   * Set who can see a flow run: `private` or `team`.
+   * Flow runs do not support `org`, `public` or `unlisted` visibility —
+   * the server returns `visibility_not_allowed` if those are sent.
    * This is the one change a caller can make to a run.
    */
   async updateVisibility(flowRunId: string, visibility: string): Promise<Response<FlowRun>> {
