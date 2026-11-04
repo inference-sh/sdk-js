@@ -60,7 +60,7 @@
         "apps:execute"
       ],
       "also": [
-        "engines:write"
+        "engine_self"
       ]
     },
     {
@@ -205,7 +205,7 @@
         "billing:read",
         "conversations:read",
         "credentials:read",
-        "engines:write",
+        "engine_self",
         "knowledge:read",
         "remotes:read",
         "remotes:write",
