@@ -3560,6 +3560,7 @@ export type ErrorCode =
   | "last_owner"
   | "account_deactivated"
   | "account_banned"
+  | "publish_quarantined"
   | "person_required"
   | "otp_required"
   | "requires_sign_in"
@@ -3674,6 +3675,13 @@ export const ErrorCodeLastOwner: ErrorCode = "last_owner";
  */
 export const ErrorCodeAccountDeactivated: ErrorCode = "account_deactivated";
 export const ErrorCodeAccountBanned: ErrorCode = "account_banned";
+/**
+ * ErrorCodePublishQuarantined (403): the account may not make the row
+ * public or unlisted yet: it is new (younger than 72 hours), its email
+ * is not verified, or it is flagged (abuse.CheckPublish). Meta is
+ * PublishQuarantinedMeta; Until says from when a new account can.
+ */
+export const ErrorCodePublishQuarantined: ErrorCode = "publish_quarantined";
 /**
  * ErrorCodePersonRequired (403): only a person may do this, and the
  * caller is a workspace's service account (a workspace API key), or the
@@ -3880,6 +3888,35 @@ export interface ScopeRefusedMeta {
 export interface PaymentMethodRequiredMeta {
   bounty_id?: string;
   billing_page: string;
+}
+/**
+ * PublishQuarantineReason is why an account may not publish yet
+ * (PublishQuarantinedMeta).
+ */
+export type PublishQuarantineReason = "new_account" | "unverified_email" | "flagged";
+/**
+ * PublishQuarantineNewAccount: the account is younger than the
+ * quarantine (72 hours by default); Until is when it ends.
+ */
+export const PublishQuarantineNewAccount: PublishQuarantineReason = "new_account";
+/**
+ * PublishQuarantineUnverifiedEmail: the account's email is not verified.
+ */
+export const PublishQuarantineUnverifiedEmail: PublishQuarantineReason = "unverified_email";
+/**
+ * PublishQuarantineFlagged: the account is banned or flagged.
+ */
+export const PublishQuarantineFlagged: PublishQuarantineReason = "flagged";
+/**
+ * PublishQuarantinedMeta is the meta of a publish_quarantined error: the
+ * resource and visibility refused, why, and for a new account from when
+ * it may publish.
+ */
+export interface PublishQuarantinedMeta {
+  resource: string;
+  visibility: Visibility;
+  reason: PublishQuarantineReason;
+  until?: string /* RFC3339 */;
 }
 /**
  * FileMetadata holds probed media metadata cached on File records.
