@@ -72,6 +72,11 @@ export interface AgentTool {
   mcp?: MCPToolConfig;
   client?: ClientToolConfig;
   internal?: InternalToolConfig;
+  /**
+   * ContentTier overrides the tier the tool-result guard reads this
+   * tool's output at; empty is the tool type's.
+   */
+  content_tier?: ContentTier;
 }
 /**
  * InternalToolConfig contains configuration for internal/built-in tools
@@ -119,6 +124,7 @@ export interface AgentToolDTO {
   type: ToolType;
   require_approval?: boolean;
   approval_timeout?: number /* int */;
+  content_tier?: ContentTier;
   app?: AppToolConfigDTO;
   agent?: AgentToolConfigDTO;
   hook?: HookToolConfigDTO;
@@ -328,6 +334,11 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
   /**
+   * ContentGuard is the agent's tool-result guard; absent is the
+   * platform's mode.
+   */
+  content_guard?: ContentGuardConfig;
+  /**
    * VisitorReads is the scope groups of the team's resources (knowledge,
    * files, artifacts, remotes) a visitor of an embed of this version can
    * have it read by id, beyond what it configures by name. Set when the
@@ -381,6 +392,7 @@ export interface AgentConfigInput {
   permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
+  content_guard?: ContentGuardConfig;
 }
 /**
  * CoreAppConfigInput is the API input shape for core app configuration.
@@ -2775,6 +2787,57 @@ export interface ConnectTokens {
   RefreshToken: SensitiveString;
   ExpiresAt?: string /* RFC3339 */;
 }
+/**
+ * ContentGuardMode is what the tool-result guard does with what it finds in
+ * a tool's result before the agent reads it.
+ */
+export type ContentGuardMode = "shadow" | "off" | "annotate" | "strict";
+/**
+ * ContentGuardShadow scans and logs; the agent reads the result as the
+ * tool returned it. The default.
+ */
+export const ContentGuardShadow: ContentGuardMode = "shadow";
+/**
+ * ContentGuardOff does nothing.
+ */
+export const ContentGuardOff: ContentGuardMode = "off";
+/**
+ * ContentGuardAnnotate frames third-party and content results as
+ * untrusted data, notes findings under the frame's header, and judges
+ * without waiting (a flag found later taints the run).
+ */
+export const ContentGuardAnnotate: ContentGuardMode = "annotate";
+/**
+ * ContentGuardStrict is annotate with the judge waited for, and a judge
+ * that does not answer in time read as a flag.
+ */
+export const ContentGuardStrict: ContentGuardMode = "strict";
+/**
+ * ContentGuardConfig is an agent's tool-result guard (content_guard).
+ */
+export interface ContentGuardConfig {
+  /**
+   * Mode: shadow (default), off, annotate or strict. Empty is the
+   * platform's (content_guard.mode, itself shadow by default).
+   */
+  mode?: ContentGuardMode;
+  /**
+   * IgnoreRules are rule ids not to apply (INF-PI-005 for an agent whose
+   * job is reading Slack mentions).
+   */
+  ignore_rules?: string[];
+}
+/**
+ * ContentTier is how far a tool's output is from the agent's operator:
+ * internal (the platform wrote it from the operator's own data), content
+ * (the operator's stored content others may have written into) or
+ * third_party (an app, an MCP server, an HTTP endpoint, a client, another
+ * agent).
+ */
+export type ContentTier = "internal" | "content" | "third_party";
+export const ContentTierInternal: ContentTier = "internal";
+export const ContentTierContent: ContentTier = "content";
+export const ContentTierThirdParty: ContentTier = "third_party";
 /**
  * CredentialDTO is the API response for a credential (never exposes secrets).
  */
