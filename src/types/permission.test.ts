@@ -4,6 +4,7 @@ import {
   PermWrite,
   PermInteract,
   PermUse,
+  PermInspect,
   type Permission,
 } from '../types.js';
 
@@ -14,13 +15,20 @@ describe('Permission constants (ba41d0a)', () => {
   });
 
   it('keeps Permission string literals stable', () => {
-    const perms: Permission[] = [PermRead, PermWrite, PermInteract, PermUse];
-    expect(perms).toEqual(['read', 'write', 'interact', 'use']);
+    const perms: Permission[] = [
+      PermRead,
+      PermWrite,
+      PermInteract,
+      PermUse,
+      PermInspect,
+    ];
+    expect(perms).toEqual(['read', 'write', 'interact', 'use', 'inspect']);
   });
 
   it('exports all Permission constants from the main barrel', () => {
     expect(main.PermRead).toBe('read');
     expect(main.PermWrite).toBe('write');
     expect(main.PermUse).toBe('use');
+    expect(main.PermInspect).toBe('inspect');
   });
 });
