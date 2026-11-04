@@ -3555,6 +3555,7 @@ export type ErrorCode =
   | "requirements_not_met"
   | "team_role_required"
   | "in_other_workspace"
+  | "visibility_not_allowed"
   | "blocked_by_usage_policy"
   | "last_owner"
   | "account_deactivated"
@@ -3648,6 +3649,13 @@ export const ErrorCodeTeamRoleRequired: ErrorCode = "team_role_required";
  * the caller belongs to and could open there (InOtherWorkspaceMeta).
  */
 export const ErrorCodeInOtherWorkspace: ErrorCode = "in_other_workspace";
+/**
+ * ErrorCodeVisibilityNotAllowed (400): the resource cannot take the
+ * visibility asked for (models.VisibilityDeclarer): a task, a flow run
+ * or an engine is private or team, never org, public or unlisted.
+ * Meta is VisibilityNotAllowedMeta.
+ */
+export const ErrorCodeVisibilityNotAllowed: ErrorCode = "visibility_not_allowed";
 /**
  * ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
  * usage policy. The message names who to ask.
@@ -3847,6 +3855,15 @@ export interface TeamRoleRequiredMeta {
  */
 export interface InOtherWorkspaceMeta {
   team_id: string;
+}
+/**
+ * VisibilityNotAllowedMeta is the meta of a visibility_not_allowed error:
+ * the resource, the visibility refused and the ones it may take.
+ */
+export interface VisibilityNotAllowedMeta {
+  resource: string;
+  visibility: Visibility;
+  allowed: Visibility[];
 }
 /**
  * ScopeRefusedMeta is the meta of an insufficient_scope or
