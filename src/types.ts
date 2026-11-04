@@ -3513,6 +3513,7 @@ export type ErrorCode =
   | "app_retired"
   | "app_maintenance"
   | "invalid_transition"
+  | "maintenance"
   | "SESSION_NOT_FOUND"
   | "SESSION_EXPIRED"
   | "SESSION_ENDED"
@@ -3710,6 +3711,12 @@ export const ErrorCodeCodeConfirmationRequired: ErrorCode = "code_confirmation_r
 export const ErrorCodeAppRetired: ErrorCode = "app_retired";
 export const ErrorCodeAppMaintenance: ErrorCode = "app_maintenance";
 export const ErrorCodeInvalidTransition: ErrorCode = "invalid_transition";
+/**
+ * Maintenance (503, Retry-After): the platform is draining for
+ * maintenance (platform.maintenance) and the route starts new work.
+ * The message is the operator's; meta is MaintenanceMeta.
+ */
+export const ErrorCodeMaintenance: ErrorCode = "maintenance";
 /**
  * Session-bound runs. SessionNotFound (404), SessionExpired and
  * SessionEnded (410), WorkerLeased, AppMismatch and VersionMismatch
