@@ -710,6 +710,16 @@ export interface AdminElevateResponse {
   ttl_seconds: number /* int */;
 }
 /**
+ * AdminPowerWithheld is why a browser sign-in that proved an authenticator
+ * holds no admin power here: expired (the elevation window ended),
+ * other_client (the power is held by a different client on the same session),
+ * or wrong_origin (the request came from an origin other than the admin URL).
+ */
+export type AdminPowerWithheld = "expired" | "other_client" | "wrong_origin";
+export const AdminPowerWithheldExpired: AdminPowerWithheld = "expired";
+export const AdminPowerWithheldOtherClient: AdminPowerWithheld = "other_client";
+export const AdminPowerWithheldWrongOrigin: AdminPowerWithheld = "wrong_origin";
+/**
  * AdminElevationStatus is GET /device/auth/elevate: whether the calling
  * session carries an admin elevation, and until when.
  */
@@ -724,7 +734,7 @@ export interface AdminElevationStatus {
    */
   admin_power: boolean;
   admin_power_until?: string /* RFC3339 */;
-  admin_power_withheld?: string;
+  admin_power_withheld?: AdminPowerWithheld;
 }
 /**
  * AdminElevationDropResponse is DELETE /device/auth/elevate. Dropped is
