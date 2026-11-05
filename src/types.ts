@@ -3293,6 +3293,23 @@ export interface WorkerDTO extends BaseModelDTO {
   app_id: string;
   app_version_id: string;
   active_session_id?: string;
+  /**
+   * Kind is "app" for a sized app worker (INF-1159), made when a run was
+   * placed and kept while warm; empty for a slot the engine registered.
+   */
+  kind?: WorkerKind;
+  /**
+   * VCPUs, MemoryMiB and MemoryLimitMiB are a sized app worker's request
+   * and memory cap (WorkerSize); 0 on a slot.
+   */
+  vcpus?: number /* int */;
+  memory_mib?: number /* int64 */;
+  memory_limit_mib?: number /* int64 */;
+  /**
+   * MemoryDeclaredMiB is what the app declared when the request was
+   * capped below it (workers.max_app_ram_mib); 0 when not capped.
+   */
+  memory_declared_mib?: number /* int64 */;
   gpus?: WorkerGPU[];
   cpus?: WorkerCPU[];
   rams?: WorkerRAM[];
@@ -3361,7 +3378,9 @@ export type EngineCapability =
   | "capacity"
   | "egress_pending"
   | "egress_grants"
-  | "egress_decide";
+  | "egress_decide"
+  | "sized_sandboxes"
+  | "sized_workers";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3404,6 +3423,25 @@ export const EngineCapabilityEgressGrants: EngineCapability = "egress_grants";
  */
 export const EngineCapabilityEgressDecide: EngineCapability = "egress_decide";
 /**
+ * EngineCapabilitySizedSandboxes: the engine runs a sandbox's box that
+ * holds no worker, sized by the start, and refuses one it has no room
+ * for (SandboxBoxReasonNoRoom). The API then places sandboxes there by
+ * size, against the engine's capacity, instead of leasing a worker
+ * (INF-1158).
+ */
+export const EngineCapabilitySizedSandboxes: EngineCapability = "sized_sandboxes";
+/**
+ * EngineCapabilitySizedWorkers: the engine registers no CPU slots
+ * (EngineRegisterRequest.SizedWorkers) and makes a CPU app worker when a
+ * run is dispatched to one it does not have, sized by the dispatch
+ * (WsTaskRunPayload.Worker): its vCPUs as the CPU quota, its memory
+ * limit as the cgroup cap. It refuses one it has no room for
+ * (RejectionNoRoom), ends one on worker_release, and its committed_apps
+ * counts its slot (GPU) workers only. The API then places CPU app runs
+ * there by size, against the engine's capacity (INF-1159).
+ */
+export const EngineCapabilitySizedWorkers: EngineCapability = "sized_workers";
+/**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
  */
@@ -3432,6 +3470,14 @@ export interface EngineCapacity {
   reserve: CapacityAmount;
   allocatable: CapacityAmount;
   committed: CapacityAmount;
+  /**
+   * CommittedApps is the apps' part of Committed: the CPU quota of the
+   * workers running an app and the memory their containers use. Workers
+   * are slots registered ahead of time, so an idle one holds nothing
+   * until it runs something (INF-1159 gives apps real requests). Sized
+   * sandbox placement adds the boxes the API placed to it.
+   */
+  committed_apps: CapacityAmount;
   used: CapacityAmount;
 }
 /**
@@ -7792,6 +7838,14 @@ export const WorkerStatusReserved: WorkerStatus = "reserved";
 export const WorkerStatusBusy: WorkerStatus = "busy";
 export const WorkerStatusIdle: WorkerStatus = "idle";
 export const WorkerStatusInactive: WorkerStatus = "inactive";
+/**
+ * WorkerKind is what a worker row is (INF-1156). Empty is a slot an engine
+ * registered ahead of time; app is a sized live reservation for CPU app
+ * runs, made when a run is placed and kept while warm (INF-1159).
+ */
+export type WorkerKind = "" | "app";
+export const WorkerKindSlot: WorkerKind = "";
+export const WorkerKindApp: WorkerKind = "app";
 export type FlowRunStatus = number /* int */;
 export const FlowRunStatusUnknown: FlowRunStatus = 0;
 export const FlowRunStatusPending: FlowRunStatus = 1;
@@ -8608,6 +8662,8 @@ export type EntitlementResource =
   | "seats"
   | "triggers"
   | "retention_days"
+  | "sandboxes"
+  | "sandbox_vcpus"
   | "private_apps"
   | "task_executions"
   | "feature:byok"
@@ -8633,6 +8689,12 @@ export const ResourceRatePerMin: EntitlementResource = "rate_per_min";
 export const ResourceSeats: EntitlementResource = "seats";
 export const ResourceTriggers: EntitlementResource = "triggers";
 export const ResourceRetentionDays: EntitlementResource = "retention_days";
+/**
+ * Sandboxes a team may hold placed at once, and their vCPUs together
+ * (INF-1158). No row: the platform default (setting sandboxes.placement).
+ */
+export const ResourceSandboxes: EntitlementResource = "sandboxes";
+export const ResourceSandboxVCPUs: EntitlementResource = "sandbox_vcpus";
 /**
  * Legacy — kept for DB compatibility, no longer in plan seeds
  */
