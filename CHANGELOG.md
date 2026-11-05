@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Generated types for sized workers and reservation pricing (INF-1156/1158/1159): `WorkerKind` (`""` for a registered slot, `"app"` for a sized live reservation), `WorkerKindSlot` and `WorkerKindApp` constants; `WorkerDTO.kind`, `WorkerDTO.vcpus`, `WorkerDTO.memory_mib`, `WorkerDTO.memory_limit_mib`, `WorkerDTO.memory_declared_mib` (zero on a slot). `EngineCapability` gains `"capacity"` (`EngineCapabilityCapacity`), `"sized_sandboxes"` (`EngineCapabilitySizedSandboxes`) and `"sized_workers"` (`EngineCapabilitySizedWorkers`). `EngineCapacity` (cpus, memory, disk, reserve, allocatable, committed, committed_apps, used), `CapacityAmount` and `CapacityGPU` interfaces; `EngineDTO.capacity` holds the last reported value. `ResourceSandboxes` and `ResourceSandboxVCPUs` entitlement resources gate sandbox placement count and vCPU total.
+
 ## [0.38.0] - 2026-10-29
 
 ### Changed
