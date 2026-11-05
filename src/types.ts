@@ -716,10 +716,20 @@ export interface AdminElevateResponse {
 export interface AdminElevationStatus {
   elevated: boolean;
   admin_until?: string /* RFC3339 */;
+  /**
+   * AdminPower: a staff browser sign-in holds platform power on this
+   * request, until AdminPowerUntil (INF-1190). AdminPowerWithheld says
+   * why one that proved an authenticator holds none here: expired,
+   * other_client or wrong_origin.
+   */
+  admin_power: boolean;
+  admin_power_until?: string /* RFC3339 */;
+  admin_power_withheld?: string;
 }
 /**
  * AdminElevationDropResponse is DELETE /device/auth/elevate. Dropped is
- * false when the session held no elevation.
+ * false when the session held no elevation (a CLI login) or no staff power
+ * or admin action window (a browser sign-in).
  */
 export interface AdminElevationDropResponse {
   elevated: boolean;
@@ -3575,6 +3585,7 @@ export type ErrorCode =
   | "same_admin_required"
   | "browser_session_required"
   | "invalid_ttl"
+  | "admin_origin_required"
   | "admin_authenticator_required"
   | "last_authenticator"
   | "limit_exceeded"
@@ -3728,7 +3739,7 @@ export const ErrorCodeMCPAuthExpired: ErrorCode = "mcp_auth_expired";
  * grants one, and only the person's own browser sign-in changes how the
  * account is signed into (authenticator enrollment, RequireBrowserSession).
  * InvalidTTL (400): the elevation asked for a window outside
- * models.AdminElevationMinTTL..AdminElevationMaxTTL.
+ * models.AdminElevationMinTTL..admin.elevation.max_ttl.
  * AdminScopesNotApproved (403): a platform admin's CLI login was approved
  * with a scope list that does not name the admin scopes, so it can't be
  * elevated: log in again approving them, then elevate.
@@ -3740,6 +3751,12 @@ export const ErrorCodeAdminRequired: ErrorCode = "admin_required";
 export const ErrorCodeSameAdminRequired: ErrorCode = "same_admin_required";
 export const ErrorCodeBrowserSessionRequired: ErrorCode = "browser_session_required";
 export const ErrorCodeInvalidTTL: ErrorCode = "invalid_ttl";
+/**
+ * AdminOriginRequired (403): a staff browser sign-in's power is used
+ * only from the admin origin (ADMIN_URL), never from the app where user
+ * content renders, a frame or another site (INF-1190).
+ */
+export const ErrorCodeAdminOriginRequired: ErrorCode = "admin_origin_required";
 /**
  * AdminAuthenticatorRequired (403): a platform admin without an
  * authenticator app (TOTP) enrolled. Admin power needs one; until it is
