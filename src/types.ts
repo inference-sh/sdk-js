@@ -6673,6 +6673,74 @@ export interface A2UISurface {
   dataModel?: any;
 }
 /**
+ * DeadRunReason is why an ended agent run counts as dead: what happened.
+ * Who caused it (DeadRunSource) follows from it (ClassifyDeadRun); it is
+ * never set on its own.
+ */
+export type DeadRunReason =
+  | "model_stopped_early"
+  | "model_empty_reply"
+  | "model_output_limit"
+  | "model_refused"
+  | "provider_error"
+  | "no_progress"
+  | "platform_error";
+/**
+ * DeadRunReasonModelStoppedEarly: the agent owes its output through
+ * finish and the model ended its turn with text or reasoning and no tool
+ * call.
+ */
+export const DeadRunReasonModelStoppedEarly: DeadRunReason = "model_stopped_early";
+/**
+ * DeadRunReasonModelEmptyReply: the agent owes its output through finish
+ * and the model ended its turn with no content.
+ */
+export const DeadRunReasonModelEmptyReply: DeadRunReason = "model_empty_reply";
+/**
+ * DeadRunReasonModelOutputLimit: the agent owes its output through
+ * finish and the model's turn was cut at its output token limit.
+ */
+export const DeadRunReasonModelOutputLimit: DeadRunReason = "model_output_limit";
+/**
+ * DeadRunReasonModelRefused: the agent owes its output through finish
+ * and the provider's safety system refused the turn of a run a trigger
+ * started.
+ */
+export const DeadRunReasonModelRefused: DeadRunReason = "model_refused";
+/**
+ * DeadRunReasonProviderError: the model call failed: the provider's or
+ * engine's error, a timeout, or the error a remote harness reported.
+ */
+export const DeadRunReasonProviderError: DeadRunReason = "provider_error";
+/**
+ * DeadRunReasonNoProgress: the platform ended a run that went quiet, or
+ * a run a trigger started that was still working past its bound.
+ */
+export const DeadRunReasonNoProgress: DeadRunReason = "no_progress";
+/**
+ * DeadRunReasonPlatformError: the run failed for the platform's own
+ * reasons: storage, dispatch, a turn that could not start, a harness
+ * session or remote lost.
+ */
+export const DeadRunReasonPlatformError: DeadRunReason = "platform_error";
+/**
+ * DeadRunSource is who caused a dead agent run.
+ */
+export type DeadRunSource = "model" | "provider" | "platform";
+/**
+ * DeadRunSourceModel: the model ended without the output it owed.
+ */
+export const DeadRunSourceModel: DeadRunSource = "model";
+/**
+ * DeadRunSourceProvider: the model's provider (or the engine running
+ * it) failed the call.
+ */
+export const DeadRunSourceProvider: DeadRunSource = "provider";
+/**
+ * DeadRunSourcePlatform: the platform failed or ended the run.
+ */
+export const DeadRunSourcePlatform: DeadRunSource = "platform";
+/**
  * ApiKeyScope is who an API key acts as, chosen when it is created, the way a
  * credential's scope says who owns it.
  */
