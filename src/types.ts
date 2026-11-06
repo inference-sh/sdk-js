@@ -471,7 +471,6 @@ export interface ApiAppRunRequest {
   session?: string;
   session_timeout?: number /* int */;
   run_at?: string;
-  metadata?: TaskMetadata;
 }
 /**
  * MessageInput is a message a caller sends to an agent: its text and the
@@ -9263,20 +9262,6 @@ export const TaskLogTypeRun: TaskLogType = 1;
 export const TaskLogTypeServe: TaskLogType = 2;
 export const TaskLogTypeSetup: TaskLogType = 3;
 export const TaskLogTypeTask: TaskLogType = 4;
-/**
- * TaskAction defines an action to execute when a task reaches a specific status.
- */
-export interface TaskAction {
-  key: string;
-  on: string;
-  params?: any;
-}
-/**
- * TaskMetadata holds optional metadata attached to a task.
- */
-export interface TaskMetadata {
-  action?: TaskAction;
-}
 export type TeamType = "personal" | "team" | "system" | "org";
 export const TeamTypePersonal: TeamType = "personal";
 export const TeamTypeTeam: TeamType = "team";
