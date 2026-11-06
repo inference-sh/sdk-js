@@ -49,6 +49,15 @@ describe('MCPServersAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should ask the server again for listTools() with refresh', async () => {
+    mockJsonResponse([]);
+
+    await api().listTools('filesystem', { refresh: true });
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).searchParams.get('refresh')).toBe('1');
+  });
+
   it('should POST /mcps/{slug}/tools/{tool} for callTool()', async () => {
     const input = { path: '/tmp/test.txt' };
     const output = { content: 'hello' };

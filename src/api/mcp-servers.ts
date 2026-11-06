@@ -28,10 +28,11 @@ export class MCPServersAPI {
   }
 
   /**
-   * List tools for an MCP server
+   * List tools for an MCP server. The API answers from the catalogue it
+   * recorded within the hour; refresh asks the server again.
    */
-  async listTools(slug: string): Promise<Response<unknown[]>> {
-    return this.http.request<unknown[]>('get', `/mcps/${slug}/tools`);
+  async listTools(slug: string, options?: { refresh?: boolean }): Promise<Response<unknown[]>> {
+    return this.http.request<unknown[]>('get', `/mcps/${slug}/tools`, options?.refresh ? { params: { refresh: 1 } } : {});
   }
 
   /**

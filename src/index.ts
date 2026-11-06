@@ -57,6 +57,7 @@ export { CredentialsAPI } from './api/credentials.js';
 export { SearchAPI } from './api/search.js';
 export { ProjectsAPI } from './api/projects.js';
 export { MCPServersAPI } from './api/mcp-servers.js';
+export { SandboxesAPI } from './api/sandboxes.js';
 
 // Live: the socket of a stream task and the live fields of its schemas
 export { LiveSession, accessUrl } from './live/session.js';
@@ -151,6 +152,7 @@ import { CredentialsAPI } from './api/credentials.js';
 import { SearchAPI } from './api/search.js';
 import { ProjectsAPI } from './api/projects.js';
 import { MCPServersAPI } from './api/mcp-servers.js';
+import { SandboxesAPI } from './api/sandboxes.js';
 import { ApiAppRunRequest, TaskDTO as Task, AgentConfigInput as AgentConfig, FileDTO as File } from './types.js';
 
 export interface InferenceConfig {
@@ -209,6 +211,7 @@ export class Inference {
   readonly search: SearchAPI;
   readonly projects: ProjectsAPI;
   readonly mcpServers: MCPServersAPI;
+  readonly sandboxes: SandboxesAPI;
   readonly sockets: SocketsAPI;
 
   constructor(config: InferenceConfig | HttpClientConfig) {
@@ -244,6 +247,7 @@ export class Inference {
     this.search = new SearchAPI(this.http);
     this.projects = new ProjectsAPI(this.http);
     this.mcpServers = new MCPServersAPI(this.http);
+    this.sandboxes = new SandboxesAPI(this.http);
     this.sockets = new SocketsAPI(this.http, this.tasks);
   }
 
