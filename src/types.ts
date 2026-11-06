@@ -888,6 +888,13 @@ export interface CredentialCompleteOAuthRequest {
 export interface CredentialConnectResponse {
   credential?: CredentialDTO;
   auth_url?: string;
+  /**
+   * ConnectURL is a short link on our app that sends the person who
+   * started this connect on to AuthURL. A client that does not finish the
+   * flow in its own browser tab (a CLI, an agent) shows this one: the
+   * app's callback completes only a flow its browser started.
+   */
+  connect_url?: string;
   state?: string;
   code_verifier?: string;
   instructions?: string;
