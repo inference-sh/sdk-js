@@ -49,6 +49,8 @@ export type {
   TeamUpdateBody,
   MCPServerCreateBody,
   MCPServerUpdateBody,
+  PublicationCreateBody,
+  PublicationUpdateBody,
 } from './api/write-bodies.js';
 export { TeamsAPI } from './api/teams.js';
 export { SecretsAPI } from './api/secrets.js';
@@ -58,6 +60,7 @@ export { SearchAPI } from './api/search.js';
 export { ProjectsAPI } from './api/projects.js';
 export { MCPServersAPI } from './api/mcp-servers.js';
 export { SandboxesAPI } from './api/sandboxes.js';
+export { PublicationsAPI } from './api/publications.js';
 
 // Live: the socket of a stream task and the live fields of its schemas
 export { LiveSession, accessUrl } from './live/session.js';
@@ -153,6 +156,7 @@ import { SearchAPI } from './api/search.js';
 import { ProjectsAPI } from './api/projects.js';
 import { MCPServersAPI } from './api/mcp-servers.js';
 import { SandboxesAPI } from './api/sandboxes.js';
+import { PublicationsAPI } from './api/publications.js';
 import { ApiAppRunRequest, TaskDTO as Task, AgentConfigInput as AgentConfig, FileDTO as File } from './types.js';
 
 export interface InferenceConfig {
@@ -212,6 +216,7 @@ export class Inference {
   readonly projects: ProjectsAPI;
   readonly mcpServers: MCPServersAPI;
   readonly sandboxes: SandboxesAPI;
+  readonly publications: PublicationsAPI;
   readonly sockets: SocketsAPI;
 
   constructor(config: InferenceConfig | HttpClientConfig) {
@@ -248,6 +253,7 @@ export class Inference {
     this.projects = new ProjectsAPI(this.http);
     this.mcpServers = new MCPServersAPI(this.http);
     this.sandboxes = new SandboxesAPI(this.http);
+    this.publications = new PublicationsAPI(this.http);
     this.sockets = new SocketsAPI(this.http, this.tasks);
   }
 

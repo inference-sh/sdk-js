@@ -170,10 +170,20 @@ export class SkillsAPI {
   }
 
   /**
-   * Get skill content
+   * Get a skill's SKILL.md. The API answers with the markdown itself.
    */
-  async getContent(namespace: string, name: string): Promise<Response<unknown>> {
-    return this.http.request<unknown>('get', `/skills/${namespace}/${name}/content`);
+  async getContent(namespace: string, name: string): Promise<Response<string>> {
+    const response = await this.http.fetch(`/skills/${namespace}/${name}/content`);
+    return { data: await response.text(), messages: [] };
+  }
+
+  /**
+   * Get one of a skill's files by its path in the skill (e.g. "scripts/run.sh").
+   */
+  async getFile(namespace: string, name: string, path: string): Promise<Response<string>> {
+    const filePath = path.split('/').map(encodeURIComponent).join('/');
+    const response = await this.http.fetch(`/skills/${namespace}/${name}/files/${filePath}`);
+    return { data: await response.text(), messages: [] };
   }
 
   /**

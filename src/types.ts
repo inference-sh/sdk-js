@@ -5284,6 +5284,48 @@ export interface ProjectDTO extends BaseModelDTO, PermissionModelDTO {
   children: (ProjectDTO | undefined)[];
 }
 /**
+ * PublicationThemeColors defines the core colors for one mode (light or dark).
+ */
+export interface PublicationThemeColors {
+  primary: string;
+  secondary: string;
+  background: string;
+  text: string;
+  border?: string;
+}
+/**
+ * PublicationTheme defines branding colors for embedded UIs.
+ */
+export interface PublicationTheme {
+  light: PublicationThemeColors;
+  dark?: PublicationThemeColors;
+}
+/**
+ * PublicationDTO for API responses.
+ */
+export interface PublicationDTO extends BaseModelDTO, PermissionModelDTO {
+  resource_type: string;
+  resource_id: string;
+  namespace: string;
+  name: string;
+  /**
+   * Title is the human-readable name; empty falls back to Name.
+   */
+  title: string;
+  allowed_origins?: string[];
+  rate_limit_rpm?: number /* int */;
+  theme?: PublicationTheme;
+  label?: string;
+  enabled: boolean;
+  /**
+   * VisitorReads is the scope groups of the team's resources (knowledge,
+   * artifacts, files, remotes) a visitor can ask the published agent's
+   * current version to reach by id: what its built-in tools add to an
+   * embed run. Empty when its tools reach only what it names itself.
+   */
+  visitor_reads: ScopeGroup[];
+}
+/**
  * AccessNoticeDTO is the redlist's notice to a restricted caller, as a
  * refusal's meta.notice and /me's access_notice carry it.
  */
