@@ -182,6 +182,19 @@ describe('ChatsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ limit: 25 });
   });
 
+  it('should POST /chats/{id}/children/list for listChildren()', async () => {
+    const page = { items: [{ id: 'child-1', parent_id: 'chat-1' }], next_cursor: null };
+    mockJsonResponse(page);
+
+    const result = await api().listChildren('chat-1', { limit: 20, cursor: 'c2' });
+
+    expect(result.data).toEqual(page);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1/children/list');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ limit: 20, cursor: 'c2' });
+  });
+
   it('should GET /chats/{id} for get()', async () => {
     const chat = { id: 'chat-1', status: 'open' };
     mockJsonResponse(chat);

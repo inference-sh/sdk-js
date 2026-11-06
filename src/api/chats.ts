@@ -25,6 +25,14 @@ export class ChatsAPI {
   }
 
   /**
+   * List the sub-agent chats a chat delegated to, with cursor-based
+   * pagination. The chats list leaves them out.
+   */
+  async listChildren(chatId: string, params?: Partial<CursorListRequest>): Promise<Response<CursorListResponse<Chat>>> {
+    return this.http.request<CursorListResponse<Chat>>('post', `/chats/${chatId}/children/list`, { data: params });
+  }
+
+  /**
    * Get a chat by ID
    */
   async get(chatId: string): Promise<Response<Chat>> {
