@@ -6747,7 +6747,8 @@ export type DeadRunReason =
   | "model_refused"
   | "provider_error"
   | "no_progress"
-  | "platform_error";
+  | "platform_error"
+  | "owner_setup";
 /**
  * DeadRunReasonModelStoppedEarly: the agent owes its output through
  * finish and the model ended its turn with text or reasoning and no tool
@@ -6787,9 +6788,17 @@ export const DeadRunReasonNoProgress: DeadRunReason = "no_progress";
  */
 export const DeadRunReasonPlatformError: DeadRunReason = "platform_error";
 /**
+ * DeadRunReasonOwnerSetup: a turn could not start because of something
+ * the agent's owner has to fix: a missing secret or key, a credential
+ * without the scope the call needs, no balance or payment method, an
+ * agent with no model configured, an app outside the team's usage
+ * policy.
+ */
+export const DeadRunReasonOwnerSetup: DeadRunReason = "owner_setup";
+/**
  * DeadRunSource is who caused a dead agent run.
  */
-export type DeadRunSource = "model" | "provider" | "platform";
+export type DeadRunSource = "model" | "provider" | "platform" | "owner";
 /**
  * DeadRunSourceModel: the model ended without the output it owed.
  */
@@ -6803,6 +6812,10 @@ export const DeadRunSourceProvider: DeadRunSource = "provider";
  * DeadRunSourcePlatform: the platform failed or ended the run.
  */
 export const DeadRunSourcePlatform: DeadRunSource = "platform";
+/**
+ * DeadRunSourceOwner: the agent's owner has to fix its setup.
+ */
+export const DeadRunSourceOwner: DeadRunSource = "owner";
 /**
  * ApiKeyScope is who an API key acts as, chosen when it is created, the way a
  * credential's scope says who owns it.
