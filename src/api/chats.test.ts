@@ -10,6 +10,7 @@ import {
   GraphEdgeTypeSupersedes,
   GraphNodeStatusCompleted,
   GraphNodeTypeResource,
+  ChatOriginSubagent,
   InterruptReasonToolApproval,
 } from '../types.js';
 import { ChatsAPI } from './chats.js';
@@ -193,6 +194,31 @@ describe('ChatsAPI', () => {
     expect(url).toContain('/chats/chat-1/children/list');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 20, cursor: 'c2' });
+  });
+
+  it('should preserve parent_id and subagent origin on listChildren() items', async () => {
+    const page = {
+      items: [
+        {
+          id: 'child-1',
+          parent_id: 'chat-1',
+          origin: ChatOriginSubagent,
+          status: 'open',
+          name: 'Delegated',
+          description: '',
+          agent_data: {},
+          children: [],
+        },
+      ],
+      next_cursor: null,
+    };
+    mockJsonResponse(page);
+
+    const result = await api().listChildren('chat-1');
+
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0]?.parent_id).toBe('chat-1');
+    expect(result.data.items[0]?.origin).toBe(ChatOriginSubagent);
   });
 
   it('should GET /chats/{id} for get()', async () => {
