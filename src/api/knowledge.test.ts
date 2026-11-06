@@ -392,7 +392,7 @@ describe('SkillsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
-  it('should POST /skills/{id} for update()', async () => {
+  it('should PATCH /skills/{id} for update()', async () => {
     const skill = { id: 'skill-1', title: 'updated' };
     mockJsonResponse(skill);
 
