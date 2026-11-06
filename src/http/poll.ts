@@ -29,7 +29,13 @@ export interface PollManagerOptions<T> {
 }
 
 export class PollManager<T> {
-  private options: any;
+  private readonly pollFunction: () => Promise<T>;
+  private readonly intervalMs: number;
+  private readonly maxRetries: number;
+  private readonly onData?: (data: T) => void;
+  private readonly onError?: (error: Error) => void;
+  private readonly onStart?: () => void;
+  private readonly onStop?: (error?: Error) => void;
   private interval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private consecutiveErrors = 0;
@@ -37,12 +43,13 @@ export class PollManager<T> {
   private polling = false;
 
   constructor(options: PollManagerOptions<T>) {
-    this.options = {
-      intervalMs: 2000,
-      maxRetries: 5,
-      retryDelayMs: 1000,
-      ...options,
-    };
+    this.pollFunction = options.pollFunction;
+    this.intervalMs = options.intervalMs ?? 2000;
+    this.maxRetries = options.maxRetries ?? 5;
+    this.onData = options.onData;
+    this.onError = options.onError;
+    this.onStart = options.onStart;
+    this.onStop = options.onStop;
   }
 
   /** Start polling. First poll is immediate, then at intervalMs. */
@@ -50,9 +57,9 @@ export class PollManager<T> {
     if (!this.isStopped) return;
     this.isStopped = false;
     this.consecutiveErrors = 0;
-    this.options.onStart?.();
+    this.onStart?.();
     this.poll(); // immediate first poll
-    this.interval = setInterval(() => this.poll(), this.options.intervalMs);
+    this.interval = setInterval(() => this.poll(), this.intervalMs);
   }
 
   /** Stop polling and clean up. */
@@ -64,7 +71,7 @@ export class PollManager<T> {
     if (this.isStopped) return;
     this.isStopped = true;
     this.cleanup();
-    this.options.onStop?.(error);
+    this.onStop?.(error);
   }
 
   private cleanup(): void {
@@ -82,19 +89,19 @@ export class PollManager<T> {
     if (this.isStopped || this.polling) return;
     this.polling = true;
     try {
-      const data = await this.options.pollFunction();
+      const data = await this.pollFunction();
       this.polling = false;
       if (this.isStopped) return;
       this.consecutiveErrors = 0;
-      this.options.onData?.(data);
+      this.onData?.(data);
     } catch (err) {
       this.polling = false;
       if (this.isStopped) return;
       const error = err instanceof Error ? err : new Error(String(err));
       this.consecutiveErrors++;
-      this.options.onError?.(error);
+      this.onError?.(error);
 
-      if (this.consecutiveErrors >= this.options.maxRetries) {
+      if (this.consecutiveErrors >= this.maxRetries) {
         this.halt(error);
       }
     }
