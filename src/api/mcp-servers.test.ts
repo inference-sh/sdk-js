@@ -58,6 +58,21 @@ describe('MCPServersAPI', () => {
     expect(new URL(url).searchParams.get('refresh')).toBe('1');
   });
 
+  it('should omit refresh query param for listTools() when refresh is false or omitted', async () => {
+    mockJsonResponse([]);
+
+    await api().listTools('filesystem', { refresh: false });
+    const [urlFalse] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(new URL(urlFalse).searchParams.has('refresh')).toBe(false);
+
+    jest.clearAllMocks();
+    mockJsonResponse([]);
+
+    await api().listTools('filesystem');
+    const [urlOmitted] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(new URL(urlOmitted).searchParams.has('refresh')).toBe(false);
+  });
+
   it('should POST /mcps/{slug}/tools/{tool} for callTool()', async () => {
     const input = { path: '/tmp/test.txt' };
     const output = { content: 'hello' };
