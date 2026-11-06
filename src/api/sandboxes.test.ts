@@ -12,10 +12,6 @@ function mockJsonResponse(body: unknown) {
   });
 }
 
-function lastCall(): [string, RequestInit] {
-  return mockFetch.mock.calls[0] as [string, RequestInit];
-}
-
 describe('SandboxesAPI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -30,7 +26,7 @@ describe('SandboxesAPI', () => {
     const result = await api().list({ limit: 1 });
 
     expect(result.data).toEqual(page);
-    const [url, init] = lastCall();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sandboxes/list');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ limit: 1 });
@@ -42,7 +38,7 @@ describe('SandboxesAPI', () => {
     const result = await api().get('sb-1');
 
     expect(result.data).toEqual({ id: 'sb-1', name: 'dev' });
-    const [url, init] = lastCall();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sandboxes/sb-1');
     expect(init.method).toBe('GET');
   });
@@ -52,7 +48,7 @@ describe('SandboxesAPI', () => {
 
     await api().create({ name: 'dev', vcpus: 4, credentials: [{ slug: 'github-app', mode: 'ask' }] });
 
-    const [url, init] = lastCall();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toMatch(/\/sandboxes$/);
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'dev', vcpus: 4, credentials: [{ slug: 'github-app', mode: 'ask' }] });
@@ -66,7 +62,7 @@ describe('SandboxesAPI', () => {
 
     await api()[method]('sb-1');
 
-    const [url, init] = lastCall();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain(path);
     expect(init.method).toBe('POST');
   });
@@ -76,7 +72,7 @@ describe('SandboxesAPI', () => {
 
     await api().delete('sb-1');
 
-    const [url, init] = lastCall();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sandboxes/sb-1');
     expect(init.method).toBe('DELETE');
   });
