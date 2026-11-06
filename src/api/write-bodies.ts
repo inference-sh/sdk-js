@@ -27,6 +27,7 @@ import type {
   KnowledgeDTO,
   MCPServerDTO,
   ProjectDTO,
+  PublicationDTO,
   TeamDTO,
   Visibility,
 } from '../types.js';
@@ -168,3 +169,21 @@ export interface MCPServerUpdateBody {
   documentation_url?: string;
   credentials?: CredentialRequirements;
 }
+
+/**
+ * POST /publications. What to publish (`resource_type`, e.g. "agent", and
+ * `resource_id`), where it may be embedded and how it looks. Namespace and
+ * name come from the resource; a new publication is enabled.
+ */
+export type PublicationCreateBody = Pick<PublicationDTO, 'resource_type' | 'resource_id'> &
+  Partial<
+    Pick<PublicationDTO, 'title' | 'allowed_origins' | 'rate_limit_rpm' | 'theme' | 'label' | 'visibility'>
+  >;
+
+/**
+ * PUT /publications/{id} writes the whole row: a field left out is cleared.
+ * PATCH (`publications.patch`) writes only the fields sent.
+ */
+export type PublicationUpdateBody = Partial<
+  Pick<PublicationDTO, 'title' | 'allowed_origins' | 'rate_limit_rpm' | 'theme' | 'label' | 'enabled'>
+>;

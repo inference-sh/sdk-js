@@ -307,15 +307,30 @@ describe('SkillsAPI', () => {
     expect(url).not.toContain('skill=');
   });
 
-  it('should GET /skills/{namespace}/{name}/content for getContent()', async () => {
-    mockJsonResponse({ body: '# Skill instructions' });
+  // The API answers /content and /files with the file itself, not JSON.
+  function mockTextResponse(body: string) {
+    mockFetch.mockResolvedValueOnce(new Response(body, { status: 200, headers: { 'Content-Type': 'text/markdown' } }));
+  }
+
+  it('should GET /skills/{namespace}/{name}/content as text for getContent()', async () => {
+    mockTextResponse('# Skill instructions');
 
     const result = await api().getContent('acme', 'research');
 
-    expect(result.data).toEqual({ body: '# Skill instructions' });
+    expect(result.data).toBe('# Skill instructions');
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/skills/acme/research/content');
-    expect(init.method).toBe('GET');
+    expect(init.method ?? 'GET').toBe('GET');
+  });
+
+  it('should GET /skills/{namespace}/{name}/files/{path} as text for getFile()', async () => {
+    mockTextResponse('#!/bin/sh\necho hi\n');
+
+    const result = await api().getFile('acme', 'research', 'scripts/run me.sh');
+
+    expect(result.data).toBe('#!/bin/sh\necho hi\n');
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/skills/acme/research/files/scripts/run%20me.sh');
   });
 
   it('should POST team_id for transferOwnership()', async () => {
