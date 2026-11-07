@@ -9,7 +9,12 @@ import {
   type DecisionOutput,
 } from '../types.js';
 import { TasksAPI } from './tasks.js';
-import { TaskCancelledError, TaskFailedError, isTaskCancelledError } from '../http/errors.js';
+import {
+  TaskCancelledError,
+  TaskFailedError,
+  isTaskCancelledError,
+  isTaskFailedError,
+} from '../http/errors.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -657,7 +662,10 @@ describe('TasksAPI.run (stream closes before the task is terminal)', () => {
   it('should reject with the task error when it failed meanwhile', async () => {
     setup(() => Promise.resolve(json(makeTask({ status: TaskStatusFailed, error: 'boom' }))));
 
-    await expect(api().run({ app: 'test-app', input: {} }, {}, { wait: true })).rejects.toThrow('boom');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+    await expect(run).rejects.toThrow('boom');
+    await expect(run).rejects.toBeInstanceOf(TaskFailedError);
+    await expect(run).rejects.toMatchObject({ task: { status: TaskStatusFailed, error: 'boom' } });
   });
 
   it('should reject when the task is still running', async () => {
@@ -687,6 +695,57 @@ describe('TasksAPI.run (stream closes before the task is terminal)', () => {
 
     expect(outcome).toBe('pending');
     expect(mockFetch.mock.calls.some(([url]) => String(url).endsWith('/tasks/task-1'))).toBe(false);
+  });
+});
+
+describe('TasksAPI.watch (polling mode)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const api = () =>
+    new TasksAPI(
+      new HttpClient({
+        apiKey: 'test-key',
+        stream: false,
+        pollIntervalMs: 20,
+      })
+    );
+
+  it('should reject watch().done with TaskFailedError when the task fails', async () => {
+    const failedTask = makeTask({ status: TaskStatusFailed, error: 'worker OOM' });
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusFailed });
+    mockJsonResponse(failedTask);
+
+    const watch = api().watch({ id: 'task-1', status: TaskStatusRunning }, { stream: false });
+    await expect(watch.done).rejects.toBeInstanceOf(TaskFailedError);
+    await expect(watch.done).rejects.toMatchObject({
+      task: { id: 'task-1', status: TaskStatusFailed, error: 'worker OOM' },
+    });
+    expect(isTaskFailedError(await watch.done.catch((e) => e))).toBe(true);
+  });
+
+  it('should reject watch().done with TaskCancelledError and partial output when cancelled after a result', async () => {
+    const cancelledTask = makeTask({
+      status: TaskStatusCancelled,
+      output: { text: 'partial' },
+    });
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCancelled });
+    mockJsonResponse(cancelledTask);
+
+    const onUpdate = jest.fn();
+    const watch = api().watch({ id: 'task-1', status: TaskStatusRunning }, { stream: false, onUpdate });
+
+    await expect(watch.done).rejects.toBeInstanceOf(TaskCancelledError);
+    const err = await watch.done.catch((e) => e);
+    expect(isTaskCancelledError(err)).toBe(true);
+    if (!isTaskCancelledError(err)) throw new Error('unreachable');
+    expect(err.task.output).toEqual({ text: 'partial' });
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: TaskStatusCancelled, output: { text: 'partial' } })
+    );
   });
 });
 

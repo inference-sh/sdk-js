@@ -129,6 +129,13 @@ describe('package export surface', () => {
       expect(main.PolicyKindWebFetch).toBe('WebFetch');
       expect(main.PolicyEffectDeny).toBe('deny');
     });
+
+    it('exports task outcome errors and type guards for run/watch rejection (v0.39 / 8be4814)', () => {
+      expect(main.TaskCancelledError).toEqual(expect.any(Function));
+      expect(main.TaskFailedError).toEqual(expect.any(Function));
+      expect(main.isTaskCancelledError).toEqual(expect.any(Function));
+      expect(main.isTaskFailedError).toEqual(expect.any(Function));
+    });
   });
 
   describe('internal upload module (@inferencesh/sdk/internal/upload)', () => {
