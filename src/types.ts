@@ -1483,12 +1483,35 @@ export interface ScopeDefinition {
   costs_credits?: boolean;
 }
 /**
+ * ScopeCategory is the section of a permission list a scope group falls
+ * in: what is built and run, the workspace itself, the person's own
+ * account, the platform's own workspace.
+ */
+export type ScopeCategory = "resources" | "workspace" | "account" | "platform";
+export const ScopeCategoryResources: ScopeCategory = "resources";
+export const ScopeCategoryWorkspace: ScopeCategory = "workspace";
+export const ScopeCategoryAccount: ScopeCategory = "account";
+export const ScopeCategoryPlatform: ScopeCategory = "platform";
+/**
+ * ScopeCategoryDefinition describes a category of scope groups for UI
+ * rendering: a section heading over the groups in it.
+ */
+export interface ScopeCategoryDefinition {
+  id: ScopeCategory;
+  label: string;
+  description: string;
+}
+/**
  * ScopeGroupDefinition describes a group of scopes for UI rendering
  */
 export interface ScopeGroupDefinition {
   id: ScopeGroup;
   label: string;
   description: string;
+  /**
+   * Category is the section the group is listed under (ScopesResponse.Categories).
+   */
+  category: ScopeCategory;
   /**
    * PublicRows: the resource's rows can be public, so a credential
    * without its read scope still reads what a signed-out caller reads
@@ -1508,6 +1531,11 @@ export interface ScopesResponse {
   scopes: ScopeDefinition[];
   groups: ScopeGroupDefinition[];
   presets: ScopePreset[];
+  /**
+   * Categories are the sections Groups and AccountGroups fall in, in
+   * display order: every category a listed group names.
+   */
+  categories: ScopeCategoryDefinition[];
   /**
    * AccountScopes are the account holder's own scopes (approvals,
    * profile and sessions, keys, billing writes) a sign-in may be approved
