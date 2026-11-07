@@ -176,6 +176,22 @@ const task = await client.tasks.run(
 await client.tasks.cancel(task.id);
 ```
 
+A `run()` that is waiting on a task rejects with `TaskCancelledError` when the task is cancelled. A task cancelled after its app returned a result ends cancelled and keeps that result as its `output` (billed like any other); it is `null` when the app returned nothing. The task is on the error:
+
+```typescript
+import { isTaskCancelledError } from '@inferencesh/sdk';
+
+try {
+  const result = await client.tasks.run({ app: 'long-running-app', input: {} });
+} catch (error) {
+  if (isTaskCancelledError(error) && error.task.output != null) {
+    console.log('cancelled, partial result:', error.task.output);
+  }
+}
+```
+
+A failed task rejects with `TaskFailedError` the same way: the task's error as the message and the task on `error.task`.
+
 ### Stream Functions (Live Sockets)
 
 A stream function keeps a socket open with its caller for the life of the task: frames go both ways until the caller closes or the app returns. `client.live` starts the task and dials its socket; the run response carries where to dial (`task.socket`).
@@ -571,6 +587,8 @@ Runs a task on inference.sh.
 | `onUpdate` | `function` | - | Callback for task updates (full fetch on status change when polling) |
 | `onPartialUpdate` | `function` | - | Callback for partial NDJSON stream updates `(task, fields)` |
 | `maxReconnects` | `number` | `5` | Max poll retries when `stream: false` |
+
+**Returns:** the completed task. Rejects with `TaskFailedError` when the task fails and `TaskCancelledError` when it is cancelled; both carry the task as `error.task`, so a cancelled task's output (when its app returned one) is `error.task.output`.
 
 ### `client.tasks.get(taskId)`
 

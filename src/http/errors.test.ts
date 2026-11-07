@@ -5,14 +5,21 @@ import {
   SessionExpiredError,
   SessionNotFoundError,
   WorkerLostError,
+  TaskCancelledError,
+  TaskFailedError,
   isInferenceError,
   isRequirementsNotMetException,
   isSessionError,
+  isTaskCancelledError,
+  isTaskFailedError,
 } from './errors.js';
 import {
   RequirementTypeCredential,
   RequirementTypeScope,
   RequirementTypeSecret,
+  TaskStatusCancelled,
+  TaskStatusFailed,
+  type TaskDTO,
 } from '../types.js';
 
 describe('error type guards', () => {
@@ -90,5 +97,28 @@ describe('error classes', () => {
     expect(new SessionExpiredError('sess-b').statusCode).toBe(410);
     expect(new SessionEndedError('sess-c').message).toContain('sess-c');
     expect(new WorkerLostError('sess-d').name).toBe('WorkerLostError');
+  });
+
+  it('task outcome errors should carry the task and match plain objects by name', () => {
+    const cancelled = { id: 'task-1', status: TaskStatusCancelled, output: { text: 'partial' } } as unknown as TaskDTO;
+    const err = new TaskCancelledError(cancelled);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('TaskCancelledError');
+    expect(err.message).toBe('task cancelled');
+    expect(err.task.output).toEqual({ text: 'partial' });
+    expect(isTaskCancelledError(err)).toBe(true);
+    expect(isTaskCancelledError({ name: 'TaskCancelledError', task: { id: 'task-1' } })).toBe(true);
+    expect(isTaskCancelledError({ name: 'TaskCancelledError' })).toBe(false);
+    expect(isTaskCancelledError(new Error('task cancelled'))).toBe(false);
+    expect(isTaskFailedError(err)).toBe(false);
+
+    const failed = { id: 'task-2', status: TaskStatusFailed, output: null, error: 'gpu OOM' } as unknown as TaskDTO;
+    const failedErr = new TaskFailedError(failed);
+    expect(failedErr.name).toBe('TaskFailedError');
+    expect(failedErr.message).toBe('gpu OOM');
+    expect(failedErr.task.id).toBe('task-2');
+    expect(isTaskFailedError(failedErr)).toBe(true);
+    expect(isTaskCancelledError(failedErr)).toBe(false);
+    expect(new TaskFailedError({ ...failed, error: undefined }).message).toBe('task failed');
   });
 });

@@ -9,6 +9,7 @@ import {
   type DecisionOutput,
 } from '../types.js';
 import { TasksAPI } from './tasks.js';
+import { TaskCancelledError, TaskFailedError, isTaskCancelledError } from '../http/errors.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -114,9 +115,10 @@ describe('TasksAPI.run (polling mode)', () => {
     mockJsonResponse({ status: TaskStatusFailed });
     mockJsonResponse(failedTask);
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
-    ).rejects.toThrow('model error');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false });
+    await expect(run).rejects.toThrow('model error');
+    await expect(run).rejects.toBeInstanceOf(TaskFailedError);
+    await expect(run).rejects.toMatchObject({ task: { id: 'task-1', status: TaskStatusFailed, error: 'model error' } });
   });
 
   it('should reject when polling detects a cancelled task', async () => {
@@ -128,9 +130,37 @@ describe('TasksAPI.run (polling mode)', () => {
     mockJsonResponse({ status: TaskStatusCancelled });
     mockJsonResponse(cancelledTask);
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false })
-    ).rejects.toThrow('task cancelled');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false });
+    await expect(run).rejects.toThrow('task cancelled');
+    await expect(run).rejects.toBeInstanceOf(TaskCancelledError);
+    await expect(run).rejects.toMatchObject({ name: 'TaskCancelledError', task: { id: 'task-1', status: TaskStatusCancelled, output: null } });
+  });
+
+  it('should carry the output of a task cancelled after its app returned a result', async () => {
+    const runningTask = makeTask();
+    const cancelledTask = makeTask({ status: TaskStatusCancelled, output: { text: 'partial' } });
+
+    mockJsonResponse(runningTask);
+    mockJsonResponse({ status: TaskStatusRunning });
+    mockJsonResponse({ status: TaskStatusCancelled });
+    mockJsonResponse(cancelledTask);
+
+    const onUpdate = jest.fn();
+    let caught: unknown;
+    try {
+      await api().run({ app: 'test-app', input: {} }, {}, { wait: true, stream: false, onUpdate });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(isTaskCancelledError(caught)).toBe(true);
+    if (!isTaskCancelledError(caught)) throw new Error('unreachable');
+    expect(caught.task.status).toBe(TaskStatusCancelled);
+    expect(caught.task.output).toEqual({ text: 'partial' });
+    expect(caught.task.session_id).toBe('sess-1');
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: TaskStatusCancelled, output: { text: 'partial' } })
+    );
   });
 
   it('should reject with the task error when polling detects a rejected task', async () => {
@@ -408,9 +438,23 @@ describe('TasksAPI.run (streaming mode)', () => {
       `${JSON.stringify({ status: TaskStatusCancelled, id: 'task-1' })}\n`,
     ]);
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
-    ).rejects.toThrow('task cancelled');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+    await expect(run).rejects.toThrow('task cancelled');
+    await expect(run).rejects.toBeInstanceOf(TaskCancelledError);
+    await expect(run).rejects.toMatchObject({ task: { id: 'task-1', status: TaskStatusCancelled } });
+  });
+
+  it('should carry the output when the stream reports a cancelled task with a result', async () => {
+    setupStreamMocks([
+      `${JSON.stringify({ status: TaskStatusRunning, id: 'task-1' })}\n`,
+      `${JSON.stringify({ status: TaskStatusCancelled, id: 'task-1', output: { text: 'partial' } })}\n`,
+    ]);
+
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+    await expect(run).rejects.toBeInstanceOf(TaskCancelledError);
+    await expect(run).rejects.toMatchObject({
+      task: { id: 'task-1', status: TaskStatusCancelled, output: { text: 'partial' }, session_id: 'sess-1' },
+    });
   });
 
   it('should reject when partial stream reports failure', async () => {
@@ -421,22 +465,24 @@ describe('TasksAPI.run (streaming mode)', () => {
       })}\n`,
     ]);
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
-    ).rejects.toThrow('partial fail');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+    await expect(run).rejects.toThrow('partial fail');
+    await expect(run).rejects.toBeInstanceOf(TaskFailedError);
+    await expect(run).rejects.toMatchObject({ task: { id: 'task-1', status: TaskStatusFailed, error: 'partial fail' } });
   });
 
   it('should reject when partial stream reports cancellation', async () => {
     setupStreamMocks([
       `${JSON.stringify({
-        data: { status: TaskStatusCancelled, id: 'task-1' },
-        fields: ['status'],
+        data: { status: TaskStatusCancelled, id: 'task-1', output: { text: 'partial' } },
+        fields: ['status', 'output'],
       })}\n`,
     ]);
 
-    await expect(
-      api().run({ app: 'test-app', input: {} }, {}, { wait: true })
-    ).rejects.toThrow('task cancelled');
+    const run = api().run({ app: 'test-app', input: {} }, {}, { wait: true });
+    await expect(run).rejects.toThrow('task cancelled');
+    await expect(run).rejects.toBeInstanceOf(TaskCancelledError);
+    await expect(run).rejects.toMatchObject({ task: { id: 'task-1', status: TaskStatusCancelled, output: { text: 'partial' } } });
   });
 
   it('should reject with the stream error once the stream stops retrying', async () => {

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `tasks.run()` and `tasks.watch().done` reject with `TaskCancelledError` when the task is cancelled and `TaskFailedError` when it fails, instead of a plain `Error`. Both carry the task as `error.task`. A task cancelled after its app returned a result now ends cancelled with that result as its `output`, so a caller that cancels reads the partial result from `error.task.output`. Messages are unchanged (`task cancelled`, the task's error). `isTaskCancelledError` and `isTaskFailedError` are the type guards.
+
 ## [0.38.0] - 2026-10-29
 
 ### Changed

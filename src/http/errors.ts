@@ -5,7 +5,7 @@
  * the API response data shapes. These classes are throwable Error subclasses for SDK use.
  */
 
-import type { RequirementError } from '../types.js';
+import type { RequirementError, TaskDTO } from '../types.js';
 
 /**
  * General HTTP/API error thrown by the SDK.
@@ -174,6 +174,50 @@ export class WorkerLostError extends SessionError {
   }
 }
 
+// Task outcome errors
+
+/**
+ * Error `tasks.run()` and `tasks.watch().done` reject with when a task is
+ * cancelled. A task cancelled after its app returned a result keeps that
+ * result: `task.output` carries it, billed like any other. `task.output`
+ * is null when the app returned nothing.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const task = await client.tasks.run(params);
+ * } catch (e) {
+ *   if (isTaskCancelledError(e) && e.task.output != null) {
+ *     usePartialResult(e.task.output);
+ *   }
+ * }
+ * ```
+ */
+export class TaskCancelledError extends Error {
+  /** The task as it ended; its output when the app returned one before stopping. */
+  readonly task: TaskDTO;
+
+  constructor(task: TaskDTO) {
+    super('task cancelled');
+    this.name = 'TaskCancelledError';
+    this.task = task;
+  }
+}
+
+/**
+ * Error `tasks.run()` and `tasks.watch().done` reject with when a task
+ * fails. The message is the task's error; `task` is the task as it ended.
+ */
+export class TaskFailedError extends Error {
+  readonly task: TaskDTO;
+
+  constructor(task: TaskDTO) {
+    super(task.error || 'task failed');
+    this.name = 'TaskFailedError';
+    this.task = task;
+  }
+}
+
 // =============================================================================
 // Type Guards
 // =============================================================================
@@ -213,3 +257,22 @@ export function isSessionError(err: unknown): err is SessionError {
     ['SessionError', 'SessionNotFoundError', 'SessionExpiredError', 'SessionEndedError', 'WorkerLostError'].includes(e.name as string);
 }
 
+/**
+ * Type guard for TaskCancelledError.
+ */
+export function isTaskCancelledError(err: unknown): err is TaskCancelledError {
+  if (err instanceof TaskCancelledError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as Record<string, unknown>;
+  return e.name === 'TaskCancelledError' && typeof e.task === 'object' && e.task !== null;
+}
+
+/**
+ * Type guard for TaskFailedError.
+ */
+export function isTaskFailedError(err: unknown): err is TaskFailedError {
+  if (err instanceof TaskFailedError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as Record<string, unknown>;
+  return e.name === 'TaskFailedError' && typeof e.task === 'object' && e.task !== null;
+}

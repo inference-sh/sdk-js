@@ -2,6 +2,7 @@ import { HttpClient } from '../http/client.js';
 import type { Response } from '../http/response.js';
 import { streamUntilTerminal, type TerminalSettler } from '../http/stream-until-terminal.js';
 import { PollManager } from '../http/poll.js';
+import { TaskCancelledError, TaskFailedError } from '../http/errors.js';
 import {
   TaskDTO as Task,
   TaskLogsDTO,
@@ -62,17 +63,22 @@ function stripTask(task: Task): Task {
   };
 }
 
-/** Settles a watch when `data` carries a terminal status; no-op otherwise. */
+/**
+ * Settles a watch when `data` carries a terminal status; no-op otherwise.
+ * Failed and cancelled reject with the task on the error: a task cancelled
+ * after its app returned a result ends cancelled with that result as its
+ * output, and the caller reads it from `TaskCancelledError.task`.
+ */
 function settleTerminal(data: Pick<Task, 'status' | 'error'>, stripped: Task, settle: TerminalSettler<Task>): void {
   switch (parseStatus(data.status)) {
     case TaskStatusCompleted:
       settle.resolve(stripped);
       break;
     case TaskStatusFailed:
-      settle.reject(new Error(data.error || 'task failed'));
+      settle.reject(new TaskFailedError(stripped));
       break;
     case TaskStatusCancelled:
-      settle.reject(new Error('task cancelled'));
+      settle.reject(new TaskCancelledError(stripped));
       break;
     case TaskStatusRejected:
       settle.reject(new Error(data.error || 'task rejected'));
@@ -156,7 +162,11 @@ export class TasksAPI {
   }
 
   /**
-   * Run a task and optionally wait for completion
+   * Run a task and optionally wait for completion. With `wait` (the
+   * default) it resolves with the completed task and rejects with
+   * `TaskFailedError` or `TaskCancelledError`, both carrying the task; a
+   * cancelled task's output, when its app returned one, is on
+   * `error.task.output`.
    */
   async run(
     params: ApiAppRunRequest,
@@ -179,8 +189,9 @@ export class TasksAPI {
 
   /**
    * Follows a task until it ends. `done` resolves with the task when it
-   * completes and rejects when it fails or is cancelled; `stop` ends the
-   * watch early and leaves `done` pending.
+   * completes and rejects with `TaskFailedError` or `TaskCancelledError`
+   * (the task, with any output, on `error.task`) when it fails or is
+   * cancelled; `stop` ends the watch early and leaves `done` pending.
    */
   watch(task: Pick<Task, 'id' | 'status'>, options: WatchOptions = {}): TaskWatch {
     const useStream = options.stream ?? this.http.getStreamDefault();

@@ -14,10 +14,14 @@ export {
   SessionExpiredError,
   SessionEndedError,
   WorkerLostError,
+  TaskCancelledError,
+  TaskFailedError,
   // Type guards (use these instead of instanceof for reliability)
   isRequirementsNotMetException,
   isInferenceError,
   isSessionError,
+  isTaskCancelledError,
+  isTaskFailedError,
 } from './http/errors.js';
 
 // API modules
