@@ -5955,6 +5955,62 @@ export interface SystemInfo {
   volumes: Volume[];
   hf_cache: HFCacheInfo;
   gpus: GPU[];
+  /**
+   * HostCPU is how the host runs its CPUs (INF-1244); nil off Linux
+   * and from engines that predate it.
+   */
+  host_cpu?: HostCPU;
+}
+/**
+ * HostCPU is how a host runs its CPUs: the settings that make the same
+ * cores fast or slow (INF-1244), as the engine reads them from /sys.
+ */
+export interface HostCPU {
+  /**
+   * Governor and Driver are cpu0's cpufreq scaling_governor and
+   * scaling_driver.
+   */
+  governor?: string;
+  driver?: string;
+  /**
+   * Boost is turbo/boost on or off; nil when the host does not say.
+   */
+  boost?: boolean;
+  /**
+   * CurMHz is the mean current frequency across CPUs, MaxMHz cpu0's
+   * hardware maximum.
+   */
+  cur_mhz?: number /* float64 */;
+  max_mhz?: number /* float64 */;
+  /**
+   * SMT is simultaneous multithreading on or off; nil when unknown.
+   */
+  smt?: boolean;
+  threads_per_core?: number /* int */;
+  /**
+   * HugePages2M are the reserved 2 MiB huge pages; THP the transparent
+   * huge page mode (always, madvise or never).
+   */
+  hugepages_2m_total: number /* uint64 */;
+  hugepages_2m_free: number /* uint64 */;
+  thp?: string;
+  /**
+   * KVM is /dev/kvm present.
+   */
+  kvm: boolean;
+  /**
+   * Score is the engine's startup CPU benchmark; nil until it has run.
+   */
+  cpu_score?: CPUScore;
+}
+/**
+ * CPUScore is the engine's startup CPU benchmark: a fixed loop on one
+ * thread, then on every thread.
+ */
+export interface CPUScore {
+  single_ops_per_sec: number /* float64 */;
+  all_ops_per_sec: number /* float64 */;
+  threads: number /* int */;
 }
 export interface Docker {
   binary_path: string;
@@ -6328,6 +6384,14 @@ export interface TeamViewDTO {
   org?: TeamViewOrg;
   governance: TeamGovernance;
   can: TeamCapability[];
+  /**
+   * NeedsAdminAccess lists what the caller would also hold with admin
+   * access on: set only for staff whose browser sign-in holds no platform
+   * power now and would after proving the authenticator again here
+   * (AuthContext.AdminPowerRenewable). Clients show these as needing admin
+   * access instead of hiding them.
+   */
+  needs_admin_access?: TeamCapability[];
 }
 export interface TelemetryReportDTO extends BaseModelDTO, PermissionModelDTO {
   ip: string;
