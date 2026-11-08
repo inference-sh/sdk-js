@@ -5684,6 +5684,16 @@ export const SandboxDesiredRunning: SandboxDesiredState = "running";
 export const SandboxDesiredStopped: SandboxDesiredState = "stopped";
 export const SandboxDesiredDeleted: SandboxDesiredState = "deleted";
 /**
+ * StartSandboxRequest is POST /sandboxes/{id}/start; the body is optional.
+ */
+export interface StartSandboxRequest {
+  /**
+   * FreshDisk starts the stopped sandbox on a new, empty disk: the one
+   * its engine keeps is dropped (INF-1163).
+   */
+  fresh_disk?: boolean;
+}
+/**
  * CreateSandboxRequest is POST /sandboxes. Sizes left at zero take the
  * defaults.
  */
@@ -5798,6 +5808,14 @@ export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
   remote_id?: string;
   started_at?: string /* RFC3339 */;
   stopped_at?: string /* RFC3339 */;
+  /**
+   * DiskKept: the engine the sandbox last ran on keeps its disk, and its
+   * next start goes back there for it (INF-1163). DiskKeptUntil is when
+   * a stopped sandbox's disk goes (stopped_at + 7 days); the engine may
+   * drop it sooner when its host runs short of disk.
+   */
+  disk_kept: boolean;
+  disk_kept_until?: string /* RFC3339 */;
 }
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
