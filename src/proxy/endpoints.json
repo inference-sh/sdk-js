@@ -85,6 +85,7 @@
         "knowledge:write",
         "projects:read",
         "remotes:read",
+        "remotes:write",
         "secrets:reveal"
       ]
     },
@@ -123,6 +124,7 @@
         "knowledge:write",
         "projects:read",
         "remotes:read",
+        "remotes:write",
         "secrets:reveal"
       ]
     },
