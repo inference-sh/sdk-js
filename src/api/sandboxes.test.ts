@@ -219,6 +219,23 @@ describe('SandboxesAPI exec, files, limits', () => {
     expect(mockFetch.mock.calls[3][0]).toBe('https://api.test/files/f9');
   });
 
+  it('deletes the file record when the upload PUT fails', async () => {
+    mockJsonResponse({ success: true, data: [{ id: 'f9', upload_url: 'https://store.test/put/f9' }] });
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 403, statusText: 'Forbidden' });
+    mockJsonResponse({ success: true, data: null });
+    await expect(api().writeFile('sb1', '/tmp/a', 'hi')).rejects.toThrow('Forbidden');
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch.mock.calls[2][0]).toBe('https://api.test/files/f9');
+    expect(mockFetch.mock.calls[2][1].method).toBe('DELETE');
+  });
+
+  // The export's storage copy could not be deleted after: nothing is sent.
+  it('readFile on a bare SandboxesAPI refuses before exporting', async () => {
+    const bare = new SandboxesAPI(new HttpClient({ apiKey: 'k', baseUrl: 'https://api.test' }));
+    await expect(bare.readFile('sb1', '/etc/hosts')).rejects.toThrow('needs the files API');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('refuses an empty write before sending it', async () => {
     await expect(api().writeFile('sb1', '/tmp/empty', '')).rejects.toThrow(RangeError);
     expect(mockFetch).not.toHaveBeenCalled();
