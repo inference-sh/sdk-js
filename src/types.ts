@@ -3419,7 +3419,8 @@ export type EngineCapability =
   | "egress_grants"
   | "egress_decide"
   | "sized_sandboxes"
-  | "sized_workers";
+  | "sized_workers"
+  | "sandbox_snapshots";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3480,6 +3481,13 @@ export const EngineCapabilitySizedSandboxes: EngineCapability = "sized_sandboxes
  * there by size, against the engine's capacity (INF-1159).
  */
 export const EngineCapabilitySizedWorkers: EngineCapability = "sized_workers";
+/**
+ * EngineCapabilitySandboxSnapshots: the engine copies a stopped
+ * sandbox's kept disk to a snapshot and starts a sandbox on a copy of a
+ * snapshot (sandbox_snapshot, sandbox_snapshot_drop,
+ * WsSandboxStartPayload.FromSnapshotID; INF-1251).
+ */
+export const EngineCapabilitySandboxSnapshots: EngineCapability = "sandbox_snapshots";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -3601,6 +3609,24 @@ export interface EntitlementDTO extends BaseModelDTO {
 export interface FeatureAccess {
   resource: EntitlementResource;
   allowed: boolean;
+}
+/**
+ * ResourceUsage shows current usage vs limit for a single resource.
+ */
+export interface ResourceUsage {
+  resource: EntitlementResource;
+  label: string;
+  unit?: string;
+  type: EntitlementType;
+  usage: number /* int */;
+  limit: number /* int */;
+  unlimited: boolean;
+  enabled: boolean;
+  /**
+   * Mode is how a set limit is enforced: block refuses past it, warn
+   * only warns. Empty with no row.
+   */
+  mode?: EnforcementMode;
 }
 /**
  * EntitlementErrorMeta is the structured metadata returned in entitlement error responses.
@@ -5739,6 +5765,13 @@ export interface StartSandboxRequest {
    * its engine keeps is dropped (INF-1163).
    */
   fresh_disk?: boolean;
+  /**
+   * UpgradeImage moves the stopped sandbox to the server's current
+   * image. A sandbox otherwise keeps the image it was made with, so its
+   * kept disk stays valid; a disk made over the old image is dropped,
+   * and it starts on a new one.
+   */
+  upgrade_image?: boolean;
 }
 /**
  * CreateSandboxRequest is POST /sandboxes. Sizes left at zero take the
@@ -5765,6 +5798,13 @@ export interface CreateSandboxRequest {
    * 2592000 (30 days).
    */
   idle_timeout_seconds?: number /* int */;
+  /**
+   * FromSnapshotID starts the sandbox on a copy of a ready snapshot's
+   * disk, with the snapshot's image, on the engine that keeps it
+   * (INF-1251). Sizes left at zero take the snapshot's; the disk is never
+   * smaller than the snapshot's.
+   */
+  from_snapshot_id?: string;
 }
 /**
  * UpdateSandboxRequest is PATCH /sandboxes/{id}: the fields to change,
@@ -5937,6 +5977,162 @@ export interface SandboxFileTransferDTO {
   path: string;
   file?: FileDTO;
   download_url?: string;
+}
+/**
+ * SandboxRange is what a sandbox may ask for of one size: the default
+ * when unset, and the largest.
+ */
+export interface SandboxRange {
+  default: number /* int64 */;
+  max: number /* int64 */;
+}
+/**
+ * SandboxLimitsDTO answers GET /sandboxes/limits: the caller's team's plan
+ * limits on sandboxes and its use of them, the sizes one sandbox may ask
+ * for, and the idle stop's range, in seconds (0 never stops).
+ */
+export interface SandboxLimitsDTO {
+  /**
+   * Limits are the team's plan limits on sandboxes, each of them
+   * (unlimited without a row), as GET /entitlements/usage reports them.
+   */
+  limits: ResourceUsage[];
+  vcpus_per_sandbox: SandboxRange;
+  memory_mib: SandboxRange;
+  disk_mib: SandboxRange;
+  /**
+   * IdleTimeout* are in seconds.
+   */
+  idle_timeout_default: number /* int64 */;
+  idle_timeout_min: number /* int64 */;
+  idle_timeout_max: number /* int64 */;
+  /**
+   * DiskKeptFor is how long a stopped sandbox's disk is kept, in seconds.
+   */
+  disk_kept_for: number /* int64 */;
+}
+/**
+ * SandboxPortRequest opens a sandbox's port on its own HTTPS URL
+ * (POST /sandboxes/{id}/ports).
+ */
+export interface SandboxPortRequest {
+  /**
+   * Port is the TCP port inside the box, 1-65535.
+   */
+  port: number /* int */;
+  /**
+   * Public answers anyone with the URL. Private (the default) asks once
+   * per browser for the token, which the open answers with.
+   */
+  public?: boolean;
+}
+/**
+ * SandboxPortDTO is an open port. URL opens it; for a private port the URL
+ * the open answered with carries its token, which is shown only then.
+ */
+export interface SandboxPortDTO {
+  port: number /* int */;
+  public: boolean;
+  url: string;
+  created_at: string /* RFC3339 */;
+}
+/**
+ * SandboxPortList is GET /sandboxes/{id}/ports.
+ */
+export interface SandboxPortList {
+  ports: SandboxPortDTO[];
+}
+/**
+ * SandboxSnapshotStatus is where a snapshot stands.
+ */
+export type SandboxSnapshotStatus = "pending" | "ready" | "failed";
+/**
+ * SandboxSnapshotPending: the engine is copying the disk.
+ */
+export const SandboxSnapshotPending: SandboxSnapshotStatus = "pending";
+/**
+ * SandboxSnapshotReady: the copy is kept; forks and new sandboxes may
+ * start from it.
+ */
+export const SandboxSnapshotReady: SandboxSnapshotStatus = "ready";
+/**
+ * SandboxSnapshotFailed: the copy could not be made (StatusReason
+ * says why), or the engine no longer has it.
+ */
+export const SandboxSnapshotFailed: SandboxSnapshotStatus = "failed";
+/**
+ * SandboxSnapshotDTO is the API response for a snapshot.
+ */
+export interface SandboxSnapshotDTO extends BaseModelDTO {
+  /**
+   * UserID took it; TeamID is the workspace it belongs to.
+   */
+  user_id: string;
+  team_id: string;
+  name: string;
+  /**
+   * SandboxID is the sandbox it was taken of.
+   */
+  sandbox_id: string;
+  /**
+   * Image and the sizes are the source's at the snapshot: a sandbox made
+   * from it runs that image, at least that size.
+   */
+  image: string;
+  vcpus: number /* int */;
+  memory_mib: number /* int64 */;
+  disk_mib: number /* int64 */;
+  /**
+   * Bytes is what the copy holds on the engine (sparse).
+   */
+  bytes: number /* int64 */;
+  status: SandboxSnapshotStatus;
+  status_reason?: string;
+  ready_at?: string /* RFC3339 */;
+  /**
+   * ForFork: taken by a fork for its sandboxes to start from, and
+   * deleted once they have all started or failed. Not listed.
+   */
+  for_fork?: boolean;
+}
+/**
+ * CreateSandboxSnapshotRequest is POST /sandboxes/{id}/snapshots: a
+ * snapshot of the stopped sandbox's kept disk.
+ */
+export interface CreateSandboxSnapshotRequest {
+  name: string;
+}
+/**
+ * ForkSandboxRequest is POST /sandboxes/{id}/fork: a snapshot of the
+ * stopped sandbox's kept disk, then Count new sandboxes (1 when unset, at
+ * most MaxSandboxForks) made from it, named Name-1..Name-N (Name alone for
+ * one; the source's name + "-fork" when unset). They hold the disk as it
+ * was at the fork: starting the source afterwards changes none of them.
+ */
+export interface ForkSandboxRequest {
+  name?: string;
+  count?: number /* int */;
+  /**
+   * IdleTimeoutSeconds is as in CreateSandboxRequest; unset takes the
+   * source's.
+   */
+  idle_timeout_seconds?: number /* int */;
+  /**
+   * KeepSnapshot keeps the fork's snapshot as one of the workspace's
+   * (listed, deleted by hand). Unset, it is deleted once every fork has
+   * started or failed.
+   */
+  keep_snapshot?: boolean;
+}
+/**
+ * ForkSandboxResponse is the sandboxes a fork made, and the snapshot they
+ * start from (SnapshotID). Error says why the rest were not, when it made
+ * fewer than asked (a plan limit, say).
+ */
+export interface ForkSandboxResponse {
+  sandboxes: (SandboxDTO | undefined)[];
+  snapshot_id?: string;
+  error?: string;
 }
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
@@ -8970,6 +9166,7 @@ export type EntitlementResource =
   | "sandbox_max_vcpus"
   | "sandbox_starts_per_min"
   | "sandbox_kept_disks"
+  | "sandbox_snapshots"
   | "private_apps"
   | "task_executions"
   | "feature:byok"
@@ -9016,6 +9213,12 @@ export const ResourceSandboxStartsPerMin: EntitlementResource = "sandbox_starts_
  * disk at once. It only warns: past it a stop still keeps its disk.
  */
 export const ResourceSandboxKeptDisks: EntitlementResource = "sandbox_kept_disks";
+/**
+ * ResourceSandboxSnapshots is how many sandbox snapshots a team keeps
+ * (INF-1251; not a fork's own, not failed). It only warns: past it a
+ * snapshot is still taken.
+ */
+export const ResourceSandboxSnapshots: EntitlementResource = "sandbox_snapshots";
 /**
  * Legacy — kept for DB compatibility, no longer in plan seeds
  */
