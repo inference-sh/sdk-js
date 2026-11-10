@@ -93,6 +93,26 @@ describe('HttpClient', () => {
       expect((err as InferenceError).message).toContain('Invalid request');
     });
 
+    // A held request answers 200 before its outcome; a failure is a problem body under it.
+    it('should throw a problem body that came under a 200, through onError', async () => {
+      const onError = jest.fn(async (error: unknown) => { throw error; });
+      mockJsonResponse({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'changed size' });
+
+      const err = await new HttpClient({ apiKey: 'key', onError }).request('post', '/x').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(InferenceError);
+      expect(err).toMatchObject({ statusCode: 409, message: 'HTTP 409: changed size' });
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      { status: 'running', title: 'x' },
+      { status: 200, title: 'x' },
+      { status: 500 },
+    ])('should return a 200 body that is not a problem: %p', async (body) => {
+      mockJsonResponse(body);
+      expect((await client().request('get', '/x')).data).toEqual(body);
+    });
+
     it('should throw RequirementsNotMetException on HTTP 412', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,

@@ -22,10 +22,16 @@ export interface SandboxExecRun {
   [key: string]: unknown;
 }
 
+/** A run's statuses once it has finished. */
+const EXEC_RUN_FINISHED: ReadonlySet<SandboxExecRun['status']> = new Set(['exited', 'killed', 'denied']);
+
 /** The result of {@link SandboxesAPI.exec}: the run, and the last MiB of each stream. */
 export interface SandboxExecResult {
   run: SandboxExecRun;
-  /** false: the command was still running when the wait ran out; it keeps running. */
+  /**
+   * false: the command was still running when the wait ran out; it keeps
+   * running. Read from `run.status` (the API answers no `done`).
+   */
   done: boolean;
   stdout: string;
   stderr: string;
@@ -53,13 +59,12 @@ export interface SandboxFileEntry {
 }
 
 /**
- * An import or an export: the path on the box, its size in bytes, the
- * platform file on the other side and, for an export, a short-lived URL
- * that downloads it.
+ * An import or an export: the path on the box, the platform file on the
+ * other side (its `size` is the file's) and, for an export, a short-lived
+ * URL that downloads it.
  */
 export interface SandboxFileTransfer {
   path: string;
-  size: number;
   file?: File;
   download_url?: string;
 }
@@ -75,7 +80,11 @@ export interface SandboxRange {
   max: number;
 }
 
-/** What the team may run now, and the sizes one sandbox may ask for. */
+/**
+ * What the team may run now, and the sizes one sandbox may ask for.
+ * TODO(models): the API is moving this to one built from entitlements; the
+ * generated type replaces this one.
+ */
 export interface SandboxLimits {
   running: SandboxLimit;
   vcpus: SandboxLimit;
@@ -97,20 +106,6 @@ const filesPath = (id: string, path: string) =>
   `/sandboxes/${encodeURIComponent(id)}/files?path=${encodeURIComponent(path)}`;
 
 /**
- * A held answer's result, or the problem body that came under its 200:
- * past the API's heartbeat (25 s) the status is sent before the outcome.
- */
-function heldResult<T>(data: unknown, ok: (v: Record<string, unknown>) => boolean, what: string): T {
-  const v = (data ?? {}) as Record<string, unknown>;
-  if (data && ok(v)) {
-    return data as T;
-  }
-  const status = typeof v.status === 'number' ? v.status : 502;
-  const detail = (v.detail || v.title || v.message || `${what} answered no result`) as string;
-  throw new InferenceError(status, detail, JSON.stringify(data ?? null));
-}
-
-/**
  * Sandboxes API
  *
  * A sandbox is a box on one of our engines that runs belt and connects back
@@ -120,6 +115,9 @@ function heldResult<T>(data: unknown, ok: (v: Record<string, unknown>) => boolea
 export class SandboxesAPI {
   /** files uploads and deletes the storage copy writeFile and readFile move bytes through. */
   constructor(private readonly http: HttpClient, private readonly files?: FilesAPI) { }
+
+  /** Each sandbox's remote id, as exec last found it. */
+  private readonly remoteIds = new Map<string, string>();
 
   /**
    * List the caller's sandboxes with cursor-based pagination
@@ -153,6 +151,7 @@ export class SandboxesAPI {
    * Stop a sandbox. The record and its remote stay.
    */
   async stop(id: string): Promise<Response<SandboxDTO>> {
+    this.remoteIds.delete(id);
     return this.http.request<SandboxDTO>('post', `/sandboxes/${id}/stop`);
   }
 
@@ -160,6 +159,7 @@ export class SandboxesAPI {
    * Stop a sandbox, then remove the record and its remote
    */
   async delete(id: string): Promise<Response<void>> {
+    this.remoteIds.delete(id);
     return this.http.request<void>('delete', `/sandboxes/${id}`);
   }
 
@@ -174,6 +174,30 @@ export class SandboxesAPI {
     if (!Number.isInteger(wait) || wait < 1 || wait > EXEC_WAIT_MAX) {
       throw new RangeError(`waitSeconds is whole seconds from 1 to ${EXEC_WAIT_MAX}, not ${wait}`);
     }
+    const run = async (remoteId: string) => {
+      const res = await this.http.request<Omit<SandboxExecResult, 'done'>>('post', `/remotes/${encodeURIComponent(remoteId)}/execs`, {
+        params: { wait },
+        data: { command, args: options.args, cwd: options.cwd, env: options.env, timeout_ms: options.timeoutMs },
+      });
+      return { ...res.data, done: EXEC_RUN_FINISHED.has(res.data.run.status) };
+    };
+    const cached = this.remoteIds.get(id);
+    if (cached) {
+      try {
+        return await run(cached);
+      } catch (err) {
+        // The remote went away or is not connected: look the sandbox up again.
+        if (!(err instanceof InferenceError) || (err.statusCode !== 404 && err.statusCode !== 409)) {
+          throw err;
+        }
+        this.remoteIds.delete(id);
+      }
+    }
+    return run(await this.remoteId(id));
+  }
+
+  /** The remote of a running sandbox, looked up and kept for the next exec. */
+  private async remoteId(id: string): Promise<string> {
     const sandbox = (await this.get(id)).data;
     if (sandbox.status !== 'running') {
       throw new Error(`sandbox ${id} is ${sandbox.status}, not running; start it first`);
@@ -181,11 +205,8 @@ export class SandboxesAPI {
     if (!sandbox.remote_id) {
       throw new Error(`sandbox ${id} has no remote yet; wait until it is running`);
     }
-    const res = await this.http.request<SandboxExecResult>('post', `/remotes/${encodeURIComponent(sandbox.remote_id)}/execs`, {
-      params: { wait },
-      data: { command, args: options.args, cwd: options.cwd, env: options.env, timeout_ms: options.timeoutMs },
-    });
-    return heldResult<SandboxExecResult>(res.data, (v) => typeof v.done === 'boolean' && !!v.run, 'the exec wait');
+    this.remoteIds.set(id, sandbox.remote_id);
+    return sandbox.remote_id;
   }
 
   /** List the directory at an absolute path on a running sandbox. */
@@ -206,7 +227,7 @@ export class SandboxesAPI {
     const res = await this.http.request<SandboxFileTransfer>('post', `/sandboxes/${encodeURIComponent(id)}/files/import`, {
       data: { path, file_id: fileId },
     });
-    return heldResult<SandboxFileTransfer>(res.data, (v) => typeof v.path === 'string', 'the import');
+    return res.data;
   }
 
   /**
@@ -217,7 +238,7 @@ export class SandboxesAPI {
     const res = await this.http.request<SandboxFileTransfer>('post', `/sandboxes/${encodeURIComponent(id)}/files/export`, {
       data: { path },
     });
-    return heldResult<SandboxFileTransfer>(res.data, (v) => typeof v.path === 'string', 'the export');
+    return res.data;
   }
 
   /**

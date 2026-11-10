@@ -390,6 +390,13 @@ export class HttpClient {
       return { data: undefined as T, messages: [] };
     }
 
+    // A held request (exec wait, file import/export) answers 200 before its
+    // outcome; when it fails, the body under that 200 is a problem.
+    const heldStatus = problemStatus(data);
+    if (heldStatus !== undefined) {
+      throw this.responseError(heldStatus, responseText, data);
+    }
+
     // Unwrap V3 envelope: {"data": <dto>, "messages": [...]}
     if (data && typeof data === 'object' && 'data' in data && !Array.isArray(data)) {
       const messages = data.messages ?? [];
@@ -449,6 +456,18 @@ export class HttpClient {
 
     return Promise.resolve(new EventSource(this.streamUrl(targetUrl), { fetch: doFetch }));
   }
+}
+
+/**
+ * The status of a problem+json body (RFC 9457): an object with a numeric
+ * `status` of 400 or more and a `title`, `detail` or `type`.
+ */
+function problemStatus(data: unknown): number | undefined {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return undefined;
+  const d = data as Record<string, unknown>;
+  if (typeof d.status !== 'number' || d.status < 400) return undefined;
+  if (typeof d.title !== 'string' && typeof d.detail !== 'string' && typeof d.type !== 'string') return undefined;
+  return d.status;
 }
 
 /**
