@@ -214,7 +214,7 @@ describe('FilesAPI', () => {
       );
     });
 
-    it('should throw when PUT to upload_url fails', async () => {
+    it('should delete the file record when PUT to upload_url fails', async () => {
       const fileRecord = {
         id: 'file-5',
         uri: 'inf://files/fail-put',
@@ -228,10 +228,15 @@ describe('FilesAPI', () => {
         status: 500,
         statusText: 'Internal Server Error',
       });
+      mockJsonResponse(null);
 
       await expect(api().upload('data:text/plain,hello')).rejects.toThrow(
         'Failed to upload file content'
       );
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      const [deleteUrl, deleteInit] = mockFetch.mock.calls[2] as [string, RequestInit];
+      expect(deleteUrl).toContain('/files/file-5');
+      expect(deleteInit.method).toBe('DELETE');
     });
 
     it('should upload Blob content with inferred content type and size', async () => {
