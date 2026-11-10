@@ -187,6 +187,7 @@ describe('proxy policy', () => {
       ['infra', 'private'],
       ['session', 'sess-of-another-visitor'],
       ['session_timeout', 600],
+      ['start_timeout', 600],
       ['webhook', 'https://evil.example/hook'],
       ['run_at', '2030-01-01T00:00:00Z'],
       ['setup', { model: 'big' }],
