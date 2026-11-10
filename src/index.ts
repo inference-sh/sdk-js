@@ -63,7 +63,17 @@ export { CredentialsAPI } from './api/credentials.js';
 export { SearchAPI } from './api/search.js';
 export { ProjectsAPI } from './api/projects.js';
 export { MCPServersAPI } from './api/mcp-servers.js';
-export { SandboxesAPI } from './api/sandboxes.js';
+export { SandboxesAPI, SANDBOX_FILE_WRITE_MAX } from './api/sandboxes.js';
+export type {
+  SandboxExecRun,
+  SandboxExecResult,
+  SandboxExecOptions,
+  SandboxFileEntry,
+  SandboxFileWritten,
+  SandboxLimit,
+  SandboxRange,
+  SandboxLimits,
+} from './api/sandboxes.js';
 export { PublicationsAPI } from './api/publications.js';
 
 // Live: the socket of a stream task and the live fields of its schemas
