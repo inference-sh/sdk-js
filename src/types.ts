@@ -482,6 +482,12 @@ export interface ApiAppRunRequest {
   session?: string;
   session_timeout?: number /* int */;
   run_at?: string;
+  /**
+   * StartTimeout, in seconds (1-86400): if no worker has started the task
+   * within it (counted from run_at when set), it is cancelled, not
+   * billed, and leaves the queue. Unset, it waits as any task does.
+   */
+  start_timeout?: number /* int */;
 }
 /**
  * MessageInput is a message a caller sends to an agent: its text and the
