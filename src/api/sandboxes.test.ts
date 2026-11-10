@@ -60,6 +60,17 @@ describe('SandboxesAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'dev', vcpus: 4, credentials: [{ slug: 'github-app', mode: 'ask' }] });
   });
 
+  it('should serialize vault_id on create for sandbox vault access (INF-1062)', async () => {
+    mockJsonResponse({ id: 'sb-vault', name: 'toolbox', api_scopes: ['apps:execute'] });
+
+    await api().create({ name: 'toolbox', vault_id: 'vault-team-1' });
+
+    const [url, init] = lastCall();
+    expect(url).toMatch(/\/sandboxes$/);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'toolbox', vault_id: 'vault-team-1' });
+  });
+
   it.each([
     ['start', '/sandboxes/sb-1/start'],
     ['stop', '/sandboxes/sb-1/stop'],

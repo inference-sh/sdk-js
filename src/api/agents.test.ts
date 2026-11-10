@@ -2620,6 +2620,24 @@ describe('AgentsAPI (template CRUD)', () => {
     expect(JSON.parse(init.body as string)).toEqual(payload);
   });
 
+  it('should forward version.vault_id in createAgent for sandbox_create vault access', async () => {
+    const payload = {
+      name: 'sandbox-agent',
+      core_app: { ref: 'app/ref' },
+      version: {
+        name: 'sandbox-agent',
+        vault_id: 'vault-workspace-42',
+      },
+    };
+    const created = { id: 'agent-new', ...payload };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should GET /agents/{namespace}/{name} for getByName()', async () => {
     const agent = { id: 'agent-1', name: 'my-agent' };
     mockJsonResponse(agent);
