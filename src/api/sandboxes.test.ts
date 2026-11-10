@@ -278,9 +278,19 @@ describe('SandboxesAPI exec, files, limits', () => {
   });
 
   it('reads limits', async () => {
-    mockJsonResponse({ success: true, data: { running: { used: 1, limit: 5 }, vcpus: { used: 2, limit: -1 } } });
+    mockJsonResponse({
+      success: true,
+      data: {
+        limits: [
+          { resource: 'sandbox_vcpus', label: 'vCPUs', type: 'limit', usage: 2, limit: 0, unlimited: true, enabled: true, mode: 'block' },
+          { resource: 'sandboxes', label: 'Sandboxes', type: 'limit', usage: 1, limit: 5, unlimited: false, enabled: true, mode: 'block' },
+        ],
+        vcpus_per_sandbox: { default: 2, max: 8 },
+      },
+    });
     const res = await api().limits();
-    expect(res.data.running.limit).toBe(5);
+    expect(res.data.limits.find((l) => l.resource === 'sandboxes')?.limit).toBe(5);
+    expect(res.data.limits.find((l) => l.resource === 'sandbox_vcpus')?.unlimited).toBe(true);
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.test/sandboxes/limits');
   });
 });

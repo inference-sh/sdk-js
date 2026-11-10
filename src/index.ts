@@ -70,7 +70,7 @@ export type {
   SandboxExecOptions,
   SandboxFileEntry,
   SandboxFileTransfer,
-  SandboxLimit,
+  SandboxResourceUsage,
   SandboxRange,
   SandboxLimits,
 } from './api/sandboxes.js';
