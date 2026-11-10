@@ -6,6 +6,8 @@ import {
   CreateSandboxRequest,
   CursorListRequest,
   CursorListResponse,
+  EnforcementMode,
+  EntitlementType,
   FileDTO as File,
   SandboxDTO,
 } from '../types.js';
@@ -69,10 +71,23 @@ export interface SandboxFileTransfer {
   download_url?: string;
 }
 
-export interface SandboxLimit {
-  used: number;
-  /** -1: no limit applies. */
+/**
+ * One team limit and its use now (the API's ResourceUsage). A `warn` limit
+ * (kept disks, snapshots) is soft: going past it is not refused.
+ * TODO(models): use the generated ResourceUsage once the models release carries it.
+ */
+export interface SandboxResourceUsage {
+  /** "sandboxes", "sandbox_vcpus", or another sandbox_* resource. */
+  resource: string;
+  label: string;
+  unit?: string;
+  type: EntitlementType;
+  usage: number;
+  /** Not read when `unlimited`. */
   limit: number;
+  unlimited: boolean;
+  enabled: boolean;
+  mode?: EnforcementMode;
 }
 
 export interface SandboxRange {
@@ -80,14 +95,13 @@ export interface SandboxRange {
   max: number;
 }
 
-/**
- * What the team may run now, and the sizes one sandbox may ask for.
- * TODO(models): the API is moving this to one built from entitlements; the
- * generated type replaces this one.
- */
+/** What the team may run now, and the sizes one sandbox may ask for. */
 export interface SandboxLimits {
-  running: SandboxLimit;
-  vcpus: SandboxLimit;
+  /**
+   * `sandboxes` (running at once) and every sandbox_* limit (e.g.
+   * `sandbox_vcpus`), sorted by resource.
+   */
+  limits: SandboxResourceUsage[];
   vcpus_per_sandbox: SandboxRange;
   memory_mib: SandboxRange;
   disk_mib: SandboxRange;
