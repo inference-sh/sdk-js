@@ -3282,6 +3282,11 @@ export interface EngineDTO extends BaseModelDTO, PermissionModelDTO {
    * out; nil from an engine that does not report it.
    */
   capacity?: EngineCapacity;
+  /**
+   * CapacityPolicy is what its owner set for its room from the app:
+   * sandboxes on or off, over-commit, CPU slots. Nil keeps the defaults.
+   */
+  capacity_policy?: EngineCapacityPolicy;
   workers: (WorkerDTO | undefined)[];
 }
 /**
@@ -3529,6 +3534,48 @@ export interface CapacityGPU {
   id: string;
   vram_bytes: number /* uint64 */;
 }
+/**
+ * EngineCapacityPolicy is what the engine's owner set for its room from the
+ * app (POST /engines/{id}/capacity): whether it hosts sandboxes and how far
+ * the API may give out more than it has. The API applies it; the engine is
+ * told nothing but the CPU slots it gets at its next register. A nil field
+ * keeps the default.
+ */
+export interface EngineCapacityPolicy {
+  /**
+   * Sandboxes false keeps new sandboxes off the engine; boxes already on
+   * it run until they stop. Nil is on, for an engine that reports
+   * EngineCapabilitySandboxes.
+   */
+  sandboxes?: boolean;
+  /**
+   * CPUOvercommit and MemoryOvercommit multiply the engine's allocatable
+   * for sandbox placement: 2 gives out twice its CPUs. Nil is the pool's
+   * (setting sandboxes.placement, 1 when unset). An engine on CPU slots
+   * is checked against them only when one is set.
+   */
+  cpu_overcommit?: number /* float64 */;
+  memory_overcommit?: number /* float64 */;
+  /**
+   * CPUSlots is the CPU app worker slots the engine gets at its next
+   * register, over the count its engine.yml asks for (workers.cpu.count).
+   * Each slot runs one app task, or holds one sandbox on an engine on
+   * slots. Nil is the engine's count.
+   */
+  cpu_slots?: number /* int */;
+}
+/**
+ * EngineCapacityLimit bounds a field of EngineCapacityPolicy.
+ */
+export type EngineCapacityLimit = number /* int */;
+/**
+ * MaxOvercommit and MaxCPUSlots bound what EngineCapacityPolicy may say.
+ */
+export const MaxOvercommit: EngineCapacityLimit = 8;
+/**
+ * MaxOvercommit and MaxCPUSlots bound what EngineCapacityPolicy may say.
+ */
+export const MaxCPUSlots: EngineCapacityLimit = 1024;
 /**
  * EntitlementDTO for API responses
  */
@@ -5699,8 +5746,8 @@ export interface StartSandboxRequest {
  */
 export interface CreateSandboxRequest {
   name: string;
-  vcpus?: number /* int */; // default 2, max 8
-  memory_mib?: number /* int64 */; // default 4096, max 16384
+  vcpus?: number /* int */; // default 2; at most the plan's largest sandbox (sandbox_max_vcpus)
+  memory_mib?: number /* int64 */; // default 4096; at most the plan's largest sandbox (sandbox_max_vcpus)
   disk_mib?: number /* int64 */; // default 10240, max 51200
   /**
    * Credentials are the logins the box gets, by provider (slug), as a
@@ -8875,6 +8922,9 @@ export type EntitlementResource =
   | "retention_days"
   | "sandboxes"
   | "sandbox_vcpus"
+  | "sandbox_max_vcpus"
+  | "sandbox_starts_per_min"
+  | "sandbox_kept_disks"
   | "private_apps"
   | "task_executions"
   | "feature:byok"
@@ -8906,6 +8956,21 @@ export const ResourceRetentionDays: EntitlementResource = "retention_days";
  */
 export const ResourceSandboxes: EntitlementResource = "sandboxes";
 export const ResourceSandboxVCPUs: EntitlementResource = "sandbox_vcpus";
+/**
+ * ResourceSandboxMaxVCPUs is the largest sandbox a team may make: its
+ * vCPUs, and memory up to 2 GiB for each.
+ */
+export const ResourceSandboxMaxVCPUs: EntitlementResource = "sandbox_max_vcpus";
+/**
+ * ResourceSandboxStartsPerMin is how many sandboxes a team may create
+ * or start in a minute.
+ */
+export const ResourceSandboxStartsPerMin: EntitlementResource = "sandbox_starts_per_min";
+/**
+ * ResourceSandboxKeptDisks is how many stopped sandboxes may keep their
+ * disk at once. It only warns: past it a stop still keeps its disk.
+ */
+export const ResourceSandboxKeptDisks: EntitlementResource = "sandbox_kept_disks";
 /**
  * Legacy — kept for DB compatibility, no longer in plan seeds
  */
