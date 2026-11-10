@@ -102,7 +102,7 @@ describe('SandboxesAPI exec, files, limits', () => {
 
   it('exec dispatches on the sandbox remote and waits', async () => {
     mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
-    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'exited', exit_code: 0 }, done: true, stdout: 'hi\n', stderr: '' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'exited', exit_code: 0 }, stdout: 'hi\n', stderr: '' } });
     const res = await api().exec('sb1', 'echo', { args: ['hi'], waitSeconds: 30, timeoutMs: 5000 });
     expect(res.done).toBe(true);
     expect(res.run.exit_code).toBe(0);
@@ -115,7 +115,7 @@ describe('SandboxesAPI exec, files, limits', () => {
 
   it('exec waits 60 seconds by default', async () => {
     mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
-    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'running' }, done: false, stdout: '', stderr: '' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'running' }, stdout: '', stderr: '' } });
     const res = await api().exec('sb1', 'sleep', { args: ['999'] });
     expect(res.done).toBe(false);
     expect(mockFetch.mock.calls[1][0]).toBe('https://api.test/remotes/rm1/execs?wait=60');
@@ -132,6 +132,34 @@ describe('SandboxesAPI exec, files, limits', () => {
     mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
     mockJsonResponse({ type: 'https://inference.sh/problems/internal', title: 'Internal', status: 500, detail: 'Failed to wait for exec' });
     await expect(api().exec('sb1', 'make', { waitSeconds: 300 })).rejects.toThrow('HTTP 500: Failed to wait for exec');
+  });
+
+  it('exec keeps the remote id: the next exec on the sandbox does not look it up', async () => {
+    const sandboxes = api();
+    mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'exited' }, stdout: '', stderr: '' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex2', status: 'killed' }, stdout: '', stderr: '' } });
+    await sandboxes.exec('sb1', 'true');
+    expect((await sandboxes.exec('sb1', 'true')).done).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch.mock.calls[2][0]).toBe('https://api.test/remotes/rm1/execs?wait=60');
+  });
+
+  it.each([404, 409])('exec looks the remote up again once when the kept one answers %p', async (status) => {
+    const sandboxes = api();
+    mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'exited' }, stdout: '', stderr: '' } });
+    await sandboxes.exec('sb1', 'true');
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status,
+      text: () => Promise.resolve(JSON.stringify({ title: 'gone', status, detail: 'remote gone' })),
+    });
+    mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm2', status: 'running' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex2', status: 'exited' }, stdout: 'ok', stderr: '' } });
+    expect((await sandboxes.exec('sb1', 'true')).stdout).toBe('ok');
+    expect(mockFetch.mock.calls[3][0]).toBe('https://api.test/sandboxes/sb1');
+    expect(mockFetch.mock.calls[4][0]).toBe('https://api.test/remotes/rm2/execs?wait=60');
   });
 
   it('exec refuses a sandbox that is not running', async () => {
@@ -153,7 +181,7 @@ describe('SandboxesAPI exec, files, limits', () => {
   });
 
   it('reads a binary file: an export, then the download, then the storage copy deleted', async () => {
-    mockJsonResponse({ success: true, data: { path: '/bin/x', size: 4, file: { id: 'f1' }, download_url: 'https://store.test/f1?sig=1' } });
+    mockJsonResponse({ success: true, data: { path: '/bin/x', file: { id: 'f1', size: 4 }, download_url: 'https://store.test/f1?sig=1' } });
     mockBytesResponse(new Uint8Array([0, 255, 10, 128]));
     mockJsonResponse({ success: true, data: null });
     const got = await api().readFile('sb1', '/bin/x');
@@ -168,7 +196,7 @@ describe('SandboxesAPI exec, files, limits', () => {
   });
 
   it('reads a text file as UTF-8, keeping a BOM', async () => {
-    mockJsonResponse({ success: true, data: { path: '/a.txt', size: 8, file: { id: 'f1' }, download_url: 'https://store.test/f1' } });
+    mockJsonResponse({ success: true, data: { path: '/a.txt', file: { id: 'f1', size: 8 }, download_url: 'https://store.test/f1' } });
     mockBytesResponse(new TextEncoder().encode('\ufeffhéllo'));
     mockJsonResponse({ success: true, data: null });
     expect(await api().readTextFile('sb1', '/a.txt')).toBe('\ufeffhéllo');
@@ -191,9 +219,9 @@ describe('SandboxesAPI exec, files, limits', () => {
   it('writes bytes: an upload, the import, then the storage copy deleted', async () => {
     mockJsonResponse({ success: true, data: [{ id: 'f9', upload_url: 'https://store.test/put/f9' }] });
     mockFetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
-    mockJsonResponse({ success: true, data: { path: '/tmp/a', size: 3 } });
+    mockJsonResponse({ success: true, data: { path: '/tmp/a', file: { id: 'f9', size: 3 } } });
     mockJsonResponse({ success: true, data: null });
-    expect(await api().writeFile('sb1', '/tmp/a', new Uint8Array([1, 2, 3]))).toEqual({ path: '/tmp/a', size: 3 });
+    expect(await api().writeFile('sb1', '/tmp/a', new Uint8Array([1, 2, 3]))).toEqual({ path: '/tmp/a', file: { id: 'f9', size: 3 } });
     const create = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(create.files[0].filename).toBe('a');
     expect(create.files[0].size).toBe(3);
