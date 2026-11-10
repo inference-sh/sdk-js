@@ -1,10 +1,12 @@
 import { HttpClient } from '../http/client.js';
 import type { Response } from '../http/response.js';
 import { InferenceError } from '../http/errors.js';
+import type { FilesAPI } from './files.js';
 import {
   CreateSandboxRequest,
   CursorListRequest,
   CursorListResponse,
+  FileDTO as File,
   SandboxDTO,
 } from '../types.js';
 
@@ -50,10 +52,16 @@ export interface SandboxFileEntry {
   modified_at?: string;
 }
 
-/** What {@link SandboxesAPI.writeFile} wrote: the path and its size in bytes. */
-export interface SandboxFileWritten {
+/**
+ * An import or an export: the path on the box, its size in bytes, the
+ * platform file on the other side and, for an export, a short-lived URL
+ * that downloads it.
+ */
+export interface SandboxFileTransfer {
   path: string;
   size: number;
+  file?: File;
+  download_url?: string;
 }
 
 export interface SandboxLimit {
@@ -82,13 +90,25 @@ export interface SandboxLimits {
   disk_kept_for: number;
 }
 
-/** The most one {@link SandboxesAPI.writeFile} sends, in bytes (4 MiB). */
-export const SANDBOX_FILE_WRITE_MAX = 4 << 20;
 /** The longest {@link SandboxExecOptions.waitSeconds} the API holds a request. */
 const EXEC_WAIT_MAX = 600;
 
-const filesPath = (id: string, rest: string, path: string) =>
-  `/sandboxes/${encodeURIComponent(id)}/files${rest}?path=${encodeURIComponent(path)}`;
+const filesPath = (id: string, path: string) =>
+  `/sandboxes/${encodeURIComponent(id)}/files?path=${encodeURIComponent(path)}`;
+
+/**
+ * A held answer's result, or the problem body that came under its 200:
+ * past the API's heartbeat (25 s) the status is sent before the outcome.
+ */
+function heldResult<T>(data: unknown, ok: (v: Record<string, unknown>) => boolean, what: string): T {
+  const v = (data ?? {}) as Record<string, unknown>;
+  if (data && ok(v)) {
+    return data as T;
+  }
+  const status = typeof v.status === 'number' ? v.status : 502;
+  const detail = (v.detail || v.title || v.message || `${what} answered no result`) as string;
+  throw new InferenceError(status, detail, JSON.stringify(data ?? null));
+}
 
 /**
  * Sandboxes API
@@ -98,7 +118,8 @@ const filesPath = (id: string, rest: string, path: string) =>
  * start, stop and delete answer at once and the status follows.
  */
 export class SandboxesAPI {
-  constructor(private readonly http: HttpClient) { }
+  /** files uploads and deletes the storage copy writeFile and readFile move bytes through. */
+  constructor(private readonly http: HttpClient, private readonly files?: FilesAPI) { }
 
   /**
    * List the caller's sandboxes with cursor-based pagination
@@ -164,27 +185,61 @@ export class SandboxesAPI {
       params: { wait },
       data: { command, args: options.args, cwd: options.cwd, env: options.env, timeout_ms: options.timeoutMs },
     });
-    // A wait past the API's heartbeat has already sent 200, so a failure
-    // after it arrives as a problem body under that 200.
-    const result = res.data as SandboxExecResult | Record<string, unknown> | undefined;
-    if (!result || typeof result.done !== 'boolean' || !result.run) {
-      const problem = (result ?? {}) as Record<string, unknown>;
-      const status = typeof problem.status === 'number' ? problem.status : 502;
-      const detail = (problem.detail || problem.title || problem.message || 'the exec wait answered no result') as string;
-      throw new InferenceError(status, detail, JSON.stringify(result ?? null));
-    }
-    return result as SandboxExecResult;
+    return heldResult<SandboxExecResult>(res.data, (v) => typeof v.done === 'boolean' && !!v.run, 'the exec wait');
   }
 
   /** List the directory at an absolute path on a running sandbox. */
   async listFiles(id: string, path: string): Promise<Response<SandboxFileEntry[]>> {
-    return this.http.request<SandboxFileEntry[]>('get', filesPath(id, '', path));
+    return this.http.request<SandboxFileEntry[]>('get', filesPath(id, path));
   }
 
-  /** Read a file (at most 8 MiB, the API's limit) from a running sandbox. */
+  /** Delete a file (not a directory) on a running sandbox. */
+  async deleteFile(id: string, path: string): Promise<void> {
+    await this.http.request<void>('delete', filesPath(id, path));
+  }
+
+  /**
+   * Have a running sandbox download a platform file (see `files.upload`) to
+   * an absolute path. The bytes go from storage to the box directly.
+   */
+  async importFile(id: string, path: string, fileId: string): Promise<SandboxFileTransfer> {
+    const res = await this.http.request<SandboxFileTransfer>('post', `/sandboxes/${encodeURIComponent(id)}/files/import`, {
+      data: { path, file_id: fileId },
+    });
+    return heldResult<SandboxFileTransfer>(res.data, (v) => typeof v.path === 'string', 'the import');
+  }
+
+  /**
+   * Have a running sandbox upload the file at an absolute path into a new
+   * platform file of yours; `download_url` fetches it for 15 minutes.
+   */
+  async exportFile(id: string, path: string): Promise<SandboxFileTransfer> {
+    const res = await this.http.request<SandboxFileTransfer>('post', `/sandboxes/${encodeURIComponent(id)}/files/export`, {
+      data: { path },
+    });
+    return heldResult<SandboxFileTransfer>(res.data, (v) => typeof v.path === 'string', 'the export');
+  }
+
+  /**
+   * Read a file from a running sandbox. It goes through your file storage
+   * (an export, then a download); the storage copy is deleted after.
+   */
   async readFile(id: string, path: string): Promise<Uint8Array> {
-    const res = await this.http.fetch(filesPath(id, '/content', path));
-    return new Uint8Array(await res.arrayBuffer());
+    const t = await this.exportFile(id, path);
+    try {
+      if (!t.download_url) {
+        throw new Error(`the export of ${path} returned no download URL`);
+      }
+      const res = await fetch(t.download_url);
+      if (!res.ok) {
+        throw new Error(`downloading ${path} from storage: HTTP ${res.status}`);
+      }
+      return new Uint8Array(await res.arrayBuffer());
+    } finally {
+      if (t.file?.id && this.files) {
+        await this.files.delete(t.file.id).catch(() => undefined);
+      }
+    }
   }
 
   /** Read a UTF-8 text file from a running sandbox; a leading BOM is kept. */
@@ -193,25 +248,26 @@ export class SandboxesAPI {
   }
 
   /**
-   * Write a file (at most {@link SANDBOX_FILE_WRITE_MAX} bytes) on a running
-   * sandbox, making its directory. A larger one is refused before it is sent.
+   * Write a file on a running sandbox, making its directory. It goes
+   * through your file storage (an upload, then an import), so it can be as
+   * large as one upload; the storage copy is deleted after. Storage takes
+   * no empty upload: make an empty file with {@link exec} (`touch`).
    */
-  async writeFile(id: string, path: string, content: Uint8Array | string): Promise<SandboxFileWritten> {
-    const body = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-    if (body.byteLength > SANDBOX_FILE_WRITE_MAX) {
-      throw new RangeError(`a sandbox file write is at most ${SANDBOX_FILE_WRITE_MAX >> 20} MiB, not ${body.byteLength} bytes; write larger files with an exec`);
+  async writeFile(id: string, path: string, content: Uint8Array | string | Blob): Promise<SandboxFileTransfer> {
+    if (!this.files) {
+      throw new Error('writeFile needs the files API: use the client\'s sandboxes, not a bare SandboxesAPI');
     }
-    const res = await this.http.fetch(filesPath(id, '/content', path), {
-      method: 'PUT',
-      body: body as BodyInit,
-      headers: { 'Content-Type': 'application/octet-stream' },
-    });
-    return ((await res.json()) as { data: SandboxFileWritten }).data;
-  }
-
-  /** Delete a file (not a directory) on a running sandbox. */
-  async deleteFile(id: string, path: string): Promise<void> {
-    await this.http.request<void>('delete', filesPath(id, '/content', path));
+    const blob = content instanceof Blob ? content : new Blob([typeof content === 'string' ? new TextEncoder().encode(content) : content as BlobPart]);
+    if (blob.size === 0) {
+      throw new RangeError(`${path}: an empty file is not uploaded; make it with exec('touch')`);
+    }
+    const name = path.split('/').pop() || 'file';
+    const file = await this.files.upload(blob, { filename: name });
+    try {
+      return await this.importFile(id, path, file.id);
+    } finally {
+      await this.files.delete(file.id).catch(() => undefined);
+    }
   }
 
   /** What the team may run now, and the sizes one sandbox may ask for. */
