@@ -225,6 +225,11 @@ export class SandboxesAPI {
    * (an export, then a download); the storage copy is deleted after.
    */
   async readFile(id: string, path: string): Promise<Uint8Array> {
+    // Without it the export's storage copy could not be deleted after.
+    if (!this.files) {
+      throw new Error('readFile needs the files API: use the client\'s sandboxes, not a bare SandboxesAPI');
+    }
+    const files = this.files;
     const t = await this.exportFile(id, path);
     try {
       if (!t.download_url) {
@@ -236,8 +241,8 @@ export class SandboxesAPI {
       }
       return new Uint8Array(await res.arrayBuffer());
     } finally {
-      if (t.file?.id && this.files) {
-        await this.files.delete(t.file.id).catch(() => undefined);
+      if (t.file?.id) {
+        await files.delete(t.file.id).catch(() => undefined);
       }
     }
   }

@@ -182,7 +182,13 @@ export class FilesAPI {
     if (!file.upload_url) {
       throw new Error('No upload URL provided by the server');
     }
-    await putToSignedUrl(file.upload_url, resolved.body);
+    try {
+      await putToSignedUrl(file.upload_url, resolved.body);
+    } catch (err) {
+      // The record was counted at its size and holds nothing: drop it.
+      await this.delete(file.id).catch(() => undefined);
+      throw err;
+    }
 
     return file;
   }
