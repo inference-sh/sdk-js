@@ -5894,6 +5894,51 @@ export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
   last_activity_at?: string /* RFC3339 */;
 }
 /**
+ * SandboxFileKind is what a path on a sandbox is.
+ */
+export type SandboxFileKind = "file" | "dir" | "link" | "other";
+export const SandboxFileKindFile: SandboxFileKind = "file";
+export const SandboxFileKindDir: SandboxFileKind = "dir";
+export const SandboxFileKindLink: SandboxFileKind = "link";
+export const SandboxFileKindOther: SandboxFileKind = "other";
+/**
+ * SandboxFileEntry is one entry of a directory on a running sandbox (GET
+ * /sandboxes/{id}/files?path=): its name in the directory, kind, size in
+ * bytes, octal permission bits and last change.
+ */
+export interface SandboxFileEntry {
+  name: string;
+  kind: SandboxFileKind;
+  size: number /* int64 */;
+  mode: string;
+  modified_at?: string /* RFC3339 */;
+}
+/**
+ * SandboxFileImportRequest is POST /sandboxes/{id}/files/import: put the
+ * platform file FileID (uploaded first, POST /files) at Path on the box.
+ */
+export interface SandboxFileImportRequest {
+  path: string;
+  file_id: string;
+}
+/**
+ * SandboxFileExportRequest is POST /sandboxes/{id}/files/export: copy the
+ * file at Path on the box into a new platform file.
+ */
+export interface SandboxFileExportRequest {
+  path: string;
+}
+/**
+ * SandboxFileTransferDTO answers an import or an export: the path on the
+ * box, the platform file on the other side (its size is the file's), and,
+ * for an export, a short-lived URL that downloads it.
+ */
+export interface SandboxFileTransferDTO {
+  path: string;
+  file?: FileDTO;
+  download_url?: string;
+}
+/**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
  * Types listed here (and their transitive dependencies) are included
  * in the generated SDK output (TypeScript, Python, Go).
