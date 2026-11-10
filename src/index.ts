@@ -63,13 +63,13 @@ export { CredentialsAPI } from './api/credentials.js';
 export { SearchAPI } from './api/search.js';
 export { ProjectsAPI } from './api/projects.js';
 export { MCPServersAPI } from './api/mcp-servers.js';
-export { SandboxesAPI, SANDBOX_FILE_WRITE_MAX } from './api/sandboxes.js';
+export { SandboxesAPI } from './api/sandboxes.js';
 export type {
   SandboxExecRun,
   SandboxExecResult,
   SandboxExecOptions,
   SandboxFileEntry,
-  SandboxFileWritten,
+  SandboxFileTransfer,
   SandboxLimit,
   SandboxRange,
   SandboxLimits,
@@ -266,7 +266,7 @@ export class Inference {
     this.search = new SearchAPI(this.http);
     this.projects = new ProjectsAPI(this.http);
     this.mcpServers = new MCPServersAPI(this.http);
-    this.sandboxes = new SandboxesAPI(this.http);
+    this.sandboxes = new SandboxesAPI(this.http, this.files);
     this.publications = new PublicationsAPI(this.http);
     this.sockets = new SocketsAPI(this.http, this.tasks);
   }

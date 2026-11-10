@@ -1,5 +1,6 @@
 import { HttpClient } from '../http/client.js';
-import { SandboxesAPI, SANDBOX_FILE_WRITE_MAX } from './sandboxes.js';
+import { SandboxesAPI } from './sandboxes.js';
+import { FilesAPI } from './files.js';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -92,7 +93,10 @@ function mockBytesResponse(bytes: Uint8Array) {
 }
 
 describe('SandboxesAPI exec, files, limits', () => {
-  const api = () => new SandboxesAPI(new HttpClient({ apiKey: 'k', baseUrl: 'https://api.test' }));
+  const api = () => {
+    const http = new HttpClient({ apiKey: 'k', baseUrl: 'https://api.test' });
+    return new SandboxesAPI(http, new FilesAPI(http));
+  };
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -148,19 +152,25 @@ describe('SandboxesAPI exec, files, limits', () => {
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.test/sandboxes/sb1/files?path=%2Fhome%2Fuser%2Fa%20b');
   });
 
-  it('reads a binary file as bytes', async () => {
-    const bytes = new Uint8Array([0, 255, 10, 128]);
-    mockBytesResponse(bytes);
+  it('reads a binary file: an export, then the download, then the storage copy deleted', async () => {
+    mockJsonResponse({ success: true, data: { path: '/bin/x', size: 4, file: { id: 'f1' }, download_url: 'https://store.test/f1?sig=1' } });
+    mockBytesResponse(new Uint8Array([0, 255, 10, 128]));
+    mockJsonResponse({ success: true, data: null });
     const got = await api().readFile('sb1', '/bin/x');
     expect(Array.from(got)).toEqual([0, 255, 10, 128]);
     const [url, init] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://api.test/sandboxes/sb1/files/content?path=%2Fbin%2Fx');
-    expect(init.method ?? 'GET').toBe('GET');
-    expect(init.headers.Authorization).toBe('Bearer k');
+    expect(url).toBe('https://api.test/sandboxes/sb1/files/export');
+    expect(JSON.parse(init.body)).toEqual({ path: '/bin/x' });
+    expect(mockFetch.mock.calls[1][0]).toBe('https://store.test/f1?sig=1');
+    expect(mockFetch.mock.calls[1][1]).toBeUndefined();
+    expect(mockFetch.mock.calls[2][0]).toBe('https://api.test/files/f1');
+    expect(mockFetch.mock.calls[2][1].method).toBe('DELETE');
   });
 
   it('reads a text file as UTF-8, keeping a BOM', async () => {
+    mockJsonResponse({ success: true, data: { path: '/a.txt', size: 8, file: { id: 'f1' }, download_url: 'https://store.test/f1' } });
     mockBytesResponse(new TextEncoder().encode('\ufeffhéllo'));
+    mockJsonResponse({ success: true, data: null });
     expect(await api().readTextFile('sb1', '/a.txt')).toBe('\ufeffhéllo');
   });
 
@@ -173,24 +183,44 @@ describe('SandboxesAPI exec, files, limits', () => {
     await expect(api().readFile('sb1', '/nope')).rejects.toThrow('no such path');
   });
 
-  it('writes bytes with PUT as octet-stream', async () => {
+  it('an export that failed after the 200 throws its problem body', async () => {
+    mockJsonResponse({ type: 'about:blank', title: 'Conflict', status: 409, detail: '/a changed size during the transfer; try again' });
+    await expect(api().exportFile('sb1', '/a')).rejects.toThrow('changed size');
+  });
+
+  it('writes bytes: an upload, the import, then the storage copy deleted', async () => {
+    mockJsonResponse({ success: true, data: [{ id: 'f9', upload_url: 'https://store.test/put/f9' }] });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
     mockJsonResponse({ success: true, data: { path: '/tmp/a', size: 3 } });
+    mockJsonResponse({ success: true, data: null });
     expect(await api().writeFile('sb1', '/tmp/a', new Uint8Array([1, 2, 3]))).toEqual({ path: '/tmp/a', size: 3 });
-    const [url, init] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://api.test/sandboxes/sb1/files/content?path=%2Ftmp%2Fa');
-    expect(init.method).toBe('PUT');
-    expect(init.headers['Content-Type']).toBe('application/octet-stream');
-    expect(Array.from(init.body as Uint8Array)).toEqual([1, 2, 3]);
+    const create = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(create.files[0].filename).toBe('a');
+    expect(create.files[0].size).toBe(3);
+    expect(mockFetch.mock.calls[1][0]).toBe('https://store.test/put/f9');
+    expect(mockFetch.mock.calls[1][1].method).toBe('PUT');
+    const [url, init] = mockFetch.mock.calls[2];
+    expect(url).toBe('https://api.test/sandboxes/sb1/files/import');
+    expect(JSON.parse(init.body)).toEqual({ path: '/tmp/a', file_id: 'f9' });
+    expect(mockFetch.mock.calls[3][0]).toBe('https://api.test/files/f9');
+    expect(mockFetch.mock.calls[3][1].method).toBe('DELETE');
   });
 
-  it('writes a string as UTF-8', async () => {
-    mockJsonResponse({ success: true, data: { path: '/tmp/a', size: 2 } });
-    await api().writeFile('sb1', '/tmp/a', 'é');
-    expect(Array.from(mockFetch.mock.calls[0][1].body as Uint8Array)).toEqual([0xc3, 0xa9]);
+  it('deletes the storage copy when the import fails', async () => {
+    mockJsonResponse({ success: true, data: [{ id: 'f9', upload_url: 'https://store.test/put/f9' }] });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      text: () => Promise.resolve(JSON.stringify({ error: { code: 'conflict', message: 'the sandbox is not running; start it first' } })),
+    });
+    mockJsonResponse({ success: true, data: null });
+    await expect(api().writeFile('sb1', '/tmp/a', 'hi')).rejects.toThrow('not running');
+    expect(mockFetch.mock.calls[3][0]).toBe('https://api.test/files/f9');
   });
 
-  it('refuses a write over 4 MiB before sending it', async () => {
-    await expect(api().writeFile('sb1', '/tmp/big', new Uint8Array(SANDBOX_FILE_WRITE_MAX + 1))).rejects.toThrow('at most 4 MiB');
+  it('refuses an empty write before sending it', async () => {
+    await expect(api().writeFile('sb1', '/tmp/empty', '')).rejects.toThrow(RangeError);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -198,7 +228,7 @@ describe('SandboxesAPI exec, files, limits', () => {
     mockJsonResponse({ success: true, data: null });
     await api().deleteFile('sb1', '/tmp/a');
     const [url, init] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://api.test/sandboxes/sb1/files/content?path=%2Ftmp%2Fa');
+    expect(url).toBe('https://api.test/sandboxes/sb1/files?path=%2Ftmp%2Fa');
     expect(init.method).toBe('DELETE');
   });
 
