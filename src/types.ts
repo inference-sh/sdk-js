@@ -3442,7 +3442,8 @@ export type EngineCapability =
   | "egress_decide"
   | "sized_sandboxes"
   | "sized_workers"
-  | "sandbox_snapshots";
+  | "sandbox_snapshots"
+  | "sandbox_snapshot_store";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3510,6 +3511,16 @@ export const EngineCapabilitySizedWorkers: EngineCapability = "sized_workers";
  * WsSandboxStartPayload.FromSnapshotID; INF-1251).
  */
 export const EngineCapabilitySandboxSnapshots: EngineCapability = "sandbox_snapshots";
+/**
+ * EngineCapabilitySandboxSnapshotStore: the engine also keeps a
+ * snapshot in object storage when asked (WsSandboxSnapshotPayload.Store):
+ * it exports the copy's used blocks, compressed, and uploads them in
+ * parts through URLs the API presigns (it holds no storage credential).
+ * It starts a sandbox from a stored snapshot it has no copy of
+ * (WsSandboxStartPayload.FromSnapshot): it downloads the parts, checks
+ * each against the manifest, and rebuilds the disk.
+ */
+export const EngineCapabilitySandboxSnapshotStore: EngineCapability = "sandbox_snapshot_store";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -6126,6 +6137,14 @@ export interface SandboxSnapshotDTO extends BaseModelDTO {
   status_reason?: string;
   ready_at?: string /* RFC3339 */;
   /**
+   * StoreStatus is where keeping it in object storage stands: empty when
+   * it is kept on its engine alone. Stored, a sandbox starts from it on
+   * any engine, and it outlives the engine that took it. StoredBytes is
+   * what the stored copy holds (compressed).
+   */
+  store_status?: SandboxSnapshotStoreStatus;
+  stored_bytes?: number /* int64 */;
+  /**
    * ForFork: taken by a fork for its sandboxes to start from, and
    * deleted once they have all started or failed. Not listed.
    */
@@ -6170,6 +6189,28 @@ export interface ForkSandboxResponse {
   snapshot_id?: string;
   error?: string;
 }
+/**
+ * SandboxSnapshotStoreStatus is where keeping a snapshot in object storage
+ * stands (EngineCapabilitySandboxSnapshotStore).
+ */
+export type SandboxSnapshotStoreStatus = "pending" | "uploading" | "stored" | "failed";
+/**
+ * SandboxSnapshotStorePending: asked of the engine, not begun.
+ */
+export const SandboxSnapshotStorePending: SandboxSnapshotStoreStatus = "pending";
+/**
+ * SandboxSnapshotStoreUploading: the engine is uploading it.
+ */
+export const SandboxSnapshotStoreUploading: SandboxSnapshotStoreStatus = "uploading";
+/**
+ * SandboxSnapshotStoreStored: it is in object storage, whole.
+ */
+export const SandboxSnapshotStoreStored: SandboxSnapshotStoreStatus = "stored";
+/**
+ * SandboxSnapshotStoreFailed: the upload did not finish; the snapshot
+ * is still kept on its engine.
+ */
+export const SandboxSnapshotStoreFailed: SandboxSnapshotStoreStatus = "failed";
 /**
  * SDKTypes is a phantom type for gotypegen dependency tracing.
  * Types listed here (and their transitive dependencies) are included
