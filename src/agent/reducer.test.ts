@@ -139,7 +139,7 @@ describe('chatReducer', () => {
     const next = chatReducer(state, {
       type: 'MERGE_CHAT_SETTINGS',
       payload: {
-        chat_id: 'chat-1', name: 'renamed', visibility: 'public', allow_all_tools: true, disable_hooks: true, memory: { goal: 'ship' },
+        chat_id: 'chat-1', name: 'renamed', visibility: 'public', allow_all_tools: true, disable_hooks: true, memory: { goal: 'ship' }, strictness: 'watch',
       },
     });
 
@@ -156,7 +156,7 @@ describe('chatReducer', () => {
     const state = chatReducer(initialState, { type: 'SET_CHAT', payload: makeChat() });
     const next = chatReducer(state, {
       type: 'MERGE_CHAT_SETTINGS',
-      payload: { chat_id: 'chat-2', name: 'other', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} },
+      payload: { chat_id: 'chat-2', name: 'other', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {}, strictness: 'watch' },
     });
     expect(next).toBe(state);
   });
@@ -183,6 +183,7 @@ describe('chatReducer', () => {
         allow_all_tools: false,
         disable_hooks: false,
         memory: { goal: 'ship' },
+        strictness: 'watch',
       },
     });
 
