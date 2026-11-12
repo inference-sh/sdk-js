@@ -71,6 +71,25 @@ describe('ChatsAPI.updateSettings', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
   });
+
+  it('POSTs strictness when the chat content-guard level changes', async () => {
+    const settings = {
+      chat_id: 'chat-1',
+      name: 'n',
+      visibility: 'private',
+      allow_all_tools: false,
+      disable_hooks: false,
+      memory: {},
+      strictness: 'ask',
+    };
+    mockJsonResponse(settings);
+
+    const result = await new ChatsAPI(http()).updateSettings('chat-1', { strictness: 'ask' });
+
+    expect(result.data.strictness).toBe('ask');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ strictness: 'ask' });
+  });
 });
 
 describe('FlowsAPI.patch and saveViewport', () => {

@@ -191,6 +191,35 @@ describe('chatReducer', () => {
     expect(next.messages).toBe(state.messages);
   });
 
+  it('MERGE_CHAT_SETTINGS should not yet copy strictness into agent_data (settings DTO carries it for callers)', () => {
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({
+        agent_data: {
+          plan_steps: [],
+          memory: {},
+          allow_all_tools: false,
+          strictness: 'watch',
+        } as ChatDTO['agent_data'],
+      }),
+    });
+
+    const next = chatReducer(state, {
+      type: 'MERGE_CHAT_SETTINGS',
+      payload: {
+        chat_id: 'chat-1',
+        name: 'c',
+        visibility: 'private',
+        allow_all_tools: false,
+        disable_hooks: false,
+        memory: {},
+        strictness: 'ask',
+      },
+    });
+
+    expect(next.chat?.agent_data?.strictness).toBe('watch');
+  });
+
   it('MERGE_CHAT_AGENT should set the agent and keep the rest of the chat and the messages', () => {
     const state = chatReducer(initialState, {
       type: 'SET_CHAT',

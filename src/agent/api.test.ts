@@ -660,6 +660,27 @@ describe('agent/api', () => {
       });
       expect(settings.memory).toEqual({ goal: 'ship' });
     });
+
+    it('updateChatSettings should POST strictness and return it on the settings DTO', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          chat_id: 'chat-1',
+          name: 'c',
+          visibility: 'team',
+          allow_all_tools: false,
+          disable_hooks: false,
+          memory: {},
+          strictness: 'strict',
+        },
+      });
+
+      const settings = await updateChatSettings(makeClient(), 'chat-1', { strictness: 'strict' });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+
+      expect(JSON.parse(String(init.body))).toEqual({ strictness: 'strict' });
+      expect(settings.strictness).toBe('strict');
+    });
   });
 
   describe('chatStreamRequest', () => {
