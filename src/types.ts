@@ -2516,6 +2516,13 @@ export interface ChatSettingsRequest {
    * agent keeps for this conversation. A key that is not there is ignored.
    */
   forget_memory?: string[];
+  /**
+   * Strictness is what the agent does in this chat after the content
+   * guard flags something it read: watch, ask or strict. "" clears the
+   * chat's own level, so the agent's default applies. A team or org
+   * minimum still raises it (GET /chats/{id}/strictness).
+   */
+  strictness?: ChatStrictness;
 }
 /**
  * ChatSettingsDTO is what POST /chats/{id}/settings answers with: the chat's
@@ -2536,6 +2543,56 @@ export interface ChatSettingsDTO {
    * Memory is agent_data.memory after forget_memory removed its keys.
    */
   memory: StringEncodedMap;
+  /**
+   * Strictness is agent_data.strictness: the chat's own level, "" when
+   * it follows the agent's default.
+   */
+  strictness: ChatStrictness;
+}
+/**
+ * ChatStrictnessDTO is GET /chats/{id}/strictness: what the agent does in
+ * the chat after the content guard flags something it read, and where that
+ * comes from. Effective is the strictest of the chat's level (Chat, else
+ * AgentDefault, else watch), Minimum and Delegated.
+ */
+export interface ChatStrictnessDTO {
+  chat_id: string;
+  /**
+   * Chat is the chat's own level; "" when it follows the agent.
+   */
+  chat: ChatStrictness;
+  /**
+   * AgentDefault is the agent's content_guard.strictness; "" for watch.
+   */
+  agent_default: ChatStrictness;
+  /**
+   * Minimum is the strictest level the chat's team or org governance
+   * policy sets; "" when neither sets one. Levels below it are locked.
+   */
+  minimum: ChatStrictness;
+  /**
+   * MinimumSetBy is the rung that set Minimum: team or org.
+   */
+  minimum_set_by?: PolicySubject;
+  /**
+   * Delegated is, for a sub-agent's chat, the level the chat that
+   * delegated to it runs at: a floor, so a sub-agent never runs looser
+   * than its delegating chat. "" for a chat no agent delegated.
+   */
+  delegated?: ChatStrictness;
+  /**
+   * Flagged reports that the content guard has flagged something an
+   * agent read in this chat, or in the chat that delegated to it. It
+   * lasts for the life of the chat: what was flagged stays in its
+   * history, so ask and strict apply to every later run of the chat.
+   * Lowering the chat's level (the person's sign-in) is how runs go on
+   * unasked again.
+   */
+  flagged: boolean;
+  /**
+   * Effective is the level the chat runs at.
+   */
+  effective: ChatStrictness;
 }
 /**
  * ChatAgentDTO is what POST /chats/{id}/agent answers with: the agent the
@@ -2892,6 +2949,12 @@ export interface ContentGuardConfig {
    * job is reading Slack mentions).
    */
   ignore_rules?: string[];
+  /**
+   * Strictness is what the agent's chats do after the guard flags a
+   * result, unless a chat sets its own: watch (default), ask or strict
+   * (shared.ChatStrictness). A team or org minimum still raises it.
+   */
+  strictness?: ChatStrictness;
 }
 /**
  * ContentTier is how far a tool's output is from the agent's operator:
@@ -8020,6 +8083,22 @@ export const ChannelTypeDiscord: ChannelType = "discord";
 export const ChannelTypeTeams: ChannelType = "teams";
 export const ChannelTypeTelegram: ChannelType = "telegram";
 /**
+ * ChatStrictness is what an agent does in a chat after the content guard
+ * flags a tool result it read (a web page, an app's output, an MCP reply):
+ *   - watch: the flag is recorded and the run goes on. The default.
+ *   - ask: every later tool call of the run that has side effects waits
+ *     for a person's approval (the tool-approval prompt).
+ *   - strict: the run is stopped.
+ * The agent's config sets the default (content_guard.strictness), a person
+ * changes it per chat (agent_data.strictness), and a team or org governance
+ * policy can set a minimum: the chat runs at the stricter of its own level
+ * and the minimum (EffectiveChatStrictness).
+ */
+export type ChatStrictness = "watch" | "ask" | "strict";
+export const ChatStrictnessWatch: ChatStrictness = "watch";
+export const ChatStrictnessAsk: ChatStrictness = "ask";
+export const ChatStrictnessStrict: ChatStrictness = "strict";
+/**
  * ChatData contains agent-specific data for a chat session
  */
 export interface ChatData {
@@ -8036,6 +8115,13 @@ export interface ChatData {
    * that reviews it.
    */
   disable_hooks?: boolean;
+  /**
+   * Strictness is what the agent does in this chat after the content
+   * guard flags something it read: watch, ask or strict. Empty is the
+   * agent's default (content_guard.strictness), itself watch when unset.
+   * A team or org minimum can raise it (ChatStrictnessDTO.Effective).
+   */
+  strictness?: ChatStrictness;
   /**
    * Client is the app the chat was started from (web, mac, ios, cli,
    * sdk-js), as the request named itself (X-Client-Source). Shown, never
@@ -8156,7 +8242,7 @@ export interface ChatBackgroundEvent {
  * RunEndReason is why a run that completed ended the way it did, when its
  * last turn did not end with a reply.
  */
-export type RunEndReason = "output_limit" | "no_reply" | "refusal";
+export type RunEndReason = "output_limit" | "no_reply" | "refusal" | "content_flagged";
 /**
  * RunEndReasonOutputLimit: the model's last turn hit its output limit
  * (max_tokens) before it replied or called a tool.
@@ -8174,6 +8260,12 @@ export const RunEndReasonNoReply: RunEndReason = "no_reply";
  * message is not refused for what this run held.
  */
 export const RunEndReasonRefusal: RunEndReason = "refusal";
+/**
+ * RunEndReasonContentFlagged: the content guard flagged a tool result
+ * the run read and the chat's strictness is strict, so the run was
+ * stopped there.
+ */
+export const RunEndReasonContentFlagged: RunEndReason = "content_flagged";
 /**
  * ChatRunEvent is how a run ended, on a run_ended event.
  */
@@ -9672,6 +9764,31 @@ export const PolicyKindWebFetch: PolicyKind = "WebFetch";
  * secrets to a host.
  */
 export const PolicyKindSecretSend: PolicyKind = "SecretSend";
+/**
+ * PolicySubject is a rung of the subject ladder: what a policy is attached
+ * to and what a decision names as its layer. Most specific first: remote,
+ * chat, agent, user, team, org, platform. The values match CredentialScope
+ * where both exist.
+ */
+export type PolicySubject =
+  | "remote"
+  | "chat"
+  | "agent"
+  | "user"
+  | "team"
+  | "org"
+  | "platform";
+/**
+ * PolicySubjectRemote is the machine a call runs on. Its policy is the
+ * machine owner's, and only narrows.
+ */
+export const PolicySubjectRemote: PolicySubject = "remote";
+export const PolicySubjectChat: PolicySubject = "chat";
+export const PolicySubjectAgent: PolicySubject = "agent";
+export const PolicySubjectUser: PolicySubject = "user";
+export const PolicySubjectTeam: PolicySubject = "team";
+export const PolicySubjectOrg: PolicySubject = "org";
+export const PolicySubjectPlatform: PolicySubject = "platform";
 /**
  * FunctionKind is how an app function talks to its caller.
  */
