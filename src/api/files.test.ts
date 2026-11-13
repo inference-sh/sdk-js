@@ -232,6 +232,9 @@ describe('FilesAPI', () => {
       await expect(api().upload('data:text/plain,hello')).rejects.toThrow(
         'Failed to upload file content'
       );
+      const [deleteUrl, deleteInit] = mockFetch.mock.calls[2] as [string, RequestInit];
+      expect(deleteUrl).toContain('/files/file-5');
+      expect(deleteInit.method).toBe('DELETE');
     });
 
     it('should upload Blob content with inferred content type and size', async () => {

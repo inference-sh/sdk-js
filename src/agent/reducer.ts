@@ -180,6 +180,7 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
             allow_all_tools: settings.allow_all_tools,
             disable_hooks: settings.disable_hooks,
             memory: settings.memory,
+            strictness: settings.strictness,
           },
         },
       };
