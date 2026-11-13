@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `AgentChatProvider` uses a replaced `client` prop. The chat actions were created once with the first client, so after the client changed (a new API key, another account) sending, uploading, approvals and the stream kept calling the API as the old one. The actions are now rebuilt for the new client, the old client's stream is stopped and the open chat is reopened with the new one. Pass a stable client (`useMemo`): a client created on every render restarts the stream on every render.
+
 ### Changed
 - `tasks.run()` and `tasks.watch().done` reject with `TaskCancelledError` when the task is cancelled and `TaskFailedError` when it fails, instead of a plain `Error`. Both carry the task as `error.task`. A task cancelled after its app returned a result now ends cancelled with that result as its `output`, so a caller that cancels reads the partial result from `error.task.output`. Messages are unchanged (`task cancelled`, the task's error). `isTaskCancelledError` and `isTaskFailedError` are the type guards.
 

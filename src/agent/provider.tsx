@@ -9,7 +9,7 @@ import React, { useReducer, useRef, useEffect, useMemo } from 'react';
 import type { UpdateManager } from './types.js';
 import { AgentChatContext, type AgentChatContextValue } from './context.js';
 import { chatReducer, initialState } from './reducer.js';
-import { createActions, getClientToolHandlers } from './actions.js';
+import { actionsFor, getClientToolHandlers, type BoundActions } from './actions.js';
 import { fetchAgentInfo } from './api.js';
 import type { ChatDTO } from '../types.js';
 import type {
@@ -18,7 +18,6 @@ import type {
   ChatStatus,
   ClientToolHandlerFn,
   ActionsContext,
-  ActionsResult,
 } from './types.js';
 import { isTemplateConfig } from './types.js';
 
@@ -128,11 +127,12 @@ export function AgentChatProvider({
     actionsContext.callbacks = callbacksRef.current;
   }, [actionsContext, onChatCreated, onStatusChange, onError, onTurnEnd]);
 
-  const actionsResultRef = useRef<ActionsResult | null>(null);
-  if (!actionsResultRef.current) {
-    actionsResultRef.current = createActions(actionsContext);
-  }
-  const { publicActions, internalActions } = actionsResultRef.current;
+  // One set of actions per client: actions call the API with the client they
+  // were created with, so a replaced client (another key, another account)
+  // gets new ones and the old client is not used again.
+  const actionsResultRef = useRef<BoundActions | null>(null);
+  actionsResultRef.current = actionsFor(actionsResultRef.current, actionsContext);
+  const { publicActions, internalActions } = actionsResultRef.current.result;
 
   // Fetch agent info for template configs (example_prompts, description)
   const agentRef = isTemplateConfig(agentConfig) ? agentConfig.agent : null;
@@ -152,11 +152,20 @@ export function AgentChatProvider({
     }
   }, [chatId, state.chatId, internalActions]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount, and when the client is replaced: the stream was
+  // opened with the old client's credentials.
   useEffect(() => {
     return () => {
       internalActions.stopStream();
     };
+  }, [internalActions]);
+
+  // A replaced client reopens the open chat with its own credentials.
+  const streamingActionsRef = useRef(internalActions);
+  useEffect(() => {
+    if (streamingActionsRef.current === internalActions) return;
+    streamingActionsRef.current = internalActions;
+    if (chatIdRef.current) internalActions.streamChat(chatIdRef.current);
   }, [internalActions]);
 
   const contextValue = useMemo<AgentChatContextValue>(() => ({
