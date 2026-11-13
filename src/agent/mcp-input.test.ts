@@ -104,6 +104,11 @@ describe('elicitParams', () => {
     });
   });
 
+  it('returns null when elicitation/create params are null or undefined', () => {
+    expect(elicitParams({ method: 'elicitation/create', params: null as never })).toBeNull();
+    expect(elicitParams({ method: 'elicitation/create', params: undefined as never })).toBeNull();
+  });
+
   it('drops malformed choices of a property', () => {
     const got = elicitParams({
       method: 'elicitation/create',
@@ -129,11 +134,65 @@ describe('elicitParams', () => {
 });
 
 describe('isURLElicitation', () => {
+  it('does not treat a dropped non-string url as URL mode unless mode is url', () => {
+    const params = elicitParams({
+      method: 'elicitation/create',
+      params: { message: 'sign in', url: 99 } as never,
+    });
+    expect(params).toEqual({ message: 'sign in' });
+    expect(isURLElicitation(params!)).toBe(false);
+
+    const urlMode = elicitParams({
+      method: 'elicitation/create',
+      params: { mode: 'url', message: 'sign in', url: 99 } as never,
+    });
+    expect(urlMode).toEqual({ mode: 'url', message: 'sign in' });
+    expect(isURLElicitation(urlMode!)).toBe(true);
+  });
+
   it('uses mode, then falls back to the presence of url', () => {
     expect(isURLElicitation({ mode: 'url', message: '' })).toBe(true);
     expect(isURLElicitation({ message: '', url: 'https://x.test' })).toBe(true);
     expect(isURLElicitation({ mode: 'form', message: '', url: 'https://x.test' })).toBe(false);
     expect(isURLElicitation({ message: '' })).toBe(false);
+  });
+});
+
+describe('parseMCPInputState vs elicitParams', () => {
+  it('keeps raw input_requests on parse; elicitParams is what UI code should read', () => {
+    const maliciousRequest = {
+      method: 'elicitation/create' as const,
+      params: {
+        message: { not: 'a string' },
+        url: 42,
+        requestedSchema: {
+          properties: {
+            pick: {
+              type: 'string',
+              enum: [1, 'ok', null],
+              oneOf: [{ const: 'a' }, { title: 'no const' }, 'bad'],
+              items: 'nope',
+            },
+          },
+          required: [0, 'pick', null],
+        },
+      },
+    };
+    const parsed = parseMCPInputState({
+      input_required: true,
+      input_requests: { step: maliciousRequest },
+    });
+    expect(parsed?.input_requests.step.params).toEqual(maliciousRequest.params);
+
+    const safe = elicitParams(parsed!.input_requests.step);
+    expect(safe?.message).toBe('');
+    expect(safe && 'url' in safe).toBe(false);
+    expect(safe?.requestedSchema).toEqual({
+      properties: {
+        pick: { type: 'string', enum: ['ok'], oneOf: [{ const: 'a' }] },
+      },
+      required: ['pick'],
+    });
   });
 });
 
