@@ -90,11 +90,79 @@ export function parseMCPInputState(data: unknown): MCPInputState | null {
   };
 }
 
-/** Returns the elicitation params of an input request, or null for other methods. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : undefined;
+}
+
+function choiceArray(value: unknown): ElicitChoice[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((c): c is ElicitChoice => isRecord(c) && typeof c.const === 'string');
+}
+
+/** Sets key to value, or removes it when value is undefined. */
+function setOrDrop(target: Record<string, unknown>, key: string, value: unknown): void {
+  if (value === undefined) Reflect.deleteProperty(target, key);
+  else target[key] = value;
+}
+
+function cleanProperty(raw: Record<string, unknown>): ElicitPropertySchema {
+  const property: Record<string, unknown> = { ...raw };
+  if ('enum' in property) setOrDrop(property, 'enum', stringArray(property.enum));
+  if ('enumNames' in property) setOrDrop(property, 'enumNames', stringArray(property.enumNames));
+  if ('oneOf' in property) setOrDrop(property, 'oneOf', choiceArray(property.oneOf));
+  if ('items' in property) {
+    if (isRecord(property.items)) {
+      const items: Record<string, unknown> = { ...property.items };
+      if ('enum' in items) setOrDrop(items, 'enum', stringArray(items.enum));
+      if ('anyOf' in items) setOrDrop(items, 'anyOf', choiceArray(items.anyOf));
+      property.items = items;
+    } else {
+      delete property.items;
+    }
+  }
+  return property as ElicitPropertySchema;
+}
+
+/**
+ * The schema comes from the MCP server as it sent it. Whatever does not have
+ * the shape ElicitRequestedSchema declares is dropped, so a consumer can
+ * iterate properties, required and each property's choices without checking.
+ */
+function cleanRequestedSchema(raw: unknown): ElicitRequestedSchema | undefined {
+  if (!isRecord(raw)) return undefined;
+  const schema: Record<string, unknown> = { ...raw };
+  if ('properties' in schema) {
+    if (isRecord(schema.properties)) {
+      const properties: Record<string, ElicitPropertySchema> = {};
+      for (const [name, property] of Object.entries(schema.properties)) {
+        if (isRecord(property)) properties[name] = cleanProperty(property);
+      }
+      schema.properties = properties;
+    } else {
+      delete schema.properties;
+    }
+  }
+  if ('required' in schema) setOrDrop(schema, 'required', stringArray(schema.required));
+  return schema as ElicitRequestedSchema;
+}
+
+/**
+ * Returns the elicitation params of an input request, or null for other
+ * methods and for params that are not an object. The fields are the server's:
+ * a message or url that is not a string, and the parts of requestedSchema that
+ * do not have the declared shape, are dropped.
+ */
 export function elicitParams(request: InputRequest): ElicitRequestParams | null {
-  if (request.method !== MCPMethodElicitationCreate || !request.params) return null;
-  const params = request.params as ElicitRequestParams;
-  return { ...params, message: params.message ?? '' };
+  if (request.method !== MCPMethodElicitationCreate || !isRecord(request.params)) return null;
+  const params: Record<string, unknown> = { ...request.params };
+  params.message = typeof params.message === 'string' ? params.message : '';
+  if ('url' in params && typeof params.url !== 'string') delete params.url;
+  if ('requestedSchema' in params) setOrDrop(params, 'requestedSchema', cleanRequestedSchema(params.requestedSchema));
+  return params as unknown as ElicitRequestParams;
 }
 
 /** URL mode sends the user to a page; form mode asks for fields. Mode defaults to form. */
