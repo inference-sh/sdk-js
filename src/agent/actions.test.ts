@@ -25,7 +25,7 @@ const submittedRun = { state: AgentRunStateSubmitted } as AgentRunDTO;
 const inputRequiredRun = { state: AgentRunStateInputRequired } as AgentRunDTO;
 const authRequiredRun = { state: AgentRunStateAuthRequired } as AgentRunDTO;
 const completedRun = { state: AgentRunStateCompleted } as AgentRunDTO;
-import { createActions, getClientToolHandlers } from './actions.js';
+import { actionsFor, createActions, getClientToolHandlers } from './actions.js';
 import { InferenceError } from '../http/errors.js';
 import * as agentApi from './api.js';
 import { PollManager } from '../http/poll.js';
@@ -3003,5 +3003,34 @@ describe('submitMCPInput', () => {
     await expect(publicActions.submitMCPInput('inv-1', { a: { action: 'cancel' } })).rejects.toThrow('boom');
     expect(dispatch).toHaveBeenCalledWith({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
     expect(onError).toHaveBeenCalled();
+  });
+});
+
+describe('actionsFor', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('keeps the actions while the context is the same', () => {
+    const { ctx } = createTestContext();
+    const bound = actionsFor(null, ctx);
+    expect(actionsFor(bound, ctx)).toBe(bound);
+  });
+
+  // The provider's context is rebuilt when its client prop changes (a new API
+  // key, another account). Actions kept from the first client would go on
+  // calling the API with its credentials.
+  it('creates actions on the new client once the context is replaced', async () => {
+    const first = createTestContext();
+    const second = createTestContext();
+    expect(second.ctx.client).not.toBe(first.ctx.client);
+    const file = new File(['x'], 'x.txt');
+
+    const bound = actionsFor(null, first.ctx);
+    await bound.result.publicActions.uploadFile(file);
+    expect(mockAgentApi.uploadFile).toHaveBeenLastCalledWith(first.ctx.client, file);
+
+    const rebound = actionsFor(bound, second.ctx);
+    expect(rebound).not.toBe(bound);
+    await rebound.result.publicActions.uploadFile(file);
+    expect(mockAgentApi.uploadFile).toHaveBeenLastCalledWith(second.ctx.client, file);
   });
 });

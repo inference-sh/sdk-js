@@ -681,6 +681,23 @@ export function createActions(ctx: ActionsContext): ActionsResult {
   return { publicActions, internalActions };
 }
 
+/** Actions and the context they were created with. */
+export interface BoundActions {
+  ctx: ActionsContext;
+  result: ActionsResult;
+}
+
+/**
+ * The actions for ctx: the bound ones while ctx is the same object, new ones
+ * once it is replaced. Actions keep the client of the context they were
+ * created with, so reusing them after the client changed would keep calling
+ * the API as the old client.
+ */
+export function actionsFor(bound: BoundActions | null, ctx: ActionsContext): BoundActions {
+  if (bound && bound.ctx === ctx) return bound;
+  return { ctx, result: createActions(ctx) };
+}
+
 // =============================================================================
 // Helper: Extract client tool handlers from config
 // =============================================================================
