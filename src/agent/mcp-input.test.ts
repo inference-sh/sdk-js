@@ -55,6 +55,77 @@ describe('elicitParams', () => {
   it('returns null for other methods', () => {
     expect(elicitParams({ method: 'sampling/createMessage', params: {} })).toBeNull();
   });
+
+  it('returns a well-formed requestedSchema as sent', () => {
+    const params = {
+      mode: 'form',
+      message: 'pick',
+      requestedSchema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', title: 'Name', minLength: 1 },
+          size: { type: 'string', enum: ['s', 'm'], enumNames: ['Small', 'Medium'] },
+          color: { type: 'string', oneOf: [{ const: 'r', title: 'Red' }] },
+          tags: { type: 'array', items: { type: 'string', anyOf: [{ const: 'a', title: 'A' }] }, minItems: 1 },
+        },
+        required: ['name'],
+      },
+    };
+    expect(elicitParams({ method: 'elicitation/create', params })).toEqual(params);
+  });
+
+  it('returns null when params is not an object', () => {
+    for (const params of ['text', 7, true, ['a']]) {
+      expect(elicitParams({ method: 'elicitation/create', params: params as never })).toBeNull();
+    }
+  });
+
+  it('drops a message or url that is not a string', () => {
+    const got = elicitParams({ method: 'elicitation/create', params: { message: { a: 1 }, url: 5 } as never });
+    expect(got).toEqual({ message: '' });
+    expect(got && 'url' in got).toBe(false);
+  });
+
+  it('drops a requestedSchema that is not an object', () => {
+    for (const requestedSchema of ['x', 3, null, ['a']]) {
+      const got = elicitParams({ method: 'elicitation/create', params: { message: 'm', requestedSchema } as never });
+      expect(got).toEqual({ message: 'm' });
+    }
+  });
+
+  it('drops properties and required that do not have the declared shape', () => {
+    const schemaOf = (requestedSchema: unknown) =>
+      elicitParams({ method: 'elicitation/create', params: { message: 'm', requestedSchema } as never })?.requestedSchema;
+
+    expect(schemaOf({ type: 'object', properties: 'nope', required: 'name' })).toEqual({ type: 'object' });
+    expect(schemaOf({ properties: ['a'], required: [1, 'name', null] })).toEqual({ required: ['name'] });
+    expect(schemaOf({ properties: { ok: { type: 'string' }, bad: 'string', nil: null, list: [] } })).toEqual({
+      properties: { ok: { type: 'string' } },
+    });
+  });
+
+  it('drops malformed choices of a property', () => {
+    const got = elicitParams({
+      method: 'elicitation/create',
+      params: {
+        message: 'm',
+        requestedSchema: {
+          properties: {
+            a: { type: 'string', enum: 'x', enumNames: { 0: 'X' }, oneOf: 'y' },
+            b: { type: 'string', enum: ['x', 2], oneOf: [{ const: 'r' }, 'bad', { title: 'no const' }] },
+            c: { type: 'array', items: 'string' },
+            d: { type: 'array', items: { enum: 5, anyOf: [null, { const: 'k' }] } },
+          },
+        },
+      } as never,
+    });
+    expect(got?.requestedSchema?.properties).toEqual({
+      a: { type: 'string' },
+      b: { type: 'string', enum: ['x'], oneOf: [{ const: 'r' }] },
+      c: { type: 'array' },
+      d: { type: 'array', items: { anyOf: [{ const: 'k' }] } },
+    });
+  });
 });
 
 describe('isURLElicitation', () => {
