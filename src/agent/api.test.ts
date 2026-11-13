@@ -637,6 +637,25 @@ describe('agent/api', () => {
       expect(settings).toEqual({ chat_id: 'chat-1', name: 'c', visibility: 'team', allow_all_tools: true, disable_hooks: false, memory: {} });
     });
 
+    it('updateChatSettings should POST strictness when the caller sets it', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          chat_id: 'chat-1',
+          name: 'c',
+          visibility: 'team',
+          allow_all_tools: false,
+          disable_hooks: false,
+          memory: {},
+          strictness: 'strict',
+        },
+      });
+      const settings = await updateChatSettings(makeClient(), 'chat-1', { strictness: 'strict' });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toEqual({ strictness: 'strict' });
+      expect(settings.strictness).toBe('strict');
+    });
+
     it('updateChatSettings should POST forget_memory and return memory after keys are dropped', async () => {
       mockJsonResponse({
         success: true,

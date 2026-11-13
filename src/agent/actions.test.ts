@@ -3007,7 +3007,28 @@ describe('submitMCPInput', () => {
 });
 
 describe('actionsFor', () => {
-  beforeEach(() => jest.clearAllMocks());
+  let streamInstances: Array<{
+    options: ConstructorParameters<typeof StreamableManager>[0];
+    addEventListener: jest.Mock;
+    start: jest.Mock;
+    stop: jest.Mock;
+  }>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    streamInstances = [];
+    (StreamableManager as jest.Mock).mockImplementation((options) => {
+      const instance = {
+        options,
+        addEventListener: jest.fn(),
+        start: jest.fn(),
+        stop: jest.fn(),
+      };
+      streamInstances.push(instance);
+      return instance;
+    });
+    mockAgentApi.fetchChat.mockResolvedValue(idleChat);
+  });
 
   it('keeps the actions while the context is the same', () => {
     const { ctx } = createTestContext();
@@ -3032,5 +3053,28 @@ describe('actionsFor', () => {
     expect(rebound).not.toBe(bound);
     await rebound.result.publicActions.uploadFile(file);
     expect(mockAgentApi.uploadFile).toHaveBeenLastCalledWith(second.ctx.client, file);
+  });
+
+  // AgentChatProvider pairs rebinding with stopStream on the previous actions
+  // (see provider.tsx). Without that, the first client's stream could still
+  // dispatch after the client prop changes.
+  it('stops the prior stream before a rebinding replaces the client', async () => {
+    const first = createTestContext();
+    const second = createTestContext();
+
+    const bound = actionsFor(null, first.ctx);
+    bound.result.internalActions.streamChat('chat-full-id-123');
+    await flush();
+    const staleOptions = streamInstances[0].options;
+
+    bound.result.internalActions.stopStream();
+    actionsFor(bound, second.ctx);
+    first.ctx.dispatch.mockClear();
+
+    staleOptions.onError?.(new Error('from old client'));
+    staleOptions.onEnd?.();
+    await flush();
+
+    expect(first.ctx.dispatch).not.toHaveBeenCalled();
   });
 });
