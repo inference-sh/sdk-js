@@ -7,8 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.4] - 2026-11-13
+
 ### Fixed
 - `AgentChatProvider` uses a replaced `client` prop. The chat actions were created once with the first client, so after the client changed (a new API key, another account) sending, uploading, approvals and the stream kept calling the API as the old one. The actions are now rebuilt for the new client, the old client's stream is stopped and the open chat is reopened with the new one. Pass a stable client (`useMemo`): a client created on every render restarts the stream on every render.
+- `elicitParams` drops malformed MCP elicitation params and schema parts instead of passing them on.
+
+## [0.39.3] - 2026-11-12
+
+### Changed
+- Types regenerated from the API: chat strictness (`ChatStrictness`, `ChatStrictnessDTO`, `ChatSettingsDTO.strictness`, run end reason `content_flagged`), sandbox snapshots kept in object storage, task `start_timeout`.
+
+## [0.39.2] - 2026-11-10
+
+### Added
+- Sandboxes: `exec` (waits for the result), `listFiles`, `readFile`, `readTextFile`, `writeFile`, `deleteFile`, `limits`. Files move through file storage (`writeFile` uploads then imports, `readFile` exports then downloads; the storage copy is deleted).
+
+### Changed
+- `sandboxes.limits()` follows the entitlement-built DTO: `limits[]` of `ResourceUsage`; `running` and `vcpus` are removed.
+- A problem body under a 200 response throws like a refused response.
+
+## [0.39.1] - 2026-11-10
+
+### Changed
+- Types regenerated from the API: sandbox limits, image upgrade, snapshots, ports, exec wait, sandbox files, plan limits, engine capacity policy, credential scheme hosts, sandbox idle default (15 minutes); proxy endpoints carry `remotes:write`.
+
+## [0.39.0] - 2026-11-07
+
+**Breaking:** task errors are typed.
 
 ### Changed
 - `tasks.run()` and `tasks.watch().done` reject with `TaskCancelledError` when the task is cancelled and `TaskFailedError` when it fails, instead of a plain `Error`. Both carry the task as `error.task`. A task cancelled after its app returned a result now ends cancelled with that result as its `output`, so a caller that cancels reads the partial result from `error.task.output`. Messages are unchanged (`task cancelled`, the task's error). `isTaskCancelledError` and `isTaskFailedError` are the type guards.
