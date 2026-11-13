@@ -10,6 +10,7 @@ import type { UpdateManager } from './types.js';
 import { AgentChatContext, type AgentChatContextValue } from './context.js';
 import { chatReducer, initialState } from './reducer.js';
 import { actionsFor, getClientToolHandlers, type BoundActions } from './actions.js';
+import { trackInternalActionsForStreaming } from './provider-client-bind.js';
 import { fetchAgentInfo } from './api.js';
 import type { ChatDTO } from '../types.js';
 import type {
@@ -163,9 +164,11 @@ export function AgentChatProvider({
   // A replaced client reopens the open chat with its own credentials.
   const streamingActionsRef = useRef(internalActions);
   useEffect(() => {
-    if (streamingActionsRef.current === internalActions) return;
-    streamingActionsRef.current = internalActions;
-    if (chatIdRef.current) internalActions.streamChat(chatIdRef.current);
+    streamingActionsRef.current = trackInternalActionsForStreaming(
+      streamingActionsRef.current,
+      internalActions,
+      chatIdRef.current,
+    );
   }, [internalActions]);
 
   const contextValue = useMemo<AgentChatContextValue>(() => ({
