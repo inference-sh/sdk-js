@@ -70,6 +70,18 @@ describe('SocketsAPI', () => {
     expect(session.state).toBe('connecting');
   });
 
+  it('forwards realtime to LiveSession so microphone frames wait for relay pairing', async () => {
+    const session = await api().open(
+      { ...task, socket: access },
+      {},
+      { webSocket: FakeWebSocket, watchTask: false, realtime: true },
+    );
+    expect(FakeWebSocket.dialed[0].url).toBe(
+      'wss://relay.test/sockets/sock-1?access_token=tok&signals=paired',
+    );
+    expect(session.droppedFrames).toBe(0);
+  });
+
   it('forwards input and output schemas for sendField and onUpdate', async () => {
     const pcm = {
       type: 'array',
