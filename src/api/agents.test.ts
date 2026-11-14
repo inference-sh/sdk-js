@@ -984,6 +984,11 @@ describe('Agent.sendMessage (streaming mode)', () => {
         expect(streams).toBe(2);
         expect(onMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'asst-1', status: 'ready' }));
         expect(onChat).toHaveBeenLastCalledWith(expect.objectContaining({ status: ChatStatusIdle }));
+        const listCall = mockFetch.mock.calls.find(([url]) =>
+          String(url).match(/\/chats\/chat-1\/messages\/list$/),
+        );
+        expect(listCall).toBeDefined();
+        expect((listCall![1] as RequestInit).method).toBe('POST');
         agentInstance.disconnect();
       } finally {
         jest.useRealTimers();
