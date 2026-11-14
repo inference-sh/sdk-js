@@ -17,6 +17,7 @@ import {
   RequirementTypeCredential,
   RequirementTypeScope,
   RequirementTypeSecret,
+  RequirementTypeVariable,
   TaskStatusCancelled,
   TaskStatusFailed,
   type TaskDTO,
@@ -81,12 +82,14 @@ describe('error classes', () => {
       { type: RequirementTypeSecret, key: 'API_KEY', message: 'Missing secret' },
       { type: RequirementTypeCredential, key: 'google', message: 'Not connected' },
       { type: RequirementTypeScope, key: 'calendar.readonly', message: 'Missing scope' },
+      { type: RequirementTypeVariable, key: 'REGION', message: 'Set team variable' },
     ];
     const err = new RequirementsNotMetException(errors);
 
     expect(err.errors[0].type).toBe('secret');
     expect(err.errors[1].type).toBe('credential');
     expect(err.errors[2].type).toBe('scope');
+    expect(err.errors[3].type).toBe('variable');
     expect(isRequirementsNotMetException(err)).toBe(true);
   });
 

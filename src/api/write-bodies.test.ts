@@ -71,6 +71,25 @@ describe('ChatsAPI.updateSettings', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ visibility: 'public' });
   });
+
+  it('POSTs infra with chat settings when app tools should run on private engines', async () => {
+    const settings = {
+      chat_id: 'chat-1',
+      name: 'n',
+      visibility: 'team',
+      allow_all_tools: false,
+      disable_hooks: false,
+      memory: {},
+    };
+    mockJsonResponse(settings);
+
+    await new ChatsAPI(http()).updateSettings('chat-1', { infra: 'private' });
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1/settings');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ infra: 'private' });
+  });
 });
 
 describe('FlowsAPI.patch and saveViewport', () => {
