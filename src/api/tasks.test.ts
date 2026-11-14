@@ -825,6 +825,25 @@ describe('TasksAPI.create', () => {
       input: { image: 'file-1' },
     });
   });
+
+  it('should forward start_timeout and run_at on /apps/run (7f3b625)', async () => {
+    mockJsonResponse(makeTask());
+
+    await api().create({
+      app: 'acme/queued',
+      input: { batch: 3 },
+      run_at: '2030-01-15T08:00:00Z',
+      start_timeout: 1800,
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'acme/queued',
+      input: { batch: 3 },
+      run_at: '2030-01-15T08:00:00Z',
+      start_timeout: 1800,
+    });
+  });
 });
 
 describe('TasksAPI (CRUD and admin)', () => {
