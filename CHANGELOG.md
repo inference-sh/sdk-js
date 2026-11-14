@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-14
+
+Types regenerated from the API (api-v1567, api-v1568).
+
+### Added
+- Team variables (INF-1345): `VariableDTO`, `VariableSetRequest`, `VariableListResponse`, `VarRequirement`; `required_vars` on app versions; requirement type `variable` and setup action `add_variable`.
+- `infra` on `CreateSandboxRequest` and `SandboxDTO` (`cloud`, `private`, `private_first`: whose engines a sandbox runs on; `SandboxDTO.infra` is always set).
+- `infra` on `ApiAgentRunRequest`, `ChatSettingsRequest` and chat data: where an agent run's app tools run. Empty is cloud.
+
 ## [0.40.0] - 2026-11-14
 
 **Breaking:** types regenerated from the API (api-v1551 to api-v1565).

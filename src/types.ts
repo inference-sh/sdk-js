@@ -533,6 +533,15 @@ export interface ApiAgentRunRequest {
   agent_name?: string;
   input: MessageInput;
   context?: { [key: string]: string};
+  /**
+   * Infra is where the tasks the agent's app tools run go, for the
+   * caller's workspace: cloud, private (its own engines only) or
+   * private_first (its own when one can take the task, cloud
+   * otherwise). It is kept on the chat, so it holds for the turns that
+   * follow until a later request or the chat's settings change it.
+   * Absent: the chat's, which starts as cloud.
+   */
+  infra?: Infra;
   stream?: boolean;
   /**
    * ProjectID files the chat this message starts in a project. Ignored
@@ -593,6 +602,7 @@ export interface AppVersionInput {
   kernel?: string;
   required_secrets?: SecretRequirement[];
   required_credentials?: CredentialRequirements;
+  required_vars?: VarRequirement[];
   resources?: AppResources;
 }
 /**
@@ -1899,6 +1909,11 @@ export interface AppVersionDTO extends BaseModelDTO {
   kernel: string;
   required_secrets?: SecretRequirement[];
   required_credentials?: CredentialRequirements;
+  /**
+   * RequiredVars are the environment variables the version reads from
+   * the running team (vars: in inf.yml): plain configuration.
+   */
+  required_vars?: VarRequirement[];
   resources: AppResources;
   /**
    * Sandbox is the version's declared sandbox exceptions. Absent on a
@@ -2526,6 +2541,11 @@ export interface ChatSettingsRequest {
    * minimum still raises it (GET /chats/{id}/strictness).
    */
   strictness?: ChatStrictness;
+  /**
+   * Infra is where the tasks the agent's app tools run in this chat go:
+   * cloud, private or private_first.
+   */
+  infra?: Infra;
 }
 /**
  * ChatSettingsDTO is what POST /chats/{id}/settings answers with: the chat's
@@ -3520,7 +3540,8 @@ export type EngineCapability =
   | "sized_sandboxes"
   | "sized_workers"
   | "sandbox_snapshots"
-  | "sandbox_snapshot_store";
+  | "sandbox_snapshot_store"
+  | "task_env";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3598,6 +3619,16 @@ export const EngineCapabilitySandboxSnapshots: EngineCapability = "sandbox_snaps
  * each against the manifest, and rebuilds the disk.
  */
 export const EngineCapabilitySandboxSnapshotStore: EngineCapability = "sandbox_snapshot_store";
+/**
+ * EngineCapabilityTaskEnv: the engine gives each task the app
+ * environment that task was dispatched with (TaskDispatchPayload.AppEnv):
+ * a worker whose visor was started with another environment is restarted
+ * before the task runs, as it is when its secrets change. Without it a
+ * warm worker keeps the environment of the first task it ran, so a task
+ * whose environment carries its team's variables (INF-1345) is sent
+ * only to an engine that has it.
+ */
+export const EngineCapabilityTaskEnv: EngineCapability = "task_env";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -5758,7 +5789,7 @@ export interface SuggestResult {
 /**
  * RequirementType identifies the kind of missing requirement.
  */
-export type RequirementType = "secret" | "credential" | "scope";
+export type RequirementType = "secret" | "credential" | "scope" | "variable";
 /**
  * Requirement error types
  */
@@ -5772,6 +5803,11 @@ export const RequirementTypeCredential: RequirementType = "credential";
  */
 export const RequirementTypeScope: RequirementType = "scope";
 /**
+ * RequirementTypeVariable: an environment variable the app declares
+ * under vars: that the team has not set and the app gives no default.
+ */
+export const RequirementTypeVariable: RequirementType = "variable";
+/**
  * RequirementError represents a single missing requirement with actionable info
  */
 export interface RequirementError {
@@ -5783,10 +5819,15 @@ export interface RequirementError {
 /**
  * SetupActionType identifies the kind of action needed to resolve a requirement.
  */
-export type SetupActionType = "add_secret" | "connect" | "add_scopes";
+export type SetupActionType = "add_secret" | "connect" | "add_scopes" | "add_variable";
 export const SetupActionAddSecret: SetupActionType = "add_secret";
 export const SetupActionConnect: SetupActionType = "connect";
 export const SetupActionAddScopes: SetupActionType = "add_scopes";
+/**
+ * SetupActionAddVariable: set the team's variable RequirementError.Key
+ * (PUT /variables/{key}).
+ */
+export const SetupActionAddVariable: SetupActionType = "add_variable";
 /**
  * SetupAction provides actionable info for resolving a missing requirement
  */
@@ -5908,6 +5949,15 @@ export interface CreateSandboxRequest {
   memory_mib?: number /* int64 */; // default 4096; at most the plan's largest sandbox (sandbox_max_vcpus)
   disk_mib?: number /* int64 */; // default 10240, max 51200
   /**
+   * Infra is whose engines the sandbox runs on: cloud (the default),
+   * private (the workspace's own engines that host sandboxes, where it
+   * costs nothing and needs no credit) or private_first (the
+   * workspace's when one has room, the cloud otherwise). One made from
+   * a snapshot kept on an engine of the workspace alone is private
+   * when this is left out.
+   */
+  infra?: Infra;
+  /**
    * Credentials are the logins the box gets, by provider (slug), as a
    * run of its owner resolves them (e.g. [{"slug":"github-app"}]). Only
    * keys a provider binds to hosts: the box holds placeholders, the
@@ -6028,6 +6078,11 @@ export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
   vcpus: number /* int */;
   memory_mib: number /* int64 */;
   disk_mib: number /* int64 */;
+  /**
+   * Infra is whose engines the sandbox runs on: cloud, private or
+   * private_first.
+   */
+  infra: Infra;
   desired_state: SandboxDesiredState;
   status: SandboxStatus;
   status_reason?: string;
@@ -7127,6 +7182,49 @@ export interface UserMetadataDTO {
   terms_version: string;
 }
 /**
+ * VarRequirement is an entry under vars: in inf.yml: a variable the app
+ * reads from the running team. At run time the app gets the team's value
+ * for Key, else Default; a variable with neither that is not Optional
+ * fails the run as a missing requirement.
+ */
+export interface VarRequirement {
+  key: string;
+  description?: string;
+  optional?: boolean;
+  default?: string;
+}
+/**
+ * VariableDTO is a team's variable. The value is plain by definition.
+ */
+export interface VariableDTO {
+  id: string;
+  created_at: string /* RFC3339 */;
+  updated_at: string /* RFC3339 */;
+  team_id: string;
+  user_id: string;
+  key: string;
+  value: string;
+  description?: string;
+}
+/**
+ * VariableSetRequest is the body of PUT /variables/{key}: it creates the
+ * variable or replaces its value. Description, when sent, replaces the
+ * stored one.
+ */
+export interface VariableSetRequest {
+  value: string;
+  description?: string;
+}
+/**
+ * VariableListResponse is one page of a team's variables, by key.
+ */
+export interface VariableListResponse {
+  items: VariableDTO[];
+  next_cursor: string;
+  has_next: boolean;
+  items_per_page: number /* int */;
+}
+/**
  * Widget is an A2UI surface stored on a ToolInvocation.
  * Alias of shared.A2UISurface so the type generation pipeline picks it up.
  */
@@ -8157,6 +8255,15 @@ export interface ChatData {
    * trusted or filtered on: Chat.Origin is what a chat list filters.
    */
   client?: string;
+  /**
+   * Infra is where the tasks the agent's app tools run in this chat go,
+   * for the chat's team: its own engines (private), the cloud, or its
+   * engines when one can take the task and the cloud otherwise
+   * (private_first). Empty is the cloud. Whoever runs the agent sets it
+   * (ApiAgentRunRequest.Infra, ChatSettingsRequest.Infra); a sub-agent's
+   * chat takes its parent's.
+   */
+  infra?: Infra;
 }
 /**
  * ChatOrigin is how a chat came to be. A chat list shows a person's own
