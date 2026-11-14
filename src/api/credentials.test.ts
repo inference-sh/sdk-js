@@ -165,6 +165,24 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
   });
 
+  it('should deserialize connect_url on connect() for CLI/agent OAuth handoff', async () => {
+    const payload = { provider: 'slack', type: 'oauth', scopes: ['chat:write'] };
+    const response = {
+      auth_url: 'https://slack.com/oauth/authorize?client=1',
+      connect_url: 'https://app.example.com/credentials/connect/abc123',
+      state: 'pkce-state',
+      code_verifier: 'verifier',
+      instructions: 'Open the link in a browser to finish connecting Slack.',
+    };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload);
+
+    expect(result.data).toEqual(response);
+    expect(result.data.connect_url).toBe(response.connect_url);
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
+  });
+
   it('should deserialize grant and app_credential_id on get()', async () => {
     const credential = {
       id: 'cred-1',
