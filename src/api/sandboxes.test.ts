@@ -145,6 +145,21 @@ describe('SandboxesAPI exec, files, limits', () => {
     expect(mockFetch.mock.calls[2][0]).toBe('https://api.test/remotes/rm1/execs?wait=60');
   });
 
+  it('stop drops the cached remote so the next exec looks the sandbox up again', async () => {
+    const sandboxes = api();
+    mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex1', status: 'exited' }, stdout: '', stderr: '' } });
+    await sandboxes.exec('sb1', 'true');
+    mockJsonResponse({ success: true, data: { id: 'sb1', desired_state: 'stopped' } });
+    await sandboxes.stop('sb1');
+    mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm2', status: 'running' } });
+    mockJsonResponse({ success: true, data: { run: { id: 'ex2', status: 'exited' }, stdout: '', stderr: '' } });
+    await sandboxes.exec('sb1', 'true');
+    expect(mockFetch.mock.calls[2][0]).toBe('https://api.test/sandboxes/sb1/stop');
+    expect(mockFetch.mock.calls[3][0]).toBe('https://api.test/sandboxes/sb1');
+    expect(mockFetch.mock.calls[4][0]).toBe('https://api.test/remotes/rm2/execs?wait=60');
+  });
+
   it.each([404, 409])('exec looks the remote up again once when the kept one answers %p', async (status) => {
     const sandboxes = api();
     mockJsonResponse({ success: true, data: { id: 'sb1', remote_id: 'rm1', status: 'running' } });
