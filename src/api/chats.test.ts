@@ -333,6 +333,45 @@ describe('ChatsAPI', () => {
     expect(result.data.active_run?.state).toBe(AgentRunStateWorking);
   });
 
+  it('should POST /chats/{id}/settings with strictness when updateSettings() sets it', async () => {
+    const settings = {
+      chat_id: 'chat-1',
+      name: 'c',
+      visibility: 'team',
+      allow_all_tools: false,
+      disable_hooks: false,
+      memory: {},
+      strictness: 'strict',
+    };
+    mockJsonResponse(settings);
+
+    const result = await api().updateSettings('chat-1', { strictness: 'strict' });
+
+    expect(result.data.strictness).toBe('strict');
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/chats/chat-1/settings');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ strictness: 'strict' });
+  });
+
+  it('should omit strictness on updateSettings() when the chat follows the agent default', async () => {
+    const settings = {
+      chat_id: 'chat-1',
+      name: 'c',
+      visibility: 'team',
+      allow_all_tools: true,
+      disable_hooks: false,
+      memory: {},
+    };
+    mockJsonResponse(settings);
+
+    const result = await api().updateSettings('chat-1', { allow_all_tools: true });
+
+    expect(result.data).not.toHaveProperty('strictness');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ allow_all_tools: true });
+  });
+
   it('should PATCH /chats/{id} for update()', async () => {
     const chat = { id: 'chat-1', name: 'Renamed' };
     mockJsonResponse(chat);
