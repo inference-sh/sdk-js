@@ -956,6 +956,35 @@ describe('namespaced APIs', () => {
       expect(typeof client.engines.get).toBe('function');
     });
   });
+
+  describe('client.sandboxes', () => {
+    it('should have sandboxes namespace wired on Inference', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.sandboxes).toBeDefined();
+      expect(typeof client.sandboxes.list).toBe('function');
+      expect(typeof client.sandboxes.get).toBe('function');
+      expect(typeof client.sandboxes.create).toBe('function');
+      expect(typeof client.sandboxes.start).toBe('function');
+      expect(typeof client.sandboxes.stop).toBe('function');
+      expect(typeof client.sandboxes.delete).toBe('function');
+    });
+  });
+
+  describe('client.mcpServers', () => {
+    it('should have mcpServers namespace wired on Inference', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.mcpServers).toBeDefined();
+      expect(typeof client.mcpServers.list).toBe('function');
+      expect(typeof client.mcpServers.get).toBe('function');
+      expect(typeof client.mcpServers.listTools).toBe('function');
+      expect(typeof client.mcpServers.callTool).toBe('function');
+      expect(typeof client.mcpServers.listOwned).toBe('function');
+      expect(typeof client.mcpServers.getOwned).toBe('function');
+      expect(typeof client.mcpServers.create).toBe('function');
+      expect(typeof client.mcpServers.update).toBe('function');
+      expect(typeof client.mcpServers.delete).toBe('function');
+    });
+  });
 });
 
 describe('uploadFile', () => {
