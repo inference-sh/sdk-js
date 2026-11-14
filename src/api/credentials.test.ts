@@ -4,6 +4,7 @@ import {
   CredentialGrantCredentials,
   CredentialGrantToken,
   CredentialProviderGoogleSA,
+  CredentialScopePlatform,
   CredentialScopeTeam,
   CredentialScopeUser,
 } from '../types.js';
@@ -132,6 +133,28 @@ describe('CredentialsAPI', () => {
     expect(url).toContain('/credentials/available');
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('GET');
+  });
+
+  it('should deserialize own_app_scope on listAvailable() catalog entries', async () => {
+    const available = [
+      {
+        slug: 'platform-oauth',
+        provider: 'custom',
+        type: 'oauth2',
+        name: 'Platform app',
+        short_name: 'Platform',
+        description: 'Team vs platform scope',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        own_app_scope: CredentialScopePlatform,
+      },
+    ];
+    mockJsonResponse(available);
+
+    const result = await api().listAvailable();
+
+    expect(result.data[0]?.own_app_scope).toBe(CredentialScopePlatform);
   });
 
   it('should POST /credentials for connect()', async () => {

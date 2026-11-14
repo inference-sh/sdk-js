@@ -1,4 +1,5 @@
 import { HttpClient } from '../http/client.js';
+import { ScopeAppsExecute, ScopeFilesWrite } from '../types.js';
 import { SandboxesAPI } from './sandboxes.js';
 import { FilesAPI } from './files.js';
 
@@ -58,6 +59,20 @@ describe('SandboxesAPI', () => {
     expect(url).toMatch(/\/sandboxes$/);
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ name: 'dev', vcpus: 4, credentials: [{ slug: 'github-app', mode: 'ask' }] });
+  });
+
+  it('should forward api_scopes on create() instead of vault_id (0.40.0)', async () => {
+    mockJsonResponse({ id: 'sb-scoped', name: 'scoped' });
+
+    await api().create({
+      name: 'scoped',
+      api_scopes: [ScopeAppsExecute, ScopeFilesWrite],
+    });
+
+    const [, init] = lastCall();
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.api_scopes).toEqual([ScopeAppsExecute, ScopeFilesWrite]);
+    expect(body).not.toHaveProperty('vault_id');
   });
 
   it.each([
