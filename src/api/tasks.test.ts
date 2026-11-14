@@ -808,6 +808,25 @@ describe('TasksAPI.create', () => {
     });
   });
 
+  it('should forward start_timeout on POST /apps/run (api#2344)', async () => {
+    mockJsonResponse(makeTask());
+
+    await api().create({
+      app: 'test-app',
+      input: { prompt: 'hi' },
+      start_timeout: 600,
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.start_timeout).toBe(600);
+    expect(body).toEqual({
+      app: 'test-app',
+      input: { prompt: 'hi' },
+      start_timeout: 600,
+    });
+  });
+
   it('should forward function in /apps/run when running a pinned app function', async () => {
     const task = makeTask();
     mockJsonResponse(task);
