@@ -74,6 +74,8 @@ import {
   PolicyEnforcementEnforced,
   PolicyEnforcementEvaluate,
   PolicyEnforcementDisabled,
+  PublicationsAPI,
+  SkillsAPI,
 } from './index.js';
 import { RequirementsNotMetException } from './http/errors.js';
 import { HttpClient } from './http/client.js';
@@ -954,6 +956,42 @@ describe('namespaced APIs', () => {
       expect(client.engines).toBeDefined();
       expect(typeof client.engines.list).toBe('function');
       expect(typeof client.engines.get).toBe('function');
+    });
+  });
+
+  describe('client.publications', () => {
+    it('should expose PublicationsAPI with list/get/create/update/patch/delete', () => {
+      const client = new Inference({ apiKey: 'test-api-key' });
+      expect(client.publications).toBeDefined();
+      expect(client.publications).toBeInstanceOf(PublicationsAPI);
+      expect(typeof client.publications.list).toBe('function');
+      expect(typeof client.publications.get).toBe('function');
+      expect(typeof client.publications.create).toBe('function');
+      expect(typeof client.publications.update).toBe('function');
+      expect(typeof client.publications.patch).toBe('function');
+      expect(typeof client.publications.delete).toBe('function');
+    });
+  });
+
+  describe('client.skills text endpoints', () => {
+    it('should return raw markdown from skills.getContent() via HttpClient.fetch', async () => {
+      mockFetch.mockResolvedValueOnce(new Response('# Skill body', { status: 200 }));
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      const result = await client.skills.getContent('acme', 'research');
+
+      expect(result.data).toBe('# Skill body');
+      expect(client.skills).toBeInstanceOf(SkillsAPI);
+      expect(mockFetch.mock.calls[0][0]).toContain('/skills/acme/research/content');
+    });
+
+    it('should encode each path segment in skills.getFile()', async () => {
+      mockFetch.mockResolvedValueOnce(new Response('file', { status: 200 }));
+
+      const client = new Inference({ apiKey: 'test-api-key' });
+      await client.skills.getFile('acme', 'research', 'scripts/run me.sh');
+
+      expect(mockFetch.mock.calls[0][0]).toContain('/skills/acme/research/files/scripts/run%20me.sh');
     });
   });
 });
