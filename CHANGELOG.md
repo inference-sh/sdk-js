@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-14
+
+**Breaking:** types regenerated from the API (api-v1551 to api-v1565).
+
+### Removed
+- `vault_id` on `CreateSandboxRequest` and on agent versions and agent config: a sandbox's and an agent's inference.sh access is `api_scopes` now (INF-1292). The API refuses `vault_id` on `POST /sandboxes` with a 400.
+
+### Added
+- `api_scopes` on `CreateSandboxRequest`, `AgentVersionDTO` and `AgentConfigInput`.
+- `CredentialConfigDTO.own_app_scope` and `CredentialAppRequest.scope` (team OAuth apps).
+
+### Changed
+- Chat strictness levels that are unset are left out of replies instead of sent as `""`: `ChatSettingsDTO.strictness`, `ChatStrictnessDTO.chat` and `.minimum` are optional. A request with `""` gets a 400; clear a chat's level with `DELETE /chats/{id}/strictness`.
+
 ## [0.39.4] - 2026-11-13
 
 ### Fixed
