@@ -12,6 +12,7 @@ import {
   AgentRunStateCompleted,
   AgentRunStateWorking,
   AgentRunStateAuthRequired,
+  ScopeAppsExecute,
 } from '../types.js';
 import type { AgentRunDTO } from '../types.js';
 import { learningHooks } from '../hook-builder.js';
@@ -2548,6 +2549,24 @@ describe('AgentsAPI (template CRUD)', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward api_scopes on createAgent() version config (0.40.0 vault cleanup)', async () => {
+    const payload = {
+      name: 'sandbox-agent',
+      core_app: { ref: 'app/ref' },
+      version: { api_scopes: [ScopeAppsExecute] },
+    };
+    const created = { id: 'agent-new', name: payload.name };
+    mockJsonResponse(created);
+
+    await api().createAgent(payload as never);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as { version?: { api_scopes?: string[] } };
+    expect(body.version?.api_scopes).toEqual([ScopeAppsExecute]);
+    expect(body).not.toHaveProperty('vault_id');
+    expect(body.version).not.toHaveProperty('vault_id');
   });
 
   it('should pass harness binding fields through createAgent()', async () => {
