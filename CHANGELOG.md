@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.1] - 2026-11-15
+
+### Removed
+- `launch_configuration` and `envs` on `InstanceDTO` (api-v1572): the API no longer returns them.
+
 ## [0.41.0] - 2026-11-14
 
 Types regenerated from the API (api-v1567, api-v1568).

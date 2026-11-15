@@ -4726,7 +4726,9 @@ export interface ChatTraceDTO {
   failed_steps: number /* int */;
 }
 /**
- * InstanceDTO is the API representation of a cloud instance.
+ * InstanceDTO is the API representation of a cloud instance. It has no
+ * launch_configuration and no envs: the boot script carries the engine's
+ * enrollment token (models.ToInstanceDTO).
  */
 export interface InstanceDTO extends BaseModelDTO, PermissionModelDTO {
   cloud: InstanceCloudProvider;
@@ -4749,11 +4751,9 @@ export interface InstanceDTO extends BaseModelDTO, PermissionModelDTO {
   volume_ids?: string[];
   tags?: string[];
   configuration?: any;
-  launch_configuration?: any;
   auto_delete?: any;
   alert?: any;
   volume_mount?: any;
-  envs?: any;
 }
 /**
  * InstanceTypeDTO is the API representation of a cloud instance type.
