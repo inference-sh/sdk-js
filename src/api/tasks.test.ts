@@ -808,6 +808,23 @@ describe('TasksAPI.create', () => {
     });
   });
 
+  it('should forward infra on POST /apps/run when routing work to team engines (v0.41.0)', async () => {
+    mockJsonResponse(makeTask());
+
+    await api().create({
+      app: 'test-app',
+      input: { prompt: 'hi' },
+      infra: 'private_first',
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      app: 'test-app',
+      input: { prompt: 'hi' },
+      infra: 'private_first',
+    });
+  });
+
   it('should forward function in /apps/run when running a pinned app function', async () => {
     const task = makeTask();
     mockJsonResponse(task);
