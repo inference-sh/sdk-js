@@ -1,5 +1,5 @@
 import { HttpClient } from '../http/client.js';
-import { EngineStatusRestarting, EngineStatusRunning } from '../types.js';
+import { EngineCapabilityTaskEnv, EngineStatusRestarting, EngineStatusRunning } from '../types.js';
 import { EnginesAPI } from './engines.js';
 
 const mockFetch = jest.fn();
@@ -255,6 +255,17 @@ describe('EnginesAPI', () => {
     const result = await api().list();
 
     expect(result.data.items[0]?.status).toBe(EngineStatusRestarting);
+  });
+
+  it('should deserialize task_env in capabilities (v0.41.0 per-task app environment)', async () => {
+    const engine = makeEngine({
+      capabilities: [EngineCapabilityTaskEnv],
+    });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.capabilities).toContain(EngineCapabilityTaskEnv);
   });
 
   it('should preserve top-level engine_version independently of system_info.engine_version', async () => {
