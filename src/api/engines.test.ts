@@ -1,5 +1,10 @@
 import { HttpClient } from '../http/client.js';
-import { EngineStatusRestarting, EngineStatusRunning } from '../types.js';
+import {
+  CloudAWS,
+  EngineStatusRestarting,
+  EngineStatusRunning,
+  InstanceStatusActive,
+} from '../types.js';
 import { EnginesAPI } from './engines.js';
 
 const mockFetch = jest.fn();
@@ -282,5 +287,41 @@ describe('EnginesAPI', () => {
 
     expect(result.data.engine_version).toBe('3.0.0');
     expect(result.data.system_info?.engine_version).toBe('2.9.9');
+  });
+
+  it('should deserialize nested instance payloads without launch_configuration or envs (api-v1572)', async () => {
+    const engine = makeEngine({
+      instance: {
+        id: 'inst-1',
+        short_id: 'inst1',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        user_id: 'user-1',
+        team_id: 'team-1',
+        visibility: 'private',
+        cloud: CloudAWS,
+        name: 'shade-node',
+        region: 'us-east-1',
+        shade_cloud: true,
+        shade_instance_type: 'A100',
+        cloud_instance_type: 'p4d.24xlarge',
+        cloud_assigned_id: 'i-0abc',
+        ssh_user: 'ubuntu',
+        ssh_port: 22,
+        ip: '203.0.113.10',
+        status: InstanceStatusActive,
+        cost_estimate: '2.10',
+        hourly_price: 210,
+        configuration: { root_gb: 100 },
+      },
+    });
+    mockJsonResponse(engine);
+
+    const result = await api().get('eng-1');
+
+    expect(result.data.instance?.status).toBe(InstanceStatusActive);
+    expect(result.data.instance).toEqual(engine.instance);
+    expect(result.data.instance).not.toHaveProperty('launch_configuration');
+    expect(result.data.instance).not.toHaveProperty('envs');
   });
 });
