@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-11-17
+
+### Added
+- Team capability `rent_engines` (`TeamCapabilityRentEngines`): renting and extending cloud engines, held by owners and admins (api-v1577).
+
 ## [0.41.1] - 2026-11-15
 
 ### Removed

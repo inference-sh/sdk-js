@@ -10112,6 +10112,7 @@ export type TeamCapability =
   | "manage_vault"
   | "view_billing"
   | "manage_billing"
+  | "rent_engines"
   | "view_policy"
   | "manage_policy"
   | "manage_org"
@@ -10141,6 +10142,11 @@ export const TeamCapabilityCreateKeys: TeamCapability = "create_keys";
 export const TeamCapabilityManageVault: TeamCapability = "manage_vault";
 export const TeamCapabilityViewBilling: TeamCapability = "view_billing";
 export const TeamCapabilityManageBilling: TeamCapability = "manage_billing";
+/**
+ * RentEngines: renting a cloud engine, and extending a rental, which
+ * debit the team's balance for up to the rental's whole span.
+ */
+export const TeamCapabilityRentEngines: TeamCapability = "rent_engines";
 export const TeamCapabilityViewPolicy: TeamCapability = "view_policy";
 export const TeamCapabilityManagePolicy: TeamCapability = "manage_policy";
 export const TeamCapabilityManageOrg: TeamCapability = "manage_org";
