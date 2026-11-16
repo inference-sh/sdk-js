@@ -69,6 +69,7 @@ import {
   TeamCapabilityManageKeys,
   ErrorCodeBlockedByUsagePolicy,
   TeamCapabilityManagePolicy,
+  TeamCapabilityRentEngines,
   TeamCapabilityViewPolicy,
   PolicyEnforcementDefault,
   PolicyEnforcementEnforced,
@@ -258,6 +259,10 @@ describe('package type exports', () => {
     expect(ErrorCodeBlockedByUsagePolicy).toBe('blocked_by_usage_policy');
     expect(TeamCapabilityViewPolicy).toBe('view_policy');
     expect(TeamCapabilityManagePolicy).toBe('manage_policy');
+  });
+
+  it('exports TeamCapabilityRentEngines for cloud engine rent and extend gates', () => {
+    expect(TeamCapabilityRentEngines).toBe('rent_engines');
   });
   it('exports PolicyEnforcement constants for rule governance modes', () => {
     expect(PolicyEnforcementDefault).toBe('default');
