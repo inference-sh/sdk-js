@@ -60,6 +60,18 @@ describe('SandboxesAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ name: 'dev', vcpus: 4, credentials: [{ slug: 'github-app', mode: 'ask' }] });
   });
 
+  it('should POST /sandboxes with infra for create() (whose engines run the box)', async () => {
+    mockJsonResponse({ id: 'sb-new', name: 'dev', infra: 'private_first' });
+
+    const result = await api().create({ name: 'dev', infra: 'private_first' });
+
+    expect(result.data).toEqual(expect.objectContaining({ infra: 'private_first' }));
+    const [url, init] = lastCall();
+    expect(url).toMatch(/\/sandboxes$/);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'dev', infra: 'private_first' });
+  });
+
   it.each([
     ['start', '/sandboxes/sb-1/start'],
     ['stop', '/sandboxes/sb-1/stop'],

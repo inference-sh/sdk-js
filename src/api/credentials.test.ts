@@ -331,4 +331,26 @@ describe('CredentialsAPI', () => {
     expect(result.data).toEqual(response);
     expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
   });
+
+  it('should surface add_variable setup actions when checkRequirements() reports missing team vars', async () => {
+    const payload = { apps: [{ id: 'app-1' }] };
+    const response = {
+      satisfied: false,
+      errors: [
+        {
+          type: 'variable',
+          key: 'REGION',
+          message: 'Set REGION for this team',
+          action: { type: 'add_variable', key: 'REGION' },
+        },
+      ],
+    };
+    mockJsonResponse(response);
+
+    const result = await api().checkRequirements(payload);
+
+    expect(result.data.errors?.[0]).toEqual(
+      expect.objectContaining({ type: 'variable', action: { type: 'add_variable', key: 'REGION' } }),
+    );
+  });
 });

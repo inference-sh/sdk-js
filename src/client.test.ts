@@ -17,6 +17,12 @@ import {
   SetupActionAddSecret,
   SetupActionConnect,
   SetupActionAddScopes,
+  SetupActionAddVariable,
+  InfraCloud,
+  InfraPrivate,
+  InfraPrivateFirst,
+  RequirementTypeVariable,
+  EngineCapabilityTaskEnv,
   NotificationTypeCreditNote,
   NotificationTypeDataExport,
   NotificationTypeSubscriptionPaymentFailed,
@@ -153,6 +159,15 @@ describe('package type exports', () => {
     expect(SetupActionAddSecret).toBe('add_secret');
     expect(SetupActionConnect).toBe('connect');
     expect(SetupActionAddScopes).toBe('add_scopes');
+    expect(SetupActionAddVariable).toBe('add_variable');
+  });
+
+  it('exports Infra and variable requirement constants (v0.41.0)', () => {
+    expect(InfraCloud).toBe('cloud');
+    expect(InfraPrivate).toBe('private');
+    expect(InfraPrivateFirst).toBe('private_first');
+    expect(RequirementTypeVariable).toBe('variable');
+    expect(EngineCapabilityTaskEnv).toBe('task_env');
   });
 
   it('exports ERROR_KEY for live $error control frames', () => {
