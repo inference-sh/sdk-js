@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.3] - 2026-11-17
+
+### Added
+- `AuthMethodBot` and `AuthMethod.bot`, `AuthMethod.scope_params`: a provider's bot installed in the signed-in workspace (Slack), its scopes and token (api-v1581).
+
 ## [0.41.2] - 2026-11-17
 
 ### Added
