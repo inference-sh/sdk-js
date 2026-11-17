@@ -1,6 +1,7 @@
 import { HttpClient } from '../http/client.js';
 import { CredentialsAPI } from './credentials.js';
 import {
+  AuthMethodOAuth2,
   CredentialGrantCredentials,
   CredentialGrantToken,
   CredentialProviderGoogleSA,
@@ -295,6 +296,31 @@ describe('CredentialsAPI', () => {
     expect(url).not.toContain('/integrations/');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward auth.bot and scope_params in checkRequirements() credential seeds', async () => {
+    const payload = {
+      credentials: [
+        {
+          slug: 'slack',
+          auth: {
+            kind: AuthMethodOAuth2,
+            scope_param: 'user_scope',
+            scope_params: { 'bot:chat:write': { permissions: '0' } },
+            bot: {
+              scope_param: 'scope',
+              token: '{{token.bot.access_token}}',
+              scopes: ['chat:write'],
+            },
+          },
+        },
+      ],
+    };
+    mockJsonResponse({ satisfied: true, errors: [] });
+
+    await api().checkRequirements(payload);
+
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
   });
 
   it('should POST slug requirements with a provider seed and return SetupAction secrets for checkRequirements()', async () => {
