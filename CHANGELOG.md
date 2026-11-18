@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.4] - 2026-11-18
+
+### Added
+- `InterruptDTO.origin` (`InterruptOrigin`): the sub-agent that asked, on an interrupt shown on an ancestor chat's `pending_interrupts`; run interrupt reason `subagent` (api-v1584).
+
 ## [0.41.3] - 2026-11-17
 
 ### Added
