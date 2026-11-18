@@ -22,6 +22,7 @@ import type { ChatDTO, AgentRunDTO, InterruptDTO } from './types.js';
 import {
   InterruptReasonToolApproval,
   InterruptReasonConfirmation,
+  InterruptReasonSubagent,
   InterruptReasonWait,
   InterruptResourceTurn,
   InterruptResourceToolInvocation,
@@ -42,6 +43,7 @@ import {
   heldTurn,
   pendingWait,
   approvalInterrupt,
+  isRunWaiting,
 } from './utils.js';
 
 describe('pendingApprovals', () => {
@@ -200,6 +202,15 @@ describe('run and message state predicates', () => {
     expect(isAwaitingHuman({ active_run: { state: AgentRunStateInputRequired, interrupt_reason: 'wait' } } as unknown as ChatDTO)).toBe(false);
     expect(isAwaitingHuman({ status: 'waiting' } as unknown as ChatDTO)).toBe(false);
     expect(isAwaitingHuman(null)).toBe(false);
+  });
+
+  it('treats a parent run waiting on a sub-agent (interrupt_reason subagent) as awaiting human, not agent wait', () => {
+    const parentWaitingOnSubagent = {
+      active_run: { state: AgentRunStateInputRequired, interrupt_reason: InterruptReasonSubagent },
+    } as unknown as ChatDTO;
+    expect(isAwaitingHuman(parentWaitingOnSubagent)).toBe(true);
+    expect(isRunWaiting(parentWaitingOnSubagent.active_run)).toBe(false);
+    expect(isChatBusy(parentWaitingOnSubagent)).toBe(true);
   });
 });
 
