@@ -14,6 +14,8 @@ import type {
   MCPServerCreateBody,
   MCPServerUpdateBody,
   ProjectUpdateBody,
+  PublicationCreateBody,
+  PublicationUpdateBody,
   TeamUpdateBody,
 } from './write-bodies.js';
 
@@ -52,7 +54,27 @@ describe('write bodies', () => {
     const project: ProjectUpdateBody = { visibility: 'public' };
     // @ts-expect-error the owner comes from the caller
     const mcpCreate: MCPServerCreateBody = { team_id: 'other' };
-    expect([chat, agent, team, flow, knowledge, mcp, agentVisibility, project, mcpCreate]).toHaveLength(9);
+    // @ts-expect-error server fields (id, namespace) come from the resource on create
+    const publicationCreate: PublicationCreateBody = {
+      resource_type: 'agent',
+      resource_id: 'agent-1',
+      id: 'pub-1',
+    };
+    // @ts-expect-error visibility has its own route on publications
+    const publicationUpdate: PublicationUpdateBody = { visibility: 'public' };
+    expect([
+      chat,
+      agent,
+      team,
+      flow,
+      knowledge,
+      mcp,
+      agentVisibility,
+      project,
+      mcpCreate,
+      publicationCreate,
+      publicationUpdate,
+    ]).toHaveLength(11);
   });
 });
 
