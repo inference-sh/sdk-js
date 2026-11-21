@@ -165,6 +165,26 @@ describe('CredentialsAPI', () => {
     expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
   });
 
+  it('should forward app_credential_id on connect() when naming the OAuth app (api-v1589)', async () => {
+    const payload = {
+      provider: 'slack',
+      type: 'oauth',
+      scopes: ['chat:write'],
+      connection_scope: CredentialScopeTeam,
+      app_credential_id: 'cred-slack-alt',
+    };
+    const response = {
+      credential: { provider: 'slack', app_credential_id: 'cred-slack-alt' },
+      auth_url: 'https://slack.com/oauth/v2/authorize',
+    };
+    mockJsonResponse(response);
+
+    const result = await api().connect(payload);
+
+    expect(result.data).toEqual(response);
+    expect(JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string)).toEqual(payload);
+  });
+
   it('should deserialize grant and app_credential_id on get()', async () => {
     const credential = {
       id: 'cred-1',
@@ -250,6 +270,70 @@ describe('CredentialsAPI', () => {
     const result = await api().getConfigs();
 
     expect(result.data[0]?.auth_provider_id).toBe('asch_cfg_1');
+  });
+
+  it('should deserialize OAuth app choices on getConfigs() (api-v1589)', async () => {
+    const configs = [
+      {
+        slug: 'slack',
+        provider: 'slack',
+        type: 'oauth',
+        name: 'Slack',
+        short_name: 'Slack',
+        description: 'Slack workspace',
+        allows_byok: false,
+        available: true,
+        has_managed: true,
+        apps: [
+          {
+            id: 'cred-slack-usual',
+            user_id: 'user-1',
+            team_id: 'team-1',
+            visibility: 'private',
+            provider: 'slack',
+            type: 'oauth',
+            grant: CredentialGrantCredentials,
+            scope: CredentialScopeTeam,
+            status: 'connected',
+            display_name: 'Usual Slack app',
+            scopes: ['chat:write'],
+            is_primary: false,
+            default: true,
+            usual: true,
+            hook_url: 'https://hooks.example/slack',
+          },
+          {
+            id: 'cred-slack-alt',
+            user_id: 'user-1',
+            team_id: 'team-1',
+            visibility: 'private',
+            provider: 'slack',
+            type: 'oauth',
+            grant: CredentialGrantCredentials,
+            scope: CredentialScopeTeam,
+            status: 'connected',
+            display_name: 'Alternate Slack app',
+            scopes: ['chat:write'],
+            is_primary: false,
+            default: false,
+            usual: false,
+          },
+        ],
+      },
+    ];
+    mockJsonResponse(configs);
+
+    const result = await api().getConfigs();
+
+    const apps = result.data[0]?.apps;
+    expect(apps).toHaveLength(2);
+    expect(apps?.[0]?.grant).toBe(CredentialGrantCredentials);
+    expect(apps?.[0]?.default).toBe(true);
+    expect(apps?.[0]?.usual).toBe(true);
+    expect(apps?.[0]?.hook_url).toBe('https://hooks.example/slack');
+    expect(apps?.[1]?.default).toBe(false);
+    expect(apps?.[1]?.usual).toBe(false);
+    expect(apps?.[1]?.hook_url).toBeUndefined();
   });
 
   it('should GET /credentials/capabilities for getCapabilities()', async () => {
