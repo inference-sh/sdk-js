@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.5] - 2026-11-21
+
+### Added
+- `OAuthAppDTO`: one of a provider's OAuth apps, with `default`, `usual` and `hook_url`; `CredentialConnectRequest.app_credential_id` names the app a connect goes through (api-v1589).
+
 ## [0.41.4] - 2026-11-18
 
 ### Added

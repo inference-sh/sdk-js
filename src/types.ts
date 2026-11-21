@@ -897,6 +897,13 @@ export interface CredentialConnectRequest {
    * rather than reuse the one it remembers.
    */
   another_account?: boolean;
+  /**
+   * AppCredentialID is the OAuth app the login goes through: one of the
+   * provider's apps the caller can connect through
+   * (CredentialConfigDTO.Apps). Empty: the default one; refused when the
+   * caller has several and none is the default.
+   */
+  app_credential_id?: string;
 }
 /**
  * CredentialCompleteOAuthRequest is what the provider's redirect delivered:
@@ -3035,6 +3042,28 @@ export interface CredentialDTO extends BaseModelDTO, PermissionModelDTO {
   secrets?: CredentialSecretRef[];
 }
 /**
+ * OAuthAppDTO is one OAuth app a provider's logins can go through
+ * (grant=credentials), as the caller sees it. DisplayName tells it apart
+ * from the provider's other apps.
+ */
+export interface OAuthAppDTO extends CredentialDTO {
+  /**
+   * HookURL is where the app delivers its events; empty when the
+   * provider's apps deliver none.
+   */
+  hook_url?: string;
+  /**
+   * Default: a connect that names no app goes through this one.
+   */
+  default: boolean;
+  /**
+   * Usual: the owner's usual app for the provider (PUT
+   * /credentials/{provider}/app). Another app (POST
+   * /credentials/{provider}/apps) serves only a connect that names it.
+   */
+  usual: boolean;
+}
+/**
  * CredentialSecretRef names one secret linked to a credential: the row's
  * id, the key it is stored under and when its value last changed.
  */
@@ -3126,6 +3155,14 @@ export interface CredentialConfigDTO {
    * deliver none.
    */
   hook_url?: string;
+  /**
+   * Apps is every OAuth app the caller can connect through for this
+   * provider: the workspace's own, its org's and the platform's, App
+   * among them. More than one when a workspace holds another app next to
+   * its usual one; a connect then names the one it goes through
+   * (CredentialConnectRequest.AppCredentialID).
+   */
+  apps?: (OAuthAppDTO | undefined)[];
   /**
    * AuthProviderID is set when the provider is one the team defined
    * itself (models.AuthProvider), so the UI can offer edit and remove.
