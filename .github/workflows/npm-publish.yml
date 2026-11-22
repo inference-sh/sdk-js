@@ -60,6 +60,5 @@ jobs:
         run: pnpm run check:exports
 
       - name: Publish to npm
+        # npm trusted publishing (OIDC, id-token above): no npm token.
         run: pnpm publish --provenance --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
