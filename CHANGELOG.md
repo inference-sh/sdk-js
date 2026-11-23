@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-23
+
+### Added
+- `AgentRequirementsResponse`, `AgentRequirement`, `AgentRequirementSource` with `AgentRequirementStatus` and `AgentRequirementSourceKind`: what an agent needs and whether the caller has it (`GET /agents/{id}/requirements`, api-v1600).
+- `CredentialRequirement.mode` (`auto` | `ask`); agent configs and versions carry `credentials` (api-v1599).
+
+### Changed
+- `SandboxCredential` is now an alias of `CredentialRequirement`.
+
 ## [0.41.5] - 2026-11-21
 
 ### Added

@@ -24,13 +24,11 @@ export interface InternalToolsConfig {
   knowledge?: boolean;
   wait?: boolean;
   /**
-   * SandboxCredentials are the logins a sandbox sandbox_create makes gets
-   * (Remote on), declared as an app's credentials are (provider slug,
-   * scopes): the runner's own, as a task of theirs resolves it; a runner
-   * with none is asked to connect it and the call waits. None declared,
-   * none given. The model's arguments never add any. Each entry's mode
-   * says when the box gets it: auto (the default) at once, ask on first
-   * use once a person approves it (SandboxCredential).
+   * SandboxCredentials is the old place of the agent's credentials
+   * (AgentConfigInput.Credentials), still read: a write folds it into
+   * credentials (a credentials entry wins on a slug both name) and
+   * stores it empty; a read of a version stored with it does the same.
+   * Deprecated: use the agent's credentials.
    */
   sandbox_credentials?: SandboxCredential[];
 }
@@ -330,6 +328,11 @@ export interface AgentVersionDTO extends BaseModelDTO, PermissionModelDTO {
   skills: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  /**
+   * Credentials are the logins the agent needs (AgentConfigInput.Credentials),
+   * with any entry of the old internal_tools.sandbox_credentials folded in.
+   */
+  credentials?: CredentialRequirements;
   permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
@@ -395,6 +398,17 @@ export interface AgentConfigInput {
   skills?: SkillConfig[];
   context?: ContextField[];
   internal_tools?: InternalToolsConfig;
+  /**
+   * Credentials are the logins the agent needs, declared as an app's
+   * credentials are (a map keyed by provider slug, or a list), each with
+   * a mode: the sandboxes its sandbox_create makes (Remote on) get them,
+   * the runner's own, as a task of theirs resolves them; a runner with
+   * none is asked to connect and the call waits. None declared, none
+   * given; the model's arguments never add any. Mode auto (the default)
+   * gives the login at once, ask on first use once a person approves it.
+   * Another team's agent may declare ask entries only.
+   */
+  credentials?: CredentialRequirements;
   permissions?: AgentPermissions;
   hooks?: LifecycleHookConfig[];
   output_schema?: any;
@@ -415,6 +429,127 @@ export interface CoreAppConfigInput {
   ref?: string;
   setup?: any;
   input?: any;
+}
+/**
+ * AgentRequirementSourceKind is what in an agent needs a login.
+ */
+export type AgentRequirementSourceKind = "agent" | "app" | "mcp" | "http";
+/**
+ * AgentRequirementFromAgent: the agent's own credentials (its
+ * sandboxes get them).
+ */
+export const AgentRequirementFromAgent: AgentRequirementSourceKind = "agent";
+/**
+ * AgentRequirementFromApp: an app tool's (or the core app's) version
+ * credentials: the pinned function's own list, else the app's.
+ */
+export const AgentRequirementFromApp: AgentRequirementSourceKind = "app";
+/**
+ * AgentRequirementFromMCP: an MCP tool's server: the entry a call sends
+ * (the server's first).
+ */
+export const AgentRequirementFromMCP: AgentRequirementSourceKind = "mcp";
+/**
+ * AgentRequirementFromHTTP: an HTTP or call tool whose auth is a
+ * credential.
+ */
+export const AgentRequirementFromHTTP: AgentRequirementSourceKind = "http";
+/**
+ * AgentRequirementSource is one thing in the agent that asks for the
+ * requirement.
+ */
+export interface AgentRequirementSource {
+  kind: AgentRequirementSourceKind;
+  /**
+   * Name is the agent's, app's or MCP server's name (namespace/name for
+   * an agent or app), or the HTTP tool's URL host.
+   */
+  name: string;
+  /**
+   * ID is the agent's, app's or MCP server's id, when it has one.
+   */
+  id?: string;
+  /**
+   * Tool is the agent tool that asks for it; empty for the agent's own
+   * credentials. The core app's is "core_app".
+   */
+  tool?: string;
+  /**
+   * Agent is the agent the source belongs to when it is not the agent
+   * asked about: a sub-agent tool's (namespace/name).
+   */
+  agent?: string;
+  /**
+   * NotGiven: the agent's own mode auto entry, from an agent of another
+   * team. Its sandboxes are given only ask entries, so the runner's
+   * login is not given for this source.
+   */
+  not_given?: boolean;
+}
+/**
+ * AgentRequirementStatus is whether the caller holds the requirement.
+ */
+export type AgentRequirementStatus =
+  | "connected"
+  | "missing"
+  | "missing_scopes"
+  | "unknown"
+  | "not_given";
+/**
+ * AgentRequirementConnected: a login the caller's runs resolve (theirs,
+ * the team's, the org's or the platform's) covers it.
+ */
+export const AgentRequirementConnected: AgentRequirementStatus = "connected";
+/**
+ * AgentRequirementMissing: no usable login (none, disconnected,
+ * expired, or a key to add). Errors say what to do.
+ */
+export const AgentRequirementMissing: AgentRequirementStatus = "missing";
+/**
+ * AgentRequirementMissingScopes: a login is connected without some of
+ * the scopes. Errors name them.
+ */
+export const AgentRequirementMissingScopes: AgentRequirementStatus = "missing_scopes";
+/**
+ * AgentRequirementUnknown: a capability the platform does not define.
+ */
+export const AgentRequirementUnknown: AgentRequirementStatus = "unknown";
+/**
+ * AgentRequirementNotGiven: every source is NotGiven; no login is
+ * given for it, so it is not checked.
+ */
+export const AgentRequirementNotGiven: AgentRequirementStatus = "not_given";
+/**
+ * AgentRequirement is one credential slug the agent needs, merged from
+ * every source that asks for it: capabilities, scopes and secrets are the
+ * union; optional only when every source says optional; mode ask when an
+ * entry of the agent's own says ask (auto when its entries say auto, empty
+ * when the agent itself names none).
+ */
+export interface AgentRequirement {
+  requirement: CredentialRequirement;
+  from: AgentRequirementSource[];
+  status: AgentRequirementStatus;
+  /**
+   * Errors are what POST /credentials/check answers for the requirement:
+   * each missing login or scope with the action that sets it up
+   * (connect, add_scopes, add_secret; provider, provider name, scopes).
+   * Empty when connected or not_given.
+   */
+  errors?: RequirementError[];
+}
+/**
+ * AgentRequirementsResponse is GET /agents/{id}/requirements.
+ */
+export interface AgentRequirementsResponse {
+  agent_id: string;
+  version_id: string;
+  /**
+   * Satisfied: every requirement that is not optional is connected or
+   * not_given.
+   */
+  satisfied: boolean;
+  requirements: AgentRequirement[];
 }
 export interface AgentRunDTO extends BaseModelDTO, PermissionModelDTO {
   agent_id: string;
@@ -1768,6 +1903,14 @@ export interface CredentialRequirement {
    * Auth is the credential's auth provider, for a slug no row defines yet.
    */
   auth?: AuthMethod;
+  /**
+   * Mode is when a box gets the login: auto (empty) when the sandbox is
+   * made, ask on first use once a person approves it. It means something
+   * only where a box is given the login (a sandbox's credentials, an
+   * agent's credentials, which its sandboxes get); an app's or an MCP
+   * server's entry with a mode is refused (ValidateNoMode).
+   */
+  mode?: SandboxCredentialMode;
   /**
    * The rest describe the platform api_key scheme a platform app's deploy
    * catalogues for the slug: set on the scheme it creates, and filled into
@@ -6088,58 +6231,12 @@ export const SandboxCredentialAuto: SandboxCredentialMode = "auto";
  */
 export const SandboxCredentialAsk: SandboxCredentialMode = "ask";
 /**
- * SandboxCredential is a login a sandbox's box gets: a requirement by
- * provider, as an app declares one, and when it is given (Mode, auto when
- * unset). It reads and writes as the requirement's fields plus "mode", so
- * a plain requirement is an auto one.
+ * SandboxCredential is a login a sandbox's box gets: a credential
+ * requirement, as an app or an agent declares one, whose Mode says when
+ * it is given (auto when unset). The same type: a plain requirement is an
+ * auto one.
  */
-export interface SandboxCredential {
-  slug?: string;
-  capabilities?: string[];
-  description?: string;
-  optional?: boolean;
-  secrets?: string[];
-  scopes?: string[];
-  /**
-   * Provider describes the company the credential belongs to, for a
-   * catalog row that does not exist yet. Its slug defaults to the
-   * credential slug.
-   */
-  provider?: CompanySeed;
-  /**
-   * Auth is the credential's auth provider, for a slug no row defines yet.
-   */
-  auth?: AuthMethod;
-  /**
-   * The rest describe the platform api_key scheme a platform app's deploy
-   * catalogues for the slug: set on the scheme it creates, and filled into
-   * an existing one only where that is still empty (an admin's edit
-   * stands). Any other deploy ignores them.
-   * DisplayName is the scheme's name ("Claude Code"); at most
-   * MaxCredentialDisplayName characters.
-   */
-  display_name?: string;
-  /**
-   * ConnectionScope is who a connection belongs to: team (empty) or user.
-   */
-  connection_scope?: CredentialScope;
-  /**
-   * Instructions tell a person how to get the key (markdown, at most
-   * MaxAuthProviderInstructions characters).
-   */
-  instructions?: string;
-  /**
-   * DocsURL is the scheme's documentation link.
-   */
-  docs_url?: string;
-  /**
-   * ExpiresAfterDays is how long a saved key lasts: it counts as expired
-   * this many days after it is saved. 0 is never; at most
-   * MaxExpiresAfterDays.
-   */
-  expires_after_days?: number /* int */;
-  mode?: SandboxCredentialMode;
-}
+export type SandboxCredential = CredentialRequirement;
 /**
  * SandboxDTO is the API response for a sandbox.
  */
