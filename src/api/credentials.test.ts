@@ -265,6 +265,24 @@ describe('CredentialsAPI', () => {
     expect(init.method).toBe('GET');
   });
 
+  it('should POST credential mode on checkRequirements() for sandbox ask flows', async () => {
+    const payload = {
+      credentials: [
+        {
+          slug: 'slack',
+          scopes: ['chat:write'],
+          mode: 'ask',
+        },
+      ],
+    };
+    mockJsonResponse({ satisfied: true, errors: [] });
+
+    await api().checkRequirements(payload);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
   it('should POST slug credential requirements with secrets and scopes for checkRequirements()', async () => {
     const payload = {
       credentials: [
