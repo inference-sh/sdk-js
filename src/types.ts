@@ -1046,7 +1046,6 @@ export type Scope =
   | "secrets:reveal"
   | "credentials:read"
   | "credentials:write"
-  | "mcp:execute"
   | "engines:read"
   | "engines:write"
   | "remotes:read"
@@ -1292,14 +1291,6 @@ export const ScopeCredentialsRead: Scope = "credentials:read";
  */
 export const ScopeCredentialsWrite: Scope = "credentials:write";
 /**
- * ScopeMCPExecute calls a tool on a connected MCP server with the
- * caller's stored login (REST CallTool, the mcp_run tool, an agent's MCP
- * tools). Finding the server and its connection takes credentials:read
- * beside it; credentials:write (connecting and disconnecting) does not
- * call tools.
- */
-export const ScopeMCPExecute: Scope = "mcp:execute";
-/**
  * Action-level scopes for Engines
  */
 export const ScopeEnginesRead: Scope = "engines:read";
@@ -1461,7 +1452,6 @@ export type ScopeGroup =
   | "billing"
   | "secrets"
   | "credentials"
-  | "mcp"
   | "engines"
   | "remotes"
   | "sandboxes"
@@ -1487,7 +1477,6 @@ export const ScopeGroupTeams: ScopeGroup = "teams";
 export const ScopeGroupBilling: ScopeGroup = "billing";
 export const ScopeGroupSecrets: ScopeGroup = "secrets";
 export const ScopeGroupCredentials: ScopeGroup = "credentials";
-export const ScopeGroupMCP: ScopeGroup = "mcp";
 export const ScopeGroupEngines: ScopeGroup = "engines";
 export const ScopeGroupRemotes: ScopeGroup = "remotes";
 export const ScopeGroupSandboxes: ScopeGroup = "sandboxes";
