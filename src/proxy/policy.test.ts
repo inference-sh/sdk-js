@@ -30,7 +30,7 @@ function proxied(method: string, target: string, body?: unknown, query = false):
 }
 
 async function send(options: ProxyOptions<Request>, method: string, path: string, body?: unknown) {
-  const res = await createHandler({ apiKey: 'site-key', ...options })({ request: proxied(method, `${API}${path}`, body) });
+  const res = await createHandler({ apiKey: 'site-key', allowUnauthorizedRequests: true, ...options })({ request: proxied(method, `${API}${path}`, body) });
   return { status: res.status, body: res.status >= 400 ? await res.json() : undefined };
 }
 
@@ -237,7 +237,7 @@ describe('proxy policy', () => {
   });
 
   it('refuses the SSE query-param form the same way', async () => {
-    const res = await createHandler({ apiKey: 'k' })({ request: proxied('GET', `${API}/secrets`, undefined, true) });
+    const res = await createHandler({ apiKey: 'k', allowUnauthorizedRequests: true })({ request: proxied('GET', `${API}/secrets`, undefined, true) });
     expect(res.status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -329,8 +329,32 @@ describe('proxy policy', () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('lets anyone through by default (compatibility)', async () => {
-      expect((await send({}, 'GET', `/tasks/${TASK}`)).status).toBe(200);
+    // Aikido 796582672: a proxy mounted with no options let any visitor run
+    // any app or agent (the team's private ones included) on the site's key.
+    it('refuses everything by default, with neither isAuthenticated nor allowedEndpoints', async () => {
+      const handler = createHandler({ apiKey: 'site-key' });
+      for (const [method, path, body] of [
+        ['POST', '/apps/run', { app: 'ana/helper', input: {} }],
+        ['GET', `/tasks/${TASK}`, undefined],
+      ] as const) {
+        const res = await handler({ request: proxied(method, `${API}${path}`, body) });
+        expect([path, res.status]).toEqual([path, 401]);
+        expect((await res.json()).error).toMatch(/neither isAuthenticated nor allowedEndpoints/);
+      }
+      const empty = await createHandler({ apiKey: 'site-key', allowedEndpoints: [] })({ request: proxied('GET', `${API}/tasks/${TASK}`) });
+      expect(empty.status).toBe(401);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('lets anyone through when allowedEndpoints names what they may run', async () => {
+      const handler = createHandler({ apiKey: 'site-key', allowedEndpoints: ['ana/*'] });
+      expect((await handler({ request: proxied('POST', `${API}/apps/run`, { app: 'ana/helper', input: {} }) })).status).toBe(200);
+      expect((await handler({ request: proxied('POST', `${API}/apps/run`, { app: 'bob/helper', input: {} }) })).status).toBe(403);
+    });
+
+    it('lets anyone run anything with allowUnauthorizedRequests: true', async () => {
+      const handler = createHandler({ apiKey: 'site-key', allowUnauthorizedRequests: true });
+      expect((await handler({ request: proxied('POST', `${API}/apps/run`, { app: 'bob/helper', input: {} }) })).status).toBe(200);
     });
   });
 });
@@ -407,7 +431,7 @@ describe('proxy subsets: endpoints, pickProxyEndpoint, exactRefs', () => {
   it('refuses a target that carries credentials', async () => {
     const res = await send({}, 'GET', `/tasks/${TASK}`);
     expect(res.status).toBe(200);
-    const handler = createHandler({ apiKey: 'site-key' });
+    const handler = createHandler({ apiKey: 'site-key', allowUnauthorizedRequests: true });
     const bad = await handler({ request: proxied('GET', `https://u:p@api.inference.sh/tasks/${TASK}`) });
     expect(bad.status).toBe(400);
     expect(global.fetch).toHaveBeenCalledTimes(1);

@@ -19,7 +19,7 @@ describe('svelte createHandler', () => {
   });
 
   it('should return 400 when target URL is missing', async () => {
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       body: '{}',
@@ -42,7 +42,7 @@ describe('svelte createHandler', () => {
     ) as typeof fetch;
 
     const target = 'https://api.inference.sh/apps/run';
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       headers: { [INF_TARGET_HEADER]: target },
@@ -72,6 +72,7 @@ describe('svelte createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler({
+      allowUnauthorizedRequests: true,
       resolveApiKey: async () => 'custom-svelte-key',
     });
     const target = 'https://api.inference.sh/apps/run';
@@ -107,7 +108,7 @@ describe('svelte createHandler', () => {
 
     expect((await createHandler({ allowedEndpoints: ['ana/*'] })(createMockRequestEvent(request.clone()))).status).toBe(403);
     const secrets = new Request('http://localhost/api/inference/proxy', { headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
-    expect((await createHandler()(createMockRequestEvent(secrets))).status).toBe(403);
+    expect((await createHandler({ allowUnauthorizedRequests: true })(createMockRequestEvent(secrets))).status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

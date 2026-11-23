@@ -39,7 +39,7 @@ describe('express proxy streaming over sockets', () => {
 
     const app = express();
     app.use(express.json());
-    app.all(PROXY_ROUTE, createHandler({ apiUrl: `http://127.0.0.1:${upstreamPort}` }));
+    app.all(PROXY_ROUTE, createHandler({ apiUrl: `http://127.0.0.1:${upstreamPort}`, allowUnauthorizedRequests: true }));
     proxy = http.createServer(app);
     proxyPort = await listen(proxy);
   });

@@ -75,7 +75,11 @@ export function createPageHandler(options?: ProxyOptions<NextApiRequest>): NextA
     };
 }
 
-/** Page Router handler with the default options. */
+/**
+ * Page Router handler with the default options. With neither
+ * `isAuthenticated` nor `allowedEndpoints` the default refuses every request
+ * (401); use `createPageHandler` with one of them.
+ */
 export const pageHandler: NextApiHandler = createPageHandler();
 
 // ============================================================================
@@ -124,7 +128,9 @@ export function createHandler(options?: ProxyOptions<NextRequest>) {
 }
 
 /**
- * App Router route handlers with the default options.
+ * App Router route handlers with the default options. With neither
+ * `isAuthenticated` nor `allowedEndpoints` the default refuses every request
+ * (401); use `createHandler` with one of them.
  *
  * @example
  * ```typescript

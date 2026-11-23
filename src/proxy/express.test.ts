@@ -62,7 +62,7 @@ describe('express createHandler', () => {
   });
 
   it('should return 400 when target URL is missing', async () => {
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const req = {
       method: 'POST',
       body: {},
@@ -87,7 +87,7 @@ describe('express createHandler', () => {
       })
     ) as typeof fetch;
 
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const target = 'https://api.inference.sh/apps/run';
     const req = {
       method: 'POST',
@@ -127,7 +127,7 @@ describe('express createHandler', () => {
       })
     ) as typeof fetch;
 
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const target = 'https://api.inference.sh/agents/run';
     const req = {
       method: 'POST',
@@ -157,7 +157,7 @@ describe('express createHandler', () => {
     await createHandler({ allowedEndpoints: ['bob/*'] })(req as never, refused as never, jest.fn());
     expect(refused.statusCode).toBe(403);
     const secrets = createMockResponse();
-    await createHandler()({ ...req, method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } } as never, secrets as never, jest.fn());
+    await createHandler({ allowUnauthorizedRequests: true })({ ...req, method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } } as never, secrets as never, jest.fn());
     expect(secrets.statusCode).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });

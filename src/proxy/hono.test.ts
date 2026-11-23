@@ -44,7 +44,7 @@ describe('hono createHandler', () => {
   });
 
   it('should return 400 when target URL is missing', async () => {
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const response = await handler(createMockContext() as never);
 
     expect(response.status).toBe(400);
@@ -61,7 +61,7 @@ describe('hono createHandler', () => {
       })
     ) as typeof fetch;
 
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const target = 'https://api.inference.sh/apps/run';
     const response = await handler(
       createMockContext({
@@ -97,7 +97,7 @@ describe('hono createHandler', () => {
       })
     ) as typeof fetch;
 
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const target = 'https://api.inference.sh/agents/run';
     const response = await handler(
       createMockContext({
@@ -119,6 +119,7 @@ describe('hono createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler({
+      allowUnauthorizedRequests: true,
       resolveApiKey: async () => 'custom-hono-key',
     });
     const target = 'https://api.inference.sh/apps/run';
@@ -146,7 +147,7 @@ describe('hono createHandler', () => {
     expect(isAuthenticated).toHaveBeenCalledWith(ctx);
 
     const secrets = createMockContext({ method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
-    expect((await createHandler()(secrets as never)).status).toBe(403);
+    expect((await createHandler({ allowUnauthorizedRequests: true })(secrets as never)).status).toBe(403);
     const other = createMockContext({ headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, body: '{"app":"eve/x"}' });
     expect((await createHandler({ allowedEndpoints: ['ana/*'] })(other as never)).status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();

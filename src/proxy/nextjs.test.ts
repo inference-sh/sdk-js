@@ -1,6 +1,11 @@
 import { INF_TARGET_HEADER, INF_TARGET_PARAM } from './index.js';
 import { createHandler, createPageHandler, handlers, pageHandler } from './nextjs.js';
 
+// The default handlers refuse every request (no isAuthenticated, no
+// allowedEndpoints); these tests are about forwarding, so they opt in.
+const openHandlers = createHandler({ allowUnauthorizedRequests: true });
+const openPage = createPageHandler({ allowUnauthorizedRequests: true });
+
 type MockPageResponse = {
   statusCode: number;
   headers: Record<string, string | number | string[]>;
@@ -66,7 +71,7 @@ describe('nextjs pageHandler', () => {
     const req = { method: 'POST', body: {}, headers: {}, query: {} };
     const res = createMockPageResponse();
 
-    await pageHandler(req as never, res as never);
+    await openPage(req as never, res as never);
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({
@@ -91,7 +96,7 @@ describe('nextjs pageHandler', () => {
     };
     const res = createMockPageResponse();
 
-    await pageHandler(req as never, res as never);
+    await openPage(req as never, res as never);
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ok: true });
@@ -115,7 +120,7 @@ describe('nextjs pageHandler', () => {
     };
     const res = createMockPageResponse();
 
-    await pageHandler(req as never, res as never);
+    await openPage(req as never, res as never);
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ok: true });
@@ -146,7 +151,7 @@ describe('nextjs pageHandler', () => {
     };
     const res = createMockPageResponse();
 
-    await pageHandler(req as never, res as never);
+    await openPage(req as never, res as never);
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toBe('plain text');
@@ -166,7 +171,7 @@ describe('nextjs handlers (App Router)', () => {
   });
 
   it('should return 400 when target URL is missing', async () => {
-    const response = await handlers.GET(createMockNextRequest() as never);
+    const response = await openHandlers.GET(createMockNextRequest() as never);
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
@@ -183,7 +188,7 @@ describe('nextjs handlers (App Router)', () => {
     ) as typeof fetch;
 
     const target = 'https://api.inference.sh/apps/run';
-    const response = await handlers.POST(
+    const response = await openHandlers.POST(
       createMockNextRequest({
         method: 'POST',
         headers: { [INF_TARGET_HEADER]: target },
@@ -215,7 +220,7 @@ describe('nextjs handlers (App Router)', () => {
 
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/stream';
     const encoded = encodeURIComponent(target);
-    const response = await handlers.GET(
+    const response = await openHandlers.GET(
       createMockNextRequest({
         method: 'GET',
         url: `http://localhost/api/inference/proxy?${INF_TARGET_PARAM}=${encoded}`,
@@ -236,7 +241,7 @@ describe('nextjs handlers (App Router)', () => {
   it('should reject targets off the API host before calling upstream', async () => {
     global.fetch = jest.fn() as typeof fetch;
 
-    const response = await handlers.POST(
+    const response = await openHandlers.POST(
       createMockNextRequest({
         headers: { [INF_TARGET_HEADER]: 'https://evil.example.com/run' },
       }) as never
@@ -258,7 +263,7 @@ describe('nextjs handlers (App Router)', () => {
     ) as typeof fetch;
 
     const target = 'https://api.inference.sh/agents/run';
-    const response = await handlers.POST(
+    const response = await openHandlers.POST(
       createMockNextRequest({
         method: 'POST',
         headers: {
@@ -300,7 +305,7 @@ describe('nextjs handlers (App Router)', () => {
     ) as typeof fetch;
 
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/stream';
-    const response = await handlers.GET(
+    const response = await openHandlers.GET(
       createMockNextRequest({
         method: 'GET',
         headers: { [INF_TARGET_HEADER]: target },
@@ -327,7 +332,24 @@ describe('nextjs proxy options', () => {
     expect(isAuthenticated).toHaveBeenCalledWith(req);
     expect((await createHandler({ allowedEndpoints: ['ana/*'] }).POST(req as never)).status).toBe(403);
     const secrets = createMockNextRequest({ method: 'GET', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
-    expect((await handlers.GET(secrets as never)).status).toBe(403);
+    expect((await openHandlers.GET(secrets as never)).status).toBe(403);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('the default handlers refuse every request (Aikido 796582672)', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const req = createMockNextRequest({
+      method: 'POST',
+      headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' },
+      body: JSON.stringify({ app: 'ana/helper', input: {} }),
+    });
+    expect((await handlers.POST(req as never)).status).toBe(401);
+    const res = createMockPageResponse();
+    await pageHandler(
+      { method: 'POST', headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' }, query: {}, body: { app: 'ana/helper', input: {} } } as never,
+      res as never,
+    );
+    expect(res.statusCode).toBe(401);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
