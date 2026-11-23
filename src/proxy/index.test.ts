@@ -4,7 +4,14 @@ import {
   headersToRecord,
   processProxyRequest,
   type ProxyAdapter,
+  type ProxyOptions,
 } from './index.js';
+
+// These tests are about forwarding, not about who may use the key: they
+// opt in to anonymous use, which the default refuses.
+function openProxy<T>(adapter: ProxyAdapter<T>, options?: ProxyOptions) {
+  return processProxyRequest(adapter, { allowUnauthorizedRequests: true, ...options });
+}
 
 type ProxyResult = {
   status: number;
@@ -86,7 +93,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should reject requests without a target URL', async () => {
-    const result = await processProxyRequest(createTestAdapter());
+    const result = await openProxy(createTestAdapter());
 
     expect(result.status).toBe(400);
     expect(result.body).toEqual({
@@ -96,7 +103,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should reject invalid target URLs', async () => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? 'not-a-url' : undefined),
       })
@@ -108,7 +115,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should reject non-inference.sh domains', async () => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) =>
           name === INF_TARGET_HEADER ? 'https://evil.example.com/run' : undefined,
@@ -130,7 +137,7 @@ describe('processProxyRequest', () => {
     'https://api.inference.sh:8443/apps/run',
     'https://api.inference.sh.evil.example/apps/run',
   ])('should pin the target to the API host, refusing %s', async (target) => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({ header: (name) => (name === INF_TARGET_HEADER ? target : undefined) })
     );
 
@@ -144,9 +151,9 @@ describe('processProxyRequest', () => {
       createTestAdapter({ header: (name) => (name === INF_TARGET_HEADER ? target : undefined) });
     const options = { apiUrl: 'https://staging-api.inference.sh' };
 
-    expect((await processProxyRequest(adapter('https://staging-api.inference.sh/apps/run'), options)).status).toBe(200);
+    expect((await openProxy(adapter('https://staging-api.inference.sh/apps/run'), options)).status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith('https://staging-api.inference.sh/apps/run', expect.any(Object));
-    const other = await processProxyRequest(adapter('https://api.inference.sh/apps/run'), options);
+    const other = await openProxy(adapter('https://api.inference.sh/apps/run'), options);
     expect(other.status).toBe(412);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -158,10 +165,10 @@ describe('processProxyRequest', () => {
     const options = { allowedDomains: [/custom\.example/g] };
     global.fetch = jest.fn(async () => new Response('{}', { status: 200 })) as typeof fetch;
 
-    expect((await processProxyRequest(adapter('https://evilcustom.example/apps/run'), options)).status).toBe(412);
-    expect((await processProxyRequest(adapter('https://custom.example.evil/apps/run'), options)).status).toBe(412);
-    expect((await processProxyRequest(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
-    expect((await processProxyRequest(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
+    expect((await openProxy(adapter('https://evilcustom.example/apps/run'), options)).status).toBe(412);
+    expect((await openProxy(adapter('https://custom.example.evil/apps/run'), options)).status).toBe(412);
+    expect((await openProxy(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
+    expect((await openProxy(adapter('https://custom.example/apps/run'), options)).status).toBe(200);
   });
 
   it.each([
@@ -171,7 +178,7 @@ describe('processProxyRequest', () => {
     'ftp://api.inference.sh/apps/run',
     'foo://api.inference.sh/apps/run',
   ])('should refuse a non-https target (%s) before attaching the API key', async (target) => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       })
@@ -183,7 +190,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should refuse an http target given in the SSE query param', async () => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         query: (name) =>
           name === INF_TARGET_PARAM ? encodeURIComponent('http://api.inference.sh/agents/run') : undefined,
@@ -195,7 +202,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should refuse an http base URL override to a remote host', async () => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) =>
           name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
@@ -213,7 +220,7 @@ describe('processProxyRequest', () => {
     'http://[::1]:8080',
     'http://api.localhost:8080',
   ])('should allow plain http to a loopback API (%s)', async (base) => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) =>
           name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
@@ -226,7 +233,7 @@ describe('processProxyRequest', () => {
   });
 
   it('should answer 400 for an invalid target when a base URL override is set', async () => {
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? 'not-a-url' : undefined),
       }),
@@ -241,7 +248,7 @@ describe('processProxyRequest', () => {
   it('should reject when no API key is configured', async () => {
     delete process.env.INFERENCE_API_KEY;
 
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) =>
           name === INF_TARGET_HEADER ? 'https://api.inference.sh/apps/run' : undefined,
@@ -258,7 +265,7 @@ describe('processProxyRequest', () => {
   it('should proxy valid inference.sh requests with env API key', async () => {
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
-    const result = await processProxyRequest(
+    const result = await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       })
@@ -282,7 +289,7 @@ describe('processProxyRequest', () => {
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
     const adapterApiKey = jest.fn().mockResolvedValue('tenant-dynamic-key');
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         apiKey: adapterApiKey,
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
@@ -303,7 +310,7 @@ describe('processProxyRequest', () => {
   it('should prefer client Authorization header over env API key', async () => {
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => {
           if (name === INF_TARGET_HEADER) return target;
@@ -327,7 +334,7 @@ describe('processProxyRequest', () => {
     const target = 'https://api.inference.sh/agents/run';
     const encoded = encodeURIComponent(target);
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         query: (name) => (name === INF_TARGET_PARAM ? encoded : undefined),
       })
@@ -339,7 +346,7 @@ describe('processProxyRequest', () => {
   it('should honor custom allowedDomains', async () => {
     const target = 'https://cdn.custom.example/apps/run';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       }),
@@ -352,7 +359,7 @@ describe('processProxyRequest', () => {
   it('should forward x-inf-* request headers to upstream', async () => {
     const target = 'https://api.inference.sh/apps/run';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => {
           if (name === INF_TARGET_HEADER) return target;
@@ -385,7 +392,7 @@ describe('processProxyRequest', () => {
     // nothing, with no error raised.
     const target = 'https://api.inference.sh/agents/run';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => {
           if (name === INF_TARGET_HEADER) return target;
@@ -429,7 +436,7 @@ describe('processProxyRequest', () => {
       })
     ) as typeof fetch;
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
         setHeader,
@@ -445,7 +452,7 @@ describe('processProxyRequest', () => {
   it('should omit body for GET requests', async () => {
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         method: 'GET',
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
@@ -466,7 +473,7 @@ describe('processProxyRequest', () => {
     process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
     const target = 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx/cancel';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       })
@@ -482,7 +489,7 @@ describe('processProxyRequest', () => {
     process.env.INFERENCE_API_BASE_URL = 'https://staging-api.inference.sh';
     const target = 'https://api.inference.sh/agents/run';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       }),
@@ -498,7 +505,7 @@ describe('processProxyRequest', () => {
   it('should preserve path and query when rewriting base URL', async () => {
     const target = 'https://api.inference.sh/chats?limit=50&cursor=abc';
 
-    await processProxyRequest(
+    await openProxy(
       createTestAdapter({
         header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
       }),

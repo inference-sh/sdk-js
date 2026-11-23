@@ -14,7 +14,7 @@ describe('remix createHandler', () => {
   });
 
   it('should return 400 when target URL is missing', async () => {
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       body: '{}',
@@ -37,7 +37,7 @@ describe('remix createHandler', () => {
     ) as typeof fetch;
 
     const target = 'https://api.inference.sh/apps/run';
-    const handler = createHandler();
+    const handler = createHandler({ allowUnauthorizedRequests: true });
     const request = new Request('http://localhost/api/inference/proxy', {
       method: 'POST',
       headers: { [INF_TARGET_HEADER]: target },
@@ -67,6 +67,7 @@ describe('remix createHandler', () => {
     ) as typeof fetch;
 
     const handler = createHandler({
+      allowUnauthorizedRequests: true,
       resolveApiKey: async () => 'custom-remix-key',
     });
     const target = 'https://api.inference.sh/apps/run';
@@ -101,7 +102,7 @@ describe('remix createHandler', () => {
 
     expect((await createHandler({ allowedEndpoints: ['ana/*'] })({ request: request.clone() })).status).toBe(403);
     const secrets = new Request('http://localhost/api/inference/proxy', { headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/secrets' } });
-    expect((await createHandler()({ request: secrets })).status).toBe(403);
+    expect((await createHandler({ allowUnauthorizedRequests: true })({ request: secrets })).status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

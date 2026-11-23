@@ -74,7 +74,7 @@ function fakeApi(method: string, url: URL): Response {
  * and every proxy refusal.
  */
 function installNetwork(options: ProxyOptions<Request> = {}) {
-  const handler = createHandler({ apiKey: 'site-key', ...options });
+  const handler = createHandler({ apiKey: 'site-key', allowUnauthorizedRequests: true, ...options });
   const seen: Seen[] = [];
   const refused: { status: number; body: string }[] = [];
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

@@ -180,9 +180,16 @@ export interface ProxyOptions<R = unknown> {
     isAuthenticated?: (request: R) => boolean | Promise<boolean>;
 
     /**
-     * Without `isAuthenticated`, whether anyone may use the proxy (default
-     * true, for compatibility). Set it to false to require `isAuthenticated`:
-     * with neither, every request is refused.
+     * Without `isAuthenticated`, whether anyone may use the proxy.
+     *
+     * - `true`: anyone may, within `allowedEndpoints` (every app and agent
+     *   the key can run when that is unset).
+     * - `false`: nobody may; `isAuthenticated` is required.
+     * - unset (default): anyone may when `allowedEndpoints` names the apps
+     *   and agents; with neither `isAuthenticated` nor `allowedEndpoints`
+     *   every request is refused with 401, so a proxy mounted with no options
+     *   does not let any visitor run any app (private ones included) on the
+     *   site's key.
      */
     allowUnauthorizedRequests?: boolean;
 }
@@ -635,7 +642,8 @@ export async function processProxyRequest<T, R = unknown>(
     options?: ProxyOptions<R>
 ): Promise<T> {
     // 0. Who may use the key: isAuthenticated when given, else
-    // allowUnauthorizedRequests (default true).
+    // allowUnauthorizedRequests. Unset, it lets visitors in only when
+    // allowedEndpoints says what they may run.
     if (options?.isAuthenticated) {
         if (!(await options.isAuthenticated(adapter.request as R))) {
             return adapter.error(401, { error: "Unauthorized" });
@@ -643,6 +651,11 @@ export async function processProxyRequest<T, R = unknown>(
     } else if (options?.allowUnauthorizedRequests === false) {
         return adapter.error(401, {
             error: "Unauthorized: this proxy sets allowUnauthorizedRequests: false without isAuthenticated",
+        });
+    } else if (options?.allowUnauthorizedRequests !== true && !options?.allowedEndpoints?.length) {
+        return adapter.error(401, {
+            error: "Unauthorized: this proxy sets neither isAuthenticated nor allowedEndpoints. " +
+                "Set one of them, or allowUnauthorizedRequests: true to let anyone run any app on this API key",
         });
     }
 
