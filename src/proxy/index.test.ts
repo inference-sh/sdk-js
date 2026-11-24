@@ -517,4 +517,80 @@ describe('processProxyRequest', () => {
       expect.any(Object)
     );
   });
+
+  // v0.43.0 (Aikido 796582672): mounted with no options must not expose the site's key.
+  describe('access control (v0.43.0)', () => {
+    const TASK = '01j9z3m8k2c9v7b4n6q5r0t1wx';
+
+    function taskTarget(): string {
+      return `https://api.inference.sh/tasks/${TASK}`;
+    }
+
+    it('refuses by default without isAuthenticated, allowedEndpoints, or allowUnauthorizedRequests', async () => {
+      const result = await processProxyRequest(
+        createTestAdapter({
+          method: 'GET',
+          header: (name) => (name === INF_TARGET_HEADER ? taskTarget() : undefined),
+        }),
+        { apiKey: 'key' }
+      );
+      expect(result.status).toBe(401);
+      expect(result.body).toEqual({
+        error: expect.stringMatching(/neither isAuthenticated nor allowedEndpoints/),
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('refuses when allowedEndpoints is set but empty', async () => {
+      const result = await processProxyRequest(
+        createTestAdapter({
+          method: 'GET',
+          header: (name) => (name === INF_TARGET_HEADER ? taskTarget() : undefined),
+        }),
+        { apiKey: 'key', allowedEndpoints: [] }
+      );
+      expect(result.status).toBe(401);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('forwards id reads when allowedEndpoints names apps and agents', async () => {
+      const result = await processProxyRequest(
+        createTestAdapter({
+          method: 'GET',
+          header: (name) => (name === INF_TARGET_HEADER ? taskTarget() : undefined),
+        }),
+        { apiKey: 'key', allowedEndpoints: ['ana/*'] }
+      );
+      expect(result.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalled();
+    });
+
+    it('forwards any ref with allowUnauthorizedRequests: true', async () => {
+      const target = 'https://api.inference.sh/apps/run';
+      const result = await processProxyRequest(
+        createTestAdapter({
+          header: (name) => (name === INF_TARGET_HEADER ? target : undefined),
+          body: async () => JSON.stringify({ app: 'bob/other', input: {} }),
+        }),
+        { apiKey: 'key', allowUnauthorizedRequests: true }
+      );
+      expect(result.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalled();
+    });
+
+    it('refuses with allowUnauthorizedRequests: false and no isAuthenticated', async () => {
+      const result = await processProxyRequest(
+        createTestAdapter({
+          method: 'GET',
+          header: (name) => (name === INF_TARGET_HEADER ? taskTarget() : undefined),
+        }),
+        { allowUnauthorizedRequests: false }
+      );
+      expect(result.status).toBe(401);
+      expect(result.body).toEqual({
+        error: expect.stringMatching(/allowUnauthorizedRequests: false without isAuthenticated/),
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
 });

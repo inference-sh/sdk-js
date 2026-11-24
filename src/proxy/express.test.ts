@@ -161,4 +161,18 @@ describe('express createHandler', () => {
     expect(secrets.statusCode).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('the default handler refuses every request (Aikido 796582672)', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const req = {
+      method: 'GET',
+      body: {},
+      headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/tasks/01j9z3m8k2c9v7b4n6q5r0t1wx' },
+      query: {},
+    };
+    const res = createMockResponse();
+    await createHandler()(req as never, res as never, jest.fn());
+    expect(res.statusCode).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
