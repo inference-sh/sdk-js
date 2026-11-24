@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-24
+
 ### Changed
 - **Breaking (server proxy):** with neither `isAuthenticated` nor `allowedEndpoints`, the proxy (`@inferencesh/sdk/proxy` and every adapter, including the default `handlers` and `pageHandler` of `@inferencesh/sdk/proxy/nextjs`) now refuses every request with 401 instead of letting any visitor run any app or agent the API key can run. Pass `isAuthenticated`, or `allowedEndpoints` naming the apps and agents visitors may run, or `allowUnauthorizedRequests: true` to keep the old open behaviour.
 
