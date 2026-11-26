@@ -1994,6 +1994,54 @@ describe('createActions', () => {
       expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'UPDATE_CHAT' }));
     });
 
+    it('updateChatSettings should dispatch MERGE_CHAT_SETTINGS with strictness from the API', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        chat_id: 'chat-full',
+        name: 'a chat',
+        visibility: 'private',
+        allow_all_tools: false,
+        disable_hooks: false,
+        memory: {},
+        strictness: 'strict',
+      } as never);
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ strictness: 'strict' });
+
+      expect(mockAgentApi.updateChatSettings).toHaveBeenCalledWith(ctx.client, 'chat-short', { strictness: 'strict' });
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'MERGE_CHAT_SETTINGS',
+        payload: expect.objectContaining({ strictness: 'strict' }),
+      });
+    });
+
+    it('updateChatSettings should dispatch MERGE_CHAT_SETTINGS without strictness when the API clears it', async () => {
+      mockAgentApi.updateChatSettings.mockResolvedValueOnce({
+        chat_id: 'chat-full',
+        name: 'a chat',
+        visibility: 'private',
+        allow_all_tools: false,
+        disable_hooks: false,
+        memory: {},
+      } as never);
+      const { ctx, dispatch } = createTestContext({ getChatId: () => 'chat-short' });
+      const { publicActions } = createActions(ctx);
+
+      await publicActions.updateChatSettings({ allow_all_tools: false });
+
+      const merge = dispatch.mock.calls.find(([action]) => action.type === 'MERGE_CHAT_SETTINGS')?.[0];
+      expect(merge?.payload).toEqual({
+        chat_id: 'chat-full',
+        name: 'a chat',
+        visibility: 'private',
+        allow_all_tools: false,
+        disable_hooks: false,
+        memory: {},
+      });
+      expect(merge?.payload).not.toHaveProperty('strictness');
+    });
+
     it('updateChatSettings should rethrow on API failure', async () => {
       mockAgentApi.updateChatSettings.mockRejectedValueOnce(new Error('settings update failed'));
       const { ctx } = createTestContext({ getChatId: () => 'chat-short' });
