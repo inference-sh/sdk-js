@@ -105,4 +105,16 @@ describe('remix createHandler', () => {
     expect((await createHandler({ allowUnauthorizedRequests: true })({ request: secrets })).status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('the default handler refuses every request (Aikido 796582672)', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const request = new Request('http://localhost/api/inference/proxy', {
+      method: 'POST',
+      headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' },
+      body: JSON.stringify({ app: 'ana/helper', input: {} }),
+    });
+    const response = await createHandler()({ request });
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
