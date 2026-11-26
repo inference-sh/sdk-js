@@ -169,6 +169,9 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
     case 'MERGE_CHAT_SETTINGS': {
       const settings = action.payload;
       if (!state.chat || state.chat.id !== settings.chat_id) return state;
+      // The DTO is the chat's settings after the change, so a strictness it
+      // leaves out means the chat follows the agent's default again.
+      const { strictness: _staleStrictness, ...agentData } = state.chat.agent_data;
       return {
         ...state,
         chat: {
@@ -176,10 +179,11 @@ export function chatReducer(state: AgentChatState, action: ChatAction): AgentCha
           name: settings.name,
           visibility: settings.visibility,
           agent_data: {
-            ...state.chat.agent_data,
+            ...agentData,
             allow_all_tools: settings.allow_all_tools,
             disable_hooks: settings.disable_hooks,
             memory: settings.memory,
+            ...(settings.strictness !== undefined && { strictness: settings.strictness }),
           },
         },
       };

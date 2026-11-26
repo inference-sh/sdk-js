@@ -147,7 +147,7 @@ describe('chatReducer', () => {
       ...state.chat,
       name: 'renamed',
       visibility: 'public',
-      agent_data: { plan_steps: [], memory: { goal: 'ship' }, allow_all_tools: true, disable_hooks: true },
+      agent_data: { plan_steps: [], memory: { goal: 'ship' }, allow_all_tools: true, disable_hooks: true, strictness: 'watch' },
     });
     expect(next.messages).toBe(state.messages);
   });
@@ -189,6 +189,23 @@ describe('chatReducer', () => {
 
     expect(next.chat?.agent_data?.memory).toEqual({ goal: 'ship' });
     expect(next.messages).toBe(state.messages);
+  });
+
+  it('MERGE_CHAT_SETTINGS should take strictness from the settings DTO and drop it when the DTO leaves it out', () => {
+    const settings = {
+      chat_id: 'chat-1', name: 'c', visibility: 'private' as const, allow_all_tools: false, disable_hooks: false, memory: {},
+    };
+    const state = chatReducer(initialState, {
+      type: 'SET_CHAT',
+      payload: makeChat({ agent_data: { plan_steps: [], memory: {}, strictness: 'watch' } as unknown as ChatDTO['agent_data'] }),
+    });
+
+    const raised = chatReducer(state, { type: 'MERGE_CHAT_SETTINGS', payload: { ...settings, strictness: 'strict' } });
+    expect(raised.chat?.agent_data?.strictness).toBe('strict');
+
+    const cleared = chatReducer(raised, { type: 'MERGE_CHAT_SETTINGS', payload: settings });
+    expect(cleared.chat?.agent_data).not.toHaveProperty('strictness');
+    expect(cleared.chat?.agent_data?.plan_steps).toEqual([]);
   });
 
   it('MERGE_CHAT_AGENT should set the agent and keep the rest of the chat and the messages', () => {
