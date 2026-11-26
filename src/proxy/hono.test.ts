@@ -152,4 +152,16 @@ describe('hono createHandler', () => {
     expect((await createHandler({ allowedEndpoints: ['ana/*'] })(other as never)).status).toBe(403);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('the default handler refuses every request (Aikido 796582672)', async () => {
+    global.fetch = jest.fn() as typeof fetch;
+    const response = await createHandler()(
+      createMockContext({
+        headers: { [INF_TARGET_HEADER]: 'https://api.inference.sh/apps/run' },
+        body: JSON.stringify({ app: 'ana/helper', input: {} }),
+      }) as never
+    );
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
