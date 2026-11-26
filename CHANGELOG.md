@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-26
+
+### Added
+- `ScopeRemotesExecute` (`remotes:execute`): starts commands, terminals and agent sessions on a remote. `remotes:write` implies it except in a list made only of remotes scopes (a daemon's key) (api-v1623).
+- `InternalToolsConfig.credentials`: opt-in credentials_search and credentials_ask tools.
+- `RemoteSandbox.mount_ns` and `no_mount_ns`.
+- `ErrorCodeNothingToInvoice` (`nothing_to_invoice`, 409).
+
+### Changed
+- Proxy endpoints (`src/proxy/endpoints.json`): remote exec, terminal and session routes require `remotes:execute` instead of `remotes:write`.
+
 ## [0.43.0] - 2026-11-24
 
 ### Changed

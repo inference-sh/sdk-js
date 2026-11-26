@@ -84,8 +84,8 @@
         "knowledge:read",
         "knowledge:write",
         "projects:read",
+        "remotes:execute",
         "remotes:read",
-        "remotes:write",
         "secrets:reveal"
       ]
     },
@@ -123,8 +123,8 @@
         "knowledge:read",
         "knowledge:write",
         "projects:read",
+        "remotes:execute",
         "remotes:read",
-        "remotes:write",
         "secrets:reveal"
       ]
     },
@@ -209,8 +209,8 @@
         "credentials:read",
         "engine_self",
         "knowledge:read",
+        "remotes:execute",
         "remotes:read",
-        "remotes:write",
         "secrets:reveal"
       ]
     },

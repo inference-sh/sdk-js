@@ -24,6 +24,12 @@ export interface InternalToolsConfig {
   knowledge?: boolean;
   wait?: boolean;
   /**
+   * Credentials offers credentials_search and credentials_ask: the agent
+   * reads which logins the person running it has, finds a provider, and
+   * asks them to connect one in the chat. Opt-in.
+   */
+  credentials?: boolean;
+  /**
    * SandboxCredentials is the old place of the agent's credentials
    * (AgentConfigInput.Credentials), still read: a write folds it into
    * credentials (a credentials entry wins on a slug both name) and
@@ -1185,6 +1191,7 @@ export type Scope =
   | "engines:write"
   | "remotes:read"
   | "remotes:write"
+  | "remotes:execute"
   | "sandboxes:read"
   | "sandboxes:write"
   | "apikeys:read"
@@ -1445,6 +1452,13 @@ export const ScopeRemotesRead: Scope = "remotes:read";
  * Empty scopes = full access (for backwards compatibility with existing keys).
  */
 export const ScopeRemotesWrite: Scope = "remotes:write";
+/**
+ * ScopeRemotesExecute starts commands, terminals and agent sessions on
+ * a remote (drives it). remotes:write registers, connects and manages
+ * remotes, and implies it except in a list of remotes scopes alone (a
+ * daemon's key).
+ */
+export const ScopeRemotesExecute: Scope = "remotes:execute";
 /**
  * Action-level scopes for Sandboxes (managed boxes that run a remote)
  */
@@ -4103,6 +4117,7 @@ export type ErrorCode =
   | "already_claimed"
   | "already_entitled"
   | "request_open"
+  | "nothing_to_invoice"
   | "invalid_code"
   | "already_processed"
   | "expired"
@@ -4327,6 +4342,12 @@ export const ErrorCodeAlreadyClaimed: ErrorCode = "already_claimed";
  */
 export const ErrorCodeAlreadyEntitled: ErrorCode = "already_entitled";
 export const ErrorCodeRequestOpen: ErrorCode = "request_open";
+/**
+ * ErrorCodeNothingToInvoice (409): a statement was asked for a payer
+ * that owes nothing beyond its open invoices (GET /admin/invoices/preview
+ * shows the due amount).
+ */
+export const ErrorCodeNothingToInvoice: ErrorCode = "nothing_to_invoice";
 /**
  * Authorization codes (device sign-in, admin elevation) (400): the code
  * is unknown, already approved or denied, or past its expiry.
@@ -6719,6 +6740,15 @@ export interface RemoteSandbox {
    * a run with file rules the daemon cannot enforce is refused.
    */
   required?: boolean;
+  /**
+   * MountNS says denied paths are covered in a mount view of the
+   * program's own (Linux, where unprivileged user namespaces are
+   * allowed): exact, and the folder holding one still takes new files.
+   * False with Landlock means Landlock alone, which leaves such a folder
+   * unable to take a new entry; NoMountNS says why.
+   */
+  mount_ns?: boolean;
+  no_mount_ns?: string;
 }
 /**
  * HostCPU is how a host runs its CPUs: the settings that make the same
@@ -8200,8 +8230,8 @@ export interface AuthMethod {
    * InBody says an api_key key also travels in the body of a request to
    * Hosts (a field of a JSON or form body): the egress gateway replaces
    * the key's placeholder there too, toward Hosts only. With no In, the
-   * key goes in the body alone. It needs Hosts, the row's or the
-   * catalog's; without them the key is an environment variable as before.
+   * key goes in the body alone. It needs Hosts; without them the key is
+   * an environment variable as before.
    */
   in_body?: boolean;
   /**
@@ -8221,8 +8251,8 @@ export interface AuthMethod {
    * binds its secrets: a run behind the egress gateway holds a
    * placeholder for each, and the gateway puts the value in only on the
    * way to these hosts (authmethod.HostBinder). Empty: the secrets are
-   * environment variables, as they were. A catalogued provider's hosts
-   * come from the catalog when the row names none.
+   * environment variables, as they were. Nothing but the row says them:
+   * a row gets its provider's seed hosts when it is created.
    */
   hosts?: string[];
   /**
@@ -8233,16 +8263,14 @@ export interface AuthMethod {
    * a placeholder for both halves, its client signs with them, and the
    * gateway signs the request again with the real pair toward the
    * entry's hosts only. The secret key is never an environment variable.
-   * api_key kind. A catalogued provider's come from the catalog when the
-   * row has none.
+   * api_key kind.
    */
   sign?: AuthMethodSign[];
   /**
    * JWT says the provider takes a short-lived token the client signs
    * with a key of Fields (Kling): the egress gateway signs it, and a run
    * holds one placeholder, JWT.Key's, which leaves as the token toward
-   * Hosts. The signing fields are never given to a run. api_key kind. A
-   * catalogued provider's comes from the catalog when the row has none.
+   * Hosts. The signing fields are never given to a run. api_key kind.
    */
   jwt?: AuthMethodJWT;
   /**
