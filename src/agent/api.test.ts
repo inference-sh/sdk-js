@@ -660,6 +660,47 @@ describe('agent/api', () => {
       });
       expect(settings.memory).toEqual({ goal: 'ship' });
     });
+
+    it('updateChatSettings should POST strictness and return the level the API answers with', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          chat_id: 'chat-1',
+          name: 'c',
+          visibility: 'private',
+          allow_all_tools: false,
+          disable_hooks: false,
+          memory: {},
+          strictness: 'strict',
+        },
+      });
+
+      const settings = await updateChatSettings(makeClient(), 'chat-1', { strictness: 'strict' });
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+
+      expect(JSON.parse(String(init.body))).toEqual({ strictness: 'strict' });
+      expect(settings.strictness).toBe('strict');
+    });
+
+    it('updateChatSettings should omit strictness when the API clears the chat default', async () => {
+      mockJsonResponse({
+        success: true,
+        data: {
+          chat_id: 'chat-1',
+          name: 'c',
+          visibility: 'private',
+          allow_all_tools: false,
+          disable_hooks: false,
+          memory: {},
+        },
+      });
+
+      const settings = await updateChatSettings(makeClient(), 'chat-1', {
+        forget_memory: ['stale_key'],
+      });
+
+      expect(settings).not.toHaveProperty('strictness');
+    });
   });
 
   describe('chatStreamRequest', () => {
