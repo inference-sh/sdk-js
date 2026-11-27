@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-27
+
+### Fixed
+- `updateSettings`: a chat's `strictness` now follows the settings response; when the response has no `strictness`, it is cleared instead of keeping the old value.
+
+### Changed
+- AgentChatProvider's client-swap effect moved to `provider-client-bind.ts` (no behaviour change).
+- Dependencies: eventsource 5.1.2 → 5.1.4; svelte (dev) 5.57.2 → 5.58.0.
+- More tests (2026-11-26 bot PR triage).
+
 ## [0.44.0] - 2026-11-26
 
 ### Added
