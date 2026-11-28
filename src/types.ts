@@ -998,6 +998,13 @@ export interface SecretCreateRequest {
    * replaces that key's value. Empty: the owner's default key.
    */
   label?: string;
+  /**
+   * Hosts are the sites the key may go to, written by its owner: each is
+   * a SecretSend allow rule for the key (SecretHostsSetRequest's rules).
+   * For a plain secret or a key of a provider whose row names no hosts;
+   * a key its provider binds to hosts is refused them.
+   */
+  hosts?: string[];
 }
 /**
  * SecretProviderRequest attaches an existing secret to a provider's
@@ -1018,6 +1025,11 @@ export interface SecretProviderRequest {
 export interface SecretUpdateRequest {
   value: string;
   description?: string;
+  /**
+   * Hosts, when given, replaces the sites the key may go to, as PUT
+   * /secrets/{key}/hosts does; absent leaves them.
+   */
+  hosts?: string[];
 }
 export interface CredentialConnectRequest {
   provider: string;
@@ -1210,6 +1222,7 @@ export type Scope =
   | "settings:read"
   | "settings:write"
   | "approvals:write"
+  | "approvals:read"
   | "admin:read"
   | "admin:write"
   | "store:pricing"
@@ -1555,6 +1568,11 @@ export const ScopeSettingsWrite: Scope = "settings:write";
  */
 export const ScopeApprovalsWrite: Scope = "approvals:write";
 /**
+ * ScopeApprovalsRead lists the approval requests the caller may answer
+ * and their history (GET /interrupts).
+ */
+export const ScopeApprovalsRead: Scope = "approvals:read";
+/**
  * ScopeAdminRead views platform administration (/admin GET). Held
  * only by an admin's own sign-in; the route's admin gate decides
  * whether it carries power.
@@ -1879,6 +1897,13 @@ export interface SecretRequirement {
   key: string;
   description?: string;
   optional?: boolean;
+  /**
+   * Hosts are where the app sends the secret (api.acme.com, or
+   * .acme.com for every host under acme.com), by the rule a provider's
+   * hosts follow (models.ValidBoundHost). A suggestion shown to the
+   * secret's owner, who may allow them up front; never a grant.
+   */
+  hosts?: string[];
 }
 /**
  * CredentialRequirement is an entry under credentials: in inf.yml: a
@@ -2100,7 +2125,8 @@ export interface AppVersionDTO extends BaseModelDTO {
 export interface DeployWarning {
   /**
    * Code identifies the check: readonly_broad_credential,
-   * unused_credential, missing_annotations, unapproved_platform_scope.
+   * unused_credential, missing_annotations, unapproved_platform_scope,
+   * ram_capped, secret_without_hosts.
    */
   code: string;
   /**
@@ -2984,44 +3010,75 @@ export interface AlwaysAllowOptionsDTO {
    */
   default?: string;
   /**
+   * DenyOptions are "always deny" on a secret send interrupt: rules of
+   * effect deny on the secret owner's rung, saved by the same POST
+   * .../always-allow with their key. Saved, every later send of the
+   * secret to the host is refused without asking. Empty elsewhere.
+   */
+  deny_options?: AlwaysAllowOptionDTO[];
+  /**
    * Unavailable says why there are no options: a policy allows only its
    * own rules, or no chat rule could allow this call.
    */
   unavailable?: string;
   /**
-   * SecretSend is set when the call is an agent of another team sending
-   * the runner's own secrets: what it sends and where. Approving the call
-   * sends them; the prompt names them.
+   * SecretSend is set when the call sends secrets: an agent of another
+   * team sending the runner's own with a call, or a secret send
+   * interrupt (a task's, a sandbox's) asking about one secret and host.
+   * Approving sends them; the prompt names them.
    */
   secret_send?: SecretSendDTO;
 }
 /**
- * SecretSendDTO is an agent of another team asking to send the runner's
- * secrets with a call: "alice/helper wants to send OPENAI_API_KEY to
- * alice.example". It rides on the call's approval interrupt (meta
- * secret_send) and on its always-allow options.
+ * SecretSendDTO is something asking to send secrets to a host: "alice/helper
+ * wants to send OPENAI_API_KEY to alice.example". It rides on a call's
+ * approval interrupt (meta secret_send) and on always-allow options.
  */
 export interface SecretSendDTO {
   /**
-   * Agent is the agent as people know it (namespace/name); AgentID is
-   * its id.
+   * Subject is what sends them, as a SecretSend rule names it: agent:<id>,
+   * app:<id>, sandbox:<id>; SubjectName is how people know it (the
+   * agent's or app's namespace/name, the sandbox's name).
    */
-  agent: string;
-  agent_id: string;
+  subject?: string;
+  subject_name?: string;
+  /**
+   * TaskID is the task that asked, on a task's send; SandboxID the
+   * sandbox's.
+   */
+  task_id?: string;
+  sandbox_id?: string;
+  /**
+   * Agent is the agent as people know it (namespace/name); AgentID is
+   * its id. Set for an agent's call.
+   */
+  agent?: string;
+  agent_id?: string;
   /**
    * AgentVersionID is the agent version making the call: approving the
    * prompt approves this version's send only.
    */
-  agent_version_id: string;
+  agent_version_id?: string;
   /**
-   * Host is where the call sends them.
+   * Host is where they are sent; "*" on a send that stands for many
+   * hosts.
    */
   host: string;
   /**
-   * Secrets are the runner's secrets the call sends, by name: secret
-   * keys (OPENAI_API_KEY) and logins (credential:github).
+   * Secret is the one secret a secret send interrupt asks about, by
+   * name; Secrets holds it too.
+   */
+  secret?: string;
+  /**
+   * Secrets are the secrets sent, by name: secret keys (OPENAI_API_KEY)
+   * and logins (credential:github).
    */
   secrets: string[];
+  /**
+   * DeclaredByApp: the app that asked lists Host under the secret's
+   * hosts: in inf.yml. A suggestion its author made, not a grant.
+   */
+  declared_by_app?: boolean;
 }
 /**
  * AlwaysAllowRequest is POST /chats/{id}/tools/{toolId}/always-allow. The
@@ -3342,6 +3399,30 @@ export interface CredentialConfigDTO {
    * used where none is named.
    */
   multi_account: boolean;
+  /**
+   * Methods are the ways to connect a login, one action each, Type's
+   * first: a sign-in, or a key pasted into its Fields. Slack has both.
+   */
+  methods?: CredentialMethodDTO[];
+}
+/**
+ * CredentialMethodDTO is one way to connect a login to a provider.
+ */
+export interface CredentialMethodDTO {
+  /**
+   * Type is the login it makes: oauth to sign in (through the config's
+   * app, whose keys are the config's SecretFields), api_key and the
+   * other key types to paste Fields.
+   */
+  type: string;
+  /**
+   * Fields are what a person pastes. None for a sign-in.
+   */
+  fields?: SecretFieldConfig[];
+  /**
+   * Instructions tell a person how to get them (markdown).
+   */
+  instructions?: string;
 }
 /**
  * SecretFieldConfig defines a secret field for the UI
@@ -3352,6 +3433,11 @@ export interface SecretFieldConfig {
   placeholder: string;
   sensitive: boolean;
   optional: boolean;
+  /**
+   * Plain: the value is not a secret (shared.SecretField.Plain), a
+   * setting the form may show as typed.
+   */
+  plain?: boolean;
   /**
    * Pattern is the scheme field's pattern (shared.SecretField.Pattern).
    */
@@ -3481,7 +3567,8 @@ export type EgressGrantReason =
   | "expired_lifetime"
   | "scopes_missing"
   | "scope_ended"
-  | "revoked_by_owner";
+  | "revoked_by_owner"
+  | "rules_changed";
 export const EgressGrantReasonDeclined: EgressGrantReason = "declined";
 export const EgressGrantReasonLoginDeleted: EgressGrantReason = "login_deleted";
 export const EgressGrantReasonLoginDisconnected: EgressGrantReason = "login_disconnected";
@@ -3490,6 +3577,11 @@ export const EgressGrantReasonExpiredLifetime: EgressGrantReason = "expired_life
 export const EgressGrantReasonScopesMissing: EgressGrantReason = "scopes_missing";
 export const EgressGrantReasonScopeEnded: EgressGrantReason = "scope_ended";
 export const EgressGrantReasonRevokedByOwner: EgressGrantReason = "revoked_by_owner";
+/**
+ * EgressGrantReasonRulesChanged: a secret's grant a rule allowed, whose
+ * owner's rules no longer allow it. The next use decides again.
+ */
+export const EgressGrantReasonRulesChanged: EgressGrantReason = "rules_changed";
 /**
  * EgressGrantDTO is one decision that a task or a sandbox may use a
  * provider's login through the engine's egress gateway: what was allowed,
@@ -3738,7 +3830,8 @@ export type EngineCapability =
   | "task_env"
   | "egress_forms"
   | "egress_h2"
-  | "egress_host_suffix";
+  | "egress_host_suffix"
+  | "egress_host_any";
 /**
  * EngineCapabilityEgressGateway: the engine runs its sandboxes behind
  * the egress gateway, so it can take bound secrets (the v2 secrets
@@ -3851,6 +3944,15 @@ export const EngineCapabilityEgressH2: EngineCapability = "egress_h2";
  * (EngineCapabilities.Takes), and a task that may get one requires it.
  */
 export const EngineCapabilityEgressHostSuffix: EngineCapability = "egress_host_suffix";
+/**
+ * EngineCapabilityEgressHostAny: the engine's gateway reads a binding
+ * whose hosts are BoundHostAny as one for any host, asked about per
+ * host: it is sent pending, and the API gives its value toward a host
+ * only when the egress decision allows it there. Any other engine is
+ * sent none (EngineCapabilities.Takes), and a task that may get one
+ * requires it.
+ */
+export const EngineCapabilityEgressHostAny: EngineCapability = "egress_host_any";
 /**
  * EngineCapabilities is a set of capabilities, kept as a list. Nil and
  * empty are the same: nothing beyond the base contract.
@@ -4836,6 +4938,12 @@ export interface FormDTO extends BaseModelDTO, PermissionModelDTO {
   schema: any;
   status: FormStatus;
   submit_policy: FormSubmitPolicy;
+  /**
+   * NotifyOnSubmission emails the form's creator on each new submission;
+   * WeeklyDigest emails them a weekly summary. Both off by default.
+   */
+  notify_on_submission: boolean;
+  weekly_digest: boolean;
 }
 /**
  * FormSubmissionDTO is one set of answers to a form.
@@ -4860,6 +4968,12 @@ export interface CreateFormRequest {
   schema?: any;
   submit_policy?: FormSubmitPolicy;
   visibility?: Visibility;
+  /**
+   * NotifyOnSubmission and WeeklyDigest switch on the owner's emails
+   * (FormDTO); both default to off.
+   */
+  notify_on_submission?: boolean;
+  weekly_digest?: boolean;
 }
 /**
  * UpdateFormRequest patches a form; nil fields are left as they are.
@@ -4870,6 +4984,8 @@ export interface UpdateFormRequest {
   schema?: any;
   status?: FormStatus;
   submit_policy?: FormSubmitPolicy;
+  notify_on_submission?: boolean;
+  weekly_digest?: boolean;
 }
 /**
  * SubmitFormRequest is one person's answers to a form. data is validated
@@ -6087,6 +6203,11 @@ export interface SetupAction {
    * asks for (markdown, links allowed).
    */
   instructions?: string;
+  /**
+   * Or is another way to meet the requirement: an add_secret pasting
+   * the provider's key method instead of a connect (Slack's bot token).
+   */
+  or?: SetupAction;
 }
 /**
  * CheckRequirementsRequest is the request body for checking requirements
@@ -6311,8 +6432,10 @@ export interface SandboxDTO extends BaseModelDTO, PermissionModelDTO {
   last_activity_at?: string /* RFC3339 */;
   /**
    * APIScopes are what the box may do with our API beyond running its
-   * remote: copied when it was made (CreateSandboxRequest.APIScopes, or
-   * its agent's), for its whole life. Absent or empty: nothing beyond the remote.
+   * remote, now: for a sandbox a person made, what its create asked
+   * (CreateSandboxRequest.APIScopes); for an agent's, what its run's
+   * agent version declares, cut to what the run's starter holds. Absent
+   * or empty: nothing beyond the remote.
    */
   api_scopes?: Scope[];
 }
@@ -7920,6 +8043,14 @@ export interface SecretField {
   sensitive?: boolean;
   optional?: boolean;
   /**
+   * Plain marks a value that is not a secret (a bucket, a project id),
+   * written by the provider's recipe or row: the one way a field reaches
+   * a run as plain configuration (authmethods.RowSettings). A field not
+   * marked is a secret, whatever its name; Sensitive and Plain together
+   * are refused.
+   */
+  plain?: boolean;
+  /**
    * Pattern, when set, is a regular expression (RE2) a saved value must
    * match, so a pasted login link or the wrong key is refused on save
    * instead of failing the first run ("^sk-ant-oat01-").
@@ -8083,6 +8214,46 @@ export interface AuthMethodRevoke {
   client_auth?: boolean;
 }
 /**
+ * AuthMethodKeyCheck is a call that asks the provider whether a pasted key
+ * works and whose it is (Slack's auth.test). The method's first required
+ * field goes on it as the method sends it (In, ParamName, ValuePrefix),
+ * to a URL on one of the method's Hosts. A 4xx answer refuses the key, as
+ * does OK not rendering "true"; a 5xx or no answer is the provider's
+ * failure, not the key's. Templates read the JSON answer as
+ * {{response.*}} and its headers, lower-cased, as {{headers.*}}.
+ */
+export interface AuthMethodKeyCheck {
+  url: string;
+  /**
+   * Method is GET or POST; default GET.
+   */
+  method?: string;
+  /**
+   * OK must render "true" for a key to be accepted, for a provider that
+   * refuses with a 200 ("{{response.ok}}"). Empty: any 2xx accepts it.
+   */
+  ok?: string;
+  /**
+   * Error is the provider's reason for a refusal ("{{response.error}}").
+   */
+  error?: string;
+  /**
+   * Name is the account the key acts as, shown on its login.
+   */
+  name?: string;
+  /**
+   * BotScopes are the scopes granted to a key that is a bot's, comma or
+   * space separated ("{{headers.x-oauth-scopes}}"): its login holds them
+   * as a sign-in that installs the bot does (BotScopePrefix).
+   */
+  bot_scopes?: string;
+  /**
+   * Metadata is what the login stores about the account, by key, as an
+   * oauth2 method's Metadata.
+   */
+  metadata?: { [key: string]: string};
+}
+/**
  * AuthMethodAppKey is one key of the OAuth app a login goes through. The
  * client id and secret are implied (PREFIX_CLIENT_ID, PREFIX_CLIENT_SECRET);
  * listing them only overrides their label and placeholder. Other keys
@@ -8211,6 +8382,12 @@ export interface AuthMethodCapability {
 export interface AuthMethod {
   kind: AuthMethodKind;
   /**
+   * Instructions tell a person how to get what this method asks for
+   * (markdown). Set on a method beside another (Slack's bot token beside
+   * its sign-in): the provider's own instructions are the other's.
+   */
+  instructions?: string;
+  /**
    * Flow is the oauth2 grant; empty means authorization_code.
    */
   flow?: AuthMethodFlow;
@@ -8234,6 +8411,11 @@ export interface AuthMethod {
    * an environment variable as before.
    */
   in_body?: boolean;
+  /**
+   * KeyCheck asks the provider about a pasted key before it is stored.
+   * None: the fields' patterns are the only check.
+   */
+  key_check?: AuthMethodKeyCheck;
   /**
    * Scheme and BearerFormat describe an http kind's Authorization header.
    */
@@ -9296,6 +9478,14 @@ export const InterruptReasonWait: InterruptReason = "wait";
  */
 export const InterruptReasonEgressLogin: InterruptReason = "egress_login";
 /**
+ * InterruptResourceSecretSend is a request to send a secret to a host its
+ * owner has not approved (INF-1404). Its ResourceID is "<secret ref>|<host>",
+ * one pending per pair; its reason is InterruptReasonEgressLogin and its
+ * meta an EgressLoginAskMeta naming the Secret and the Approver. It may
+ * have no run and no chat (run_id, chat_id "").
+ */
+export const InterruptResourceSecretSend: InterruptResourceType = "secret_send";
+/**
  * InterruptReasonSubagent is a run's reason, never an interrupt's: the run
  * waits on a question one of its sub-agents' runs asked, shown on its chat
  * through an interrupt surface (INF-1291). The run's interrupt meta is
@@ -10183,6 +10373,7 @@ export type NotificationType =
   | "auto_recharge"
   | "payment_success"
   | "payment_failed"
+  | "payment_incomplete"
   | "usage_summary"
   | "spending_limit"
   | "invoice"
@@ -10208,7 +10399,10 @@ export type NotificationType =
   | "tos_update"
   | "service_notice"
   | "team_invite"
-  | "entitlement_request";
+  | "entitlement_request"
+  | "approval_request"
+  | "form_submission"
+  | "form_digest";
 /**
  * Billing notifications
  */
@@ -10216,6 +10410,7 @@ export const NotificationTypeLowBalance: NotificationType = "low_balance";
 export const NotificationTypeAutoRecharge: NotificationType = "auto_recharge";
 export const NotificationTypePaymentSuccess: NotificationType = "payment_success";
 export const NotificationTypePaymentFailed: NotificationType = "payment_failed";
+export const NotificationTypePaymentIncomplete: NotificationType = "payment_incomplete";
 export const NotificationTypeUsageSummary: NotificationType = "usage_summary";
 export const NotificationTypeSpendingLimit: NotificationType = "spending_limit";
 export const NotificationTypeInvoice: NotificationType = "invoice";
@@ -10260,6 +10455,15 @@ export const NotificationTypeTeamInvite: NotificationType = "team_invite";
  * An admin decided the team's entitlement request
  */
 export const NotificationTypeEntitlementRequest: NotificationType = "entitlement_request";
+/**
+ * A request waits for the recipient's approval (an interrupt with no chat)
+ */
+export const NotificationTypeApprovalRequest: NotificationType = "approval_request";
+/**
+ * Form notifications, to a form's owner when the form asks for them
+ */
+export const NotificationTypeFormSubmission: NotificationType = "form_submission";
+export const NotificationTypeFormDigest: NotificationType = "form_digest";
 /**
  * NotificationStatus represents the status of a notification
  */
@@ -10957,7 +11161,7 @@ export const InterruptResolutionDeny: InterruptResolution = "deny";
 /**
  * InterruptResourceType identifies the kind of resource an interrupt gates.
  */
-export type InterruptResourceType = "turn" | "tool_invocation" | "hook_event";
+export type InterruptResourceType = "turn" | "secret_send" | "tool_invocation" | "hook_event";
 export const InterruptResourceToolInvocation: InterruptResourceType = "tool_invocation";
 export const InterruptResourceHookEvent: InterruptResourceType = "hook_event";
 /**
