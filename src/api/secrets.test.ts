@@ -109,6 +109,35 @@ describe('SecretsAPI', () => {
     expect(JSON.parse(init.body as string)).toEqual({ value: 'new-secret' });
   });
 
+  it('should forward hosts on create() for SecretSend allow rules (v0.45.0)', async () => {
+    const payload = {
+      key: 'OPENAI_API_KEY',
+      value: 'sk-live',
+      hosts: ['api.openai.com', '.openai.com'],
+    };
+    mockJsonResponse({ key: 'OPENAI_API_KEY' });
+
+    await api().create(payload);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+  });
+
+  it('should forward hosts on update() when replacing egress allow rules (v0.45.0)', async () => {
+    mockJsonResponse({ key: 'OPENAI_API_KEY' });
+
+    await api().update('OPENAI_API_KEY', {
+      value: 'sk-rotated',
+      hosts: ['api.openai.com'],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      value: 'sk-rotated',
+      hosts: ['api.openai.com'],
+    });
+  });
+
   it('should GET /secrets/reveal/{key} for reveal()', async () => {
     const secret = { key: 'API_KEY', value: 'sk-live-abc' };
     mockJsonResponse(secret);
